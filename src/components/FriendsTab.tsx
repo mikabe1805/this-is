@@ -113,13 +113,16 @@ const FriendsTab = () => {
             {/* Avatar */}
             <div className="flex-shrink-0">
               {activity.user.avatar ? (
-                <img
-                  src={activity.user.avatar}
-                  alt={activity.user.name}
-                  className="w-12 h-12 rounded-full object-cover border-2 border-cream-200"
-                />
+                <div className="w-12 h-12 rounded-full border-2 border-cream-200 bg-cream-50/80 backdrop-blur-sm relative overflow-hidden">
+                  <img
+                    src={activity.user.avatar}
+                    alt={activity.user.name}
+                    className="w-full h-full object-cover"
+                  />
+                  <div className="absolute inset-0 border border-white/30 rounded-full"></div>
+                </div>
               ) : (
-                <div className="w-12 h-12 bg-gradient-to-br from-sage-100 to-sage-200 rounded-full flex items-center justify-center">
+                <div className="w-12 h-12 bg-gradient-to-br from-sage-100 to-sage-200 rounded-full flex items-center justify-center border-2 border-cream-200">
                   <UserIcon className="w-6 h-6 text-sage-600" />
                 </div>
               )}

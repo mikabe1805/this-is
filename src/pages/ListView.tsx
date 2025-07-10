@@ -73,13 +73,14 @@ const ListView = () => {
         {/* List Header */}
         <div className="bg-white/70 backdrop-blur-sm rounded-2xl overflow-hidden shadow-soft border border-cream-200">
           {list.coverImage && (
-            <div className="h-32 bg-gradient-to-br from-cream-200 to-coral-200 relative">
+            <div className="h-32 bg-gradient-to-br from-cream-200 to-coral-200 relative overflow-hidden">
               <img
                 src={list.coverImage}
                 alt={list.name}
                 className="w-full h-full object-cover"
               />
-              <div className="absolute inset-0 bg-black/20"></div>
+              <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-black/5 to-transparent backdrop-blur-[1px]"></div>
+              <div className="absolute inset-0 border border-white/20"></div>
             </div>
           )}
           <div className="p-6">

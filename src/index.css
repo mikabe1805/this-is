@@ -36,6 +36,6 @@ body {
   font-size: 18px !important;
 }
 
-.test-coral {
-  @apply bg-testcoral text-white;
+.test-warm {
+  @apply bg-warm-500 text-white;
 }

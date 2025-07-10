@@ -80,13 +80,14 @@ const PlaceHub = () => {
         {/* Place Header */}
         <div className="bg-white/70 backdrop-blur-sm rounded-2xl overflow-hidden shadow-soft border border-cream-200">
           {place.hubImage && (
-            <div className="h-48 bg-gradient-to-br from-cream-200 to-coral-200 relative">
+            <div className="h-48 bg-gradient-to-br from-cream-200 to-coral-200 relative overflow-hidden">
               <img
                 src={place.hubImage}
                 alt={place.name}
                 className="w-full h-full object-cover"
               />
-              <div className="absolute inset-0 bg-black/20"></div>
+              <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-black/5 to-transparent backdrop-blur-[1px]"></div>
+              <div className="absolute inset-0 border border-white/20"></div>
             </div>
           )}
           <div className="p-6">
@@ -150,13 +151,16 @@ const PlaceHub = () => {
               >
                 <div className="flex items-start space-x-3 mb-3">
                   {post.user.avatar ? (
-                    <img
-                      src={post.user.avatar}
-                      alt={post.user.name}
-                      className="w-10 h-10 rounded-full object-cover border-2 border-cream-200"
-                    />
+                    <div className="w-10 h-10 rounded-full border-2 border-cream-200 bg-cream-50/80 backdrop-blur-sm relative overflow-hidden">
+                      <img
+                        src={post.user.avatar}
+                        alt={post.user.name}
+                        className="w-full h-full object-cover"
+                      />
+                      <div className="absolute inset-0 border border-white/30 rounded-full"></div>
+                    </div>
                   ) : (
-                    <div className="w-10 h-10 bg-gradient-to-br from-sage-100 to-sage-200 rounded-full flex items-center justify-center">
+                    <div className="w-10 h-10 bg-gradient-to-br from-sage-100 to-sage-200 rounded-full flex items-center justify-center border-2 border-cream-200">
                       <span className="text-sage-600 font-medium">{post.user.name.charAt(0)}</span>
                     </div>
                   )}
@@ -172,12 +176,14 @@ const PlaceHub = () => {
                 </div>
 
                 {post.image && (
-                  <div className="mb-3">
+                  <div className="mb-3 relative overflow-hidden rounded-xl">
                     <img
                       src={post.image}
                       alt="Post"
-                      className="w-full h-48 object-cover rounded-xl"
+                      className="w-full h-48 object-cover rounded-xl shadow-soft"
                     />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/5 via-transparent to-transparent backdrop-blur-[1px]"></div>
+                    <div className="absolute inset-0 border border-white/20 rounded-xl"></div>
                   </div>
                 )}
 

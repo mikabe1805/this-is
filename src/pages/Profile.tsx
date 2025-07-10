@@ -76,20 +76,19 @@ const Profile = () => {
       </div>
 
       <div className="p-4 space-y-6">
-        {/* User Info */}
-        <div className="bg-white/70 backdrop-blur-sm rounded-2xl p-6 shadow-soft border border-cream-200">
-          <div className="flex items-center space-x-4 mb-4">
-            {currentUser.avatar ? (
-              <img
-                src={currentUser.avatar}
-                alt={currentUser.name}
-                className="w-20 h-20 rounded-full object-cover border-4 border-cream-200"
-              />
-            ) : (
-              <div className="w-20 h-20 bg-gradient-to-br from-sage-100 to-sage-200 rounded-full flex items-center justify-center border-4 border-cream-200">
-                <UserIcon className="w-10 h-10 text-sage-600" />
+        {/* Profile Header */}
+        <div className="bg-white/70 backdrop-blur-sm rounded-2xl p-6 shadow-soft border border-cream-200 mb-6">
+          <div className="flex items-center space-x-4">
+            <div className="relative">
+              <div className="w-20 h-20 rounded-full border-3 border-white shadow-xl bg-cream-50/80 backdrop-blur-sm relative overflow-hidden">
+                <img
+                  src={currentUser.avatar}
+                  alt={currentUser.name}
+                  className="w-full h-full object-cover"
+                />
+                <div className="absolute inset-0 border border-white/30 rounded-full"></div>
               </div>
-            )}
+            </div>
             <div className="flex-1">
               <h2 className="text-xl font-bold text-sage-800">{currentUser.name}</h2>
               <p className="text-sage-600">@{currentUser.username}</p>
@@ -132,13 +131,14 @@ const Profile = () => {
                 className="bg-white/70 backdrop-blur-sm rounded-2xl overflow-hidden shadow-soft border border-cream-200 hover:shadow-liquid transition-all duration-300"
               >
                 {list.coverImage && (
-                  <div className="h-24 bg-gradient-to-br from-cream-200 to-coral-200 relative">
+                  <div className="h-24 bg-gradient-to-br from-cream-200 to-coral-200 relative overflow-hidden">
                     <img
                       src={list.coverImage}
                       alt={list.name}
                       className="w-full h-full object-cover"
                     />
-                    <div className="absolute inset-0 bg-black/10"></div>
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/10 via-black/5 to-transparent backdrop-blur-[1px]"></div>
+                    <div className="absolute inset-0 border border-white/20"></div>
                   </div>
                 )}
                 <div className="p-4">
