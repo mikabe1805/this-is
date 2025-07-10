@@ -1,8 +1,20 @@
-@import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital,wght@0,400;1,400&family=Inter:wght@400;500;700&display=swap');
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
-/* Custom styles */
+html, body {
+  background: #fdf8f3;
+  font-family: 'Inter', system-ui, sans-serif;
+  color: #4e3521;
+}
+
+h1, h2, h3, h4, h5, h6, .font-serif, .logo {
+  font-family: 'DM Serif Display', Georgia, serif;
+  color: #6d4c2f;
+}
+
 :root {
-  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -13,4 +25,17 @@ body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
+  background-color: #fdf8f3;
+}
+
+/* Debug styles to ensure content is visible */
+.debug {
+  background-color: red !important;
+  color: white !important;
+  padding: 20px !important;
+  font-size: 18px !important;
+}
+
+.test-coral {
+  @apply bg-testcoral text-white;
 }
