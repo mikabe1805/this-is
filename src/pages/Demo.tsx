@@ -1,56 +1,102 @@
 import { useState, useEffect } from 'react'
 import RatingPrompt from '../components/RatingPrompt'
-import FriendsOpinions from '../components/FriendsOpinions'
+import ListCard from '../components/ListCard'
+import PlaceHub from '../components/PlaceHub'
 
-// Simulated data
-const mockOpinions = [
+// Simulated data for personal lists
+const mockLists = [
   {
     id: '1',
-    user: {
-      name: 'Emma',
-      avatar: 'https://randomuser.me/api/portraits/women/44.jpg',
-      isPublic: true
+    title: 'All Loved',
+    description: 'Places that made my heart sing',
+    places: [
+      {
+        id: '1',
+        name: 'Blue Bottle Coffee',
+        image: 'https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?w=400&h=300&fit=crop',
+        status: 'loved' as const,
+        note: 'The cold brew here is absolutely divine. Perfect spot for people watching on a Sunday morning.',
+        tags: ['coffee', 'brunch', 'people-watching'],
+        savedFrom: undefined
+      },
+      {
+        id: '2',
+        name: 'Tartine Bakery',
+        image: 'https://images.unsplash.com/photo-1509440159596-0249088772ff?w=400&h=300&fit=crop',
+        status: 'loved' as const,
+        note: 'Their morning bun is life-changing. The line is worth it every time.',
+        tags: ['bakery', 'pastries', 'breakfast'],
+        savedFrom: undefined
+      }
+    ],
+    isPrivate: true,
+    owner: {
+      name: 'You',
+      avatar: 'https://randomuser.me/api/portraits/women/44.jpg'
     },
-    rating: 'loved' as const,
-    feedback: 'The coffee here is absolutely amazing! Perfect spot for working remotely.',
-    timestamp: '2 hours ago',
-    isCloseFriend: true
+    likes: 0,
+    isLiked: false
   },
   {
     id: '2',
-    user: {
-      name: 'Rami',
-      avatar: 'https://randomuser.me/api/portraits/men/32.jpg',
-      isPublic: false
+    title: 'All Tried',
+    description: 'Places I\'ve experienced',
+    places: [
+      {
+        id: '3',
+        name: 'Mission Chinese Food',
+        image: 'https://images.unsplash.com/photo-1565299624946-b28f40a0ca4b?w=400&h=300&fit=crop',
+        status: 'tried' as const,
+        note: 'Interesting fusion concept, but the wait was too long for what we got.',
+        tags: ['chinese', 'fusion', 'dinner'],
+        savedFrom: undefined
+      }
+    ],
+    isPrivate: true,
+    owner: {
+      name: 'You',
+      avatar: 'https://randomuser.me/api/portraits/women/44.jpg'
     },
-    rating: 'mediocre' as const,
-    feedback: 'Food was okay, but the service was slow. Might give it another try.',
-    timestamp: '1 day ago',
-    isCloseFriend: false
+    likes: 0,
+    isLiked: false
   },
   {
     id: '3',
-    user: {
-      name: 'Sophie',
-      avatar: 'https://randomuser.me/api/portraits/women/68.jpg',
-      isPublic: true
+    title: 'Weekend Coffee Spots',
+    description: 'Cozy places to work and relax',
+    places: [
+      {
+        id: '4',
+        name: 'Ritual Coffee',
+        image: 'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=400&h=300&fit=crop',
+        status: 'loved' as const,
+        note: 'Great for working remotely. The oat milk latte is perfect.',
+        tags: ['coffee', 'work-friendly', 'quiet'],
+        savedFrom: {
+          user: 'Emma',
+          list: 'Best Work Spots'
+        }
+      },
+      {
+        id: '5',
+        name: 'Four Barrel Coffee',
+        image: 'https://images.unsplash.com/photo-1442512595331-e89e73853f31?w=400&h=300&fit=crop',
+        status: 'want' as const,
+        note: '',
+        tags: ['coffee', 'artisan'],
+        savedFrom: {
+          user: 'Rami',
+          list: 'SF Coffee Tour'
+        }
+      }
+    ],
+    isPrivate: false,
+    owner: {
+      name: 'You',
+      avatar: 'https://randomuser.me/api/portraits/women/44.jpg'
     },
-    rating: 'hated' as const,
-    feedback: 'Way too expensive for what you get. Would not recommend.',
-    timestamp: '3 days ago',
-    isCloseFriend: true
-  },
-  {
-    id: '4',
-    user: {
-      name: 'Jess',
-      avatar: 'https://randomuser.me/api/portraits/women/65.jpg',
-      isPublic: true
-    },
-    rating: 'loved' as const,
-    feedback: 'Great atmosphere and the staff is super friendly!',
-    timestamp: '1 week ago',
-    isCloseFriend: false
+    likes: 12,
+    isLiked: true
   }
 ]
 
@@ -75,15 +121,63 @@ const mockPlaces = [
   }
 ]
 
+// Mock data for PlaceHub
+const mockPlaceHubData = {
+  place: {
+    id: '1',
+    name: 'Blue Bottle Coffee',
+    address: 'San Francisco, CA',
+    image: 'https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?w=400&h=300&fit=crop',
+    description: 'Artisanal coffee roaster and cafe known for their meticulously crafted beverages and minimalist aesthetic.',
+    tags: ['coffee', 'artisan', 'minimalist', 'brunch']
+  },
+  lists: [
+    {
+      id: '1',
+      name: 'All Loved',
+      owner: {
+        name: 'You',
+        avatar: 'https://randomuser.me/api/portraits/women/44.jpg'
+      },
+      status: 'loved' as const,
+      note: 'The cold brew here is absolutely divine. Perfect spot for people watching on a Sunday morning.',
+      isPrivate: true
+    },
+    {
+      id: '2',
+      name: 'SF Coffee Tour',
+      owner: {
+        name: 'Emma',
+        avatar: 'https://randomuser.me/api/portraits/women/44.jpg'
+      },
+      status: 'loved' as const,
+      note: 'Best cold brew in the city!',
+      isPrivate: false
+    },
+    {
+      id: '3',
+      name: 'Weekend Spots',
+      owner: {
+        name: 'Rami',
+        avatar: 'https://randomuser.me/api/portraits/men/32.jpg'
+      },
+      status: 'tried' as const,
+      note: 'Good coffee, but too crowded on weekends.',
+      isPrivate: false
+    }
+  ]
+}
+
 const Demo = () => {
   const [showRatingPrompt, setShowRatingPrompt] = useState(false)
   const [currentPlace, setCurrentPlace] = useState(mockPlaces[0])
-  const [showEmbeddedWidget, setShowEmbeddedWidget] = useState(false)
   const [simulatedVisits, setSimulatedVisits] = useState<Array<{
     place: typeof mockPlaces[0]
     timestamp: Date
     duration: number
   }>>([])
+  const [lists, setLists] = useState(mockLists)
+  const [showPlaceHub, setShowPlaceHub] = useState(false)
 
   // Simulate location tracking
   useEffect(() => {
@@ -104,22 +198,54 @@ const Demo = () => {
       }, 2000)
     }
 
-    // Simulate a visit every 10 seconds for demo purposes
-    const interval = setInterval(simulateVisit, 10000)
+    // Simulate a visit every 15 seconds for demo purposes
+    const interval = setInterval(simulateVisit, 15000)
     
     return () => clearInterval(interval)
   }, [])
 
-  const handleRate = (rating: 'loved' | 'hated' | 'mediocre', feedback?: string) => {
-    console.log('Rating submitted:', { place: currentPlace.name, rating, feedback })
+  const handleSave = (status: 'loved' | 'tried', note?: string) => {
+    console.log('Place saved:', { place: currentPlace.name, status, note })
     setShowRatingPrompt(false)
     
-    // In a real app, this would save to the backend
-    alert(`Thanks for rating ${currentPlace.name}! Your feedback helps your friends discover great places.`)
+    // In a real app, this would save to the appropriate list
+    const listName = status === 'loved' ? 'All Loved' : 'All Tried'
+    alert(`${currentPlace.name} saved to "${listName}"! Your personal note helps you remember what made this place special.`)
   }
 
   const handleDismiss = () => {
     setShowRatingPrompt(false)
+  }
+
+  const handleLike = (listId: string) => {
+    setLists(prev => prev.map(list => 
+      list.id === listId 
+        ? { ...list, isLiked: !list.isLiked, likes: list.isLiked ? list.likes - 1 : list.likes + 1 }
+        : list
+    ))
+  }
+
+  const handleView = (listId: string) => {
+    alert(`Opening list: ${lists.find(l => l.id === listId)?.title}`)
+  }
+
+  const handleSaveToList = (listId: string, status: 'loved' | 'tried' | 'want', note?: string) => {
+    alert(`Saved to ${listId} with status: ${status}${note ? ` and note: "${note}"` : ''}`)
+  }
+
+  const handleCreateList = () => {
+    alert('Create new list functionality would open here')
+  }
+
+  if (showPlaceHub) {
+    return (
+      <PlaceHub
+        place={mockPlaceHubData.place}
+        lists={mockPlaceHubData.lists}
+        onSaveToList={handleSaveToList}
+        onCreateList={handleCreateList}
+      />
+    )
   }
 
   return (
@@ -128,56 +254,83 @@ const Demo = () => {
         {/* Header */}
         <div className="text-center">
           <h1 className="text-3xl font-serif font-bold text-earth-800 mb-2">
-            This Is - Feature Demo
+            This Is - Personal Memory Journal
           </h1>
           <p className="text-earth-600">
-            Showcasing the core features of the social discovery platform
+            A cozy platform for collecting and sharing meaningful place experiences
           </p>
         </div>
 
-        {/* Friends' Opinions Widget */}
+        {/* Personal Lists */}
         <div className="bg-white/80 backdrop-blur-glass rounded-2xl shadow-crystal border border-white/30 p-6">
           <h2 className="text-2xl font-serif font-semibold text-earth-800 mb-4">
-            Friends' Opinions Widget
+            Your Personal Lists
           </h2>
           <p className="text-earth-600 mb-6">
-            This is how the widget would appear when embedded in other apps (like TikTok, Instagram, etc.)
+            Lists are the heart of This Is. Every place you save goes into a list, with personal notes to help you remember what made each place special.
           </p>
           
-          <div className="flex flex-wrap gap-6">
-            {/* Embedded version */}
-            <div className="flex-1 min-w-80">
-              <h3 className="font-semibold text-earth-700 mb-3">Embedded in App</h3>
-              <FriendsOpinions
-                placeName="Blue Bottle Coffee"
-                placeImage="https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?w=400&h=300&fit=crop"
-                opinions={mockOpinions}
-                totalFriends={12}
-                isEmbedded={true}
-                onViewMore={() => alert('Opens This Is app')}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {lists.map((list) => (
+              <ListCard
+                key={list.id}
+                id={list.id}
+                title={list.title}
+                description={list.description}
+                places={list.places}
+                isPrivate={list.isPrivate}
+                owner={list.owner}
+                likes={list.likes}
+                isLiked={list.isLiked}
+                onLike={() => handleLike(list.id)}
+                onView={() => handleView(list.id)}
               />
-            </div>
-
-            {/* Full version */}
-            <div className="flex-1 min-w-80">
-              <h3 className="font-semibold text-earth-700 mb-3">Full Widget</h3>
-              <FriendsOpinions
-                placeName="Blue Bottle Coffee"
-                placeImage="https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?w=400&h=300&fit=crop"
-                opinions={mockOpinions}
-                totalFriends={12}
-              />
-            </div>
+            ))}
           </div>
         </div>
 
-        {/* Rating System Demo */}
+        {/* Place Hub Demo */}
         <div className="bg-white/80 backdrop-blur-glass rounded-2xl shadow-crystal border border-white/30 p-6">
           <h2 className="text-2xl font-serif font-semibold text-earth-800 mb-4">
-            Rating System
+            Place Hub
           </h2>
           <p className="text-earth-600 mb-6">
-            The 3-point rating system with optional feedback that appears after location tracking detects a visit.
+            Every place has a hub that shows which lists it's saved to - both yours and your friends'. This helps you see the collective memory of a place.
+          </p>
+          
+          <div className="flex flex-wrap gap-4 mb-6">
+            {mockPlaces.map((place) => (
+              <button
+                key={place.id}
+                onClick={() => setShowPlaceHub(true)}
+                className="bg-gradient-to-br from-warm-100 to-cream-100 rounded-xl p-4 hover:from-warm-200 hover:to-cream-200 transition-all duration-300 border border-warm-200 hover:border-warm-300"
+              >
+                <img 
+                  src={place.image} 
+                  alt={place.name}
+                  className="w-32 h-24 object-cover rounded-lg mb-3 shadow-sm"
+                />
+                <h3 className="font-semibold text-earth-800 text-sm">{place.name}</h3>
+                <p className="text-earth-500 text-xs">{place.address}</p>
+              </button>
+            ))}
+          </div>
+          
+          <button
+            onClick={() => setShowPlaceHub(true)}
+            className="px-6 py-3 bg-gradient-to-r from-warm-500 to-earth-500 text-white font-semibold rounded-xl hover:from-warm-600 hover:to-earth-600 transition-all duration-300 shadow-soft hover:shadow-lg"
+          >
+            View Place Hub Demo
+          </button>
+        </div>
+
+        {/* Memory Saving System */}
+        <div className="bg-white/80 backdrop-blur-glass rounded-2xl shadow-crystal border border-white/30 p-6">
+          <h2 className="text-2xl font-serif font-semibold text-earth-800 mb-4">
+            Two-Step Memory Saving
+          </h2>
+          <p className="text-earth-600 mb-6">
+            When you spend time at a place (30+ minutes), This Is first asks how you felt, then offers to save to the appropriate list based on your response.
           </p>
           
           <div className="flex flex-wrap gap-4">
@@ -205,10 +358,10 @@ const Demo = () => {
         {/* Location Tracking Simulation */}
         <div className="bg-white/80 backdrop-blur-glass rounded-2xl shadow-crystal border border-white/30 p-6">
           <h2 className="text-2xl font-serif font-semibold text-earth-800 mb-4">
-            Location Tracking Simulation
+            Location Memory Detection
           </h2>
           <p className="text-earth-600 mb-6">
-            Simulating how the app detects visits and prompts for ratings. New visits are added every 10 seconds.
+            Simulating how the app detects meaningful visits and prompts you to save memories. New visits are detected every 15 seconds.
           </p>
           
           <div className="space-y-3">
@@ -233,44 +386,49 @@ const Demo = () => {
             
             {simulatedVisits.length === 0 && (
               <div className="text-center py-8 text-earth-500">
-                <p>Waiting for simulated visits...</p>
-                <p className="text-sm">New visits will appear every 10 seconds</p>
+                <p>Waiting for location detection...</p>
+                <p className="text-sm">New visits will be detected every 15 seconds</p>
               </div>
             )}
           </div>
         </div>
 
-        {/* Privacy Controls Demo */}
+        {/* Core Philosophy */}
         <div className="bg-white/80 backdrop-blur-glass rounded-2xl shadow-crystal border border-white/30 p-6">
           <h2 className="text-2xl font-serif font-semibold text-earth-800 mb-4">
-            Privacy Controls
+            What Makes This Is Different
           </h2>
-          <p className="text-earth-600 mb-6">
-            Users can control who sees their ratings and reviews.
-          </p>
           
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="bg-gradient-to-br from-warm-100 to-cream-100 rounded-xl p-4 border border-warm-200">
-              <h3 className="font-semibold text-earth-800 mb-2">Public Profile</h3>
-              <p className="text-earth-600 text-sm">All ratings visible to everyone</p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-4">
+              <div className="bg-gradient-to-br from-warm-100 to-cream-100 rounded-xl p-4 border border-warm-200">
+                <h3 className="font-semibold text-earth-800 mb-2">Personal Journal</h3>
+                <p className="text-earth-600 text-sm">Not reviews, but memories. Every place has a personal story.</p>
+              </div>
+              <div className="bg-gradient-to-br from-sage-100 to-cream-100 rounded-xl p-4 border border-sage-200">
+                <h3 className="font-semibold text-earth-800 mb-2">List-Centric</h3>
+                <p className="text-earth-600 text-sm">Lists are the heart - everything revolves around curated collections.</p>
+              </div>
             </div>
-            <div className="bg-gradient-to-br from-sage-100 to-cream-100 rounded-xl p-4 border border-sage-200">
-              <h3 className="font-semibold text-earth-800 mb-2">Private Profile</h3>
-              <p className="text-earth-600 text-sm">Ratings only visible to close friends</p>
-            </div>
-            <div className="bg-gradient-to-br from-earth-100 to-cream-100 rounded-xl p-4 border border-earth-200">
-              <h3 className="font-semibold text-earth-800 mb-2">Anonymous Ratings</h3>
-              <p className="text-earth-600 text-sm">Rate places without revealing identity</p>
+            <div className="space-y-4">
+              <div className="bg-gradient-to-br from-earth-100 to-cream-100 rounded-xl p-4 border border-earth-200">
+                <h3 className="font-semibold text-earth-800 mb-2">Trusted Social</h3>
+                <p className="text-earth-600 text-sm">Friends, not strangers. Share with people you trust.</p>
+              </div>
+              <div className="bg-gradient-to-br from-warm-100 to-cream-100 rounded-xl p-4 border border-warm-200">
+                <h3 className="font-semibold text-earth-800 mb-2">Memory-First</h3>
+                <p className="text-earth-600 text-sm">Notes and personal context help you remember what made each place special.</p>
+              </div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Rating Prompt Modal */}
+      {/* Memory Saving Prompt */}
       <RatingPrompt
         placeName={currentPlace.name}
         placeImage={currentPlace.image}
-        onRate={handleRate}
+        onSave={handleSave}
         onDismiss={handleDismiss}
         isVisible={showRatingPrompt}
       />
