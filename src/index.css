@@ -39,3 +39,25 @@ body {
 .test-warm {
   @apply bg-warm-500 text-white;
 }
+
+/* Custom utility classes */
+.backdrop-blur-glass {
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+
+.shadow-crystal {
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+}
+
+.shadow-soft {
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+}
+
+.shadow-frosted {
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+}
+
+.shadow-warm-200 {
+  box-shadow: 0 4px 20px rgba(231, 160, 122, 0.2);
+}

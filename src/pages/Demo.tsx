@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { MagnifyingGlassIcon, ClockIcon, FireIcon } from '@heroicons/react/24/outline'
 import RatingPrompt from '../components/RatingPrompt'
 import ListCard from '../components/ListCard'
 import PlaceHub from '../components/PlaceHub'
@@ -168,7 +169,11 @@ const mockPlaceHubData = {
   ]
 }
 
-const Demo = () => {
+interface DemoProps {
+  activeTab: string
+}
+
+const Demo = ({ activeTab }: DemoProps) => {
   const [showRatingPrompt, setShowRatingPrompt] = useState(false)
   const [currentPlace, setCurrentPlace] = useState(mockPlaces[0])
   const [simulatedVisits, setSimulatedVisits] = useState<Array<{
@@ -178,6 +183,31 @@ const Demo = () => {
   }>>([])
   const [lists, setLists] = useState(mockLists)
   const [showPlaceHub, setShowPlaceHub] = useState(false)
+  
+  // Search functionality for demo
+  const [searchQuery, setSearchQuery] = useState('')
+  const [showSearchHistory, setShowSearchHistory] = useState(false)
+  const [isSearching, setIsSearching] = useState(false)
+
+  // Mock search data
+  const searchHistory = [
+    'Blue Bottle Coffee',
+    'cozy coffee spots',
+    'tacos el gordo',
+    'work-friendly cafes',
+    'sara chen'
+  ]
+
+  const trendyHashtags = [
+    { tag: '#coffee', count: '2.3k' },
+    { tag: '#cozy', count: '1.8k' },
+    { tag: '#oakland', count: '1.5k' },
+    { tag: '#workfriendly', count: '1.2k' },
+    { tag: '#tacos', count: '980' },
+    { tag: '#authentic', count: '850' },
+    { tag: '#scenic', count: '720' },
+    { tag: '#quick', count: '650' }
+  ]
 
   // Simulate location tracking
   useEffect(() => {
@@ -237,6 +267,50 @@ const Demo = () => {
     alert('Create new list functionality would open here')
   }
 
+  // Search handlers
+  const handleSearchHistoryClick = (query: string) => {
+    setSearchQuery(query)
+    setShowSearchHistory(false)
+    setIsSearching(true)
+  }
+
+  const handleHashtagClick = (hashtag: string) => {
+    setSearchQuery(hashtag)
+    setShowSearchHistory(false)
+    setIsSearching(true)
+  }
+
+  const handleSearchInputFocus = () => {
+    if (searchQuery === '') {
+      setShowSearchHistory(true)
+    }
+  }
+
+  const handleSearchInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchQuery(e.target.value)
+    if (e.target.value === '') {
+      setShowSearchHistory(true)
+      setIsSearching(false)
+    } else {
+      setShowSearchHistory(false)
+      setIsSearching(true)
+    }
+  }
+
+  const handleSearchSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (searchQuery.trim()) {
+      setShowSearchHistory(false)
+      setIsSearching(true)
+    }
+  }
+
+  const clearSearch = () => {
+    setSearchQuery('')
+    setShowSearchHistory(true)
+    setIsSearching(false)
+  }
+
   if (showPlaceHub) {
     return (
       <PlaceHub
@@ -248,182 +322,308 @@ const Demo = () => {
     )
   }
 
-  return (
-    <div className="min-h-full bg-gradient-to-br from-cream-50 via-warm-50 to-sage-50 p-4">
-      <div className="max-w-4xl mx-auto space-y-8">
-        {/* Header */}
-        <div className="text-center">
-          <h1 className="text-3xl font-serif font-bold text-earth-800 mb-2">
-            This Is - Personal Memory Journal
-          </h1>
-          <p className="text-earth-600">
-            A cozy platform for collecting and sharing meaningful place experiences
-          </p>
-        </div>
-
-        {/* Personal Lists */}
-        <div className="bg-white/80 backdrop-blur-glass rounded-2xl shadow-crystal border border-white/30 p-6">
-          <h2 className="text-2xl font-serif font-semibold text-earth-800 mb-4">
-            Your Personal Lists
-          </h2>
-          <p className="text-earth-600 mb-6">
-            Lists are the heart of This Is. Every place you save goes into a list, with personal notes to help you remember what made each place special.
-          </p>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {lists.map((list) => (
-              <ListCard
-                key={list.id}
-                id={list.id}
-                title={list.title}
-                description={list.description}
-                places={list.places}
-                isPrivate={list.isPrivate}
-                owner={list.owner}
-                likes={list.likes}
-                isLiked={list.isLiked}
-                onLike={() => handleLike(list.id)}
-                onView={() => handleView(list.id)}
-              />
-            ))}
-          </div>
-        </div>
-
-        {/* Place Hub Demo */}
-        <div className="bg-white/80 backdrop-blur-glass rounded-2xl shadow-crystal border border-white/30 p-6">
-          <h2 className="text-2xl font-serif font-semibold text-earth-800 mb-4">
-            Place Hub
-          </h2>
-          <p className="text-earth-600 mb-6">
-            Every place has a hub that shows which lists it's saved to - both yours and your friends'. This helps you see the collective memory of a place.
-          </p>
-          
-          <div className="flex flex-wrap gap-4 mb-6">
-            {mockPlaces.map((place) => (
-              <button
-                key={place.id}
-                onClick={() => setShowPlaceHub(true)}
-                className="bg-gradient-to-br from-warm-100 to-cream-100 rounded-xl p-4 hover:from-warm-200 hover:to-cream-200 transition-all duration-300 border border-warm-200 hover:border-warm-300"
-              >
-                <img 
-                  src={place.image} 
-                  alt={place.name}
-                  className="w-32 h-24 object-cover rounded-lg mb-3 shadow-sm"
+  // Render different content based on active tab
+  const renderContent = () => {
+    switch (activeTab) {
+      case 'search':
+        return (
+          <div className="min-h-full bg-gradient-to-br from-cream-50 to-coral-50">
+            {/* Header with Search Bar */}
+            <div className="bg-white/80 backdrop-blur-md border-b border-cream-200 px-6 py-4">
+              <h1 className="text-xl font-semibold text-sage-800 mb-4">Search</h1>
+              
+              {/* Search Bar */}
+              <form onSubmit={handleSearchSubmit} className="relative">
+                <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-sage-400" />
+                <input
+                  type="text"
+                  placeholder="Search places, lists, or people..."
+                  value={searchQuery}
+                  onChange={handleSearchInputChange}
+                  onFocus={handleSearchInputFocus}
+                  className="w-full pl-10 pr-12 py-3 bg-white/80 backdrop-blur-sm rounded-2xl border border-cream-200 focus:outline-none focus:ring-2 focus:ring-coral-200 focus:border-coral-300 transition-all duration-300"
                 />
-                <h3 className="font-semibold text-earth-800 text-sm">{place.name}</h3>
-                <p className="text-earth-500 text-xs">{place.address}</p>
-              </button>
-            ))}
-          </div>
-          
-          <button
-            onClick={() => setShowPlaceHub(true)}
-            className="px-6 py-3 bg-gradient-to-r from-warm-500 to-earth-500 text-white font-semibold rounded-xl hover:from-warm-600 hover:to-earth-600 transition-all duration-300 shadow-soft hover:shadow-lg"
-          >
-            View Place Hub Demo
-          </button>
-        </div>
+                {searchQuery && (
+                  <button
+                    type="button"
+                    onClick={clearSearch}
+                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-sage-400 hover:text-sage-600 transition-colors"
+                  >
+                    ✕
+                  </button>
+                )}
+              </form>
+            </div>
 
-        {/* Memory Saving System */}
-        <div className="bg-white/80 backdrop-blur-glass rounded-2xl shadow-crystal border border-white/30 p-6">
-          <h2 className="text-2xl font-serif font-semibold text-earth-800 mb-4">
-            Two-Step Memory Saving
-          </h2>
-          <p className="text-earth-600 mb-6">
-            When you spend time at a place (30+ minutes), This Is first asks how you felt, then offers to save to the appropriate list based on your response.
-          </p>
-          
-          <div className="flex flex-wrap gap-4">
-            {mockPlaces.map((place) => (
-              <button
-                key={place.id}
-                onClick={() => {
-                  setCurrentPlace(place)
-                  setShowRatingPrompt(true)
-                }}
-                className="bg-gradient-to-br from-warm-100 to-cream-100 rounded-xl p-4 hover:from-warm-200 hover:to-cream-200 transition-all duration-300 border border-warm-200 hover:border-warm-300"
-              >
-                <img 
-                  src={place.image} 
-                  alt={place.name}
-                  className="w-32 h-24 object-cover rounded-lg mb-3 shadow-sm"
-                />
-                <h3 className="font-semibold text-earth-800 text-sm">{place.name}</h3>
-                <p className="text-earth-500 text-xs">{place.address}</p>
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Location Tracking Simulation */}
-        <div className="bg-white/80 backdrop-blur-glass rounded-2xl shadow-crystal border border-white/30 p-6">
-          <h2 className="text-2xl font-serif font-semibold text-earth-800 mb-4">
-            Location Memory Detection
-          </h2>
-          <p className="text-earth-600 mb-6">
-            Simulating how the app detects meaningful visits and prompts you to save memories. New visits are detected every 15 seconds.
-          </p>
-          
-          <div className="space-y-3">
-            {simulatedVisits.slice(-5).reverse().map((visit, index) => (
-              <div key={index} className="flex items-center gap-4 p-3 bg-gradient-to-r from-warm-50 to-cream-50 rounded-xl border border-warm-100">
-                <img 
-                  src={visit.place.image} 
-                  alt={visit.place.name}
-                  className="w-12 h-12 object-cover rounded-lg"
-                />
-                <div className="flex-1">
-                  <h4 className="font-semibold text-earth-800">{visit.place.name}</h4>
-                  <p className="text-earth-500 text-sm">
-                    Visited {visit.timestamp.toLocaleTimeString()} • Stayed {visit.duration} minutes
-                  </p>
+            {/* Search History */}
+            {showSearchHistory && searchHistory.length > 0 && (
+              <div className="bg-white/90 backdrop-blur-sm border-b border-cream-200 px-6 py-4">
+                <div className="flex items-center space-x-2 mb-3">
+                  <ClockIcon className="w-4 h-4 text-sage-600" />
+                  <span className="text-sm font-medium text-sage-800">Recent Searches</span>
                 </div>
-                <div className="text-xs text-earth-400">
-                  {visit.timestamp.toLocaleDateString()}
+                <div className="space-y-2">
+                  {searchHistory.map((query, index) => (
+                    <button
+                      key={index}
+                      onClick={() => handleSearchHistoryClick(query)}
+                      className="w-full text-left px-3 py-2 rounded-xl hover:bg-cream-50 transition-colors text-sage-700 hover:text-sage-800"
+                    >
+                      {query}
+                    </button>
+                  ))}
                 </div>
               </div>
-            ))}
-            
-            {simulatedVisits.length === 0 && (
-              <div className="text-center py-8 text-earth-500">
-                <p>Waiting for location detection...</p>
-                <p className="text-sm">New visits will be detected every 15 seconds</p>
+            )}
+
+            {/* Trendy Hashtags */}
+            {showSearchHistory && (
+              <div className="bg-white/90 backdrop-blur-sm border-b border-cream-200 px-6 py-4">
+                <div className="flex items-center space-x-2 mb-3">
+                  <FireIcon className="w-4 h-4 text-coral-600" />
+                  <span className="text-sm font-medium text-sage-800">Trending</span>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {trendyHashtags.map((item, index) => (
+                    <button
+                      key={index}
+                      onClick={() => handleHashtagClick(item.tag)}
+                      className="px-3 py-2 bg-gradient-to-r from-coral-100 to-coral-200 text-coral-700 rounded-xl text-sm font-medium hover:from-coral-200 hover:to-coral-300 transition-all duration-300 shadow-soft"
+                    >
+                      {item.tag}
+                      <span className="ml-1 text-xs opacity-70">({item.count})</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Search Status */}
+            {isSearching && (
+              <div className="p-4">
+                <div className="bg-white/70 backdrop-blur-sm rounded-2xl p-4 border border-cream-200">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sage-700">
+                      {searchQuery ? `Searching for "${searchQuery}"` : 'Showing all results'}
+                    </span>
+                    <button
+                      onClick={clearSearch}
+                      className="text-coral-600 hover:text-coral-700 text-sm font-medium transition-colors"
+                    >
+                      Clear
+                    </button>
+                  </div>
+                </div>
               </div>
             )}
           </div>
-        </div>
-
-        {/* Core Philosophy */}
-        <div className="bg-white/80 backdrop-blur-glass rounded-2xl shadow-crystal border border-white/30 p-6">
-          <h2 className="text-2xl font-serif font-semibold text-earth-800 mb-4">
-            What Makes This Is Different
-          </h2>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="space-y-4">
-              <div className="bg-gradient-to-br from-warm-100 to-cream-100 rounded-xl p-4 border border-warm-200">
-                <h3 className="font-semibold text-earth-800 mb-2">Personal Journal</h3>
-                <p className="text-earth-600 text-sm">Not reviews, but memories. Every place has a personal story.</p>
-              </div>
-              <div className="bg-gradient-to-br from-sage-100 to-cream-100 rounded-xl p-4 border border-sage-200">
-                <h3 className="font-semibold text-earth-800 mb-2">List-Centric</h3>
-                <p className="text-earth-600 text-sm">Lists are the heart - everything revolves around curated collections.</p>
-              </div>
+        )
+      
+      case 'profile':
+        return (
+          <div className="min-h-full bg-gradient-to-br from-cream-50 to-sage-50 p-6">
+            <div className="text-center">
+              <h1 className="text-2xl font-serif font-bold text-earth-800 mb-4">Profile Demo</h1>
+              <p className="text-earth-600">This would show your profile information and settings.</p>
             </div>
-            <div className="space-y-4">
-              <div className="bg-gradient-to-br from-earth-100 to-cream-100 rounded-xl p-4 border border-earth-200">
-                <h3 className="font-semibold text-earth-800 mb-2">Trusted Social</h3>
-                <p className="text-earth-600 text-sm">Friends, not strangers. Share with people you trust.</p>
+          </div>
+        )
+      
+      case 'favorites':
+        return (
+          <div className="min-h-full bg-gradient-to-br from-cream-50 to-coral-50 p-6">
+            <div className="text-center">
+              <h1 className="text-2xl font-serif font-bold text-earth-800 mb-4">Favorites Demo</h1>
+              <p className="text-earth-600">This would show your favorite places and lists.</p>
+            </div>
+          </div>
+        )
+      
+      default: // home
+        return (
+          <div className="min-h-full bg-gradient-to-br from-cream-50 via-warm-50 to-sage-50 p-4">
+            <div className="max-w-4xl mx-auto space-y-8">
+              {/* Header */}
+              <div className="text-center">
+                <h1 className="text-3xl font-serif font-bold text-earth-800 mb-2">
+                  This Is - Personal Memory Journal
+                </h1>
+                <p className="text-earth-600">
+                  A cozy platform for collecting and sharing meaningful place experiences
+                </p>
               </div>
-              <div className="bg-gradient-to-br from-warm-100 to-cream-100 rounded-xl p-4 border border-warm-200">
-                <h3 className="font-semibold text-earth-800 mb-2">Memory-First</h3>
-                <p className="text-earth-600 text-sm">Notes and personal context help you remember what made each place special.</p>
+
+              {/* Personal Lists */}
+              <div className="bg-white/80 backdrop-blur-glass rounded-2xl shadow-crystal border border-white/30 p-6">
+                <h2 className="text-2xl font-serif font-semibold text-earth-800 mb-4">
+                  Your Personal Lists
+                </h2>
+                <p className="text-earth-600 mb-6">
+                  Lists are the heart of This Is. Every place you save goes into a list, with personal notes to help you remember what made each place special.
+                </p>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {lists.map((list) => (
+                    <ListCard
+                      key={list.id}
+                      id={list.id}
+                      title={list.title}
+                      description={list.description}
+                      places={list.places}
+                      isPrivate={list.isPrivate}
+                      owner={list.owner}
+                      likes={list.likes}
+                      isLiked={list.isLiked}
+                      onLike={() => handleLike(list.id)}
+                      onView={() => handleView(list.id)}
+                    />
+                  ))}
+                </div>
+              </div>
+
+              {/* Place Hub Demo */}
+              <div className="bg-white/80 backdrop-blur-glass rounded-2xl shadow-crystal border border-white/30 p-6">
+                <h2 className="text-2xl font-serif font-semibold text-earth-800 mb-4">
+                  Place Hub
+                </h2>
+                <p className="text-earth-600 mb-6">
+                  Every place has a hub that shows which lists it's saved to - both yours and your friends'. This helps you see the collective memory of a place.
+                </p>
+                
+                <div className="flex flex-wrap gap-4 mb-6">
+                  {mockPlaces.map((place) => (
+                    <button
+                      key={place.id}
+                      onClick={() => setShowPlaceHub(true)}
+                      className="bg-gradient-to-br from-warm-100 to-cream-100 rounded-xl p-4 hover:from-warm-200 hover:to-cream-200 transition-all duration-300 border border-warm-200 hover:border-warm-300"
+                    >
+                      <img 
+                        src={place.image} 
+                        alt={place.name}
+                        className="w-32 h-24 object-cover rounded-lg mb-3 shadow-sm"
+                      />
+                      <h3 className="font-semibold text-earth-800 text-sm">{place.name}</h3>
+                      <p className="text-earth-500 text-xs">{place.address}</p>
+                    </button>
+                  ))}
+                </div>
+                
+                <button
+                  onClick={() => setShowPlaceHub(true)}
+                  className="px-6 py-3 bg-gradient-to-r from-warm-500 to-earth-500 text-white font-semibold rounded-xl hover:from-warm-600 hover:to-earth-600 transition-all duration-300 shadow-soft hover:shadow-lg"
+                >
+                  View Place Hub Demo
+                </button>
+              </div>
+
+              {/* Memory Saving System */}
+              <div className="bg-white/80 backdrop-blur-glass rounded-2xl shadow-crystal border border-white/30 p-6">
+                <h2 className="text-2xl font-serif font-semibold text-earth-800 mb-4">
+                  Two-Step Memory Saving
+                </h2>
+                <p className="text-earth-600 mb-6">
+                  When you spend time at a place (30+ minutes), This Is first asks how you felt, then offers to save to the appropriate list based on your response.
+                </p>
+                
+                <div className="flex flex-wrap gap-4">
+                  {mockPlaces.map((place) => (
+                    <button
+                      key={place.id}
+                      onClick={() => {
+                        setCurrentPlace(place)
+                        setShowRatingPrompt(true)
+                      }}
+                      className="bg-gradient-to-br from-warm-100 to-cream-100 rounded-xl p-4 hover:from-warm-200 hover:to-cream-200 transition-all duration-300 border border-warm-200 hover:border-warm-300"
+                    >
+                      <img 
+                        src={place.image} 
+                        alt={place.name}
+                        className="w-32 h-24 object-cover rounded-lg mb-3 shadow-sm"
+                      />
+                      <h3 className="font-semibold text-earth-800 text-sm">{place.name}</h3>
+                      <p className="text-earth-500 text-xs">{place.address}</p>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Location Tracking Simulation */}
+              <div className="bg-white/80 backdrop-blur-glass rounded-2xl shadow-crystal border border-white/30 p-6">
+                <h2 className="text-2xl font-serif font-semibold text-earth-800 mb-4">
+                  Location Memory Detection
+                </h2>
+                <p className="text-earth-600 mb-6">
+                  Simulating how the app detects meaningful visits and prompts you to save memories. New visits are detected every 15 seconds.
+                </p>
+                
+                <div className="space-y-3">
+                  {simulatedVisits.slice(-5).reverse().map((visit, index) => (
+                    <div key={index} className="flex items-center gap-4 p-3 bg-gradient-to-r from-warm-50 to-cream-50 rounded-xl border border-warm-100">
+                      <img 
+                        src={visit.place.image} 
+                        alt={visit.place.name}
+                        className="w-12 h-12 object-cover rounded-lg"
+                      />
+                      <div className="flex-1">
+                        <h4 className="font-semibold text-earth-800">{visit.place.name}</h4>
+                        <p className="text-earth-500 text-sm">
+                          Visited {visit.timestamp.toLocaleTimeString()} • Stayed {visit.duration} minutes
+                        </p>
+                      </div>
+                      <div className="text-xs text-earth-400">
+                        {visit.timestamp.toLocaleDateString()}
+                      </div>
+                    </div>
+                  ))}
+                  
+                  {simulatedVisits.length === 0 && (
+                    <div className="text-center py-8 text-earth-500">
+                      <p>Waiting for location detection...</p>
+                      <p className="text-sm">New visits will be detected every 15 seconds</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Core Philosophy */}
+              <div className="bg-white/80 backdrop-blur-glass rounded-2xl shadow-crystal border border-white/30 p-6">
+                <h2 className="text-2xl font-serif font-semibold text-earth-800 mb-4">
+                  What Makes This Is Different
+                </h2>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-4">
+                    <div className="bg-gradient-to-br from-warm-100 to-cream-100 rounded-xl p-4 border border-warm-200">
+                      <h3 className="font-semibold text-earth-800 mb-2">Personal Journal</h3>
+                      <p className="text-earth-600 text-sm">Not reviews, but memories. Every place has a personal story.</p>
+                    </div>
+                    <div className="bg-gradient-to-br from-sage-100 to-cream-100 rounded-xl p-4 border border-sage-200">
+                      <h3 className="font-semibold text-earth-800 mb-2">List-Centric</h3>
+                      <p className="text-earth-600 text-sm">Lists are the heart - everything revolves around curated collections.</p>
+                    </div>
+                  </div>
+                  <div className="space-y-4">
+                    <div className="bg-gradient-to-br from-earth-100 to-cream-100 rounded-xl p-4 border border-earth-200">
+                      <h3 className="font-semibold text-earth-800 mb-2">Trusted Social</h3>
+                      <p className="text-earth-600 text-sm">Friends, not strangers. Share with people you trust.</p>
+                    </div>
+                    <div className="bg-gradient-to-br from-warm-100 to-cream-100 rounded-xl p-4 border border-warm-200">
+                      <h3 className="font-semibold text-earth-800 mb-2">Memory-First</h3>
+                      <p className="text-earth-600 text-sm">Notes and personal context help you remember what made each place special.</p>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
-        </div>
-      </div>
+        )
+    }
+  }
 
+  return (
+    <>
+      {renderContent()}
+      
       {/* Memory Saving Prompt */}
       <RatingPrompt
         placeName={currentPlace.name}
@@ -432,7 +632,7 @@ const Demo = () => {
         onDismiss={handleDismiss}
         isVisible={showRatingPrompt}
       />
-    </div>
+    </>
   )
 }
 
