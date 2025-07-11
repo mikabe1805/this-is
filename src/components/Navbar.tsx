@@ -28,7 +28,7 @@ const Navbar = ({ activeTab, setActiveTab }: NavbarProps) => {
               className={`flex flex-col items-center py-2 px-3 rounded-xl transition-all duration-300 group relative ${
                 isActive 
                   ? 'text-warm-600 bg-gradient-to-br from-warm-50 to-cream-50 shadow-frosted border border-warm-200/30' 
-                  : 'text-earth-400 hover:text-earth-600 hover:bg-warm-50/50'
+                  : 'text-earth-400 hover:text-earth-600 hover:bg-linen-50/50'
               }`}
             >
               <Icon className={`w-6 h-6 mb-1 transition-all duration-300 ${

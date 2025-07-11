@@ -57,12 +57,12 @@ const TagCloud = ({
       return `${baseStyles} px-3 py-1.5 rounded-full text-sm border-2 ${
         isSelected
           ? 'bg-gradient-to-r from-warm-500 to-warm-400 text-white border-warm-500 shadow-warm-200'
-          : 'bg-white/80 text-earth-600 border-warm-200 hover:border-warm-300 hover:bg-warm-50'
+          : 'bg-white/80 text-earth-600 border-linen-200 hover:border-sage-300 hover:bg-linen-50'
       }`
     }
 
     if (variant === 'compact') {
-      return `${baseStyles} px-2 py-1 rounded-lg text-xs bg-warm-100 text-warm-600 hover:bg-warm-200`
+      return `${baseStyles} px-2 py-1 rounded-lg text-xs bg-linen-100 text-sage-700 hover:bg-linen-200`
     }
 
     // Default variant
@@ -92,7 +92,7 @@ const TagCloud = ({
           <span>Filtering by:</span>
           <div className="flex flex-wrap gap-1">
             {selectedTags.map(tag => (
-              <span key={tag} className="px-2 py-0.5 bg-warm-100 text-warm-600 rounded-full text-xs">
+              <span key={tag} className="px-2 py-0.5 bg-linen-100 text-sage-700 rounded-full text-xs">
                 #{tag}
               </span>
             ))}
