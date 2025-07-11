@@ -92,7 +92,9 @@ const FriendsOpinions = ({
               <p className="text-earth-500 text-sm">{totalFriends} friends have opinions</p>
             </div>
           </div>
+          {/* eslint-disable-next-line react/jsx-no-undef */}
           <button
+            type="button"
             onClick={() => setIsExpanded(!isExpanded)}
             className="text-earth-400 hover:text-earth-600 transition-colors"
           >

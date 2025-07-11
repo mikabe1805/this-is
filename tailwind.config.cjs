@@ -9,7 +9,20 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        ...defaultColors,
+        // Use modern color names to avoid warnings
+        ...Object.fromEntries(
+          Object.entries(defaultColors).map(([key, value]) => {
+            // Map deprecated color names to their modern equivalents
+            const colorMap = {
+              lightBlue: 'sky',
+              warmGray: 'stone', 
+              trueGray: 'neutral',
+              coolGray: 'gray',
+              blueGray: 'slate'
+            };
+            return [colorMap[key] || key, value];
+          })
+        ),
         // Warm, cozy color scheme
         warm: {
           50: '#fef7f4',
