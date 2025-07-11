@@ -166,7 +166,7 @@ const PlaceHub = ({ place, lists, onSaveToList, onCreateList }: PlaceHubProps) =
               </h3>
               <div className="space-y-4">
                 {myLists.map((list) => (
-                  <div key={list.id} className="p-4 bg-gradient-to-r from-warm-50 to-cream-50 rounded-xl border border-warm-100 hover:bg-warm-100/50 transition-all duration-300 group">
+                  <div key={list.id} className="p-4 bg-gradient-to-r from-linen-50 to-cream-50 rounded-xl border border-linen-100 hover:bg-linen-100/50 transition-all duration-300 group">
                     <div className="flex items-start gap-4">
                       <div className="relative">
                         <img 
@@ -297,7 +297,7 @@ const PlaceHub = ({ place, lists, onSaveToList, onCreateList }: PlaceHubProps) =
                     className={`flex items-center gap-2 px-4 py-3 rounded-xl border-2 transition-all duration-200 ${
                       status === 'loved'
                         ? 'border-warm-500 bg-gradient-to-r from-warm-500 to-warm-400 text-white shadow-warm-200'
-                        : 'border-warm-200 bg-white text-warm-600 hover:border-warm-300 hover:bg-warm-50'
+                        : 'border-warm-200 bg-white text-sage-700 hover:border-sage-300 hover:bg-linen-50'
                     }`}
                   >
                     <HeartIcon className="w-5 h-5" />

@@ -37,7 +37,7 @@ body {
 }
 
 .test-warm {
-  @apply bg-warm-500 text-white;
+  @apply bg-sage-500 text-linen-50;
 }
 
 /* Custom utility classes */

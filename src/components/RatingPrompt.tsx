@@ -134,7 +134,7 @@ const RatingPrompt = ({ placeName, placeImage, onSave, onDismiss, isVisible }: R
           <div className="space-y-3 mb-6">
             <button
               onClick={() => handleFeelingSelect('loved')}
-              className="w-full flex items-center justify-center gap-3 py-4 px-6 rounded-xl border-2 border-warm-200 bg-white hover:border-warm-300 hover:bg-warm-50 text-warm-600 transition-all duration-300 group"
+              className="w-full flex items-center justify-center gap-3 py-4 px-6 rounded-xl border-2 border-sage-200 bg-white hover:border-sage-300 hover:bg-linen-50 text-sage-700 transition-all duration-300 group"
             >
               <HeartIconSolid className="w-6 h-6 group-hover:scale-110 transition-transform" />
               <div className="text-left">
@@ -145,7 +145,7 @@ const RatingPrompt = ({ placeName, placeImage, onSave, onDismiss, isVisible }: R
 
             <button
               onClick={() => handleFeelingSelect('liked')}
-              className="w-full flex items-center justify-center gap-3 py-4 px-6 rounded-xl border-2 border-sage-200 bg-white hover:border-sage-300 hover:bg-sage-50 text-sage-600 transition-all duration-300 group"
+              className="w-full flex items-center justify-center gap-3 py-4 px-6 rounded-xl border-2 border-sage-200 bg-white hover:border-sage-300 hover:bg-linen-50 text-sage-700 transition-all duration-300 group"
             >
               <HeartIcon className="w-6 h-6 group-hover:scale-110 transition-transform" />
               <div className="text-left">
@@ -219,7 +219,7 @@ const RatingPrompt = ({ placeName, placeImage, onSave, onDismiss, isVisible }: R
                       className={`px-3 py-1.5 rounded-full text-sm font-medium transition-all duration-200 ${
                         selectedTags.includes(tag)
                           ? 'bg-gradient-to-r from-warm-500 to-warm-400 text-white shadow-warm-200'
-                          : 'bg-warm-100 text-warm-600 hover:bg-warm-200 border border-warm-200'
+                          : 'bg-linen-100 text-sage-700 hover:bg-linen-200 border border-linen-200'
                       }`}
                     >
                       #{tag}

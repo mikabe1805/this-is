@@ -162,7 +162,7 @@ const ListCard = ({
               className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium transition-all duration-200 ${
                 isLiked 
                   ? 'bg-gradient-to-r from-warm-500 to-warm-400 text-white shadow-warm-200' 
-                  : 'bg-warm-100 text-warm-600 hover:bg-warm-200'
+                  : 'bg-linen-100 text-sage-700 hover:bg-linen-200'
               }`}
             >
               {isLiked ? <HeartIconSolid className="w-4 h-4" /> : <HeartIcon className="w-4 h-4" />}
@@ -183,7 +183,7 @@ const ListCard = ({
       <div className="p-6">
         <div className="space-y-4">
           {visiblePlaces.map((place) => (
-            <div key={place.id} className="p-4 bg-gradient-to-r from-warm-50 to-cream-50 rounded-xl border border-warm-100 hover:bg-warm-100/50 transition-all duration-300 group/place">
+            <div key={place.id} className="p-4 bg-gradient-to-r from-linen-50 to-cream-50 rounded-xl border border-linen-100 hover:bg-linen-100/50 transition-all duration-300 group/place">
               <div className="flex items-start gap-4">
                 {/* Place image */}
                 <div className="relative">
@@ -229,7 +229,7 @@ const ListCard = ({
                   {!isDefaultList && place.tags.length > 0 && (
                     <div className="flex flex-wrap gap-1 mb-2">
                       {place.tags.slice(0, 3).map((tag) => (
-                        <span key={tag} className="text-xs bg-warm-100 text-warm-600 px-2 py-0.5 rounded-full">
+                        <span key={tag} className="text-xs bg-linen-100 text-sage-700 px-2 py-0.5 rounded-full">
                           #{tag}
                         </span>
                       ))}

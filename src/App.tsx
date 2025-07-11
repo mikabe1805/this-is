@@ -60,7 +60,7 @@ function App() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-cream-50 via-warm-50 to-sage-50">
+    <div className="min-h-screen bg-botanical-overlay">
       <div className="max-w-md mx-auto bg-white/90 backdrop-blur-glass min-h-screen shadow-crystal border border-white/30">
         <div className="flex flex-col h-screen">
           {/* Main Content Area */}
