@@ -7,6 +7,9 @@ const Search = () => {
   const [selectedTags, setSelectedTags] = useState<string[]>([])
   const [showSearchHistory, setShowSearchHistory] = useState(false)
   const [isSearching, setIsSearching] = useState(false)
+  const [showDropdown, setShowDropdown] = useState(false)
+  const [sortBy, setSortBy] = useState('popular')
+  const [activeFilters, setActiveFilters] = useState<string[]>([])
 
   // Mock data
   const searchHistory = [
@@ -26,6 +29,18 @@ const Search = () => {
     { tag: '#authentic', count: '850' },
     { tag: '#scenic', count: '720' },
     { tag: '#quick', count: '650' }
+  ]
+
+  const sortOptions = [
+    { key: 'popular', label: 'Most Popular' },
+    { key: 'recent', label: 'Most Recent' },
+    { key: 'nearby', label: 'Closest to Location' },
+  ]
+
+  const filterOptions = [
+    { key: 'coffee', label: 'Coffee' },
+    { key: 'food', label: 'Food' },
+    { key: 'work-friendly', label: 'Work-Friendly' },
   ]
 
   const allData = {
@@ -98,7 +113,7 @@ const Search = () => {
         id: '1',
         name: 'Sara Chen',
         username: 'sara.chen',
-        avatar: 'https://images.unsplash.com/photo-1494790108755-2616b612b786?w=150&h=150&fit=crop&crop=face',
+        avatar: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=150&h=150&fit=crop&crop=face',
         bio: 'Finding cozy spots and sharing them with friends ✨',
         location: 'San Francisco, CA'
       },
@@ -204,10 +219,30 @@ const Search = () => {
   }
 
   return (
-    <div className="min-h-full bg-gradient-to-br from-cream-50 to-coral-50">
+    <div className="relative min-h-full overflow-x-hidden bg-linen-50">
+      {/* Enhanced background: linen texture, sunlight gradient, vignette */}
+      <div className="absolute inset-0 z-0 pointer-events-none">
+        <div className="absolute inset-0 bg-linen-texture opacity-80 mix-blend-multiply"></div>
+        <div className="absolute inset-0 bg-gradient-to-br from-gold-50/60 via-linen-100/80 to-sage-100/70 opacity-80"></div>
+        <div className="absolute inset-0 bg-gradient-radial from-transparent via-transparent to-charcoal-900/10"></div>
+      </div>
+
       {/* Header with Search Bar */}
-      <div className="bg-white/80 backdrop-blur-md border-b border-cream-200 px-6 py-4">
-        <h1 className="text-xl font-semibold text-sage-800 mb-4">Search</h1>
+      <div className="relative z-10 bg-white/90 backdrop-blur-glass border-b border-linen-200 px-6 py-4">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="flex-1">
+            <h1 className="text-xl font-serif font-semibold text-charcoal-800">Search</h1>
+          </div>
+          <div className="relative">
+            <button
+              className="flex items-center gap-2 px-5 py-3 rounded-full bg-white/90 border border-linen-200 shadow-cozy transition-all duration-300 hover:shadow-botanical hover:bg-linen-50"
+              onClick={() => setShowDropdown(v => !v)}
+            >
+              <FunnelIcon className="w-5 h-5 text-sage-400" />
+              <span className="font-semibold text-charcoal-600">Sort & Filter</span>
+            </button>
+          </div>
+        </div>
         
         {/* Search Bar */}
         <form onSubmit={handleSearchSubmit} className="relative">
@@ -218,7 +253,7 @@ const Search = () => {
             value={searchQuery}
             onChange={handleSearchInputChange}
             onFocus={handleSearchInputFocus}
-            className="w-full pl-10 pr-12 py-3 bg-white/80 backdrop-blur-sm rounded-2xl border border-cream-200 focus:outline-none focus:ring-2 focus:ring-coral-200 focus:border-coral-300 transition-all duration-300"
+            className="w-full pl-10 pr-12 py-3 bg-white/80 backdrop-blur-sm rounded-2xl border border-linen-200 focus:outline-none focus:ring-2 focus:ring-sage-200 focus:border-sage-300 transition-all duration-300"
           />
           {searchQuery && (
             <button
@@ -232,19 +267,80 @@ const Search = () => {
         </form>
       </div>
 
+      {/* Dropdown */}
+      {showDropdown && (
+        <div className="fixed inset-0 z-20 flex items-start justify-end px-4 pt-24 bg-black/10" onClick={() => setShowDropdown(false)}>
+          <div className="w-80 rounded-2xl shadow-cozy border border-linen-200 bg-white/95 p-6" onClick={e => e.stopPropagation()}>
+            <div className="mb-6">
+              <div className="font-serif font-semibold mb-4 text-lg text-charcoal-700">Sort by</div>
+              <div className="space-y-2">
+                {sortOptions.map(opt => (
+                  <label key={opt.key} className="flex items-center gap-3 p-2 rounded-lg cursor-pointer border border-transparent hover:border-sage-200 hover:bg-sage-50">
+                    <input
+                      type="radio"
+                      name="sortBy"
+                      value={opt.key}
+                      checked={sortBy === opt.key}
+                      onChange={() => setSortBy(opt.key)}
+                      className="w-5 h-5 text-sage-500 focus:ring-sage-400"
+                    />
+                    <span className="font-medium text-charcoal-600">{opt.label}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+            <div>
+              <div className="font-serif font-semibold mb-4 text-lg text-charcoal-700">Filter by</div>
+              <div className="flex flex-wrap gap-2 mb-4">
+                {filterOptions.map(opt => (
+                  <label key={opt.key} className="flex items-center gap-2 px-3 py-2 rounded-full text-sm font-medium bg-sage-50 border border-sage-100 text-sage-700 hover:bg-sage-100 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={activeFilters.includes(opt.key)}
+                      onChange={() => setActiveFilters(f => f.includes(opt.key) ? f.filter(x => x !== opt.key) : [...f, opt.key])}
+                      className="w-4 h-4 text-sage-500 focus:ring-sage-400"
+                    />
+                    {opt.label}
+                  </label>
+                ))}
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {availableTags.map(tag => (
+                  <label key={tag} className="flex items-center gap-2 px-3 py-2 rounded-full text-sm font-medium bg-linen-100 border border-linen-200 text-charcoal-500 hover:bg-linen-200 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={activeFilters.includes(tag)}
+                      onChange={() => setActiveFilters(f => f.includes(tag) ? f.filter(x => x !== tag) : [...f, tag])}
+                      className="w-4 h-4 text-sage-500 focus:ring-sage-400"
+                    />
+                    {tag}
+                  </label>
+                ))}
+              </div>
+            </div>
+            <button
+              className="mt-6 w-full py-3 rounded-full font-semibold bg-sage-400 text-white shadow-soft hover:bg-sage-500 transition"
+              onClick={() => setShowDropdown(false)}
+            >
+              Apply Filters
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Search History */}
       {showSearchHistory && searchHistory.length > 0 && (
-        <div className="bg-white/90 backdrop-blur-sm border-b border-cream-200 px-6 py-4">
+        <div className="relative z-10 bg-white/90 backdrop-blur-sm border-b border-linen-200 px-6 py-4">
           <div className="flex items-center space-x-2 mb-3">
             <ClockIcon className="w-4 h-4 text-sage-600" />
-            <span className="text-sm font-medium text-sage-800">Recent Searches</span>
+            <span className="text-sm font-medium text-charcoal-800">Recent Searches</span>
           </div>
           <div className="space-y-2">
             {searchHistory.map((query, index) => (
               <button
                 key={index}
                 onClick={() => handleSearchHistoryClick(query)}
-                className="w-full text-left px-3 py-2 rounded-xl hover:bg-cream-50 transition-colors text-sage-700 hover:text-sage-800"
+                className="w-full text-left px-3 py-2 rounded-xl hover:bg-linen-50 transition-colors text-charcoal-700 hover:text-charcoal-800"
               >
                 {query}
               </button>
@@ -255,17 +351,17 @@ const Search = () => {
 
       {/* Trendy Hashtags */}
       {showSearchHistory && (
-        <div className="bg-white/90 backdrop-blur-sm border-b border-cream-200 px-6 py-4">
+        <div className="relative z-10 bg-white/90 backdrop-blur-sm border-b border-linen-200 px-6 py-4">
           <div className="flex items-center space-x-2 mb-3">
-            <FireIcon className="w-4 h-4 text-coral-600" />
-            <span className="text-sm font-medium text-sage-800">Trending</span>
+            <FireIcon className="w-4 h-4 text-gold-600" />
+            <span className="text-sm font-medium text-charcoal-800">Trending</span>
           </div>
           <div className="flex flex-wrap gap-2">
             {trendyHashtags.map((item, index) => (
               <button
                 key={index}
                 onClick={() => handleHashtagClick(item.tag)}
-                className="px-3 py-2 bg-gradient-to-r from-coral-100 to-coral-200 text-coral-700 rounded-xl text-sm font-medium hover:from-coral-200 hover:to-coral-300 transition-all duration-300 shadow-soft"
+                className="px-3 py-2 bg-gradient-to-r from-gold-100 to-gold-200 text-gold-700 rounded-xl text-sm font-medium hover:from-gold-200 hover:to-gold-300 transition-all duration-300 shadow-soft"
               >
                 {item.tag}
                 <span className="ml-1 text-xs opacity-70">({item.count})</span>
@@ -277,17 +373,17 @@ const Search = () => {
 
       {/* Search Results or Filters */}
       {!showSearchHistory && (
-        <div className="p-4 space-y-4">
+        <div className="relative z-10 p-4 space-y-4">
           {/* Search Status */}
           {isSearching && (
-            <div className="bg-white/70 backdrop-blur-sm rounded-2xl p-4 shadow-soft border border-cream-200">
+            <div className="bg-white/70 backdrop-blur-sm rounded-2xl p-4 shadow-soft border border-linen-200">
               <div className="flex items-center justify-between">
-                <span className="text-sage-700">
+                <span className="text-charcoal-700">
                   {searchQuery ? `Searching for "${searchQuery}"` : 'Showing all results'}
                 </span>
                 <button
                   onClick={clearSearch}
-                  className="text-coral-600 hover:text-coral-700 text-sm font-medium transition-colors"
+                  className="text-sage-600 hover:text-sage-700 text-sm font-medium transition-colors"
                 >
                   Clear
                 </button>
@@ -296,7 +392,7 @@ const Search = () => {
           )}
 
           {/* Filter Tabs */}
-          <div className="bg-white/60 backdrop-blur-sm rounded-2xl p-1 shadow-soft border border-cream-200">
+          <div className="bg-white/60 backdrop-blur-sm rounded-2xl p-1 shadow-soft border border-linen-200">
             <div className="flex">
               {(['all', 'places', 'lists', 'users'] as const).map((filter) => (
                 <button
@@ -304,8 +400,8 @@ const Search = () => {
                   onClick={() => setActiveFilter(filter)}
                   className={`flex-1 py-2 px-3 text-sm font-medium rounded-xl transition-all duration-300 ${
                     activeFilter === filter
-                      ? 'bg-gradient-to-r from-coral-500 to-coral-600 text-white shadow-soft'
-                      : 'text-sage-600 hover:text-coral-600 hover:bg-cream-50'
+                      ? 'bg-gradient-to-r from-sage-500 to-sage-600 text-white shadow-soft'
+                      : 'text-charcoal-600 hover:text-sage-600 hover:bg-linen-50'
                   }`}
                 >
                   {filter.charAt(0).toUpperCase() + filter.slice(1)}
@@ -314,28 +410,7 @@ const Search = () => {
             </div>
           </div>
 
-          {/* Tag Filters */}
-          <div className="bg-white/70 backdrop-blur-sm rounded-2xl p-4 shadow-soft border border-cream-200">
-            <div className="flex items-center space-x-2 mb-3">
-              <FunnelIcon className="w-4 h-4 text-sage-600" />
-              <span className="text-sm font-medium text-sage-800">Filter by tags</span>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {availableTags.map((tag) => (
-                <button
-                  key={tag}
-                  onClick={() => toggleTag(tag)}
-                  className={`px-3 py-1 rounded-full text-xs font-medium transition-all duration-300 ${
-                    selectedTags.includes(tag)
-                      ? 'bg-coral-500 text-white shadow-soft'
-                      : 'bg-cream-100 text-sage-700 hover:bg-coral-100 hover:text-coral-700'
-                  }`}
-                >
-                  {tag}
-                </button>
-              ))}
-            </div>
-          </div>
+
 
           {/* Search Results */}
           <div className="space-y-4">
@@ -345,27 +420,27 @@ const Search = () => {
              searchResults.lists.length === 0 && 
              searchResults.users.length === 0 && (
               <div className="text-center py-8">
-                <p className="text-sage-600">No results found for "{searchQuery}"</p>
-                <p className="text-sage-500 text-sm mt-2">Try different keywords or check your spelling</p>
+                <p className="text-charcoal-600">No results found for "{searchQuery}"</p>
+                <p className="text-charcoal-500 text-sm mt-2">Try different keywords or check your spelling</p>
               </div>
             )}
 
             {/* Places */}
             {(activeFilter === 'all' || activeFilter === 'places') && searchResults.places.length > 0 && (
               <div>
-                <h3 className="text-lg font-semibold text-sage-800 mb-3">
+                <h3 className="text-lg font-serif font-semibold text-charcoal-800 mb-3">
                   Places ({searchResults.places.length})
                 </h3>
                 <div className="space-y-3">
                   {searchResults.places.map((place) => (
                     <div
                       key={place.id}
-                      className="bg-white/70 backdrop-blur-sm rounded-2xl p-4 shadow-soft border border-cream-200 hover:shadow-liquid transition-all duration-300"
+                      className="bg-white/70 backdrop-blur-sm rounded-2xl p-4 shadow-soft border border-linen-200 hover:shadow-cozy transition-all duration-300"
                     >
                       <div className="flex items-start justify-between">
                         <div className="flex-1">
-                          <h4 className="font-semibold text-sage-800 mb-1">{place.name}</h4>
-                          <div className="flex items-center text-sage-600 text-sm mb-2">
+                          <h4 className="font-semibold text-charcoal-800 mb-1">{place.name}</h4>
+                          <div className="flex items-center text-charcoal-600 text-sm mb-2">
                             <MapPinIcon className="w-4 h-4 mr-1" />
                             {place.address}
                           </div>
@@ -373,20 +448,20 @@ const Search = () => {
                             {place.tags.map((tag) => (
                               <span
                                 key={tag}
-                                className="px-2 py-1 bg-coral-100 text-coral-700 text-xs rounded-full"
+                                className="px-2 py-1 bg-gold-100 text-gold-700 text-xs rounded-full"
                               >
                                 {tag}
                               </span>
                             ))}
                           </div>
                           <div className="flex items-center justify-between">
-                            <div className="flex items-center space-x-4 text-sm text-sage-600">
+                            <div className="flex items-center space-x-4 text-sm text-charcoal-600">
                               <span className="flex items-center">
                                 <HeartIcon className="w-4 h-4 mr-1" />
                                 {place.savedCount} saved
                               </span>
                             </div>
-                            <button className="bg-gradient-to-r from-coral-500 to-coral-600 text-white px-4 py-2 rounded-xl text-sm font-medium hover:from-coral-600 hover:to-coral-700 transition-all duration-300 shadow-soft">
+                            <button className="bg-gradient-to-r from-sage-500 to-sage-600 text-white px-4 py-2 rounded-xl text-sm font-medium hover:from-sage-600 hover:to-sage-700 transition-all duration-300 shadow-soft">
                               Save
                             </button>
                           </div>
@@ -401,19 +476,19 @@ const Search = () => {
             {/* Lists */}
             {(activeFilter === 'all' || activeFilter === 'lists') && searchResults.lists.length > 0 && (
               <div>
-                <h3 className="text-lg font-semibold text-sage-800 mb-3">
+                <h3 className="text-lg font-serif font-semibold text-charcoal-800 mb-3">
                   Lists ({searchResults.lists.length})
                 </h3>
                 <div className="space-y-3">
                   {searchResults.lists.map((list) => (
                     <div
                       key={list.id}
-                      className="bg-white/70 backdrop-blur-sm rounded-2xl p-4 shadow-soft border border-cream-200 hover:shadow-liquid transition-all duration-300"
+                      className="bg-white/70 backdrop-blur-sm rounded-2xl p-4 shadow-soft border border-linen-200 hover:shadow-cozy transition-all duration-300"
                     >
                       <div className="flex items-start justify-between">
                         <div className="flex-1">
-                          <h4 className="font-semibold text-sage-800 mb-1">{list.name}</h4>
-                          <p className="text-sm text-sage-600 mb-2">{list.description}</p>
+                          <h4 className="font-semibold text-charcoal-800 mb-1">{list.name}</h4>
+                          <p className="text-sm text-charcoal-600 mb-2">{list.description}</p>
                           <div className="flex flex-wrap gap-1 mb-3">
                             {list.tags.map((tag) => (
                               <span
@@ -425,8 +500,8 @@ const Search = () => {
                             ))}
                           </div>
                           <div className="flex items-center justify-between">
-                            <span className="text-xs text-sage-500">Updated {new Date(list.updatedAt).toLocaleDateString()}</span>
-                            <button className="text-coral-600 hover:text-coral-700 text-sm font-medium transition-colors">
+                            <span className="text-xs text-charcoal-500">Updated {new Date(list.updatedAt).toLocaleDateString()}</span>
+                            <button className="text-sage-600 hover:text-sage-700 text-sm font-medium transition-colors">
                               Follow List
                             </button>
                           </div>
@@ -441,18 +516,18 @@ const Search = () => {
             {/* Users */}
             {(activeFilter === 'all' || activeFilter === 'users') && searchResults.users.length > 0 && (
               <div>
-                <h3 className="text-lg font-semibold text-sage-800 mb-3">
+                <h3 className="text-lg font-serif font-semibold text-charcoal-800 mb-3">
                   People ({searchResults.users.length})
                 </h3>
                 <div className="space-y-3">
                   {searchResults.users.map((user) => (
                     <div
                       key={user.id}
-                      className="bg-white/70 backdrop-blur-sm rounded-2xl p-4 shadow-soft border border-cream-200 hover:shadow-liquid transition-all duration-300"
+                      className="bg-white/70 backdrop-blur-sm rounded-2xl p-4 shadow-soft border border-linen-200 hover:shadow-cozy transition-all duration-300"
                     >
                       <div className="flex items-center space-x-3">
                         {user.avatar ? (
-                          <div className="w-12 h-12 rounded-full border-2 border-cream-200 bg-cream-50/80 backdrop-blur-sm relative overflow-hidden">
+                          <div className="w-12 h-12 rounded-full border-2 border-linen-200 bg-linen-50/80 backdrop-blur-sm relative overflow-hidden">
                             <img
                               src={user.avatar}
                               alt={user.name}
@@ -461,15 +536,15 @@ const Search = () => {
                             <div className="absolute inset-0 border border-white/30 rounded-full"></div>
                           </div>
                         ) : (
-                          <div className="w-12 h-12 bg-gradient-to-br from-sage-100 to-sage-200 rounded-full flex items-center justify-center border-2 border-cream-200">
+                          <div className="w-12 h-12 bg-gradient-to-br from-sage-100 to-sage-200 rounded-full flex items-center justify-center border-2 border-linen-200">
                             <UserIcon className="w-6 h-6 text-sage-600" />
                           </div>
                         )}
                         <div className="flex-1">
-                          <h4 className="font-semibold text-sage-800">{user.name}</h4>
-                          <p className="text-sm text-sage-600">@{user.username}</p>
+                          <h4 className="font-semibold text-charcoal-800">{user.name}</h4>
+                          <p className="text-sm text-charcoal-600">@{user.username}</p>
                           {user.bio && (
-                            <p className="text-sm text-sage-600 mt-1">{user.bio}</p>
+                            <p className="text-sm text-charcoal-600 mt-1">{user.bio}</p>
                           )}
                         </div>
                         <button className="bg-gradient-to-r from-sage-500 to-sage-600 text-white px-4 py-2 rounded-xl text-sm font-medium hover:from-sage-600 hover:to-sage-700 transition-all duration-300 shadow-soft">

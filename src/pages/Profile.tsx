@@ -25,7 +25,7 @@ const filterOptions = [
 ]
 const availableTags = ['cozy', 'trendy', 'quiet', 'local', 'charming', 'authentic', 'chill']
 const mockComments = [
-  { id: 1, user: { name: 'Ava', avatar: 'https://images.unsplash.com/photo-1494790108755-2616b612b786?w=150&h=150&fit=crop&crop=face' }, text: 'mika is so helpful with finding good vegan spots! 🌱', date: '2d ago' },
+  { id: 1, user: { name: 'Ava', avatar: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=150&h=150&fit=crop&crop=face' }, text: 'mika is so helpful with finding good vegan spots! 🌱', date: '2d ago' },
   { id: 2, user: { name: 'Leo', avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=150&fit=crop&crop=face' }, text: 'Loved your Book Nooks list! 📚', date: '5d ago' },
 ]
 
@@ -35,7 +35,7 @@ const Profile = () => {
     id: '1',
     name: 'Mika Chen',
     username: 'mika.chen',
-    avatar: 'https://images.unsplash.com/photo-1494790108755-2616b612b786?w=150&h=150&fit=crop&crop=face',
+    avatar: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=150&h=150&fit=crop&crop=face',
     bio: 'Finding cozy spots and sharing them with friends ✨',
     location: 'San Francisco, CA'
   }
