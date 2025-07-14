@@ -2,6 +2,7 @@ import type { User, List, Activity } from '../types/index.js'
 import { BookmarkIcon, HeartIcon, PlusIcon, FunnelIcon, MapPinIcon, CalendarIcon } from '@heroicons/react/24/outline'
 import { useState } from 'react'
 import SearchBar from '../components/SearchBar'
+import { useNavigate } from 'react-router-dom'
 
 // SVG botanical accent (e.g., eucalyptus branch)
 const BotanicalAccent = () => (
@@ -37,7 +38,8 @@ const Profile = () => {
     username: 'mika.chen',
     avatar: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=150&h=150&fit=crop&crop=face',
     bio: 'Finding cozy spots and sharing them with friends ✨',
-    location: 'San Francisco, CA'
+    location: 'San Francisco, CA',
+    influences: 234 // Mock influence count
   }
   const userLists: List[] = [
     {
@@ -47,11 +49,14 @@ const Profile = () => {
       userId: '1',
       isPublic: true,
       isShared: false,
+      privacy: 'public',
       tags: ['coffee', 'work-friendly', 'cozy'],
-      places: [],
+      hubs: [],
       coverImage: 'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=300&h=200&fit=crop',
       createdAt: '2024-01-10',
-      updatedAt: '2024-01-15'
+      updatedAt: '2024-01-15',
+      likes: 56,
+      isLiked: false
     },
     {
       id: '2',
@@ -60,11 +65,14 @@ const Profile = () => {
       userId: '1',
       isPublic: true,
       isShared: false,
+      privacy: 'public',
       tags: ['local', 'hidden-gems', 'authentic'],
-      places: [],
+      hubs: [],
       coverImage: 'https://images.unsplash.com/photo-1501594907352-04cda38ebc29?w=300&h=200&fit=crop',
       createdAt: '2024-01-12',
-      updatedAt: '2024-01-14'
+      updatedAt: '2024-01-14',
+      likes: 42,
+      isLiked: false
     }
   ]
   const recentActivity: Activity[] = [
@@ -95,6 +103,8 @@ const Profile = () => {
   const [newTag, setNewTag] = useState('')
   const [comments, setComments] = useState(mockComments)
   const [commentInput, setCommentInput] = useState('')
+  const [likedLists, setLikedLists] = useState<Set<string>>(new Set())
+  const [savedLists, setSavedLists] = useState<Set<string>>(new Set())
   let filteredLists = userLists.filter(list => {
     if (activeFilters.length === 0) return true
     return activeFilters.some(f => list.tags.includes(f))
@@ -102,6 +112,32 @@ const Profile = () => {
   if (sortBy === 'popular') filteredLists = filteredLists
   if (sortBy === 'friends') filteredLists = [...filteredLists].reverse()
   if (sortBy === 'nearby') filteredLists = filteredLists
+
+  const handleLikeList = (listId: string) => {
+    setLikedLists(prev => {
+      const newSet = new Set(prev)
+      if (newSet.has(listId)) {
+        newSet.delete(listId)
+      } else {
+        newSet.add(listId)
+      }
+      return newSet
+    })
+  }
+
+  const handleSaveList = (listId: string) => {
+    setSavedLists(prev => {
+      const newSet = new Set(prev)
+      if (newSet.has(listId)) {
+        newSet.delete(listId)
+      } else {
+        newSet.add(listId)
+      }
+      return newSet
+    })
+  }
+
+  const navigate = useNavigate()
 
   return (
     <div className="relative min-h-full overflow-x-hidden bg-linen-50">
@@ -114,16 +150,7 @@ const Profile = () => {
       {/* Top Bar */}
       <div className="relative z-10 px-4 pt-6 flex items-center gap-3">
         <div className="flex-1">
-          <SearchBar placeholder="Search your lists, places, or friends..." />
-        </div>
-        <div className="relative">
-          <button
-            className="flex items-center gap-2 px-5 py-3 rounded-full bg-white/90 border border-linen-200 shadow-cozy transition-all duration-300 hover:shadow-botanical hover:bg-linen-50"
-            onClick={() => setShowDropdown(v => !v)}
-          >
-            <FunnelIcon className="w-5 h-5 text-sage-400" />
-            <span className="font-semibold text-charcoal-600">Sort & Filter</span>
-          </button>
+          <SearchBar placeholder="Search your lists, places, or friends..." onFilterClick={() => setShowDropdown(true)} />
         </div>
       </div>
       {/* Dropdown */}
@@ -219,6 +246,13 @@ const Profile = () => {
             </div>
           </div>
         </div>
+        {/* Influences stat - modern page breaker */}
+        <div className="relative flex items-center justify-center my-6">
+          <div className="absolute left-0 right-0 h-0.5 bg-gradient-to-r from-gold-200 via-sage-200 to-gold-200 opacity-60" />
+          <span className="relative z-10 px-8 py-2 bg-white text-2xl font-extrabold tracking-widest text-gold-600 uppercase shadow-soft rounded-full border-2 border-gold-100" style={{letterSpacing: '0.2em'}}>
+            {currentUser.influences} Influences
+          </span>
+        </div>
         {currentUser.bio && (
           <p className="mt-4 text-lg text-charcoal-700 italic bg-linen-100 rounded-xl p-4 shadow-soft">{currentUser.bio}</p>
         )}
@@ -265,6 +299,23 @@ const Profile = () => {
           </div>
         </div>
       </div>
+      {/* Quick Actions - moved to top */}
+      <div className="relative z-10 p-4 max-w-2xl mx-auto">
+        <div className="rounded-2xl shadow-botanical border border-linen-200 bg-white/98 p-6 flex gap-4 transition hover:shadow-cozy hover:-translate-y-1">
+          <button className="flex-1 rounded-xl p-4 bg-sage-100 text-sage-700 font-semibold flex flex-col items-center gap-2 shadow-soft hover:bg-sage-200 hover:shadow-botanical transition">
+            <PlusIcon className="w-6 h-6" />
+            New List
+          </button>
+          <button className="flex-1 rounded-xl p-4 bg-gold-100 text-gold-700 font-semibold flex flex-col items-center gap-2 shadow-soft hover:bg-gold-200 hover:shadow-botanical transition">
+            <BookmarkIcon className="w-6 h-6" />
+            View My Lists
+          </button>
+          <button className="flex-1 rounded-xl p-4 bg-charcoal-100 text-charcoal-700 font-semibold flex flex-col items-center gap-2 shadow-soft hover:bg-charcoal-200 hover:shadow-botanical transition">
+            <HeartIcon className="w-6 h-6" />
+            Saved Places
+          </button>
+        </div>
+      </div>
       {/* Main Content */}
       <div className="relative z-10 p-4 max-w-2xl mx-auto space-y-8 pb-20">
         {/* Most Popular Lists */}
@@ -275,14 +326,19 @@ const Profile = () => {
           </div>
           <div className="space-y-4">
             {filteredLists.map((list, idx) => (
-              <div key={list.id} className="rounded-2xl shadow-botanical border border-linen-200 bg-white/98 flex flex-col md:flex-row gap-4 overflow-hidden transition hover:shadow-cozy hover:-translate-y-1">
+              <button
+                key={list.id}
+                className="w-full text-left rounded-2xl shadow-botanical border border-linen-200 bg-white/98 flex flex-col md:flex-row gap-4 overflow-hidden transition hover:shadow-cozy hover:-translate-y-1 focus:outline-none focus:ring-2 focus:ring-sage-200"
+                onClick={() => navigate(`/list/${list.id}`)}
+                aria-label={`Open list ${list.name}`}
+              >
                 <div className="w-full md:w-40 h-28 md:h-auto flex-shrink-0 bg-linen-100">
                   <img src={list.coverImage} alt={list.name} className="w-full h-full object-cover rounded-l-2xl" />
                 </div>
                 <div className="flex-1 p-4 flex flex-col justify-between">
                   <div>
                     <h4 className="font-serif font-semibold text-lg text-charcoal-700 mb-1">{list.name}</h4>
-                    <p className="text-sm text-charcoal-500 mb-2">{list.description}</p>
+                    <p className="text-sm text-charcoal-500 mb-2 leading-relaxed break-words">{list.description}</p>
                     <div className="flex flex-wrap gap-2 mb-2">
                       {list.tags.map(tag => (
                         <span key={tag} className="px-3 py-1 rounded-full text-xs font-medium bg-sage-50 border border-sage-100 text-sage-700 transition hover:bg-sage-100 hover:shadow-botanical">#{tag}</span>
@@ -292,13 +348,32 @@ const Profile = () => {
                   <div className="flex items-center gap-2 mt-2">
                     <img src={currentUser.avatar} alt={currentUser.name} className="w-6 h-6 rounded-full border-2 border-white shadow-soft object-cover" />
                     <span className="text-xs text-charcoal-500 font-medium">{currentUser.name}</span>
-                    <span className="ml-auto flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium bg-gold-50 text-gold-700">
-                      <HeartIcon className="w-4 h-4" /> {56 + idx * 10}
-                    </span>
-                    <button className="ml-2 px-3 py-1 rounded-full text-xs font-medium bg-sage-400 text-white hover:bg-sage-500 transition">View</button>
+                    <div className="ml-auto flex items-center gap-2">
+                      <button 
+                        onClick={e => { e.stopPropagation(); handleLikeList(list.id) }}
+                        className={`flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium transition ${
+                          likedLists.has(list.id) 
+                            ? 'bg-gold-100 text-gold-700 border border-gold-200' 
+                            : 'bg-gold-50 text-gold-600 hover:bg-gold-100'
+                        }`}
+                      >
+                        <HeartIcon className={`w-4 h-4 ${likedLists.has(list.id) ? 'fill-current' : ''}`} />
+                        {list.likes || 0}
+                      </button>
+                      <button 
+                        onClick={e => { e.stopPropagation(); handleSaveList(list.id) }}
+                        className={`p-1.5 rounded-full transition ${
+                          savedLists.has(list.id) 
+                            ? 'bg-sage-100 text-sage-700' 
+                            : 'bg-sage-50 text-sage-600 hover:bg-sage-100'
+                        }`}
+                      >
+                        <BookmarkIcon className={`w-4 h-4 ${savedLists.has(list.id) ? 'fill-current' : ''}`} />
+                      </button>
+                    </div>
                   </div>
                 </div>
-              </div>
+              </button>
             ))}
           </div>
         </div>
@@ -322,17 +397,6 @@ const Profile = () => {
               </div>
             ))}
           </div>
-        </div>
-        {/* Quick Actions */}
-        <div className="rounded-2xl shadow-botanical border border-linen-200 bg-white/98 p-6 flex gap-4 transition hover:shadow-cozy hover:-translate-y-1">
-          <button className="flex-1 rounded-xl p-4 bg-sage-100 text-sage-700 font-semibold flex flex-col items-center gap-2 shadow-soft hover:bg-sage-200 hover:shadow-botanical transition">
-            <PlusIcon className="w-6 h-6" />
-            New List
-          </button>
-          <button className="flex-1 rounded-xl p-4 bg-gold-100 text-gold-700 font-semibold flex flex-col items-center gap-2 shadow-soft hover:bg-gold-200 hover:shadow-botanical transition">
-            <HeartIcon className="w-6 h-6" />
-            Saved Places
-          </button>
         </div>
         {/* Comment Wall */}
         <div className="rounded-2xl shadow-botanical border border-linen-200 bg-white/98 p-6 transition hover:shadow-cozy hover:-translate-y-1">
@@ -366,22 +430,16 @@ const Profile = () => {
               ])
               setCommentInput('')
             }}
-            className="flex items-center gap-4"
+            className="flex items-center gap-3 p-4 bg-linen-50 rounded-xl border border-linen-200"
           >
-            <img src={currentUser.avatar} alt={currentUser.name} className="w-10 h-10 rounded-full object-cover border-2 border-white shadow-soft" />
+            <img src={currentUser.avatar} alt={currentUser.name} className="w-10 h-10 rounded-full object-cover border-2 border-white shadow-soft flex-shrink-0" />
             <input
               type="text"
               value={commentInput}
               onChange={e => setCommentInput(e.target.value)}
               placeholder="Write a comment..."
-              className="flex-1 rounded-full px-4 py-3 border border-linen-200 bg-linen-50 text-charcoal-600 focus:outline-none focus:ring-2 focus:ring-sage-200 shadow-soft"
+              className="flex-1 rounded-full px-4 py-3 border border-linen-200 bg-white text-charcoal-600 focus:outline-none focus:ring-2 focus:ring-sage-200 shadow-soft"
             />
-            <button
-              type="submit"
-              className="font-semibold px-6 py-3 rounded-full bg-sage-400 text-white shadow-soft hover:bg-sage-500 transition"
-            >
-              Post
-            </button>
           </form>
         </div>
       </div>
@@ -389,4 +447,4 @@ const Profile = () => {
   )
 }
 
-export default Profile 
+export default Profile

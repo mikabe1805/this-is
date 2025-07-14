@@ -86,9 +86,10 @@ function App() {
       </div>
 
       {/* Create Post Modal */}
-      {showCreatePost && (
-        <CreatePost onClose={() => setShowCreatePost(false)} />
-      )}
+      <CreatePost 
+        isOpen={showCreatePost} 
+        onClose={() => setShowCreatePost(false)} 
+      />
     </div>
   )
 }

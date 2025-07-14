@@ -11,7 +11,7 @@ const Navbar = ({ activeTab, setActiveTab, onCreatePost }: NavbarProps) => {
   const tabs = [
     { id: 'home', label: 'Home', icon: HomeIcon, activeIcon: HomeIconSolid },
     { id: 'search', label: 'Search', icon: MagnifyingGlassIcon, activeIcon: MagnifyingGlassIconSolid },
-    { id: 'favorites', label: 'Favorites', icon: HeartIcon, activeIcon: HeartIconSolid },
+    { id: 'favorites', label: 'Reels', icon: HeartIcon, activeIcon: HeartIconSolid },
     { id: 'profile', label: 'Profile', icon: UserIcon, activeIcon: UserIconSolid },
   ]
 

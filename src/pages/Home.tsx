@@ -1,6 +1,10 @@
-import { useState } from 'react'
+import React, { useRef, useState } from 'react'
 import { HeartIcon, BookmarkIcon, EyeIcon, PlusIcon, MagnifyingGlassIcon } from '@heroicons/react/24/outline'
 import { HeartIcon as HeartIconSolid } from '@heroicons/react/24/solid'
+import SearchBar from '../components/SearchBar'
+import FilterSortDropdown from '../components/FilterSortDropdown'
+import HubModal from '../components/HubModal'
+import type { Hub } from '../types/index.js'
 
 // Botanical SVG accent (eucalyptus branch)
 const BotanicalAccent = () => (
@@ -85,8 +89,29 @@ const mockDiscovery = [
   }
 ]
 
+const sortOptions = [
+  { key: 'popular', label: 'Most Popular' },
+  { key: 'friends', label: 'Most Liked by Friends' },
+  { key: 'nearby', label: 'Closest to Location' },
+]
+const filterOptions = [
+  { key: 'loved', label: 'Loved' },
+  { key: 'tried', label: 'Tried' },
+  { key: 'want', label: 'Want to' },
+]
+const availableTags = ['cozy', 'trendy', 'quiet', 'local', 'charming', 'authentic', 'chill']
+
 const Home = () => {
   const [activeTab, setActiveTab] = useState<'friends' | 'discovery'>('friends')
+  const [likedItems, setLikedItems] = useState<Set<string>>(new Set())
+  const [savedItems, setSavedItems] = useState<Set<string>>(new Set())
+  const [showDropdown, setShowDropdown] = useState(false)
+  const [sortBy, setSortBy] = useState('popular')
+  const [activeFilters, setActiveFilters] = useState<string[]>([])
+  const [selectedHub, setSelectedHub] = useState<Hub | null>(null)
+  const [showHubModal, setShowHubModal] = useState(false)
+  const filterButtonRef = useRef<HTMLButtonElement>(null)
+  const [anchorRect, setAnchorRect] = useState<DOMRect | null>(null)
 
   const getActionIcon = (action: string) => {
     switch (action) {
@@ -122,16 +147,83 @@ const Home = () => {
     if (activity.action === 'created') {
       alert(`Opening ${activity.user.name}'s list: "${activity.list}"`)
     } else {
-      alert(`Opening place hub for ${activity.place}`)
+      // Create a mock hub for the place
+      const mockHub: Hub = {
+        id: '1',
+        name: activity.place || 'Unknown Place',
+        description: 'A wonderful place to visit and experience.',
+        tags: ['cozy', 'trendy'],
+        images: [activity.placeImage || ''],
+        location: {
+          address: 'San Francisco, CA',
+          lat: 37.7749,
+          lng: -122.4194,
+        },
+        googleMapsUrl: 'https://www.google.com/maps',
+        mainImage: activity.placeImage || '',
+        posts: [],
+        lists: [],
+      }
+      setSelectedHub(mockHub)
+      setShowHubModal(true)
     }
   }
 
   const handleDiscoveryClick = (item: typeof mockDiscovery[0]) => {
     if (item.type === 'list') {
-      alert(`Opening list: "${item.title}" by ${item.owner}`)
+      alert(`Opening list: "${item.title}" by ${item.owner}"`)
     } else {
-      alert(`Opening place hub for ${item.title}`)
+      // Create a mock hub for the place
+      const mockHub: Hub = {
+        id: '2',
+        name: item.title,
+        description: item.description,
+        tags: ['trendy', 'popular'],
+        images: [item.image],
+        location: {
+          address: 'San Francisco, CA',
+          lat: 37.7749,
+          lng: -122.4194,
+        },
+        googleMapsUrl: 'https://www.google.com/maps',
+        mainImage: item.image,
+        posts: [],
+        lists: [],
+      }
+      setSelectedHub(mockHub)
+      setShowHubModal(true)
     }
+  }
+
+  const handleLikeItem = (itemId: string) => {
+    setLikedItems(prev => {
+      const newSet = new Set(prev)
+      if (newSet.has(itemId)) {
+        newSet.delete(itemId)
+      } else {
+        newSet.add(itemId)
+      }
+      return newSet
+    })
+  }
+
+  const handleSaveItem = (itemId: string) => {
+    setSavedItems(prev => {
+      const newSet = new Set(prev)
+      if (newSet.has(itemId)) {
+        newSet.delete(itemId)
+      } else {
+        newSet.add(itemId)
+      }
+      return newSet
+    })
+  }
+
+  const handleOpenDropdown = () => {
+    if (filterButtonRef.current) {
+      setAnchorRect(filterButtonRef.current.getBoundingClientRect())
+    }
+    setShowDropdown(true)
   }
 
   return (
@@ -163,17 +255,21 @@ const Home = () => {
               Your personal memory journal
             </p>
           </div>
-          <button className="w-12 h-12 bg-gradient-to-r from-sage-400 to-gold-300 rounded-full flex items-center justify-center text-white shadow-botanical hover:shadow-cozy transition-all duration-300">
-            <PlusIcon className="w-6 h-6" />
-          </button>
         </div>
         {/* Search Bar */}
         <div className="relative mb-6">
-          <MagnifyingGlassIcon className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-sage-400" />
-          <input
-            type="text"
-            placeholder="Search places, lists, or friends..."
-            className="w-full pl-12 pr-4 py-3 bg-white/90 rounded-xl border border-linen-200 focus:outline-none focus:ring-2 focus:ring-sage-200 focus:border-transparent shadow-soft text-charcoal-700"
+          <SearchBar placeholder="Search places, lists, or friends..." onFilterClick={handleOpenDropdown} filterButtonRef={filterButtonRef} />
+          <FilterSortDropdown
+            sortOptions={sortOptions}
+            filterOptions={filterOptions}
+            availableTags={availableTags}
+            sortBy={sortBy}
+            setSortBy={setSortBy}
+            activeFilters={activeFilters}
+            setActiveFilters={setActiveFilters}
+            show={showDropdown}
+            onClose={() => setShowDropdown(false)}
+            anchorRect={anchorRect}
           />
         </div>
         {/* Tab Navigation */}
@@ -298,12 +394,78 @@ const Home = () => {
                 <div className="flex-1 p-5 flex flex-col justify-between">
                   <div className="flex items-start justify-between mb-2">
                     <h3 className="font-serif font-semibold text-lg text-charcoal-800">{item.title}</h3>
-                    {item.type === 'list' && (
-                      <div className="flex items-center gap-1 text-sage-700">
-                        <HeartIcon className="w-4 h-4" />
-                        <span className="text-sm">{item.likes}</span>
-                      </div>
-                    )}
+                    <div className="flex items-center gap-2">
+                      {item.type === 'list' && (
+                        <>
+                          <button 
+                            onClick={e => {
+                              e.stopPropagation();
+                              setLikedItems(prev => {
+                                const newSet = new Set(prev);
+                                if (newSet.has(item.id)) {
+                                  newSet.delete(item.id);
+                                } else {
+                                  newSet.add(item.id);
+                                }
+                                return newSet;
+                              });
+                            }}
+                            className={`flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium transition ${
+                              likedItems.has(item.id)
+                                ? 'bg-gold-100 text-gold-700 border border-gold-200'
+                                : 'bg-gold-50 text-gold-600 hover:bg-gold-100'
+                            }`}
+                          >
+                            <HeartIcon className={`w-4 h-4 ${likedItems.has(item.id) ? 'fill-current' : ''}`} />
+                            {(item.likes ?? 0) + (likedItems.has(item.id) ? 1 : 0)}
+                          </button>
+                          <button 
+                            onClick={e => {
+                              e.stopPropagation();
+                              setSavedItems(prev => {
+                                const newSet = new Set(prev);
+                                if (newSet.has(item.id)) {
+                                  newSet.delete(item.id);
+                                } else {
+                                  newSet.add(item.id);
+                                }
+                                return newSet;
+                              });
+                            }}
+                            className={`p-1.5 rounded-full transition ${
+                              savedItems.has(item.id)
+                                ? 'bg-sage-100 text-sage-700'
+                                : 'bg-sage-50 text-sage-600 hover:bg-sage-100'
+                            }`}
+                          >
+                            <BookmarkIcon className={`w-4 h-4 ${savedItems.has(item.id) ? 'fill-current' : ''}`} />
+                          </button>
+                        </>
+                      )}
+                      {item.type === 'hub' && (
+                        <button 
+                          onClick={e => {
+                            e.stopPropagation();
+                            setSavedItems(prev => {
+                              const newSet = new Set(prev);
+                              if (newSet.has(item.id)) {
+                                newSet.delete(item.id);
+                              } else {
+                                newSet.add(item.id);
+                              }
+                              return newSet;
+                            });
+                          }}
+                          className={`p-1.5 rounded-full transition ${
+                            savedItems.has(item.id)
+                              ? 'bg-sage-100 text-sage-700'
+                              : 'bg-sage-50 text-sage-600 hover:bg-sage-100'
+                          }`}
+                        >
+                          <BookmarkIcon className={`w-4 h-4 ${savedItems.has(item.id) ? 'fill-current' : ''}`} />
+                        </button>
+                      )}
+                    </div>
                   </div>
                   <p className="text-sage-700 text-sm mb-3">{item.description}</p>
                   <div className="flex items-center gap-2 flex-wrap">
@@ -327,6 +489,14 @@ const Home = () => {
           </div>
         )}
       </div>
+      {/* Hub Modal */}
+      {selectedHub && (
+        <HubModal
+          isOpen={showHubModal}
+          onClose={() => setShowHubModal(false)}
+          hub={selectedHub}
+        />
+      )}
     </div>
   )
 }

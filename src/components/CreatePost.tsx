@@ -1,296 +1,578 @@
 import { useState, useRef } from 'react'
-import { 
-  CameraIcon, 
-  PhotoIcon, 
-  VideoCameraIcon, 
-  XMarkIcon,
-  MapPinIcon,
-  HashtagIcon,
-  PaperAirplaneIcon
-} from '@heroicons/react/24/outline'
+import { XMarkIcon, CameraIcon, MapPinIcon, TagIcon, EyeIcon, EyeSlashIcon, UsersIcon, PhotoIcon, MagnifyingGlassIcon, ArrowLeftIcon } from '@heroicons/react/24/outline'
+import { createPortal } from 'react-dom'
+
+// Mock EXIF extraction (replace with real library if needed)
+async function extractLocationFromImage(file: File): Promise<{ lat: number, lng: number } | null> {
+  // In a real app, use exif-js or piexifjs to extract GPS
+  // Here, we mock: if filename contains 'oakland', return Oakland coords
+  if (file.name.toLowerCase().includes('oakland')) {
+    return { lat: 37.8044, lng: -122.2712 }
+  }
+  return null
+}
 
 interface CreatePostProps {
+  isOpen: boolean
   onClose: () => void
 }
 
-const CreatePost = ({ onClose }: CreatePostProps) => {
-  const [step, setStep] = useState<'media' | 'details'>('media')
-  const [mediaType, setMediaType] = useState<'camera' | 'upload' | null>(null)
-  const [mediaFile, setMediaFile] = useState<File | null>(null)
-  const [mediaPreview, setMediaPreview] = useState<string | null>(null)
-  const [formData, setFormData] = useState({
-    title: '',
-    locationName: '',
-    address: '',
-    description: '',
-    hashtags: ''
-  })
-  
+interface Hub {
+  id: string
+  name: string
+  address: string
+  description?: string
+  lat?: number
+  lng?: number
+}
+
+const CreatePost = ({ isOpen, onClose }: CreatePostProps) => {
+  const [step, setStep] = useState<'photo' | 'location' | 'details'>('photo')
+  const [photos, setPhotos] = useState<File[]>([])
+  const [extractedLocation, setExtractedLocation] = useState<{ lat: number, lng: number } | null>(null)
+  const [hubGuess, setHubGuess] = useState<Hub | null>(null)
+  const [hubConfirmed, setHubConfirmed] = useState(false)
+  const [selectedHub, setSelectedHub] = useState<Hub | null>(null)
+  const [isCreatingNewHub, setIsCreatingNewHub] = useState(false)
+  const [newHubName, setNewHubName] = useState('')
+  const [newHubAddress, setNewHubAddress] = useState('')
+  const [newHubDescription, setNewHubDescription] = useState('')
+  const [locationSearch, setLocationSearch] = useState('')
+  const [searchResults, setSearchResults] = useState<Hub[]>([])
+  const [isSearching, setIsSearching] = useState(false)
+  const [howWasIt, setHowWasIt] = useState<'loved' | 'tried'>('loved')
+  const [triedFeeling, setTriedFeeling] = useState<'liked' | 'neutral' | 'disliked'>('liked')
+  const [description, setDescription] = useState('')
+  const [tags, setTags] = useState<string[]>([])
+  const [newTag, setNewTag] = useState('')
+  const [privacy, setPrivacy] = useState<'public' | 'friends' | 'private'>('public')
+  const [listId, setListId] = useState<string>('')
   const fileInputRef = useRef<HTMLInputElement>(null)
-  const videoRef = useRef<HTMLVideoElement>(null)
-  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const photoInputRef = useRef<HTMLInputElement>(null)
 
-  const handleMediaTypeSelect = (type: 'camera' | 'upload') => {
-    setMediaType(type)
-    if (type === 'upload') {
-      fileInputRef.current?.click()
-    }
-  }
+  // Mock data
+  const availableTags = ['cozy', 'trendy', 'quiet', 'local', 'charming', 'authentic', 'chill', 'work-friendly', 'romantic', 'family-friendly']
+  const userLists = [
+    { id: '4', name: 'Coffee Spots' },
+    { id: '5', name: 'Book Nooks' },
+    { id: '6', name: 'Vegan Eats' },
+  ]
+  const mockSearchResults: Hub[] = [
+    { id: '1', name: 'Blue Bottle Coffee', address: '300 Webster St, Oakland, CA', lat: 37.8044, lng: -122.2712 },
+    { id: '2', name: 'Tacos El Gordo', address: '123 Mission St, San Francisco, CA', lat: 37.7749, lng: -122.4194 },
+    { id: '3', name: 'Golden Gate Park', address: 'San Francisco, CA', lat: 37.7694, lng: -122.4862 },
+  ]
 
-  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0]
-    if (file) {
-      setMediaFile(file)
-      const reader = new FileReader()
-      reader.onload = (e) => {
-        setMediaPreview(e.target?.result as string)
-        setStep('details')
-      }
-      reader.readAsDataURL(file)
-    }
-  }
-
-  const startCamera = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ 
-        video: { facingMode: 'environment' }, 
-        audio: false 
-      })
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream
-      }
-    } catch (error) {
-      console.error('Error accessing camera:', error)
-      alert('Unable to access camera. Please check permissions.')
-    }
-  }
-
-  const capturePhoto = () => {
-    if (videoRef.current && canvasRef.current) {
-      const context = canvasRef.current.getContext('2d')
-      if (context) {
-        canvasRef.current.width = videoRef.current.videoWidth
-        canvasRef.current.height = videoRef.current.videoHeight
-        context.drawImage(videoRef.current, 0, 0)
-        
-        canvasRef.current.toBlob((blob) => {
-          if (blob) {
-            const file = new File([blob], 'captured-photo.jpg', { type: 'image/jpeg' })
-            setMediaFile(file)
-            setMediaPreview(URL.createObjectURL(blob))
-            setStep('details')
-            
-            // Stop camera stream
-            const stream = videoRef.current?.srcObject as MediaStream
-            stream?.getTracks().forEach(track => track.stop())
-          }
-        }, 'image/jpeg')
+  // Step 1: Photo upload/take
+  const handlePhotoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files || [])
+    if (files.length > 0) {
+      setPhotos(files)
+      // Try to extract location from the first photo
+      const loc = await extractLocationFromImage(files[0])
+      setExtractedLocation(loc)
+      setStep('location')
+      // Try to guess hub if location found
+      if (loc) {
+        // Find closest mock hub (in real app, use geospatial search)
+        const guess = mockSearchResults.find(hub => Math.abs(hub.lat! - loc.lat) < 0.1 && Math.abs(hub.lng! - loc.lng) < 0.1)
+        if (guess) setHubGuess(guess)
       }
     }
   }
-
-  const handleInputChange = (field: string, value: string) => {
-    setFormData(prev => ({
-      ...prev,
-      [field]: value
-    }))
+  const handleTakePhoto = () => {
+    photoInputRef.current?.click()
+  }
+  const handleRemovePhoto = (index: number) => {
+    setPhotos(prev => prev.filter((_, i) => i !== index))
   }
 
+  // Step 2: Location/hub selection
+  const handleConfirmHub = () => {
+    setSelectedHub(hubGuess)
+    setHubConfirmed(true)
+    setStep('details')
+  }
+  const handleRejectHub = () => {
+    setHubGuess(null)
+    setSelectedHub(null)
+    setHubConfirmed(false)
+  }
+  const handleLocationSearch = (query: string) => {
+    setLocationSearch(query)
+    if (query.length > 2) {
+      setIsSearching(true)
+      setTimeout(() => {
+        setSearchResults(mockSearchResults.filter(hub => 
+          hub.name.toLowerCase().includes(query.toLowerCase()) ||
+          hub.address.toLowerCase().includes(query.toLowerCase())
+        ))
+        setIsSearching(false)
+      }, 500)
+    } else {
+      setSearchResults([])
+    }
+  }
+  const handleSelectHub = (hub: Hub) => {
+    setSelectedHub(hub)
+    setHubConfirmed(true)
+    setStep('details')
+  }
+  const handleCreateNewHub = () => {
+    if (newHubName && newHubAddress) {
+      const newHub: Hub = {
+        id: 'new',
+        name: newHubName,
+        address: newHubAddress,
+        description: newHubDescription
+      }
+      setSelectedHub(newHub)
+      setHubConfirmed(true)
+      setStep('details')
+    }
+  }
+
+  // Step 3: Details
+  const handleAddTag = () => {
+    if (newTag.trim() && !tags.includes(newTag.trim())) {
+      setTags(prev => [...prev, newTag.trim()])
+      setNewTag('')
+    }
+  }
+  const handleRemoveTag = (tagToRemove: string) => {
+    setTags(prev => prev.filter(tag => tag !== tagToRemove))
+  }
   const handleSubmit = () => {
-    // Handle post creation
-    console.log('Creating post:', { mediaFile, formData })
-    // Here you would typically upload the media and post data to your backend
-    alert('Post created successfully!')
+    // In a real app, this would submit the post
+    onClose()
+  }
+  const resetForm = () => {
+    setStep('photo')
+    setPhotos([])
+    setExtractedLocation(null)
+    setHubGuess(null)
+    setHubConfirmed(false)
+    setSelectedHub(null)
+    setIsCreatingNewHub(false)
+    setNewHubName('')
+    setNewHubAddress('')
+    setNewHubDescription('')
+    setLocationSearch('')
+    setSearchResults([])
+    setHowWasIt('loved')
+    setTriedFeeling('liked')
+    setDescription('')
+    setTags([])
+    setNewTag('')
+    setPrivacy('public')
+    setListId('')
+  }
+  const handleClose = () => {
+    resetForm()
     onClose()
   }
 
+  // Step navigation
   const handleBack = () => {
-    if (step === 'details') {
-      setStep('media')
-      setMediaFile(null)
-      setMediaPreview(null)
-      setMediaType(null)
-    }
+    if (step === 'location') setStep('photo')
+    else if (step === 'details') setStep('location')
+    else handleClose()
   }
 
-  return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl w-full max-w-md h-[90vh] flex flex-col shadow-2xl">
+  if (!isOpen) return null
+
+  const modalContent = (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+      <div className="relative w-full max-w-2xl max-h-[90vh] bg-white rounded-3xl shadow-botanical border border-linen-200 overflow-hidden">
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-gray-200 flex-shrink-0">
+        <div className="p-6 border-b border-linen-200 bg-linen-50 flex items-center justify-between">
           <button
             onClick={handleBack}
-            className="text-gray-600 hover:text-gray-800 transition-colors"
+            className="w-10 h-10 bg-white rounded-full flex items-center justify-center shadow-soft hover:shadow-botanical transition-all duration-200"
+            aria-label="Back"
           >
-            {step === 'details' ? 'Back' : <XMarkIcon className="w-6 h-6" onClick={onClose} />}
+            <ArrowLeftIcon className="w-6 h-6 text-charcoal-600" />
           </button>
-          <h2 className="text-lg font-semibold text-gray-800">
-            {step === 'media' ? 'Add Media' : 'Post Details'}
-          </h2>
-          <div className="w-6"></div>
+          <h2 className="text-xl font-serif font-semibold text-charcoal-700 flex-1 text-center">Create Post</h2>
+          <button
+            onClick={handleClose}
+            className="w-10 h-10 bg-white rounded-full flex items-center justify-center shadow-soft hover:shadow-botanical transition-all duration-200"
+            aria-label="Close"
+          >
+            <XMarkIcon className="w-6 h-6 text-charcoal-600" />
+          </button>
         </div>
-
-        {/* Content - Scrollable */}
-        <div className="flex-1 overflow-y-auto p-4">
-          {step === 'media' && (
-            <div className="space-y-4">
-              <div className="text-center">
-                <h3 className="text-xl font-medium text-gray-800 mb-2">Share a moment</h3>
-                <p className="text-gray-600 text-sm">Take a photo or upload from your gallery</p>
+        {/* Progress indicator */}
+        <div className="flex items-center gap-2 mt-4 px-6">
+          <div className={`w-3 h-3 rounded-full ${step === 'photo' ? 'bg-sage-500' : 'bg-sage-200'}`} />
+          <div className={`w-3 h-3 rounded-full ${step === 'location' ? 'bg-sage-500' : 'bg-sage-200'}`} />
+          <div className={`w-3 h-3 rounded-full ${step === 'details' ? 'bg-sage-500' : 'bg-sage-200'}`} />
+        </div>
+        {/* Content */}
+        <div className="p-6 space-y-6 max-h-[calc(90vh-12rem)] overflow-y-auto">
+          {/* Step 1: Photo */}
+          {step === 'photo' && (
+            <div className="space-y-6">
+              <div>
+                <h3 className="text-lg font-semibold text-charcoal-700 mb-2">Add Photos</h3>
+                <p className="text-charcoal-500 text-sm mb-4">Share your experience by uploading or taking photos. You can add multiple images.</p>
               </div>
-
               <div className="grid grid-cols-2 gap-4">
                 <button
-                  onClick={() => handleMediaTypeSelect('camera')}
-                  className="flex flex-col items-center p-6 bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl border-2 border-blue-200 hover:border-blue-300 transition-all duration-300"
+                  onClick={handleTakePhoto}
+                  className="aspect-square bg-linen-50 border-2 border-dashed border-linen-300 rounded-2xl flex flex-col items-center justify-center hover:bg-linen-100 transition"
                 >
-                  <CameraIcon className="w-12 h-12 text-blue-600 mb-3" />
-                  <span className="font-medium text-blue-800">Camera</span>
+                  <CameraIcon className="w-8 h-8 text-charcoal-400 mb-2" />
+                  <span className="text-sm text-charcoal-500">Take Photo</span>
                 </button>
-
                 <button
-                  onClick={() => handleMediaTypeSelect('upload')}
-                  className="flex flex-col items-center p-6 bg-gradient-to-br from-green-50 to-green-100 rounded-xl border-2 border-green-200 hover:border-green-300 transition-all duration-300"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="aspect-square bg-linen-50 border-2 border-dashed border-linen-300 rounded-2xl flex flex-col items-center justify-center hover:bg-linen-100 transition"
                 >
-                  <PhotoIcon className="w-12 h-12 text-green-600 mb-3" />
-                  <span className="font-medium text-green-800">Upload</span>
+                  <PhotoIcon className="w-8 h-8 text-charcoal-400 mb-2" />
+                  <span className="text-sm text-charcoal-500">Upload Photo(s)</span>
                 </button>
               </div>
-
-              {/* Hidden file input */}
               <input
                 ref={fileInputRef}
                 type="file"
-                accept="image/*,video/*"
-                onChange={handleFileUpload}
+                multiple
+                accept="image/*"
+                onChange={handlePhotoUpload}
                 className="hidden"
               />
-
-              {/* Camera view */}
-              {mediaType === 'camera' && (
+              <input
+                ref={photoInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handlePhotoUpload}
+                className="hidden"
+              />
+              {photos.length > 0 && (
                 <div className="space-y-4">
-                  <div className="relative bg-black rounded-xl overflow-hidden">
-                    <video
-                      ref={videoRef}
-                      autoPlay
-                      playsInline
-                      className="w-full h-64 object-cover"
-                      onLoadedMetadata={startCamera}
-                    />
-                    <canvas ref={canvasRef} className="hidden" />
+                  <h4 className="font-medium text-charcoal-700">Selected Photos</h4>
+                  <div className="grid grid-cols-3 gap-3">
+                    {photos.map((photo, index) => (
+                      <div key={index} className="relative aspect-square group">
+                        <img
+                          src={URL.createObjectURL(photo)}
+                          alt={`Photo ${index + 1}`}
+                          className="w-full h-full object-cover rounded-xl"
+                        />
+                        <button
+                          onClick={() => handleRemovePhoto(index)}
+                          className="absolute top-2 right-2 w-6 h-6 bg-black/50 text-white rounded-full flex items-center justify-center text-xs opacity-80 group-hover:opacity-100"
+                          aria-label="Remove photo"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    ))}
                   </div>
+                </div>
+              )}
+              <button
+                onClick={() => setStep('location')}
+                disabled={photos.length === 0}
+                className="w-full bg-sage-400 text-white py-3 rounded-xl font-medium hover:bg-sage-500 transition disabled:bg-charcoal-200 disabled:cursor-not-allowed"
+              >
+                Continue
+              </button>
+            </div>
+          )}
+          {/* Step 2: Location/Hub */}
+          {step === 'location' && (
+            <div className="space-y-6">
+              {extractedLocation && !hubGuess && (
+                <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded-xl text-yellow-800">
+                  <span>We found a location in your photo, but couldn't match it to a hub. Please search for the place below.</span>
+                </div>
+              )}
+              {hubGuess && !hubConfirmed && (
+                <div className="bg-sage-50 border-l-4 border-sage-400 p-4 rounded-xl text-sage-800 flex flex-col gap-2">
+                  <span>We think this photo was taken at:</span>
+                  <div className="font-semibold">{hubGuess.name}</div>
+                  <div className="text-sm text-sage-700">{hubGuess.address}</div>
+                  <div className="flex gap-2 mt-2">
+                    <button
+                      onClick={handleConfirmHub}
+                      className="bg-sage-400 text-white px-4 py-2 rounded-xl font-medium hover:bg-sage-500 transition"
+                    >
+                      Yes, that's correct
+                    </button>
+                    <button
+                      onClick={handleRejectHub}
+                      className="bg-linen-200 text-sage-700 px-4 py-2 rounded-xl font-medium hover:bg-linen-300 transition"
+                    >
+                      No, search for another
+                    </button>
+                  </div>
+                </div>
+              )}
+              {!hubGuess && !hubConfirmed && (
+                <div>
+                  <h3 className="text-lg font-semibold text-charcoal-700 mb-2">Where are you?</h3>
+                  <p className="text-charcoal-500 text-sm mb-4">Search for a place or create a new hub</p>
+                  <div className="relative mb-4">
+                    <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-charcoal-400" />
+                    <input
+                      type="text"
+                      value={locationSearch}
+                      onChange={(e) => handleLocationSearch(e.target.value)}
+                      placeholder="Search for a place..."
+                      className="w-full pl-10 pr-4 py-3 border border-linen-200 rounded-xl bg-linen-50 text-charcoal-600 focus:outline-none focus:ring-2 focus:ring-sage-200"
+                    />
+                  </div>
+                  {isSearching && (
+                    <div className="text-center py-4 text-charcoal-500">
+                      Searching...
+                    </div>
+                  )}
+                  {searchResults.length > 0 && (
+                    <div className="space-y-2">
+                      {searchResults.map((hub) => (
+                        <button
+                          key={hub.id}
+                          onClick={() => handleSelectHub(hub)}
+                          className="w-full p-3 text-left bg-white border border-linen-200 rounded-xl hover:bg-linen-50 transition"
+                        >
+                          <div className="font-medium text-charcoal-700">{hub.name}</div>
+                          <div className="text-sm text-charcoal-500">{hub.address}</div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  {locationSearch && searchResults.length === 0 && !isSearching && (
+                    <div className="text-center py-4">
+                      <p className="text-charcoal-500 mb-4">Can't find what you're looking for?</p>
+                      <button
+                        onClick={() => setIsCreatingNewHub(true)}
+                        className="bg-sage-400 text-white px-4 py-2 rounded-xl font-medium hover:bg-sage-500 transition"
+                      >
+                        Create New Hub
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+              {isCreatingNewHub && (
+                <div className="bg-linen-50 rounded-2xl p-4 space-y-4">
+                  <h4 className="font-semibold text-charcoal-700">Create New Hub</h4>
+                  <input
+                    type="text"
+                    value={newHubName}
+                    onChange={(e) => setNewHubName(e.target.value)}
+                    placeholder="Place name"
+                    className="w-full px-4 py-3 border border-linen-200 rounded-xl bg-white text-charcoal-600 focus:outline-none focus:ring-2 focus:ring-sage-200"
+                  />
+                  <input
+                    type="text"
+                    value={newHubAddress}
+                    onChange={(e) => setNewHubAddress(e.target.value)}
+                    placeholder="Address"
+                    className="w-full px-4 py-3 border border-linen-200 rounded-xl bg-white text-charcoal-600 focus:outline-none focus:ring-2 focus:ring-sage-200"
+                  />
+                  <textarea
+                    value={newHubDescription}
+                    onChange={(e) => setNewHubDescription(e.target.value)}
+                    placeholder="Short description (optional)"
+                    rows={3}
+                    className="w-full px-4 py-3 border border-linen-200 rounded-xl bg-white text-charcoal-600 focus:outline-none focus:ring-2 focus:ring-sage-200 resize-none"
+                  />
                   <button
-                    onClick={capturePhoto}
-                    className="w-full py-3 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 transition-colors"
+                    onClick={handleCreateNewHub}
+                    disabled={!newHubName || !newHubAddress}
+                    className="w-full bg-sage-400 text-white py-3 rounded-xl font-medium hover:bg-sage-500 transition disabled:bg-charcoal-200 disabled:cursor-not-allowed"
                   >
-                    Take Photo
+                    Create Hub & Continue
                   </button>
                 </div>
               )}
+              <button
+                onClick={() => setStep('photo')}
+                className="w-full bg-linen-200 text-sage-700 py-3 rounded-xl font-medium hover:bg-linen-300 transition"
+              >
+                Back
+              </button>
             </div>
           )}
-
-          {step === 'details' && (
-            <div className="space-y-4">
-              {/* Media preview */}
-              {mediaPreview && (
-                <div className="relative bg-gray-100 rounded-xl overflow-hidden">
-                  <img
-                    src={mediaPreview}
-                    alt="Preview"
-                    className="w-full h-48 object-cover"
-                  />
-                </div>
-              )}
-
-              {/* Form fields */}
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Title
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.title}
-                    onChange={(e) => handleInputChange('title', e.target.value)}
-                    placeholder="Give your post a title..."
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    <MapPinIcon className="w-4 h-4 inline mr-1" />
-                    Location Name
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.locationName}
-                    onChange={(e) => handleInputChange('locationName', e.target.value)}
-                    placeholder="e.g., Blue Bottle Coffee"
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Address
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.address}
-                    onChange={(e) => handleInputChange('address', e.target.value)}
-                    placeholder="e.g., 300 Webster St, Oakland, CA"
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Description
-                  </label>
-                  <textarea
-                    value={formData.description}
-                    onChange={(e) => handleInputChange('description', e.target.value)}
-                    placeholder="Tell us about this place..."
-                    rows={3}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    <HashtagIcon className="w-4 h-4 inline mr-1" />
-                    Hashtags
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.hashtags}
-                    onChange={(e) => handleInputChange('hashtags', e.target.value)}
-                    placeholder="e.g., #coffee #cozy #oakland"
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
+          {/* Step 3: Details */}
+          {step === 'details' && selectedHub && (
+            <div className="space-y-6">
+              <div>
+                <h3 className="text-lg font-semibold text-charcoal-700 mb-2">Post Details</h3>
+                <p className="text-charcoal-500 text-sm mb-4">Tell us about your experience</p>
+              </div>
+              {/* How was it? Only Loved/Tried */}
+              <div>
+                <label className="block text-sm font-medium text-charcoal-700 mb-3">How was it?</label>
+                <div className="grid grid-cols-2 gap-3">
+                  {(['loved', 'tried'] as const).map((type) => (
+                    <button
+                      key={type}
+                      onClick={() => setHowWasIt(type)}
+                      className={`p-3 rounded-xl border-2 transition ${
+                        howWasIt === type
+                          ? 'border-sage-400 bg-sage-50 text-sage-700'
+                          : 'border-linen-200 bg-white text-charcoal-600 hover:border-sage-200'
+                      }`}
+                    >
+                      <div className="text-sm font-medium capitalize">{type}</div>
+                    </button>
+                  ))}
                 </div>
               </div>
+              {/* If tried, show feeling */}
+              {howWasIt === 'tried' && (
+                <div>
+                  <label className="block text-sm font-medium text-charcoal-700 mb-3">How did you feel about it?</label>
+                  <div className="grid grid-cols-3 gap-3">
+                    {(['liked', 'neutral', 'disliked'] as const).map((feeling) => (
+                      <button
+                        key={feeling}
+                        onClick={() => setTriedFeeling(feeling)}
+                        className={`p-3 rounded-xl border-2 transition ${
+                          triedFeeling === feeling
+                            ? 'border-sage-400 bg-sage-50 text-sage-700'
+                            : 'border-linen-200 bg-white text-charcoal-600 hover:border-sage-200'
+                        }`}
+                      >
+                        <div className="text-sm font-medium capitalize">{feeling}</div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {/* Description */}
+              <div>
+                <label className="block text-sm font-medium text-charcoal-700 mb-2">Description</label>
+                <textarea
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  placeholder="Share your experience..."
+                  rows={4}
+                  className="w-full px-4 py-3 border border-linen-200 rounded-xl bg-linen-50 text-charcoal-600 focus:outline-none focus:ring-2 focus:ring-sage-200 resize-none"
+                />
+              </div>
+              {/* Tags */}
+              <div>
+                <label className="block text-sm font-medium text-charcoal-700 mb-2">Tags</label>
+                <div className="flex flex-wrap gap-2 mb-3">
+                  {tags.map((tag) => (
+                    <span
+                      key={tag}
+                      className="px-3 py-1 bg-sage-100 text-sage-700 rounded-full text-sm flex items-center gap-2"
+                    >
+                      #{tag}
+                      <button
+                        onClick={() => handleRemoveTag(tag)}
+                        className="text-sage-500 hover:text-sage-700"
+                      >
+                        ×
+                      </button>
+                    </span>
+                  ))}
+                </div>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={newTag}
+                    onChange={(e) => setNewTag(e.target.value)}
+                    placeholder="Add a tag..."
+                    className="flex-1 px-4 py-2 border border-linen-200 rounded-xl bg-linen-50 text-charcoal-600 focus:outline-none focus:ring-2 focus:ring-sage-200"
+                    onKeyPress={(e) => e.key === 'Enter' && handleAddTag()}
+                  />
+                  <button
+                    onClick={handleAddTag}
+                    className="px-4 py-2 bg-sage-400 text-white rounded-xl hover:bg-sage-500 transition"
+                  >
+                    Add
+                  </button>
+                </div>
+                <div className="mt-2">
+                  <p className="text-xs text-charcoal-500 mb-2">Popular tags:</p>
+                  <div className="flex flex-wrap gap-1">
+                    {availableTags.slice(0, 6).map((tag) => (
+                      <button
+                        key={tag}
+                        onClick={() => !tags.includes(tag) && setTags(prev => [...prev, tag])}
+                        disabled={tags.includes(tag)}
+                        className={`px-2 py-1 rounded-full text-xs transition ${
+                          tags.includes(tag)
+                            ? 'bg-sage-200 text-sage-600 cursor-not-allowed'
+                            : 'bg-linen-100 text-charcoal-600 hover:bg-sage-100'
+                        }`}
+                      >
+                        #{tag}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+              {/* List Selection (exclude All Loved/All Tried) */}
+              <div>
+                <label className="block text-sm font-medium text-charcoal-700 mb-2">Save to List (optional)</label>
+                <select
+                  value={listId}
+                  onChange={(e) => setListId(e.target.value)}
+                  className="w-full px-4 py-3 border border-linen-200 rounded-xl bg-linen-50 text-charcoal-600 focus:outline-none focus:ring-2 focus:ring-sage-200"
+                >
+                  <option value="">Select a list...</option>
+                  {userLists.map((list) => (
+                    <option key={list.id} value={list.id}>{list.name}</option>
+                  ))}
+                </select>
+              </div>
+              {/* Privacy Settings */}
+              <div>
+                <label className="block text-sm font-medium text-charcoal-700 mb-2">Privacy</label>
+                <div className="space-y-2">
+                  {([
+                    { key: 'public', label: 'Public', icon: EyeIcon, desc: 'Anyone can see this post' },
+                    { key: 'friends', label: 'Friends', icon: UsersIcon, desc: 'Only your friends can see this post' },
+                    { key: 'private', label: 'Private', icon: EyeSlashIcon, desc: 'Only you can see this post' }
+                  ] as const).map(({ key, label, icon: Icon, desc }) => (
+                    <label
+                      key={key}
+                      className="flex items-center gap-3 p-3 border border-linen-200 rounded-xl cursor-pointer hover:bg-linen-50 transition"
+                    >
+                      <input
+                        type="radio"
+                        name="privacy"
+                        value={key}
+                        checked={privacy === key}
+                        onChange={() => setPrivacy(key)}
+                        className="w-4 h-4 text-sage-500 focus:ring-sage-400"
+                      />
+                      <Icon className="w-5 h-5 text-charcoal-400" />
+                      <div>
+                        <div className="font-medium text-charcoal-700">{label}</div>
+                        <div className="text-sm text-charcoal-500">{desc}</div>
+                      </div>
+                    </label>
+                  ))}
+                </div>
+              </div>
+              <button
+                onClick={handleSubmit}
+                className="w-full bg-sage-400 text-white py-3 rounded-xl font-medium hover:bg-sage-500 transition"
+              >
+                Create Post
+              </button>
+              <button
+                onClick={() => setStep('location')}
+                className="w-full bg-linen-200 text-sage-700 py-3 rounded-xl font-medium hover:bg-linen-300 transition"
+              >
+                Back
+              </button>
             </div>
           )}
         </div>
-
-        {/* Footer with Submit Button - Fixed at bottom */}
-        {step === 'details' && (
-          <div className="p-4 border-t border-gray-200 flex-shrink-0">
-            <button
-              onClick={handleSubmit}
-              className="w-full py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-xl font-medium hover:from-blue-700 hover:to-blue-800 transition-all duration-300 flex items-center justify-center gap-2"
-            >
-              <PaperAirplaneIcon className="w-5 h-5" />
-              Create Post
-            </button>
-          </div>
-        )}
       </div>
     </div>
   )
+
+  return createPortal(modalContent, document.body)
 }
 
 export default CreatePost 

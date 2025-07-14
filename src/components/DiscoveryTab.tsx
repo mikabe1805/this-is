@@ -1,9 +1,17 @@
-import type { Place, List } from '../types/index.js'
-import { MapPinIcon, HeartIcon, BookmarkIcon, StarIcon } from '@heroicons/react/24/outline'
+import type { Place, List, Hub } from '../types/index.js'
+import { MapPinIcon, BookmarkIcon, StarIcon, TrendingUpIcon, FireIcon } from '@heroicons/react/24/outline'
+import { useState } from 'react'
+import SearchBar from './SearchBar'
+import FilterSortDropdown from './FilterSortDropdown'
+import HubModal from './HubModal'
 
 const DiscoveryTab = () => {
-  // Mock data - in real app this would come from API
-  const trendingPlaces: Place[] = [
+  const [savedLists, setSavedLists] = useState<Set<string>>(new Set())
+  const [selectedHub, setSelectedHub] = useState<Hub | null>(null)
+  const [showHubModal, setShowHubModal] = useState(false)
+  
+  // Mock data - trending hubs (places that are gaining popularity)
+  const trendingHubs: Place[] = [
     {
       id: '1',
       name: 'Blue Bottle Coffee',
@@ -30,10 +38,19 @@ const DiscoveryTab = () => {
       posts: [],
       savedCount: 67,
       createdAt: '2024-01-13'
+    },
+    {
+      id: '4',
+      name: 'Philz Coffee',
+      address: '789 Castro St, San Francisco, CA',
+      tags: ['coffee', 'artisan', 'cozy'],
+      posts: [],
+      savedCount: 34,
+      createdAt: '2024-01-12'
     }
   ]
 
-  const suggestedLists: List[] = [
+  const popularLists: List[] = [
     {
       id: '1',
       name: 'Hidden Gems in Oakland',
@@ -41,11 +58,14 @@ const DiscoveryTab = () => {
       userId: '1',
       isPublic: true,
       isShared: false,
+      privacy: 'public',
       tags: ['oakland', 'local', 'hidden-gems'],
-      places: [],
+      hubs: [],
       coverImage: 'https://images.unsplash.com/photo-1501594907352-04cda38ebc29?w=300&h=200&fit=crop',
       createdAt: '2024-01-10',
-      updatedAt: '2024-01-15'
+      updatedAt: '2024-01-15',
+      likes: 34,
+      isLiked: false
     },
     {
       id: '2',
@@ -54,29 +74,117 @@ const DiscoveryTab = () => {
       userId: '2',
       isPublic: true,
       isShared: false,
+      privacy: 'public',
       tags: ['coffee', 'work-friendly', 'cozy'],
-      places: [],
+      hubs: [],
       coverImage: 'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=300&h=200&fit=crop',
       createdAt: '2024-01-12',
-      updatedAt: '2024-01-14'
+      updatedAt: '2024-01-14',
+      likes: 28,
+      isLiked: false
+    },
+    {
+      id: '3',
+      name: 'Best Tacos in SF',
+      description: 'Authentic Mexican food spots',
+      userId: '3',
+      isPublic: true,
+      isShared: false,
+      privacy: 'public',
+      tags: ['tacos', 'authentic', 'mexican'],
+      hubs: [],
+      coverImage: 'https://images.unsplash.com/photo-1565299624946-b28f40a0ca4b?w=300&h=200&fit=crop',
+      createdAt: '2024-01-11',
+      updatedAt: '2024-01-13',
+      likes: 42,
+      isLiked: false
     }
   ]
 
+  const handleSaveList = (listId: string) => {
+    setSavedLists(prev => {
+      const newSet = new Set(prev)
+      if (newSet.has(listId)) {
+        newSet.delete(listId)
+      } else {
+        newSet.add(listId)
+      }
+      return newSet
+    })
+  }
+
+  const handleHubClick = (place: Place) => {
+    // Convert Place to Hub format
+    const hub: Hub = {
+      id: place.id,
+      name: place.name,
+      description: `A great place to visit in ${place.address}`,
+      tags: place.tags,
+      images: place.hubImage ? [place.hubImage] : [],
+      location: {
+        address: place.address,
+        lat: place.coordinates?.lat || 37.7749,
+        lng: place.coordinates?.lng || -122.4194,
+      },
+      googleMapsUrl: `https://www.google.com/maps/search/${encodeURIComponent(place.name + ' ' + place.address)}`,
+      mainImage: place.hubImage,
+      posts: place.posts,
+      lists: [],
+    }
+    setSelectedHub(hub)
+    setShowHubModal(true)
+  }
+
+  const sortOptions = [
+    { key: 'popular', label: 'Most Popular' },
+    { key: 'trending', label: 'Trending Now' },
+    { key: 'nearby', label: 'Closest to Location' },
+  ]
+  const filterOptions = [
+    { key: 'coffee', label: 'Coffee' },
+    { key: 'food', label: 'Food' },
+    { key: 'outdoors', label: 'Outdoors' },
+  ]
+  const availableTags = ['cozy', 'trendy', 'quiet', 'local', 'charming', 'authentic', 'chill']
+
+  const [sortBy, setSortBy] = useState('popular')
+  const [activeFilters, setActiveFilters] = useState<string[]>([])
+  const [showDropdown, setShowDropdown] = useState(false)
+
   return (
-    <div className="p-4 space-y-6">
-      {/* Trending Places */}
+    <div className="p-4 space-y-8">
+      <div className="mb-6">
+        <SearchBar placeholder="Search places, lists, or friends..." onFilterClick={() => setShowDropdown(true)} />
+        <FilterSortDropdown
+          sortOptions={sortOptions}
+          filterOptions={filterOptions}
+          availableTags={availableTags}
+          sortBy={sortBy}
+          setSortBy={setSortBy}
+          activeFilters={activeFilters}
+          setActiveFilters={setActiveFilters}
+          show={showDropdown}
+          onClose={() => setShowDropdown(false)}
+        />
+      </div>
+
+      {/* Trending Hubs */}
       <div>
-        <h2 className="text-lg font-semibold text-sage-800 mb-4">Trending Near You</h2>
+        <div className="flex items-center gap-2 mb-4">
+          <FireIcon className="w-6 h-6 text-gold-500" />
+          <h2 className="text-xl font-serif font-semibold text-charcoal-800">Trending Hubs</h2>
+        </div>
         <div className="space-y-3">
-          {trendingPlaces.map((place) => (
-            <div
+          {trendingHubs.map((place) => (
+            <button
               key={place.id}
-              className="bg-white/70 backdrop-blur-sm rounded-2xl p-4 shadow-soft border border-cream-200 hover:shadow-liquid transition-all duration-300"
+              onClick={() => handleHubClick(place)}
+              className="w-full bg-white/70 backdrop-blur-sm rounded-2xl p-4 shadow-soft border border-linen-200 hover:shadow-cozy transition-all duration-300 text-left"
             >
               <div className="flex items-start justify-between">
                 <div className="flex-1">
-                  <h3 className="font-semibold text-sage-800 mb-1">{place.name}</h3>
-                  <div className="flex items-center text-sage-600 text-sm mb-2">
+                  <h3 className="font-semibold text-charcoal-800 mb-1">{place.name}</h3>
+                  <div className="flex items-center text-charcoal-600 text-sm mb-2">
                     <MapPinIcon className="w-4 h-4 mr-1" />
                     {place.address}
                   </div>
@@ -84,21 +192,71 @@ const DiscoveryTab = () => {
                     {place.tags.map((tag) => (
                       <span
                         key={tag}
-                        className="px-2 py-1 bg-coral-100 text-coral-700 text-xs rounded-full"
+                        className="px-2 py-1 bg-sage-100 text-sage-700 text-xs rounded-full"
                       >
                         {tag}
                       </span>
                     ))}
                   </div>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-4 text-sm text-sage-600">
-                      <span className="flex items-center">
-                        <HeartIcon className="w-4 h-4 mr-1" />
-                        {place.savedCount} saved
-                      </span>
+                  <div className="flex items-center gap-2 text-sm text-charcoal-600">
+                    <BookmarkIcon className="w-4 h-4" />
+                    <span>{place.savedCount} saved</span>
+                  </div>
+                </div>
+                <div className="p-2 rounded-full bg-sage-50 text-sage-600">
+                  <BookmarkIcon className="w-4 h-4" />
+                </div>
+              </div>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Popular Lists */}
+      <div>
+        <div className="flex items-center gap-2 mb-4">
+          <StarIcon className="w-6 h-6 text-gold-500" />
+          <h2 className="text-xl font-serif font-semibold text-charcoal-800">Popular Lists</h2>
+        </div>
+        <div className="space-y-4">
+          {popularLists.map((list) => (
+            <div
+              key={list.id}
+              className="bg-white/70 backdrop-blur-sm rounded-2xl shadow-soft border border-linen-200 overflow-hidden hover:shadow-cozy transition-all duration-300"
+            >
+              <div className="flex">
+                {list.coverImage && (
+                  <div className="w-24 h-24 bg-linen-100 flex-shrink-0">
+                    <img src={list.coverImage} alt={list.name} className="w-full h-full object-cover" />
+                  </div>
+                )}
+                <div className="flex-1 p-4 flex flex-col justify-between">
+                  <div>
+                    <h3 className="font-serif font-semibold text-lg text-charcoal-700 mb-1">{list.name}</h3>
+                    <p className="text-sm text-charcoal-500 mb-2 leading-relaxed">{list.description}</p>
+                    <div className="flex flex-wrap gap-2 mb-2">
+                      {list.tags.map(tag => (
+                        <span key={tag} className="px-3 py-1 rounded-full text-xs font-medium bg-sage-50 border border-sage-100 text-sage-700">
+                          #{tag}
+                        </span>
+                      ))}
                     </div>
-                    <button className="bg-gradient-to-r from-coral-500 to-coral-600 text-white px-4 py-2 rounded-xl text-sm font-medium hover:from-coral-600 hover:to-coral-700 transition-all duration-300 shadow-soft">
-                      Save
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-sm text-charcoal-500">
+                      <span>{list.likes} likes</span>
+                      <span>•</span>
+                      <span>Updated {new Date(list.updatedAt).toLocaleDateString()}</span>
+                    </div>
+                    <button 
+                      onClick={() => handleSaveList(list.id)}
+                      className={`p-2 rounded-full transition ${
+                        savedLists.has(list.id) 
+                          ? 'bg-sage-100 text-sage-700' 
+                          : 'bg-sage-50 text-sage-600 hover:bg-sage-100'
+                      }`}
+                    >
+                      <BookmarkIcon className={`w-4 h-4 ${savedLists.has(list.id) ? 'fill-current' : ''}`} />
                     </button>
                   </div>
                 </div>
@@ -108,68 +266,14 @@ const DiscoveryTab = () => {
         </div>
       </div>
 
-      {/* Suggested Lists */}
-      <div>
-        <h2 className="text-lg font-semibold text-sage-800 mb-4">Lists You Might Like</h2>
-        <div className="space-y-3">
-          {suggestedLists.map((list) => (
-            <div
-              key={list.id}
-              className="bg-white/70 backdrop-blur-sm rounded-2xl overflow-hidden shadow-soft border border-cream-200 hover:shadow-liquid transition-all duration-300"
-            >
-              {list.coverImage && (
-                <div className="h-32 bg-gradient-to-br from-cream-200 to-coral-200 relative overflow-hidden">
-                  <img
-                    src={list.coverImage}
-                    alt={list.name}
-                    className="w-full h-full object-cover"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/10 via-black/5 to-transparent backdrop-blur-[1px]"></div>
-                  <div className="absolute inset-0 border border-white/20"></div>
-                </div>
-              )}
-              <div className="p-4">
-                <h3 className="font-semibold text-sage-800 mb-1">{list.name}</h3>
-                <p className="text-sm text-sage-600 mb-3">{list.description}</p>
-                <div className="flex flex-wrap gap-1 mb-3">
-                  {list.tags.slice(0, 3).map((tag) => (
-                    <span
-                      key={tag}
-                      className="px-2 py-1 bg-sage-100 text-sage-700 text-xs rounded-full"
-                    >
-                      {tag}
-                    </span>
-                  ))}
-                </div>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-2 text-sm text-sage-600">
-                    <StarIcon className="w-4 h-4" />
-                    <span>Curated by community</span>
-                  </div>
-                  <button className="text-coral-600 hover:text-coral-700 text-sm font-medium transition-colors">
-                    Follow List
-                  </button>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Quick Actions */}
-      <div className="bg-gradient-to-br from-coral-50 to-coral-100 rounded-2xl p-4">
-        <h3 className="font-semibold text-coral-800 mb-3">Quick Actions</h3>
-        <div className="grid grid-cols-2 gap-3">
-          <button className="bg-white/80 backdrop-blur-sm rounded-xl p-3 text-center hover:bg-white transition-all duration-300 shadow-soft">
-            <BookmarkIcon className="w-6 h-6 text-coral-600 mx-auto mb-2" />
-            <span className="text-sm font-medium text-sage-800">Create List</span>
-          </button>
-          <button className="bg-white/80 backdrop-blur-sm rounded-xl p-3 text-center hover:bg-white transition-all duration-300 shadow-soft">
-            <MapPinIcon className="w-6 h-6 text-sage-600 mx-auto mb-2" />
-            <span className="text-sm font-medium text-sage-800">Find Nearby</span>
-          </button>
-        </div>
-      </div>
+      {/* Hub Modal */}
+      {selectedHub && (
+        <HubModal
+          isOpen={showHubModal}
+          onClose={() => setShowHubModal(false)}
+          hub={selectedHub}
+        />
+      )}
     </div>
   )
 }

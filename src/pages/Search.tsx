@@ -1,5 +1,8 @@
 import { useState } from 'react'
-import { MagnifyingGlassIcon, MapPinIcon, HeartIcon, UserIcon, FunnelIcon, ClockIcon, FireIcon } from '@heroicons/react/24/outline'
+import { MagnifyingGlassIcon, MapPinIcon, HeartIcon, UserIcon, FunnelIcon, ClockIcon, FireIcon, BookmarkIcon } from '@heroicons/react/24/outline'
+import SearchBar from '../components/SearchBar'
+import HubModal from '../components/HubModal'
+import type { Hub, Place } from '../types/index.js'
 
 const Search = () => {
   const [searchQuery, setSearchQuery] = useState('')
@@ -10,6 +13,11 @@ const Search = () => {
   const [showDropdown, setShowDropdown] = useState(false)
   const [sortBy, setSortBy] = useState('popular')
   const [activeFilters, setActiveFilters] = useState<string[]>([])
+  const [showMap, setShowMap] = useState(false)
+  const [selectedHub, setSelectedHub] = useState<Hub | null>(null)
+  const [showHubModal, setShowHubModal] = useState(false)
+  const [likedLists, setLikedLists] = useState<Set<string>>(new Set())
+  const [savedLists, setSavedLists] = useState<Set<string>>(new Set())
 
   // Mock data
   const searchHistory = [
@@ -93,7 +101,9 @@ const Search = () => {
         tags: ['coffee', 'work-friendly', 'cozy'],
         places: [],
         createdAt: '2024-01-10',
-        updatedAt: '2024-01-15'
+        updatedAt: '2024-01-15',
+        likes: 120,
+        savedCount: 50
       },
       {
         id: '2',
@@ -105,7 +115,9 @@ const Search = () => {
         tags: ['tacos', 'authentic', 'mexican'],
         places: [],
         createdAt: '2024-01-11',
-        updatedAt: '2024-01-14'
+        updatedAt: '2024-01-14',
+        likes: 80,
+        savedCount: 30
       }
     ],
     users: [
@@ -115,7 +127,8 @@ const Search = () => {
         username: 'sara.chen',
         avatar: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=150&h=150&fit=crop&crop=face',
         bio: 'Finding cozy spots and sharing them with friends ✨',
-        location: 'San Francisco, CA'
+        location: 'San Francisco, CA',
+        tags: ['cozy', 'coffee', 'foodie', 'local']
       },
       {
         id: '2',
@@ -123,7 +136,8 @@ const Search = () => {
         username: 'mike.j',
         avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=150&fit=crop&crop=face',
         bio: 'Coffee enthusiast and food lover',
-        location: 'Oakland, CA'
+        location: 'Oakland, CA',
+        tags: ['coffee', 'artisan', 'tacos', 'authentic']
       }
     ]
   }
@@ -153,7 +167,8 @@ const Search = () => {
         user.name.toLowerCase().includes(query) ||
         user.username.toLowerCase().includes(query) ||
         user.bio.toLowerCase().includes(query) ||
-        user.location.toLowerCase().includes(query)
+        user.location.toLowerCase().includes(query) ||
+        (user.tags && user.tags.some(tag => tag.toLowerCase().includes(query)))
       )
     }
   }
@@ -218,6 +233,28 @@ const Search = () => {
     setIsSearching(false)
   }
 
+  const handlePlaceClick = (place: Place) => {
+    // Convert Place to Hub format
+    const hub: Hub = {
+      id: place.id,
+      name: place.name,
+      description: `A great place to visit in ${place.address}`,
+      tags: place.tags,
+      images: place.hubImage ? [place.hubImage] : [],
+      location: {
+        address: place.address,
+        lat: place.coordinates?.lat || 37.7749,
+        lng: place.coordinates?.lng || -122.4194,
+      },
+      googleMapsUrl: `https://www.google.com/maps/search/${encodeURIComponent(place.name + ' ' + place.address)}`,
+      mainImage: place.hubImage,
+      posts: place.posts,
+      lists: [],
+    }
+    setSelectedHub(hub)
+    setShowHubModal(true)
+  }
+
   return (
     <div className="relative min-h-full overflow-x-hidden bg-linen-50">
       {/* Enhanced background: linen texture, sunlight gradient, vignette */}
@@ -230,42 +267,50 @@ const Search = () => {
       {/* Header with Search Bar */}
       <div className="relative z-10 bg-white/90 backdrop-blur-glass border-b border-linen-200 px-6 py-4">
         <div className="flex items-center gap-3 mb-4">
-          <div className="flex-1">
-            <h1 className="text-xl font-serif font-semibold text-charcoal-800">Search</h1>
+          <div className="flex-1 flex items-center gap-2">
+            <SearchBar
+              placeholder="Search places, lists, or people..."
+              showBackButton={showSearchHistory}
+              onBackClick={() => setShowSearchHistory(false)}
+              showFilter={true}
+              onFilterClick={() => setShowDropdown(v => !v)}
+              // Controlled input props:
+              value={searchQuery}
+              onChange={handleSearchInputChange}
+              onFocus={handleSearchInputFocus}
+            />
           </div>
-          <div className="relative">
-            <button
-              className="flex items-center gap-2 px-5 py-3 rounded-full bg-white/90 border border-linen-200 shadow-cozy transition-all duration-300 hover:shadow-botanical hover:bg-linen-50"
-              onClick={() => setShowDropdown(v => !v)}
-            >
+          <button
+            className="ml-2 px-4 py-2 rounded-full bg-gradient-to-r from-sage-400 to-gold-300 text-white font-semibold shadow-botanical hover:shadow-cozy transition-all duration-300"
+            onClick={() => setShowMap(true)}
+          >
+            Map
+          </button>
+        </div>
+      </div>
+      {showMap && (
+        <div className="fixed inset-0 z-30 bg-black/40 flex flex-col">
+          <div className="bg-white/95 p-4 shadow-botanical flex items-center gap-2">
+            <form className="flex-1">
+              <input
+                type="text"
+                placeholder="Search hubs on map..."
+                className="w-full px-4 py-2 rounded-full border border-linen-200 bg-linen-50 text-charcoal-600 focus:outline-none focus:ring-2 focus:ring-sage-200 shadow-soft"
+              />
+            </form>
+            <button className="p-2 rounded-full bg-white border border-linen-200 shadow-soft hover:bg-linen-100 transition">
               <FunnelIcon className="w-5 h-5 text-sage-400" />
-              <span className="font-semibold text-charcoal-600">Sort & Filter</span>
             </button>
+            <button className="ml-2 px-4 py-2 rounded-full bg-sage-400 text-white font-semibold shadow-soft hover:bg-sage-500 transition" onClick={() => setShowMap(false)}>
+              Close
+            </button>
+          </div>
+          <div className="flex-1 bg-gray-200 flex items-center justify-center">
+            {/* TODO: Map with hubs and user location */}
+            <span className="text-sage-700 text-lg">[Map goes here]</span>
           </div>
         </div>
-        
-        {/* Search Bar */}
-        <form onSubmit={handleSearchSubmit} className="relative">
-          <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-sage-400" />
-          <input
-            type="text"
-            placeholder="Search places, lists, or people..."
-            value={searchQuery}
-            onChange={handleSearchInputChange}
-            onFocus={handleSearchInputFocus}
-            className="w-full pl-10 pr-12 py-3 bg-white/80 backdrop-blur-sm rounded-2xl border border-linen-200 focus:outline-none focus:ring-2 focus:ring-sage-200 focus:border-sage-300 transition-all duration-300"
-          />
-          {searchQuery && (
-            <button
-              type="button"
-              onClick={clearSearch}
-              className="absolute right-3 top-1/2 transform -translate-y-1/2 text-sage-400 hover:text-sage-600 transition-colors"
-            >
-              ✕
-            </button>
-          )}
-        </form>
-      </div>
+      )}
 
       {/* Dropdown */}
       {showDropdown && (
@@ -429,13 +474,14 @@ const Search = () => {
             {(activeFilter === 'all' || activeFilter === 'places') && searchResults.places.length > 0 && (
               <div>
                 <h3 className="text-lg font-serif font-semibold text-charcoal-800 mb-3">
-                  Places ({searchResults.places.length})
+                  Hubs ({searchResults.places.length})
                 </h3>
                 <div className="space-y-3">
                   {searchResults.places.map((place) => (
-                    <div
+                    <button
                       key={place.id}
-                      className="bg-white/70 backdrop-blur-sm rounded-2xl p-4 shadow-soft border border-linen-200 hover:shadow-cozy transition-all duration-300"
+                      onClick={() => handlePlaceClick(place)}
+                      className="w-full bg-white/70 backdrop-blur-sm rounded-2xl p-4 shadow-soft border border-linen-200 hover:shadow-cozy transition-all duration-300 text-left"
                     >
                       <div className="flex items-start justify-between">
                         <div className="flex-1">
@@ -454,20 +500,16 @@ const Search = () => {
                               </span>
                             ))}
                           </div>
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center space-x-4 text-sm text-charcoal-600">
-                              <span className="flex items-center">
-                                <HeartIcon className="w-4 h-4 mr-1" />
-                                {place.savedCount} saved
-                              </span>
-                            </div>
-                            <button className="bg-gradient-to-r from-sage-500 to-sage-600 text-white px-4 py-2 rounded-xl text-sm font-medium hover:from-sage-600 hover:to-sage-700 transition-all duration-300 shadow-soft">
-                              Save
-                            </button>
+                          <div className="flex items-center gap-2 text-sm text-charcoal-600">
+                            <BookmarkIcon className="w-4 h-4" />
+                            <span>{place.savedCount}</span>
                           </div>
                         </div>
+                        <div className="p-1.5 rounded-full bg-sage-50 text-sage-600">
+                          <BookmarkIcon className="w-4 h-4" />
+                        </div>
                       </div>
-                    </div>
+                    </button>
                   ))}
                 </div>
               </div>
@@ -501,9 +543,45 @@ const Search = () => {
                           </div>
                           <div className="flex items-center justify-between">
                             <span className="text-xs text-charcoal-500">Updated {new Date(list.updatedAt).toLocaleDateString()}</span>
-                            <button className="text-sage-600 hover:text-sage-700 text-sm font-medium transition-colors">
-                              Follow List
-                            </button>
+                            <div className="flex items-center gap-2">
+                              <button 
+                                onClick={() => setLikedLists(prev => {
+                                  const newSet = new Set(prev)
+                                  if (newSet.has(list.id)) {
+                                    newSet.delete(list.id)
+                                  } else {
+                                    newSet.add(list.id)
+                                  }
+                                  return newSet
+                                })}
+                                className={`flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium transition ${
+                                  likedLists.has(list.id)
+                                    ? 'bg-gold-100 text-gold-700 border border-gold-200'
+                                    : 'bg-gold-50 text-gold-600 hover:bg-gold-100'
+                                }`}
+                              >
+                                <HeartIcon className={`w-4 h-4 ${likedLists.has(list.id) ? 'fill-current' : ''}`} />
+                                {(list.likes ?? 0) + (likedLists.has(list.id) ? 1 : 0)}
+                              </button>
+                              <button 
+                                onClick={() => setSavedLists(prev => {
+                                  const newSet = new Set(prev)
+                                  if (newSet.has(list.id)) {
+                                    newSet.delete(list.id)
+                                  } else {
+                                    newSet.add(list.id)
+                                  }
+                                  return newSet
+                                })}
+                                className={`p-1.5 rounded-full transition ${
+                                  savedLists.has(list.id)
+                                    ? 'bg-sage-100 text-sage-700'
+                                    : 'bg-sage-50 text-sage-600 hover:bg-sage-100'
+                                }`}
+                              >
+                                <BookmarkIcon className={`w-4 h-4 ${savedLists.has(list.id) ? 'fill-current' : ''}`} />
+                              </button>
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -543,6 +621,18 @@ const Search = () => {
                         <div className="flex-1">
                           <h4 className="font-semibold text-charcoal-800">{user.name}</h4>
                           <p className="text-sm text-charcoal-600">@{user.username}</p>
+                          {user.tags && user.tags.length > 0 && (
+                            <div className="flex flex-wrap gap-1 mt-2 mb-2">
+                              {user.tags.map((tag) => (
+                                <span
+                                  key={tag}
+                                  className="px-2 py-1 bg-gold-100 text-gold-700 text-xs rounded-full"
+                                >
+                                  #{tag}
+                                </span>
+                              ))}
+                            </div>
+                          )}
                           {user.bio && (
                             <p className="text-sm text-charcoal-600 mt-1">{user.bio}</p>
                           )}
@@ -558,6 +648,14 @@ const Search = () => {
             )}
           </div>
         </div>
+      )}
+      {/* Hub Modal */}
+      {selectedHub && (
+        <HubModal
+          isOpen={showHubModal}
+          onClose={() => setShowHubModal(false)}
+          hub={selectedHub}
+        />
       )}
     </div>
   )

@@ -5,6 +5,8 @@ export interface User {
   avatar?: string
   bio?: string
   location?: string
+  influences?: number // Number of items from their lists saved by others + favorited items
+  tags?: string[] // User's tags/interests
 }
 
 export interface Place {
@@ -25,28 +27,46 @@ export interface Place {
 
 export interface Post {
   id: string
-  placeId: string
+  hubId: string
   userId: string
-  user: User
-  image?: string
-  note?: string
-  tags: string[]
+  username: string
+  userAvatar: string
+  images: string[]
+  description: string
+  postType: PostType
+  triedRating?: TriedRating
+  createdAt: string
+  privacy: Privacy
+  listId?: string
   likes: number
+  likedBy: string[]
+  comments: Comment[]
+}
+
+export interface Comment {
+  id: string
+  userId: string
+  username: string
+  userAvatar: string
+  text: string
   createdAt: string
 }
 
 export interface List {
   id: string
   name: string
-  description?: string
+  description: string
   userId: string
   isPublic: boolean
   isShared: boolean
+  privacy: Privacy
   tags: string[]
-  places: ListPlace[]
+  hubs: Hub[]
   coverImage?: string
   createdAt: string
   updatedAt: string
+  likes: number
+  isLiked: boolean
 }
 
 export interface ListPlace {
@@ -78,4 +98,24 @@ export interface Activity {
   createdAt: string
 }
 
-export type TabType = 'friends' | 'discovery' 
+export type TabType = 'friends' | 'discovery'
+export type Privacy = 'public' | 'private' | 'friends'
+export type PostType = 'loved' | 'tried' | 'want'
+export type TriedRating = 'liked' | 'neutral' | 'disliked'
+
+export interface Hub {
+  id: string
+  name: string
+  description: string
+  tags: string[]
+  images: string[]
+  location: {
+    address: string
+    lat: number
+    lng: number
+  }
+  googleMapsUrl: string
+  mainImage?: string
+  posts: Post[]
+  lists: List[]
+} 
