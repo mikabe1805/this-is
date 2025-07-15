@@ -1,8 +1,101 @@
 import { useState } from 'react'
-import { MagnifyingGlassIcon, MapPinIcon, HeartIcon, UserIcon, FunnelIcon, ClockIcon, FireIcon, BookmarkIcon } from '@heroicons/react/24/outline'
+import { MagnifyingGlassIcon, MapPinIcon, HeartIcon, UserIcon, FunnelIcon, ClockIcon, FireIcon, BookmarkIcon, PlusIcon } from '@heroicons/react/24/outline'
 import SearchBar from '../components/SearchBar'
 import HubModal from '../components/HubModal'
-import type { Hub, Place } from '../types/index.js'
+import SaveModal from '../components/SaveModal'
+import LocationSelectModal from '../components/LocationSelectModal'
+import type { Hub, Place, List } from '../types/index.js'
+
+const allData = {
+  places: [
+    {
+      id: '1',
+      name: 'Blue Bottle Coffee',
+      address: '300 Webster St, Oakland, CA',
+      tags: ['coffee', 'cozy', 'work-friendly'],
+      posts: [],
+      savedCount: 45,
+      createdAt: '2024-01-15'
+    },
+    {
+      id: '2',
+      name: 'Tacos El Gordo',
+      address: '123 Mission St, San Francisco, CA',
+      tags: ['tacos', 'authentic', 'quick'],
+      posts: [],
+      savedCount: 23,
+      createdAt: '2024-01-14'
+    },
+    {
+      id: '3',
+      name: 'Starbucks Reserve',
+      address: '456 Market St, San Francisco, CA',
+      tags: ['coffee', 'premium', 'cozy'],
+      posts: [],
+      savedCount: 67,
+      createdAt: '2024-01-13'
+    },
+    {
+      id: '4',
+      name: 'Philz Coffee',
+      address: '789 Castro St, San Francisco, CA',
+      tags: ['coffee', 'artisan', 'cozy'],
+      posts: [],
+      savedCount: 34,
+      createdAt: '2024-01-12'
+    }
+  ],
+  lists: [
+    {
+      id: '1',
+      name: 'Cozy Coffee Spots',
+      description: 'Perfect places to work and relax',
+      userId: '1',
+      isPublic: true,
+      isShared: false,
+      tags: ['coffee', 'work-friendly', 'cozy'],
+      places: [],
+      createdAt: '2024-01-10',
+      updatedAt: '2024-01-15',
+      likes: 120,
+      savedCount: 50
+    },
+    {
+      id: '2',
+      name: 'Best Tacos in SF',
+      description: 'Authentic Mexican food spots',
+      userId: '2',
+      isPublic: true,
+      isShared: false,
+      tags: ['tacos', 'authentic', 'mexican'],
+      places: [],
+      createdAt: '2024-01-11',
+      updatedAt: '2024-01-14',
+      likes: 80,
+      savedCount: 30
+    }
+  ],
+  users: [
+    {
+      id: '1',
+      name: 'Sara Chen',
+      username: 'sara.chen',
+      avatar: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=150&h=150&fit=crop&crop=face',
+      bio: 'Finding cozy spots and sharing them with friends ✨',
+      location: 'San Francisco, CA',
+      tags: ['cozy', 'coffee', 'foodie', 'local']
+    },
+    {
+      id: '2',
+      name: 'Mike Johnson',
+      username: 'mike.j',
+      avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=150&fit=crop&crop=face',
+      bio: 'Coffee enthusiast and food lover',
+      location: 'Oakland, CA',
+      tags: ['coffee', 'artisan', 'tacos', 'authentic']
+    }
+  ]
+}
 
 const Search = () => {
   const [searchQuery, setSearchQuery] = useState('')
@@ -16,8 +109,14 @@ const Search = () => {
   const [showMap, setShowMap] = useState(false)
   const [selectedHub, setSelectedHub] = useState<Hub | null>(null)
   const [showHubModal, setShowHubModal] = useState(false)
+  const [showSaveModal, setShowSaveModal] = useState(false)
+  const [showLocationModal, setShowLocationModal] = useState(false)
+  const [selectedPlace, setSelectedPlace] = useState<Place | null>(null)
+  const [selectedLocation, setSelectedLocation] = useState<{ id: string; name: string; address: string; coordinates: { lat: number; lng: number } } | null>(null)
   const [likedLists, setLikedLists] = useState<Set<string>>(new Set())
   const [savedLists, setSavedLists] = useState<Set<string>>(new Set())
+  const [userLists, setUserLists] = useState(allData.lists)
+
 
   // Mock data
   const searchHistory = [
@@ -51,117 +150,28 @@ const Search = () => {
     { key: 'work-friendly', label: 'Work-Friendly' },
   ]
 
-  const allData = {
-    places: [
-      {
-        id: '1',
-        name: 'Blue Bottle Coffee',
-        address: '300 Webster St, Oakland, CA',
-        tags: ['coffee', 'cozy', 'work-friendly'],
-        posts: [],
-        savedCount: 45,
-        createdAt: '2024-01-15'
-      },
-      {
-        id: '2',
-        name: 'Tacos El Gordo',
-        address: '123 Mission St, San Francisco, CA',
-        tags: ['tacos', 'authentic', 'quick'],
-        posts: [],
-        savedCount: 23,
-        createdAt: '2024-01-14'
-      },
-      {
-        id: '3',
-        name: 'Starbucks Reserve',
-        address: '456 Market St, San Francisco, CA',
-        tags: ['coffee', 'premium', 'cozy'],
-        posts: [],
-        savedCount: 67,
-        createdAt: '2024-01-13'
-      },
-      {
-        id: '4',
-        name: 'Philz Coffee',
-        address: '789 Castro St, San Francisco, CA',
-        tags: ['coffee', 'artisan', 'cozy'],
-        posts: [],
-        savedCount: 34,
-        createdAt: '2024-01-12'
-      }
-    ],
-    lists: [
-      {
-        id: '1',
-        name: 'Cozy Coffee Spots',
-        description: 'Perfect places to work and relax',
-        userId: '1',
-        isPublic: true,
-        isShared: false,
-        tags: ['coffee', 'work-friendly', 'cozy'],
-        places: [],
-        createdAt: '2024-01-10',
-        updatedAt: '2024-01-15',
-        likes: 120,
-        savedCount: 50
-      },
-      {
-        id: '2',
-        name: 'Best Tacos in SF',
-        description: 'Authentic Mexican food spots',
-        userId: '2',
-        isPublic: true,
-        isShared: false,
-        tags: ['tacos', 'authentic', 'mexican'],
-        places: [],
-        createdAt: '2024-01-11',
-        updatedAt: '2024-01-14',
-        likes: 80,
-        savedCount: 30
-      }
-    ],
-    users: [
-      {
-        id: '1',
-        name: 'Sara Chen',
-        username: 'sara.chen',
-        avatar: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=150&h=150&fit=crop&crop=face',
-        bio: 'Finding cozy spots and sharing them with friends ✨',
-        location: 'San Francisco, CA',
-        tags: ['cozy', 'coffee', 'foodie', 'local']
-      },
-      {
-        id: '2',
-        name: 'Mike Johnson',
-        username: 'mike.j',
-        avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=150&fit=crop&crop=face',
-        bio: 'Coffee enthusiast and food lover',
-        location: 'Oakland, CA',
-        tags: ['coffee', 'artisan', 'tacos', 'authentic']
-      }
-    ]
-  }
-
   const availableTags = ['coffee', 'cozy', 'work-friendly', 'tacos', 'authentic', 'quick', 'outdoors', 'scenic']
 
   // Filter data based on search query
   const getFilteredResults = () => {
     if (!searchQuery.trim()) {
-      return allData
+      return {
+        ...allData,
+        lists: userLists
+      }
     }
 
     const query = searchQuery.toLowerCase()
-    
     return {
       places: allData.places.filter(place => 
         place.name.toLowerCase().includes(query) ||
         place.address.toLowerCase().includes(query) ||
         place.tags.some(tag => tag.toLowerCase().includes(query))
       ),
-      lists: allData.lists.filter(list => 
+      lists: userLists.filter(list => 
         list.name.toLowerCase().includes(query) ||
         list.description.toLowerCase().includes(query) ||
-        list.tags.some(tag => tag.toLowerCase().includes(query))
+        (list.tags && list.tags.some(tag => tag.toLowerCase().includes(query)))
       ),
       users: allData.users.filter(user => 
         user.name.toLowerCase().includes(query) ||
@@ -231,6 +241,45 @@ const Search = () => {
     setSearchQuery('')
     setShowSearchHistory(true)
     setIsSearching(false)
+  }
+
+  const handleSaveToPlace = (place: Place) => {
+    setSelectedPlace(place)
+    setShowSaveModal(true)
+  }
+
+  const handleSave = (status: 'loved' | 'tried' | 'want', rating?: 'liked' | 'neutral' | 'disliked', listIds?: string[], note?: string) => {
+    // In a real app, this would save the place with the selected status
+    console.log('Saving place:', { 
+      place: selectedPlace, 
+      status, 
+      rating, 
+      listIds, 
+      note,
+      // Auto-save to appropriate "All" list
+      autoSaveToList: `All ${status.charAt(0).toUpperCase() + status.slice(1)}`
+    })
+    // You could also show a success toast here
+  }
+
+  const handleCreateList = (listData: { name: string; description: string; privacy: 'public' | 'private' | 'friends'; tags?: string[]; coverImage?: string }) => {
+    setUserLists(prev => [...prev, listData])
+  }
+
+  const handleLocationSelect = (location: { id: string; name: string; address: string; coordinates: { lat: number; lng: number } }) => {
+    setSelectedLocation(location)
+    setSortBy('nearby') // Set the sort to nearby
+    setShowLocationModal(false)
+    // In a real app, you would filter/sort based on this location
+    console.log('Selected location for sorting:', location)
+  }
+
+  const handleSortByChange = (newSortBy: string) => {
+    if (newSortBy === 'nearby') {
+      setShowLocationModal(true)
+    } else {
+      setSortBy(newSortBy)
+    }
   }
 
   const handlePlaceClick = (place: Place) => {
@@ -326,7 +375,7 @@ const Search = () => {
                       name="sortBy"
                       value={opt.key}
                       checked={sortBy === opt.key}
-                      onChange={() => setSortBy(opt.key)}
+                      onChange={() => handleSortByChange(opt.key)}
                       className="w-5 h-5 text-sage-500 focus:ring-sage-400"
                     />
                     <span className="font-medium text-charcoal-600">{opt.label}</span>
@@ -471,14 +520,14 @@ const Search = () => {
             )}
 
             {/* Places */}
-            {(activeFilter === 'all' || activeFilter === 'places') && searchResults.places.length > 0 && (
+            {(activeFilter === 'all' || activeFilter === 'places') && (searchResults.places || []).length > 0 && (
               <div>
                 <h3 className="text-lg font-serif font-semibold text-charcoal-800 mb-3">
                   Hubs ({searchResults.places.length})
                 </h3>
                 <div className="space-y-3">
-                  {searchResults.places.map((place) => (
-                    <button
+                  {(searchResults.places || []).map((place) => (
+                    <div
                       key={place.id}
                       onClick={() => handlePlaceClick(place)}
                       className="w-full bg-white/70 backdrop-blur-sm rounded-2xl p-4 shadow-soft border border-linen-200 hover:shadow-cozy transition-all duration-300 text-left"
@@ -505,24 +554,33 @@ const Search = () => {
                             <span>{place.savedCount}</span>
                           </div>
                         </div>
-                        <div className="p-1.5 rounded-full bg-sage-50 text-sage-600">
-                          <BookmarkIcon className="w-4 h-4" />
+                        <div className="flex items-center gap-2">
+                          <button 
+                            onClick={e => { 
+                              e.stopPropagation()
+                              handleSaveToPlace(place)
+                            }}
+                            className="p-1.5 rounded-full bg-gold-50 text-gold-600 hover:bg-gold-100 transition"
+                            title="Save place"
+                          >
+                            <BookmarkIcon className="w-4 h-4" />
+                          </button>
                         </div>
                       </div>
-                    </button>
+                    </div>
                   ))}
                 </div>
               </div>
             )}
 
             {/* Lists */}
-            {(activeFilter === 'all' || activeFilter === 'lists') && searchResults.lists.length > 0 && (
+            {(activeFilter === 'all' || activeFilter === 'lists') && (searchResults.lists || []).length > 0 && (
               <div>
                 <h3 className="text-lg font-serif font-semibold text-charcoal-800 mb-3">
                   Lists ({searchResults.lists.length})
                 </h3>
                 <div className="space-y-3">
-                  {searchResults.lists.map((list) => (
+                  {(searchResults.lists || []).map((list) => (
                     <div
                       key={list.id}
                       className="bg-white/70 backdrop-blur-sm rounded-2xl p-4 shadow-soft border border-linen-200 hover:shadow-cozy transition-all duration-300"
@@ -564,23 +622,49 @@ const Search = () => {
                                 {(list.likes ?? 0) + (likedLists.has(list.id) ? 1 : 0)}
                               </button>
                               <button 
-                                onClick={() => setSavedLists(prev => {
-                                  const newSet = new Set(prev)
-                                  if (newSet.has(list.id)) {
-                                    newSet.delete(list.id)
-                                  } else {
-                                    newSet.add(list.id)
+                                onClick={() => {
+                                  // Open SaveModal for lists as well
+                                  const mockPlace = {
+                                    id: list.id,
+                                    name: list.name,
+                                    address: 'Various locations',
+                                    tags: list.tags,
+                                    posts: [],
+                                    savedCount: list.savedCount || 0,
+                                    createdAt: list.createdAt
                                   }
-                                  return newSet
-                                })}
+                                  handleSaveToPlace(mockPlace)
+                                }}
                                 className={`p-1.5 rounded-full transition ${
                                   savedLists.has(list.id)
                                     ? 'bg-sage-100 text-sage-700'
                                     : 'bg-sage-50 text-sage-600 hover:bg-sage-100'
                                 }`}
+                                title="Save to list"
                               >
                                 <BookmarkIcon className={`w-4 h-4 ${savedLists.has(list.id) ? 'fill-current' : ''}`} />
                               </button>
+                              {list.userId === '1' && (
+                                <button 
+                                  onClick={() => { 
+                                    // Create a mock place from the list for demonstration
+                                    const mockPlace = {
+                                      id: list.id,
+                                      name: list.name,
+                                      address: 'Various locations',
+                                      tags: list.tags,
+                                      posts: [],
+                                      savedCount: list.likes || 0,
+                                      createdAt: list.createdAt
+                                    }
+                                    handleSaveToPlace(mockPlace)
+                                  }}
+                                  className="p-1.5 rounded-full bg-gold-50 text-gold-600 hover:bg-gold-100 transition"
+                                  title="Create post"
+                                >
+                                  <PlusIcon className="w-4 h-4" />
+                                </button>
+                              )}
                             </div>
                           </div>
                         </div>
@@ -592,13 +676,13 @@ const Search = () => {
             )}
 
             {/* Users */}
-            {(activeFilter === 'all' || activeFilter === 'users') && searchResults.users.length > 0 && (
+            {(activeFilter === 'all' || activeFilter === 'users') && (searchResults.users || []).length > 0 && (
               <div>
                 <h3 className="text-lg font-serif font-semibold text-charcoal-800 mb-3">
                   People ({searchResults.users.length})
                 </h3>
                 <div className="space-y-3">
-                  {searchResults.users.map((user) => (
+                  {(searchResults.users || []).map((user) => (
                     <div
                       key={user.id}
                       className="bg-white/70 backdrop-blur-sm rounded-2xl p-4 shadow-soft border border-linen-200 hover:shadow-cozy transition-all duration-300"
@@ -657,6 +741,27 @@ const Search = () => {
           hub={selectedHub}
         />
       )}
+
+      {/* Modals */}
+      {selectedPlace && (
+        <SaveModal
+          isOpen={showSaveModal}
+          onClose={() => {
+            setShowSaveModal(false)
+            setSelectedPlace(null)
+          }}
+          place={selectedPlace}
+          userLists={userLists}
+          onSave={handleSave}
+          onCreateList={handleCreateList}
+        />
+      )}
+
+      <LocationSelectModal
+        isOpen={showLocationModal}
+        onClose={() => setShowLocationModal(false)}
+        onLocationSelect={handleLocationSelect}
+      />
     </div>
   )
 }

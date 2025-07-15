@@ -1,8 +1,12 @@
 import type { List, ListPlace, Hub } from '../types/index.js'
 import { MapPinIcon, HeartIcon, BookmarkIcon, ShareIcon, EllipsisHorizontalIcon, ArrowLeftIcon, StarIcon, MapIcon } from '@heroicons/react/24/outline'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import HubModal from '../components/HubModal'
+import PlusDropdown from '../components/PlusDropdown'
+import HubSearchModal from '../components/HubSearchModal'
+import SaveModal from '../components/SaveModal'
+import CreatePost from '../components/CreatePost'
 
 const ListView = () => {
   const { id } = useParams<{ id: string }>()
@@ -14,7 +18,72 @@ const ListView = () => {
   const [showHubModal, setShowHubModal] = useState(false)
   const [showMapModal, setShowMapModal] = useState(false)
   const [cardMenuOpen, setCardMenuOpen] = useState<string | null>(null)
+  const [showHubSearchModal, setShowHubSearchModal] = useState(false)
+  const [showSaveModal, setShowSaveModal] = useState(false)
+  const [showCreatePost, setShowCreatePost] = useState(false)
+  const [hubToSave, setHubToSave] = useState<Hub | null>(null)
   
+  // Scroll to top when component mounts or when id changes
+  useEffect(() => {
+    // Force scroll to top with multiple methods
+    const scrollToTop = () => {
+      window.scrollTo({ top: 0, left: 0, behavior: 'instant' })
+      if (document.documentElement) {
+        document.documentElement.scrollTop = 0
+      }
+      if (document.body) {
+        document.body.scrollTop = 0
+      }
+    }
+    
+    // Try immediately
+    scrollToTop()
+    
+    // Try after DOM is ready
+    requestAnimationFrame(scrollToTop)
+    
+    // Try after a short delay
+    const timer = setTimeout(scrollToTop, 100)
+    
+    return () => clearTimeout(timer)
+  }, [id])
+  
+  // Mock user lists for save modal
+  const userLists: List[] = [
+    {
+      id: '1',
+      name: 'Cozy Coffee Spots',
+      description: 'Perfect places to work and relax',
+      userId: '1',
+      isPublic: true,
+      isShared: false,
+      privacy: 'public',
+      tags: ['coffee', 'work-friendly', 'cozy'],
+      hubs: [],
+      coverImage: 'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=300&h=200&fit=crop',
+      createdAt: '2024-01-10',
+      updatedAt: '2024-01-15',
+      likes: 56,
+      isLiked: false
+    },
+    {
+      id: '2',
+      name: 'Book Nooks',
+      description: 'Quiet places to read and study',
+      userId: '1',
+      isPublic: true,
+      isShared: false,
+      privacy: 'public',
+      tags: ['books', 'quiet', 'study'],
+      hubs: [],
+      coverImage: 'https://images.unsplash.com/photo-1481627834876-b7833e8f5570?w=300&h=200&fit=crop',
+      createdAt: '2024-01-12',
+      updatedAt: '2024-01-14',
+      likes: 34,
+      isLiked: false
+    }
+  ]
+
   // Mock list data
   const list: List = {
     id: '1',
@@ -150,6 +219,41 @@ const ListView = () => {
     setShowHubModal(true)
   }
 
+  // Check if current user owns this list
+  const isOwner = list.userId === '1' // Mock current user ID
+
+  const handleCreatePost = () => {
+    setShowCreatePost(true)
+  }
+
+  const handleSaveHub = () => {
+    setShowHubSearchModal(true)
+  }
+
+  const handleHubSelected = (hub: Hub) => {
+    setHubToSave(hub)
+    setShowHubSearchModal(false)
+    setShowSaveModal(true)
+  }
+
+  const handleSave = (status: 'loved' | 'tried' | 'want', rating?: 'liked' | 'neutral' | 'disliked', listIds?: string[], note?: string) => {
+    console.log('Saving hub:', { 
+      hub: hubToSave, 
+      status, 
+      rating, 
+      listIds, 
+      note,
+      // Auto-save to appropriate "All" list
+      autoSaveToList: `All ${status.charAt(0).toUpperCase() + status.slice(1)}`
+    })
+    setShowSaveModal(false)
+    setHubToSave(null)
+  }
+
+  const handleCreateList = (listData: { name: string; description: string; privacy: 'public' | 'private' | 'friends'; tags?: string[]; coverImage?: string }) => {
+    console.log('Creating new list:', listData, 'and saving hub:', hubToSave)
+  }
+
   return (
     <div className="relative min-h-full overflow-x-hidden bg-linen-50">
       {/* Enhanced background: linen texture, sunlight gradient, vignette */}
@@ -207,16 +311,20 @@ const ListView = () => {
           >
             <HeartIcon className={`w-5 h-5 ${isLiked ? 'text-gold-600 fill-current' : 'text-sage-600'}`} />
           </button>
-          <button 
-            onClick={() => setIsSaved(!isSaved)}
-            className={`w-10 h-10 rounded-full flex items-center justify-center shadow-soft transition ${
-              isSaved 
-                ? 'bg-sage-100' 
-                : 'bg-sage-100 hover:bg-sage-200'
-            }`}
-          >
-            <BookmarkIcon className={`w-5 h-5 ${isSaved ? 'text-sage-600 fill-current' : 'text-sage-600'}`} />
-          </button>
+          {isOwner ? (
+            <PlusDropdown onCreatePost={handleCreatePost} onSaveHub={handleSaveHub} />
+          ) : (
+            <button 
+              onClick={() => setIsSaved(!isSaved)}
+              className={`w-10 h-10 rounded-full flex items-center justify-center shadow-soft transition ${
+                isSaved 
+                  ? 'bg-sage-100' 
+                  : 'bg-sage-100 hover:bg-sage-200'
+              }`}
+            >
+              <BookmarkIcon className={`w-5 h-5 ${isSaved ? 'text-sage-600 fill-current' : 'text-sage-600'}`} />
+            </button>
+          )}
         </div>
         {/* Tags */}
         <div className="flex flex-wrap gap-2 px-4 pb-2">
@@ -357,6 +465,45 @@ const ListView = () => {
           hub={selectedHub}
         />
       )}
+
+      {/* Hub Search Modal */}
+      <HubSearchModal
+        isOpen={showHubSearchModal}
+        onClose={() => setShowHubSearchModal(false)}
+        onSelectHub={handleHubSelected}
+      />
+
+      {/* Save Modal */}
+      {hubToSave && (
+        <SaveModal
+          isOpen={showSaveModal}
+          onClose={() => {
+            setShowSaveModal(false)
+            setHubToSave(null)
+          }}
+          place={{
+            id: hubToSave.id,
+            name: hubToSave.name,
+            address: hubToSave.location.address,
+            tags: hubToSave.tags,
+            posts: hubToSave.posts,
+            savedCount: 0,
+            createdAt: new Date().toISOString(),
+            hubImage: hubToSave.mainImage
+          }}
+          userLists={userLists}
+          selectedListIds={[list.id]} // Pre-select the current list
+          onSave={handleSave}
+          onCreateList={handleCreateList}
+        />
+      )}
+
+      {/* Create Post Modal */}
+      <CreatePost
+        isOpen={showCreatePost}
+        onClose={() => setShowCreatePost(false)}
+        preSelectedListIds={[list.id]} // Pre-select the current list
+      />
     </div>
   )
 }

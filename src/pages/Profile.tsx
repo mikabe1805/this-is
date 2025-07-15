@@ -1,7 +1,9 @@
-import type { User, List, Activity } from '../types/index.js'
+import type { User, List, Activity, Place } from '../types/index.js'
 import { BookmarkIcon, HeartIcon, PlusIcon, FunnelIcon, MapPinIcon, CalendarIcon } from '@heroicons/react/24/outline'
 import { useState } from 'react'
 import SearchBar from '../components/SearchBar'
+import SaveModal from '../components/SaveModal'
+import LocationSelectModal from '../components/LocationSelectModal'
 import { useNavigate } from 'react-router-dom'
 
 // SVG botanical accent (e.g., eucalyptus branch)
@@ -105,6 +107,11 @@ const Profile = () => {
   const [commentInput, setCommentInput] = useState('')
   const [likedLists, setLikedLists] = useState<Set<string>>(new Set())
   const [savedLists, setSavedLists] = useState<Set<string>>(new Set())
+  const [showSaveModal, setShowSaveModal] = useState(false)
+  const [showLocationModal, setShowLocationModal] = useState(false)
+  const [selectedPlace, setSelectedPlace] = useState<Place | null>(null)
+  const [selectedLocation, setSelectedLocation] = useState<{ id: string; name: string; address: string; coordinates: { lat: number; lng: number } } | null>(null)
+  
   let filteredLists = userLists.filter(list => {
     if (activeFilters.length === 0) return true
     return activeFilters.some(f => list.tags.includes(f))
@@ -137,6 +144,47 @@ const Profile = () => {
     })
   }
 
+  const handleSaveToPlace = (place: Place) => {
+    setSelectedPlace(place)
+    setShowSaveModal(true)
+  }
+
+  const handleSave = (status: 'loved' | 'tried' | 'want', rating?: 'liked' | 'neutral' | 'disliked', listIds?: string[], note?: string) => {
+    // In a real app, this would save the place with the selected status
+    console.log('Saving place:', { 
+      place: selectedPlace, 
+      status, 
+      rating, 
+      listIds, 
+      note,
+      // Auto-save to appropriate "All" list
+      autoSaveToList: `All ${status.charAt(0).toUpperCase() + status.slice(1)}`
+    })
+    // You could also show a success toast here
+  }
+
+  const handleCreateList = (listData: { name: string; description: string; privacy: 'public' | 'private' | 'friends'; tags?: string[]; coverImage?: string }) => {
+    // In a real app, this would create a new list and save the place to it
+    console.log('Creating new list:', listData, 'and saving place:', selectedPlace)
+    // You could also show a success toast here
+  }
+
+  const handleLocationSelect = (location: { id: string; name: string; address: string; coordinates: { lat: number; lng: number } }) => {
+    setSelectedLocation(location)
+    setSortBy('nearby') // Set the sort to nearby
+    setShowLocationModal(false)
+    // In a real app, you would filter/sort based on this location
+    console.log('Selected location for sorting:', location)
+  }
+
+  const handleSortByChange = (newSortBy: string) => {
+    if (newSortBy === 'nearby') {
+      setShowLocationModal(true)
+    } else {
+      setSortBy(newSortBy)
+    }
+  }
+
   const navigate = useNavigate()
 
   return (
@@ -167,7 +215,7 @@ const Profile = () => {
                       name="sortBy"
                       value={opt.key}
                       checked={sortBy === opt.key}
-                      onChange={() => setSortBy(opt.key)}
+                      onChange={() => handleSortByChange(opt.key)}
                       className="w-5 h-5 text-sage-500 focus:ring-sage-400"
                     />
                     <span className="font-medium text-charcoal-600">{opt.label}</span>
@@ -326,8 +374,10 @@ const Profile = () => {
           </div>
           <div className="space-y-4">
             {filteredLists.map((list, idx) => (
-              <button
+              <div
                 key={list.id}
+                role="button"
+                tabIndex={0}
                 className="w-full text-left rounded-2xl shadow-botanical border border-linen-200 bg-white/98 flex flex-col md:flex-row gap-4 overflow-hidden transition hover:shadow-cozy hover:-translate-y-1 focus:outline-none focus:ring-2 focus:ring-sage-200"
                 onClick={() => navigate(`/list/${list.id}`)}
                 aria-label={`Open list ${list.name}`}
@@ -356,24 +406,48 @@ const Profile = () => {
                             ? 'bg-gold-100 text-gold-700 border border-gold-200' 
                             : 'bg-gold-50 text-gold-600 hover:bg-gold-100'
                         }`}
+                        title="Add to favorites"
                       >
                         <HeartIcon className={`w-4 h-4 ${likedLists.has(list.id) ? 'fill-current' : ''}`} />
                         {list.likes || 0}
                       </button>
                       <button 
-                        onClick={e => { e.stopPropagation(); handleSaveList(list.id) }}
-                        className={`p-1.5 rounded-full transition ${
-                          savedLists.has(list.id) 
-                            ? 'bg-sage-100 text-sage-700' 
-                            : 'bg-sage-50 text-sage-600 hover:bg-sage-100'
-                        }`}
+                        onClick={e => { 
+                          e.stopPropagation()
+                          // Save to list modal
+                          const mockPlace: Place = {
+                            id: list.id,
+                            name: list.name,
+                            address: 'Various locations',
+                            tags: list.tags,
+                            posts: [],
+                            savedCount: list.likes,
+                            createdAt: list.createdAt
+                          }
+                          handleSaveToPlace(mockPlace)
+                        }}
+                        className="p-1.5 rounded-full bg-gold-50 text-gold-600 hover:bg-gold-100 transition"
+                        title="Save to list"
                       >
-                        <BookmarkIcon className={`w-4 h-4 ${savedLists.has(list.id) ? 'fill-current' : ''}`} />
+                        <BookmarkIcon className="w-4 h-4" />
                       </button>
+                      {currentUser.id === list.userId && (
+                        <button 
+                          onClick={e => { 
+                            e.stopPropagation()
+                            // TODO: Create new post in this list
+                            console.log('Create new post in list:', list.id)
+                          }}
+                          className="p-1.5 rounded-full bg-sage-50 text-sage-600 hover:bg-sage-100 transition"
+                          title="Create post"
+                        >
+                          <PlusIcon className="w-4 h-4" />
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>
-              </button>
+              </div>
             ))}
           </div>
         </div>
@@ -443,6 +517,27 @@ const Profile = () => {
           </form>
         </div>
       </div>
+
+      {/* Modals */}
+      {selectedPlace && (
+        <SaveModal
+          isOpen={showSaveModal}
+          onClose={() => {
+            setShowSaveModal(false)
+            setSelectedPlace(null)
+          }}
+          place={selectedPlace}
+          userLists={userLists}
+          onSave={handleSave}
+          onCreateList={handleCreateList}
+        />
+      )}
+
+      <LocationSelectModal
+        isOpen={showLocationModal}
+        onClose={() => setShowLocationModal(false)}
+        onLocationSelect={handleLocationSelect}
+      />
     </div>
   )
 }

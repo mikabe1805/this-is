@@ -6,6 +6,16 @@ interface Option {
   label: string
 }
 
+interface Location {
+  id: string
+  name: string
+  address: string
+  coordinates: {
+    lat: number
+    lng: number
+  }
+}
+
 interface FilterSortDropdownProps {
   sortOptions: Option[]
   filterOptions: Option[]
@@ -17,6 +27,7 @@ interface FilterSortDropdownProps {
   show: boolean
   onClose: () => void
   anchorRect?: DOMRect | null
+  onLocationSelect?: (location: Location) => void
 }
 
 const PANEL_WIDTH = 320
@@ -31,7 +42,8 @@ const FilterSortDropdown: React.FC<FilterSortDropdownProps> = ({
   setActiveFilters,
   show,
   onClose,
-  anchorRect
+  anchorRect,
+  onLocationSelect
 }) => {
   if (!show) return null
   const panelStyle = anchorRect
@@ -63,7 +75,13 @@ const FilterSortDropdown: React.FC<FilterSortDropdownProps> = ({
                   name="sortBy"
                   value={opt.key}
                   checked={sortBy === opt.key}
-                  onChange={() => setSortBy(opt.key)}
+                  onChange={() => {
+                    if (opt.key === 'nearby' && onLocationSelect) {
+                      // Don't change sortBy yet, let the parent handle location selection
+                      return
+                    }
+                    setSortBy(opt.key)
+                  }}
                   className="w-5 h-5 text-sage-500 focus:ring-sage-400"
                 />
                 <span className="font-medium text-charcoal-600">{opt.label}</span>

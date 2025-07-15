@@ -4,7 +4,9 @@ import { HeartIcon as HeartIconSolid } from '@heroicons/react/24/solid'
 import SearchBar from '../components/SearchBar'
 import FilterSortDropdown from '../components/FilterSortDropdown'
 import HubModal from '../components/HubModal'
-import type { Hub } from '../types/index.js'
+import SaveModal from '../components/SaveModal'
+import LocationSelectModal from '../components/LocationSelectModal'
+import type { Hub, Place, List } from '../types/index.js'
 
 // Botanical SVG accent (eucalyptus branch)
 const BotanicalAccent = () => (
@@ -110,6 +112,10 @@ const Home = () => {
   const [activeFilters, setActiveFilters] = useState<string[]>([])
   const [selectedHub, setSelectedHub] = useState<Hub | null>(null)
   const [showHubModal, setShowHubModal] = useState(false)
+  const [showSaveModal, setShowSaveModal] = useState(false)
+  const [showLocationModal, setShowLocationModal] = useState(false)
+  const [selectedPlace, setSelectedPlace] = useState<Place | null>(null)
+  const [selectedLocation, setSelectedLocation] = useState<{ id: string; name: string; address: string; coordinates: { lat: number; lng: number } } | null>(null)
   const filterButtonRef = useRef<HTMLButtonElement>(null)
   const [anchorRect, setAnchorRect] = useState<DOMRect | null>(null)
 
@@ -226,6 +232,47 @@ const Home = () => {
     setShowDropdown(true)
   }
 
+  const handleSaveToPlace = (place: Place) => {
+    setSelectedPlace(place)
+    setShowSaveModal(true)
+  }
+
+  const handleSave = (status: 'loved' | 'tried' | 'want', rating?: 'liked' | 'neutral' | 'disliked', listIds?: string[], note?: string) => {
+    // In a real app, this would save the place with the selected status
+    console.log('Saving place:', { 
+      place: selectedPlace, 
+      status, 
+      rating, 
+      listIds, 
+      note,
+      // Auto-save to appropriate "All" list
+      autoSaveToList: `All ${status.charAt(0).toUpperCase() + status.slice(1)}`
+    })
+    // You could also show a success toast here
+  }
+
+  const handleCreateList = (listData: { name: string; description: string; privacy: 'public' | 'private' | 'friends'; tags?: string[]; coverImage?: string }) => {
+    // In a real app, this would create a new list and save the place to it
+    console.log('Creating new list:', listData, 'and saving place:', selectedPlace)
+    // You could also show a success toast here
+  }
+
+  const handleLocationSelect = (location: { id: string; name: string; address: string; coordinates: { lat: number; lng: number } }) => {
+    setSelectedLocation(location)
+    setSortBy('nearby') // Set the sort to nearby
+    setShowLocationModal(false)
+    // In a real app, you would filter/sort based on this location
+    console.log('Selected location for sorting:', location)
+  }
+
+  const handleSortByChange = (newSortBy: string) => {
+    if (newSortBy === 'nearby') {
+      setShowLocationModal(true)
+    } else {
+      setSortBy(newSortBy)
+    }
+  }
+
   return (
     <div className="min-h-full relative bg-linen-50">
       {/* Enhanced background: linen texture, sunlight gradient, vignette */}
@@ -264,12 +311,13 @@ const Home = () => {
             filterOptions={filterOptions}
             availableTags={availableTags}
             sortBy={sortBy}
-            setSortBy={setSortBy}
+            setSortBy={handleSortByChange}
             activeFilters={activeFilters}
             setActiveFilters={setActiveFilters}
             show={showDropdown}
             onClose={() => setShowDropdown(false)}
             anchorRect={anchorRect}
+            onLocationSelect={handleLocationSelect}
           />
         </div>
         {/* Tab Navigation */}
@@ -397,7 +445,7 @@ const Home = () => {
                     <div className="flex items-center gap-2">
                       {item.type === 'list' && (
                         <>
-                          <button 
+                          <button
                             onClick={e => {
                               e.stopPropagation();
                               setLikedItems(prev => {
@@ -415,55 +463,80 @@ const Home = () => {
                                 ? 'bg-gold-100 text-gold-700 border border-gold-200'
                                 : 'bg-gold-50 text-gold-600 hover:bg-gold-100'
                             }`}
+                            title="Add to favorites"
                           >
                             <HeartIcon className={`w-4 h-4 ${likedItems.has(item.id) ? 'fill-current' : ''}`} />
                             {(item.likes ?? 0) + (likedItems.has(item.id) ? 1 : 0)}
                           </button>
-                          <button 
+                          <button
                             onClick={e => {
                               e.stopPropagation();
-                              setSavedItems(prev => {
-                                const newSet = new Set(prev);
-                                if (newSet.has(item.id)) {
-                                  newSet.delete(item.id);
-                                } else {
-                                  newSet.add(item.id);
-                                }
-                                return newSet;
-                              });
+                              // Save to list modal
+                              const mockPlace = {
+                                id: item.id,
+                                name: item.title,
+                                address: 'Various locations',
+                                tags: [],
+                                posts: [],
+                                savedCount: item.likes || 0,
+                                createdAt: '2024-01-15'
+                              };
+                              handleSaveToPlace(mockPlace);
                             }}
-                            className={`p-1.5 rounded-full transition ${
-                              savedItems.has(item.id)
-                                ? 'bg-sage-100 text-sage-700'
-                                : 'bg-sage-50 text-sage-600 hover:bg-sage-100'
-                            }`}
+                            className="p-1.5 rounded-full bg-gold-50 text-gold-600 hover:bg-gold-100 transition"
+                            title="Save to list"
                           >
-                            <BookmarkIcon className={`w-4 h-4 ${savedItems.has(item.id) ? 'fill-current' : ''}`} />
+                            <BookmarkIcon className="w-4 h-4" />
                           </button>
+                          {item.owner === 'Emma' && (
+                            <button
+                              onClick={e => {
+                                e.stopPropagation();
+                                // Create new post in this list
+                                console.log('Create new post in list:', item.id);
+                              }}
+                              className="p-1.5 rounded-full bg-sage-50 text-sage-600 hover:bg-sage-100 transition"
+                              title="Create post"
+                            >
+                              <PlusIcon className="w-4 h-4" />
+                            </button>
+                          )}
                         </>
                       )}
                       {item.type === 'hub' && (
-                        <button 
-                          onClick={e => {
-                            e.stopPropagation();
-                            setSavedItems(prev => {
-                              const newSet = new Set(prev);
-                              if (newSet.has(item.id)) {
-                                newSet.delete(item.id);
-                              } else {
-                                newSet.add(item.id);
-                              }
-                              return newSet;
-                            });
-                          }}
-                          className={`p-1.5 rounded-full transition ${
-                            savedItems.has(item.id)
-                              ? 'bg-sage-100 text-sage-700'
-                              : 'bg-sage-50 text-sage-600 hover:bg-sage-100'
-                          }`}
-                        >
-                          <BookmarkIcon className={`w-4 h-4 ${savedItems.has(item.id) ? 'fill-current' : ''}`} />
-                        </button>
+                        <>
+                          <button
+                            onClick={e => {
+                              e.stopPropagation();
+                              // Save to list modal
+                              const mockPlace = {
+                                id: item.id,
+                                name: item.title,
+                                address: 'San Francisco, CA',
+                                tags: [],
+                                posts: [],
+                                savedCount: item.likes || 0,
+                                createdAt: '2024-01-15'
+                              };
+                              handleSaveToPlace(mockPlace);
+                            }}
+                            className="p-1.5 rounded-full bg-gold-50 text-gold-600 hover:bg-gold-100 transition"
+                            title="Save to list"
+                          >
+                            <BookmarkIcon className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={e => {
+                              e.stopPropagation();
+                              // Create new post in this hub
+                              console.log('Create new post in hub:', item.id);
+                            }}
+                            className="p-1.5 rounded-full bg-sage-50 text-sage-600 hover:bg-sage-100 transition"
+                            title="Create post"
+                          >
+                            <PlusIcon className="w-4 h-4" />
+                          </button>
+                        </>
                       )}
                     </div>
                   </div>
@@ -497,6 +570,27 @@ const Home = () => {
           hub={selectedHub}
         />
       )}
+
+              {/* Modals */}
+        {selectedPlace && (
+          <SaveModal
+            isOpen={showSaveModal}
+            onClose={() => {
+              setShowSaveModal(false)
+              setSelectedPlace(null)
+            }}
+            place={selectedPlace}
+            userLists={[]} // Mock empty list for demo
+            onSave={handleSave}
+            onCreateList={handleCreateList}
+          />
+        )}
+
+      <LocationSelectModal
+        isOpen={showLocationModal}
+        onClose={() => setShowLocationModal(false)}
+        onLocationSelect={handleLocationSelect}
+      />
     </div>
   )
 }

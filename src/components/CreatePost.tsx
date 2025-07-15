@@ -15,6 +15,8 @@ async function extractLocationFromImage(file: File): Promise<{ lat: number, lng:
 interface CreatePostProps {
   isOpen: boolean
   onClose: () => void
+  preSelectedHub?: Hub
+  preSelectedListIds?: string[]
 }
 
 interface Hub {
@@ -26,13 +28,13 @@ interface Hub {
   lng?: number
 }
 
-const CreatePost = ({ isOpen, onClose }: CreatePostProps) => {
+const CreatePost = ({ isOpen, onClose, preSelectedHub, preSelectedListIds }: CreatePostProps) => {
   const [step, setStep] = useState<'photo' | 'location' | 'details'>('photo')
   const [photos, setPhotos] = useState<File[]>([])
   const [extractedLocation, setExtractedLocation] = useState<{ lat: number, lng: number } | null>(null)
   const [hubGuess, setHubGuess] = useState<Hub | null>(null)
   const [hubConfirmed, setHubConfirmed] = useState(false)
-  const [selectedHub, setSelectedHub] = useState<Hub | null>(null)
+  const [selectedHub, setSelectedHub] = useState<Hub | null>(preSelectedHub || null)
   const [isCreatingNewHub, setIsCreatingNewHub] = useState(false)
   const [newHubName, setNewHubName] = useState('')
   const [newHubAddress, setNewHubAddress] = useState('')
@@ -46,7 +48,7 @@ const CreatePost = ({ isOpen, onClose }: CreatePostProps) => {
   const [tags, setTags] = useState<string[]>([])
   const [newTag, setNewTag] = useState('')
   const [privacy, setPrivacy] = useState<'public' | 'friends' | 'private'>('public')
-  const [listId, setListId] = useState<string>('')
+  const [selectedListIds, setSelectedListIds] = useState<Set<string>>(new Set(preSelectedListIds || []))
   const fileInputRef = useRef<HTMLInputElement>(null)
   const photoInputRef = useRef<HTMLInputElement>(null)
 
@@ -71,12 +73,18 @@ const CreatePost = ({ isOpen, onClose }: CreatePostProps) => {
       // Try to extract location from the first photo
       const loc = await extractLocationFromImage(files[0])
       setExtractedLocation(loc)
-      setStep('location')
-      // Try to guess hub if location found
-      if (loc) {
-        // Find closest mock hub (in real app, use geospatial search)
-        const guess = mockSearchResults.find(hub => Math.abs(hub.lat! - loc.lat) < 0.1 && Math.abs(hub.lng! - loc.lng) < 0.1)
-        if (guess) setHubGuess(guess)
+      
+      // If hub is pre-selected, skip to details
+      if (selectedHub) {
+        setStep('details')
+      } else {
+        setStep('location')
+        // Try to guess hub if location found
+        if (loc) {
+          // Find closest mock hub (in real app, use geospatial search)
+          const guess = mockSearchResults.find(hub => Math.abs(hub.lat! - loc.lat) < 0.1 && Math.abs(hub.lng! - loc.lng) < 0.1)
+          if (guess) setHubGuess(guess)
+        }
       }
     }
   }
@@ -152,7 +160,7 @@ const CreatePost = ({ isOpen, onClose }: CreatePostProps) => {
     setExtractedLocation(null)
     setHubGuess(null)
     setHubConfirmed(false)
-    setSelectedHub(null)
+    setSelectedHub(preSelectedHub || null)
     setIsCreatingNewHub(false)
     setNewHubName('')
     setNewHubAddress('')
@@ -165,7 +173,7 @@ const CreatePost = ({ isOpen, onClose }: CreatePostProps) => {
     setTags([])
     setNewTag('')
     setPrivacy('public')
-    setListId('')
+    setSelectedListIds(new Set(preSelectedListIds || []))
   }
   const handleClose = () => {
     resetForm()
@@ -511,17 +519,42 @@ const CreatePost = ({ isOpen, onClose }: CreatePostProps) => {
               </div>
               {/* List Selection (exclude All Loved/All Tried) */}
               <div>
-                <label className="block text-sm font-medium text-charcoal-700 mb-2">Save to List (optional)</label>
-                <select
-                  value={listId}
-                  onChange={(e) => setListId(e.target.value)}
-                  className="w-full px-4 py-3 border border-linen-200 rounded-xl bg-linen-50 text-charcoal-600 focus:outline-none focus:ring-2 focus:ring-sage-200"
-                >
-                  <option value="">Select a list...</option>
+                <label className="block text-sm font-medium text-charcoal-700 mb-2">Save to Lists (optional)</label>
+                <div className="space-y-2 max-h-32 overflow-y-auto">
                   {userLists.map((list) => (
-                    <option key={list.id} value={list.id}>{list.name}</option>
+                    <label
+                      key={list.id}
+                      className={`flex items-center gap-3 p-3 border border-linen-200 rounded-xl cursor-pointer hover:bg-linen-50 transition ${
+                        selectedListIds.has(list.id)
+                          ? 'border-sage-300 bg-sage-50'
+                          : 'border-linen-200'
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selectedListIds.has(list.id)}
+                        onChange={(e) => {
+                          const newSet = new Set(selectedListIds)
+                          if (e.target.checked) {
+                            newSet.add(list.id)
+                          } else {
+                            newSet.delete(list.id)
+                          }
+                          setSelectedListIds(newSet)
+                        }}
+                        className="w-4 h-4 text-sage-500 focus:ring-sage-400"
+                      />
+                      <div className="flex-1">
+                        <div className="font-medium text-charcoal-700">{list.name}</div>
+                      </div>
+                    </label>
                   ))}
-                </select>
+                </div>
+                {selectedListIds.size > 0 && (
+                  <div className="mt-2 text-xs text-charcoal-500">
+                    Selected {selectedListIds.size} list{selectedListIds.size !== 1 ? 's' : ''}
+                  </div>
+                )}
               </div>
               {/* Privacy Settings */}
               <div>
