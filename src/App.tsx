@@ -14,6 +14,7 @@ import Search from './pages/Search.tsx'
 import ListView from './pages/ListView.tsx'
 import ViewAllLists from './pages/ViewAllLists.tsx'
 import Favorites from './pages/SavedLists.tsx'
+import Reels from './pages/Reels.tsx'
 import PlaceHub from './pages/PlaceHub.tsx'
 import Demo from './pages/Demo.tsx'
 
@@ -31,6 +32,8 @@ function App() {
       setActiveTab('home')
     } else if (path === '/search') {
       setActiveTab('search')
+    } else if (path === '/reels') {
+      setActiveTab('favorites') // 'favorites' tab is now used for reels
     } else if (path === '/favorites') {
       setActiveTab('favorites')
     } else if (path === '/profile') {
@@ -70,7 +73,7 @@ function App() {
         navigate('/search')
         break
       case 'favorites':
-        navigate('/favorites')
+        navigate('/reels') // Navigate to reels instead of favorites
         break
       case 'profile':
         navigate('/profile')
@@ -97,6 +100,7 @@ function App() {
                 <Route path="/search" element={<Search />} />
                 <Route path="/list/:id" element={<ListView />} />
                 <Route path="/lists" element={<ViewAllLists />} />
+                <Route path="/reels" element={<Reels />} />
                 <Route path="/favorites" element={<Favorites />} />
                 <Route path="/place/:id" element={<PlaceHub />} />
                 <Route path="/demo" element={<Demo activeTab={activeTab} />} />

@@ -121,4 +121,41 @@ export interface Hub {
   mainImage?: string
   posts: Post[]
   lists: List[]
+}
+
+export interface Reel {
+  id: string
+  type: 'video' | 'story' | 'post'
+  user: User
+  place: {
+    name: string
+    address: string
+  }
+  content: {
+    video?: string
+    thumbnail?: string
+    images?: string[]
+    image?: string
+    caption: string
+  }
+  stats: {
+    likes: number
+    comments: number
+    shares: number
+    views: string
+  }
+  isLiked: boolean
+  isSaved: boolean
+  isFollowing: boolean
+  timestamp: string
+}
+
+export interface Story {
+  id: string
+  userId: string
+  user: User
+  images: string[]
+  caption?: string
+  createdAt: string
+  expiresAt: string
 } 
