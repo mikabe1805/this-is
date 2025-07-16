@@ -1,27 +1,45 @@
-import type { List, ListPlace, Hub } from '../types/index.js'
+import type { List, ListPlace, Hub, Place } from '../types/index.js'
 import { MapPinIcon, HeartIcon, BookmarkIcon, ShareIcon, EllipsisHorizontalIcon, ArrowLeftIcon, StarIcon, MapIcon } from '@heroicons/react/24/outline'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import HubModal from '../components/HubModal'
+import { useNavigation } from '../contexts/NavigationContext.tsx'
 import PlusDropdown from '../components/PlusDropdown'
 import HubSearchModal from '../components/HubSearchModal'
 import SaveModal from '../components/SaveModal'
 import CreatePost from '../components/CreatePost'
+import ListMenuDropdown from '../components/ListMenuDropdown'
+import EditListModal from '../components/EditListModal'
+import EditPlaceModal from '../components/EditPlaceModal'
+import ConfirmModal from '../components/ConfirmModal'
+import PrivacyModal from '../components/PrivacyModal'
 
 const ListView = () => {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const { openHubModal, goBack } = useNavigation()
   // TODO: Fetch real list data by id
   const [isLiked, setIsLiked] = useState(false)
   const [isSaved, setIsSaved] = useState(false)
-  const [selectedHub, setSelectedHub] = useState<Hub | null>(null)
-  const [showHubModal, setShowHubModal] = useState(false)
   const [showMapModal, setShowMapModal] = useState(false)
   const [cardMenuOpen, setCardMenuOpen] = useState<string | null>(null)
   const [showHubSearchModal, setShowHubSearchModal] = useState(false)
   const [showSaveModal, setShowSaveModal] = useState(false)
   const [showCreatePost, setShowCreatePost] = useState(false)
   const [hubToSave, setHubToSave] = useState<Hub | null>(null)
+  const [selectedPlace, setSelectedPlace] = useState<Place | null>(null)
+  const [showListMenu, setShowListMenu] = useState(false)
+  const [showEditListModal, setShowEditListModal] = useState(false)
+  const [showEditPlaceModal, setShowEditPlaceModal] = useState(false)
+  const [showConfirmModal, setShowConfirmModal] = useState(false)
+  const [showPrivacyModal, setShowPrivacyModal] = useState(false)
+  const [selectedPlaceToEdit, setSelectedPlaceToEdit] = useState<any>(null)
+  const [selectedPlaceToRemove, setSelectedPlaceToRemove] = useState<any>(null)
+  const [confirmModalConfig, setConfirmModalConfig] = useState({
+    title: '',
+    message: '',
+    onConfirm: () => {}
+  })
+  const listMenuButtonRef = useRef<HTMLButtonElement>(null)
   
   // Scroll to top when component mounts or when id changes
   useEffect(() => {
@@ -50,6 +68,54 @@ const ListView = () => {
   
   // Mock user lists for save modal
   const userLists: List[] = [
+    {
+      id: 'all-loved',
+      name: 'All Loved',
+      description: 'All the places you\'ve loved and want to visit again',
+      userId: '1',
+      isPublic: false,
+      isShared: false,
+      privacy: 'private',
+      tags: ['loved', 'favorites', 'auto-generated'],
+      hubs: [],
+      coverImage: 'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=300&h=200&fit=crop',
+      createdAt: '2024-01-01',
+      updatedAt: '2024-01-15',
+      likes: 0,
+      isLiked: false
+    },
+    {
+      id: 'all-tried',
+      name: 'All Tried',
+      description: 'All the places you\'ve tried and experienced',
+      userId: '1',
+      isPublic: false,
+      isShared: false,
+      privacy: 'private',
+      tags: ['tried', 'visited', 'auto-generated'],
+      hubs: [],
+      coverImage: 'https://images.unsplash.com/photo-1501594907352-04cda38ebc29?w=300&h=200&fit=crop',
+      createdAt: '2024-01-01',
+      updatedAt: '2024-01-15',
+      likes: 0,
+      isLiked: false
+    },
+    {
+      id: 'all-want',
+      name: 'All Want',
+      description: 'All the places you want to visit someday',
+      userId: '1',
+      isPublic: false,
+      isShared: false,
+      privacy: 'private',
+      tags: ['want', 'wishlist', 'auto-generated'],
+      hubs: [],
+      coverImage: 'https://images.unsplash.com/photo-1442512595331-e89e73853f31?w=300&h=200&fit=crop',
+      createdAt: '2024-01-01',
+      updatedAt: '2024-01-15',
+      likes: 0,
+      isLiked: false
+    },
     {
       id: '1',
       name: 'Cozy Coffee Spots',
@@ -215,8 +281,7 @@ const ListView = () => {
       posts: listPlace.place.posts,
       lists: [],
     }
-    setSelectedHub(hub)
-    setShowHubModal(true)
+    openHubModal(hub, 'list-view')
   }
 
   // Check if current user owns this list
@@ -228,6 +293,11 @@ const ListView = () => {
 
   const handleSaveHub = () => {
     setShowHubSearchModal(true)
+  }
+
+  const handleSaveToPlace = (place: Place) => {
+    setSelectedPlace(place)
+    setShowSaveModal(true)
   }
 
   const handleHubSelected = (hub: Hub) => {
@@ -254,6 +324,67 @@ const ListView = () => {
     console.log('Creating new list:', listData, 'and saving hub:', hubToSave)
   }
 
+  const handleEditPlace = (listPlace: ListPlace) => {
+    setSelectedPlaceToEdit(listPlace)
+    setShowEditPlaceModal(true)
+    setCardMenuOpen(null)
+  }
+
+  const handleRemovePlace = (listPlace: ListPlace) => {
+    setSelectedPlaceToRemove(listPlace)
+    setConfirmModalConfig({
+      title: 'Remove Place',
+      message: `Are you sure you want to remove "${listPlace.place.name}" from this list? This action cannot be undone.`,
+      onConfirm: () => {
+        // In a real app, this would make an API call to remove the place
+        console.log('Removing place:', listPlace)
+        // You could also update the local state here
+      }
+    })
+    setShowConfirmModal(true)
+    setCardMenuOpen(null)
+  }
+
+  const handleAddFirstPlace = () => {
+    // In a real app, this would open the hub search modal
+    setShowHubSearchModal(true)
+  }
+
+  const handleEditList = () => {
+    setShowEditListModal(true)
+    setShowListMenu(false)
+  }
+
+  const handleChangePrivacy = () => {
+    setShowPrivacyModal(true)
+    setShowListMenu(false)
+  }
+
+  const handlePrivacyChange = async (newPrivacy: 'public' | 'private' | 'friends') => {
+    // In a real app, this would make an API call to update the list privacy
+    console.log('Updating list privacy to:', newPrivacy)
+    // Update the local list state
+    // setList({ ...list, privacy: newPrivacy })
+  }
+
+  const handleBack = () => {
+    goBack()
+  }
+
+  const handleDeleteList = () => {
+    setConfirmModalConfig({
+      title: 'Delete List',
+      message: `Are you sure you want to delete "${list.name}"? This action cannot be undone and will remove all places from this list.`,
+      onConfirm: () => {
+        // In a real app, this would make an API call to delete the list
+        console.log('Deleting list:', list)
+        navigate('/profile')
+      }
+    })
+    setShowConfirmModal(true)
+    setShowListMenu(false)
+  }
+
   return (
     <div className="relative min-h-full overflow-x-hidden bg-linen-50">
       {/* Enhanced background: linen texture, sunlight gradient, vignette */}
@@ -266,7 +397,7 @@ const ListView = () => {
       <div className="relative z-10">
         <div className="flex items-center px-4 pt-4 pb-2">
           <button 
-            onClick={() => navigate(-1)}
+            onClick={handleBack}
             className="flex items-center text-sage-700 hover:text-sage-900 transition-colors"
             aria-label="Go back"
           >
@@ -275,6 +406,15 @@ const ListView = () => {
           <div className="flex-1 flex items-center justify-center">
             <h1 className="text-lg font-serif font-semibold text-charcoal-800 text-center w-full truncate">{list.name}</h1>
           </div>
+          {isOwner && (
+            <button
+              ref={listMenuButtonRef}
+              onClick={() => setShowListMenu(true)}
+              className="w-8 h-8 bg-linen-100 rounded-full flex items-center justify-center hover:bg-linen-200 transition-colors"
+            >
+              <EllipsisHorizontalIcon className="w-5 h-5 text-charcoal-600" />
+            </button>
+          )}
         </div>
         {/* Cover image */}
         {list.coverImage && (
@@ -364,11 +504,11 @@ const ListView = () => {
                 <div className="absolute right-0 mt-2 w-32 bg-white rounded-xl shadow-botanical border border-linen-200 py-2 z-30">
                   <button
                     className="block w-full text-left px-4 py-2 text-charcoal-700 hover:bg-sage-50 rounded-t-xl"
-                    onClick={() => { setCardMenuOpen(null); /* TODO: Edit logic */ }}
+                    onClick={() => handleEditPlace(listPlace)}
                   >Edit</button>
                   <button
                     className="block w-full text-left px-4 py-2 text-red-600 hover:bg-red-50 rounded-b-xl"
-                    onClick={() => { setCardMenuOpen(null); /* TODO: Remove logic */ }}
+                    onClick={() => handleRemovePlace(listPlace)}
                   >Remove</button>
                 </div>
               )}
@@ -432,7 +572,10 @@ const ListView = () => {
             <BookmarkIcon className="w-16 h-16 text-sage-300 mx-auto mb-4" />
             <h3 className="text-lg font-serif font-semibold text-charcoal-800 mb-2">No places yet</h3>
             <p className="text-charcoal-600 mb-4">Start building your list by adding your favorite places</p>
-            <button className="bg-gradient-to-r from-sage-500 to-sage-600 text-white px-6 py-3 rounded-xl font-medium hover:from-sage-600 hover:to-sage-700 transition-all duration-300 shadow-soft">
+            <button 
+              onClick={handleAddFirstPlace}
+              className="bg-gradient-to-r from-sage-500 to-sage-600 text-white px-6 py-3 rounded-xl font-medium hover:from-sage-600 hover:to-sage-700 transition-all duration-300 shadow-soft"
+            >
               Add Your First Place
             </button>
           </div>
@@ -457,14 +600,7 @@ const ListView = () => {
           </div>
         </div>
       )}
-      {/* Hub Modal */}
-      {selectedHub && (
-        <HubModal
-          isOpen={showHubModal}
-          onClose={() => setShowHubModal(false)}
-          hub={selectedHub}
-        />
-      )}
+
 
       {/* Hub Search Modal */}
       <HubSearchModal
@@ -503,6 +639,81 @@ const ListView = () => {
         isOpen={showCreatePost}
         onClose={() => setShowCreatePost(false)}
         preSelectedListIds={[list.id]} // Pre-select the current list
+      />
+
+      {/* Save Modal */}
+      {selectedPlace && (
+        <SaveModal
+          isOpen={showSaveModal}
+          onClose={() => {
+            setShowSaveModal(false)
+            setSelectedPlace(null)
+          }}
+          place={selectedPlace}
+          userLists={userLists}
+          onSave={handleSave}
+          onCreateList={handleCreateList}
+        />
+      )}
+
+      {/* List Menu Dropdown */}
+      <ListMenuDropdown
+        isOpen={showListMenu}
+        onClose={() => setShowListMenu(false)}
+        buttonRef={listMenuButtonRef}
+        onEditList={handleEditList}
+        onChangePrivacy={handleChangePrivacy}
+        onDeleteList={handleDeleteList}
+      />
+
+      {/* Edit List Modal */}
+      <EditListModal
+        isOpen={showEditListModal}
+        onClose={() => setShowEditListModal(false)}
+        list={list}
+        onSave={(listData) => {
+          // In a real app, this would make an API call to update the list
+          console.log('Saving list:', listData)
+          setShowEditListModal(false)
+        }}
+      />
+
+      {/* Edit Place Modal */}
+      {selectedPlaceToEdit && (
+        <EditPlaceModal
+          isOpen={showEditPlaceModal}
+          onClose={() => {
+            setShowEditPlaceModal(false)
+            setSelectedPlaceToEdit(null)
+          }}
+          listPlace={selectedPlaceToEdit}
+          onSave={(placeData) => {
+            // In a real app, this would make an API call to update the place
+            console.log('Saving place:', placeData)
+            setShowEditPlaceModal(false)
+            setSelectedPlaceToEdit(null)
+          }}
+        />
+      )}
+
+      {/* Confirm Modal */}
+      <ConfirmModal
+        isOpen={showConfirmModal}
+        onClose={() => setShowConfirmModal(false)}
+        onConfirm={confirmModalConfig.onConfirm}
+        title={confirmModalConfig.title}
+        message={confirmModalConfig.message}
+        confirmText="Delete"
+        type="danger"
+      />
+
+      {/* Privacy Modal */}
+      <PrivacyModal
+        isOpen={showPrivacyModal}
+        onClose={() => setShowPrivacyModal(false)}
+        currentPrivacy={list.privacy || 'public'}
+        onPrivacyChange={handlePrivacyChange}
+        listName={list.name}
       />
     </div>
   )

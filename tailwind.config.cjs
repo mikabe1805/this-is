@@ -84,6 +84,30 @@ module.exports = {
           800: '#333333',
           900: '#232323',
         },
+        cream: {
+          50: '#FEFEFD',
+          100: '#FDFCFA',
+          200: '#FAF8F4',
+          300: '#F5F3EE',
+          400: '#ECE7DE',
+          500: '#E2D9CB',
+          600: '#D3C5B0',
+          700: '#BBA98C',
+          800: '#A08C6B',
+          900: '#7C6B4C',
+        },
+        coral: {
+          50: '#FEF7F6',
+          100: '#FDE8E6',
+          200: '#FBD1CC',
+          300: '#F8B3AB',
+          400: '#F48A7D',
+          500: '#F06449',
+          600: '#E74C3C',
+          700: '#C0392B',
+          800: '#9B2C1F',
+          900: '#7B2418',
+        },
         // Remove cartoonish/saturated colors
       },
       fontFamily: {
@@ -96,6 +120,7 @@ module.exports = {
         'soft': '0 2px 12px 0 rgba(60, 50, 30, 0.07)',
         'cozy': '0 4px 24px 0 rgba(120, 100, 60, 0.10)',
         'botanical': '0 8px 32px 0 rgba(90, 110, 80, 0.10)',
+        'liquid': '0 12px 40px 0 rgba(90, 110, 80, 0.15)',
       },
       backdropBlur: {
         'xs': '2px',
@@ -115,6 +140,10 @@ module.exports = {
       },
       borderWidth: {
         3: '3px',
+      },
+      scale: {
+        '102': '1.02',
+        '101': '1.01',
       },
       animation: {
         'float': 'float 6s ease-in-out infinite',
@@ -177,6 +206,10 @@ module.exports = {
     'bg-cream-500', 'bg-cream-600', 'bg-cream-700', 'text-cream-500', 'text-cream-600', 'text-cream-700',
     'bg-earth-500', 'bg-earth-600', 'bg-earth-700', 'text-earth-500', 'text-earth-600', 'text-earth-700',
     'bg-sage-500', 'bg-sage-600', 'bg-sage-700', 'text-sage-500', 'text-sage-600', 'text-sage-700',
+    'bg-cream-50', 'bg-cream-100', 'bg-cream-200', 'bg-cream-300', 'bg-cream-400', 'bg-cream-500', 'bg-cream-600', 'bg-cream-700', 'bg-cream-800', 'bg-cream-900',
+    'text-cream-50', 'text-cream-100', 'text-cream-200', 'text-cream-300', 'text-cream-400', 'text-cream-500', 'text-cream-600', 'text-cream-700', 'text-cream-800', 'text-cream-900',
+    'bg-coral-50', 'bg-coral-100', 'bg-coral-200', 'bg-coral-300', 'bg-coral-400', 'bg-coral-500', 'bg-coral-600', 'bg-coral-700', 'bg-coral-800', 'bg-coral-900',
+    'text-coral-50', 'text-coral-100', 'text-coral-200', 'text-coral-300', 'text-coral-400', 'text-coral-500', 'text-coral-600', 'text-coral-700', 'text-coral-800', 'text-coral-900',
     'bg-success-500', 'bg-success-600', 'bg-success-700', 'text-success-500', 'text-success-600', 'text-success-700',
     'bg-warning-500', 'bg-warning-600', 'bg-warning-700', 'text-warning-500', 'text-warning-600', 'text-warning-700',
   ],

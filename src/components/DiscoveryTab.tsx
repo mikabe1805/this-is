@@ -1,9 +1,9 @@
 import type { Place, List, Hub } from '../types/index.js'
-import { MapPinIcon, BookmarkIcon, StarIcon, TrendingUpIcon, FireIcon } from '@heroicons/react/24/outline'
+import { MapPinIcon, BookmarkIcon, StarIcon, TrendingUpIcon, FireIcon, EllipsisHorizontalIcon } from '@heroicons/react/24/outline'
 import { useState } from 'react'
-import SearchBar from './SearchBar'
-import FilterSortDropdown from './FilterSortDropdown'
+import SearchAndFilter from './SearchAndFilter'
 import HubModal from './HubModal'
+import ListMenuDropdown from './ListMenuDropdown'
 
 const DiscoveryTab = () => {
   const [savedLists, setSavedLists] = useState<Set<string>>(new Set())
@@ -149,13 +149,14 @@ const DiscoveryTab = () => {
 
   const [sortBy, setSortBy] = useState('popular')
   const [activeFilters, setActiveFilters] = useState<string[]>([])
-  const [showDropdown, setShowDropdown] = useState(false)
+  const [showListMenu, setShowListMenu] = useState(false)
+  const [selectedListId, setSelectedListId] = useState<string | null>(null)
 
   return (
     <div className="p-4 space-y-8">
       <div className="mb-6">
-        <SearchBar placeholder="Search places, lists, or friends..." onFilterClick={() => setShowDropdown(true)} />
-        <FilterSortDropdown
+        <SearchAndFilter
+          placeholder="Search places, lists, or friends..."
           sortOptions={sortOptions}
           filterOptions={filterOptions}
           availableTags={availableTags}
@@ -163,8 +164,7 @@ const DiscoveryTab = () => {
           setSortBy={setSortBy}
           activeFilters={activeFilters}
           setActiveFilters={setActiveFilters}
-          show={showDropdown}
-          onClose={() => setShowDropdown(false)}
+          dropdownPosition="top-right"
         />
       </div>
 
@@ -248,16 +248,28 @@ const DiscoveryTab = () => {
                       <span>•</span>
                       <span>Updated {new Date(list.updatedAt).toLocaleDateString()}</span>
                     </div>
-                    <button 
-                      onClick={() => handleSaveList(list.id)}
-                      className={`p-2 rounded-full transition ${
-                        savedLists.has(list.id) 
-                          ? 'bg-sage-100 text-sage-700' 
-                          : 'bg-sage-50 text-sage-600 hover:bg-sage-100'
-                      }`}
-                    >
-                      <BookmarkIcon className={`w-4 h-4 ${savedLists.has(list.id) ? 'fill-current' : ''}`} />
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <button 
+                        onClick={() => handleSaveList(list.id)}
+                        className={`p-2 rounded-full transition ${
+                          savedLists.has(list.id) 
+                            ? 'bg-sage-100 text-sage-700' 
+                            : 'bg-sage-50 text-sage-600 hover:bg-sage-100'
+                        }`}
+                      >
+                        <BookmarkIcon className={`w-4 h-4 ${savedLists.has(list.id) ? 'fill-current' : ''}`} />
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setSelectedListId(list.id)
+                          setShowListMenu(true)
+                        }}
+                        className="p-2 rounded-full bg-linen-100 text-charcoal-600 hover:bg-linen-200 transition"
+                      >
+                        <EllipsisHorizontalIcon className="w-4 h-4" />
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -272,8 +284,41 @@ const DiscoveryTab = () => {
           isOpen={showHubModal}
           onClose={() => setShowHubModal(false)}
           hub={selectedHub}
+          onAddPost={(hub) => {
+            // In a real app, this would open CreatePost modal
+            console.log('Add post to hub:', hub.name)
+            setShowHubModal(false)
+          }}
+          onSave={(hub) => {
+            // In a real app, this would open SaveModal
+            console.log('Save hub:', hub.name)
+            setShowHubModal(false)
+          }}
         />
       )}
+
+      {/* List Menu Dropdown */}
+      <ListMenuDropdown
+        isOpen={showListMenu}
+        onClose={() => {
+          setShowListMenu(false)
+          setSelectedListId(null)
+        }}
+        onEditList={() => {
+          console.log('Edit list:', selectedListId)
+          // TODO: Implement edit list functionality
+        }}
+        onTogglePrivacy={() => {
+          console.log('Toggle privacy for list:', selectedListId)
+          // TODO: Implement privacy toggle
+        }}
+        onDelete={() => {
+          console.log('Delete list:', selectedListId)
+          // TODO: Implement delete functionality
+        }}
+        isPublic={true}
+        isOwner={false}
+      />
     </div>
   )
 }

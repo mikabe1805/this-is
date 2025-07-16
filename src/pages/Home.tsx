@@ -1,12 +1,18 @@
 import React, { useRef, useState } from 'react'
-import { HeartIcon, BookmarkIcon, EyeIcon, PlusIcon, MagnifyingGlassIcon } from '@heroicons/react/24/outline'
+import { useNavigate } from 'react-router-dom'
+import { HeartIcon, BookmarkIcon, EyeIcon, PlusIcon, ChatBubbleLeftIcon, ShareIcon } from '@heroicons/react/24/outline'
 import { HeartIcon as HeartIconSolid } from '@heroicons/react/24/solid'
-import SearchBar from '../components/SearchBar'
-import FilterSortDropdown from '../components/FilterSortDropdown'
+import SearchAndFilter from '../components/SearchAndFilter'
 import HubModal from '../components/HubModal'
+import ListModal from '../components/ListModal'
 import SaveModal from '../components/SaveModal'
 import LocationSelectModal from '../components/LocationSelectModal'
-import type { Hub, Place, List } from '../types/index.js'
+import CreatePost from '../components/CreatePost'
+import CommentsModal from '../components/CommentsModal'
+import ReplyModal from '../components/ReplyModal'
+import ShareModal from '../components/ShareModal'
+import type { Hub, Place, List, Post } from '../types/index.js'
+import { useNavigation } from '../contexts/NavigationContext.tsx'
 
 // Botanical SVG accent (eucalyptus branch)
 const BotanicalAccent = () => (
@@ -104,20 +110,33 @@ const filterOptions = [
 const availableTags = ['cozy', 'trendy', 'quiet', 'local', 'charming', 'authentic', 'chill']
 
 const Home = () => {
+  const navigate = useNavigate()
+  const { 
+    showHubModal, 
+    showListModal, 
+    selectedHub, 
+    selectedList, 
+    openHubModal, 
+    openListModal, 
+    closeHubModal, 
+    closeListModal 
+  } = useNavigation()
   const [activeTab, setActiveTab] = useState<'friends' | 'discovery'>('friends')
   const [likedItems, setLikedItems] = useState<Set<string>>(new Set())
   const [savedItems, setSavedItems] = useState<Set<string>>(new Set())
-  const [showDropdown, setShowDropdown] = useState(false)
   const [sortBy, setSortBy] = useState('popular')
   const [activeFilters, setActiveFilters] = useState<string[]>([])
-  const [selectedHub, setSelectedHub] = useState<Hub | null>(null)
-  const [showHubModal, setShowHubModal] = useState(false)
   const [showSaveModal, setShowSaveModal] = useState(false)
   const [showLocationModal, setShowLocationModal] = useState(false)
+  const [showCreatePost, setShowCreatePost] = useState(false)
   const [selectedPlace, setSelectedPlace] = useState<Place | null>(null)
   const [selectedLocation, setSelectedLocation] = useState<{ id: string; name: string; address: string; coordinates: { lat: number; lng: number } } | null>(null)
-  const filterButtonRef = useRef<HTMLButtonElement>(null)
-  const [anchorRect, setAnchorRect] = useState<DOMRect | null>(null)
+  const [createPostListId, setCreatePostListId] = useState<string | null>(null)
+  const [createPostHub, setCreatePostHub] = useState<any>(null)
+  const [showCommentsModal, setShowCommentsModal] = useState(false)
+  const [showReplyModal, setShowReplyModal] = useState(false)
+  const [showShareModal, setShowShareModal] = useState(false)
+  const [selectedPost, setSelectedPost] = useState<Post | null>(null)
 
   const getActionIcon = (action: string) => {
     switch (action) {
@@ -151,7 +170,24 @@ const Home = () => {
 
   const handleActivityClick = (activity: typeof mockFriendsActivity[0]) => {
     if (activity.action === 'created') {
-      alert(`Opening ${activity.user.name}'s list: "${activity.list}"`)
+      // Create a mock list for the modal
+      const mockList: List = {
+        id: activity.list === 'SF Coffee Tour' ? 'rami-coffee-tour' : 'generic-list',
+        name: activity.list || 'Unknown List',
+        description: activity.description || 'A wonderful collection of places.',
+        userId: activity.user.name,
+        isPublic: true,
+        isShared: true,
+        privacy: 'public' as const,
+        tags: ['coffee', 'san francisco', 'cafes'],
+        hubs: [],
+        coverImage: 'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=400&h=300&fit=crop',
+        createdAt: '2024-01-15',
+        updatedAt: '2024-01-15',
+        likes: activity.list === 'SF Coffee Tour' ? 24 : 12,
+        isLiked: false
+      }
+      openListModal(mockList, 'home')
     } else {
       // Create a mock hub for the place
       const mockHub: Hub = {
@@ -170,14 +206,30 @@ const Home = () => {
         posts: [],
         lists: [],
       }
-      setSelectedHub(mockHub)
-      setShowHubModal(true)
+      openHubModal(mockHub, 'home')
     }
   }
 
   const handleDiscoveryClick = (item: typeof mockDiscovery[0]) => {
     if (item.type === 'list') {
-      alert(`Opening list: "${item.title}" by ${item.owner}"`)
+      // Create a mock list for the modal
+      const mockList: List = {
+        id: item.id,
+        name: item.title,
+        description: item.description || 'A wonderful collection of places.',
+        userId: item.owner || 'Unknown User',
+        isPublic: true,
+        isShared: true,
+        privacy: 'public' as const,
+        tags: ['cozy', 'trendy'],
+        hubs: [],
+        coverImage: item.image,
+        createdAt: '2024-01-15',
+        updatedAt: '2024-01-15',
+        likes: item.likes || 0,
+        isLiked: false
+      }
+      openListModal(mockList, 'home')
     } else {
       // Create a mock hub for the place
       const mockHub: Hub = {
@@ -196,8 +248,7 @@ const Home = () => {
         posts: [],
         lists: [],
       }
-      setSelectedHub(mockHub)
-      setShowHubModal(true)
+      openHubModal(mockHub, 'home')
     }
   }
 
@@ -225,12 +276,7 @@ const Home = () => {
     })
   }
 
-  const handleOpenDropdown = () => {
-    if (filterButtonRef.current) {
-      setAnchorRect(filterButtonRef.current.getBoundingClientRect())
-    }
-    setShowDropdown(true)
-  }
+
 
   const handleSaveToPlace = (place: Place) => {
     setSelectedPlace(place)
@@ -273,6 +319,56 @@ const Home = () => {
     }
   }
 
+  const handleCreatePost = (listId?: string, hub?: any) => {
+    setCreatePostListId(listId || null)
+    setCreatePostHub(hub || null)
+    setShowCreatePost(true)
+  }
+
+  const handleViewComments = (post: Post) => {
+    setSelectedPost(post)
+    setShowCommentsModal(true)
+  }
+
+  const handleReply = (post: Post) => {
+    setSelectedPost(post)
+    setShowReplyModal(true)
+  }
+
+  const handleShare = (title: string, description: string, image?: string) => {
+    setShowShareModal(true)
+  }
+
+  const handleAddComment = async (text: string) => {
+    if (!selectedPost) return
+    // In a real app, this would make an API call to add a comment
+    console.log('Adding comment to post:', selectedPost.id, 'Text:', text)
+  }
+
+  const handleLikeComment = async (commentId: string) => {
+    // In a real app, this would make an API call to like a comment
+    console.log('Liking comment:', commentId)
+  }
+
+  const handleReplyToComment = async (commentId: string, text: string) => {
+    // In a real app, this would make an API call to reply to a comment
+    console.log('Replying to comment:', commentId, 'Text:', text)
+  }
+
+  const handlePostReply = async (text: string, images?: string[]) => {
+    if (!selectedPost) return
+    // In a real app, this would make an API call to create a reply post
+    console.log('Creating reply to post:', selectedPost.id, 'Text:', text, 'Images:', images)
+  }
+
+  const handleHubModalBack = () => {
+    closeHubModal()
+  }
+
+  const handleListModalBack = () => {
+    closeListModal()
+  }
+
   return (
     <div className="min-h-full relative bg-linen-50">
       {/* Enhanced background: linen texture, sunlight gradient, vignette */}
@@ -305,8 +401,8 @@ const Home = () => {
         </div>
         {/* Search Bar */}
         <div className="relative mb-6">
-          <SearchBar placeholder="Search places, lists, or friends..." onFilterClick={handleOpenDropdown} filterButtonRef={filterButtonRef} />
-          <FilterSortDropdown
+          <SearchAndFilter
+            placeholder="Search places, lists, or friends..."
             sortOptions={sortOptions}
             filterOptions={filterOptions}
             availableTags={availableTags}
@@ -314,10 +410,8 @@ const Home = () => {
             setSortBy={handleSortByChange}
             activeFilters={activeFilters}
             setActiveFilters={setActiveFilters}
-            show={showDropdown}
-            onClose={() => setShowDropdown(false)}
-            anchorRect={anchorRect}
             onLocationSelect={handleLocationSelect}
+            dropdownPosition="top-right"
           />
         </div>
         {/* Tab Navigation */}
@@ -492,8 +586,7 @@ const Home = () => {
                             <button
                               onClick={e => {
                                 e.stopPropagation();
-                                // Create new post in this list
-                                console.log('Create new post in list:', item.id);
+                                handleCreatePost(item.id);
                               }}
                               className="p-1.5 rounded-full bg-sage-50 text-sage-600 hover:bg-sage-100 transition"
                               title="Create post"
@@ -528,8 +621,16 @@ const Home = () => {
                           <button
                             onClick={e => {
                               e.stopPropagation();
-                              // Create new post in this hub
-                              console.log('Create new post in hub:', item.id);
+                              // Create a mock hub for the place
+                              const mockHub = {
+                                id: item.id,
+                                name: item.title,
+                                address: 'San Francisco, CA',
+                                description: item.description,
+                                lat: 37.7749,
+                                lng: -122.4194,
+                              }
+                              handleCreatePost(undefined, mockHub);
                             }}
                             className="p-1.5 rounded-full bg-sage-50 text-sage-600 hover:bg-sage-100 transition"
                             title="Create post"
@@ -562,14 +663,7 @@ const Home = () => {
           </div>
         )}
       </div>
-      {/* Hub Modal */}
-      {selectedHub && (
-        <HubModal
-          isOpen={showHubModal}
-          onClose={() => setShowHubModal(false)}
-          hub={selectedHub}
-        />
-      )}
+
 
               {/* Modals */}
         {selectedPlace && (
@@ -591,6 +685,63 @@ const Home = () => {
         onClose={() => setShowLocationModal(false)}
         onLocationSelect={handleLocationSelect}
       />
+
+      <CreatePost
+        isOpen={showCreatePost}
+        onClose={() => {
+          setShowCreatePost(false)
+          setCreatePostListId(null)
+          setCreatePostHub(null)
+        }}
+        preSelectedListIds={createPostListId ? [createPostListId] : undefined}
+        preSelectedHub={createPostHub || undefined}
+      />
+
+      {/* Comments Modal */}
+      {selectedPost && (
+        <CommentsModal
+          isOpen={showCommentsModal}
+          onClose={() => {
+            setShowCommentsModal(false)
+            setSelectedPost(null)
+          }}
+          postId={selectedPost.id}
+          postTitle={`${selectedPost.username}'s post`}
+          comments={selectedPost.comments || []}
+          onAddComment={handleAddComment}
+          onLikeComment={handleLikeComment}
+          onReplyToComment={handleReplyToComment}
+          currentUserId="1" // TODO: Get from auth context
+        />
+      )}
+
+      {/* Reply Modal */}
+      {selectedPost && (
+        <ReplyModal
+          isOpen={showReplyModal}
+          onClose={() => {
+            setShowReplyModal(false)
+            setSelectedPost(null)
+          }}
+          postId={selectedPost.id}
+          postAuthor={selectedPost.username}
+          postContent={selectedPost.description}
+          postImage={selectedPost.images?.[0]}
+          onReply={handlePostReply}
+        />
+      )}
+
+      {/* Share Modal */}
+      <ShareModal
+        isOpen={showShareModal}
+        onClose={() => setShowShareModal(false)}
+        title="this.is"
+        description="Discover amazing places with friends"
+        url={window.location.href}
+        type="post"
+      />
+
+
     </div>
   )
 }

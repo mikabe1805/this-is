@@ -1,5 +1,7 @@
-import React from 'react'
+import React, { useState } from 'react'
 import { createPortal } from 'react-dom'
+import { EllipsisHorizontalIcon } from '@heroicons/react/24/outline'
+import TagSearchModal from './TagSearchModal'
 
 interface Option {
   key: string
@@ -45,7 +47,10 @@ const FilterSortDropdown: React.FC<FilterSortDropdownProps> = ({
   anchorRect,
   onLocationSelect
 }) => {
+  const [showTagSearch, setShowTagSearch] = useState(false)
+
   if (!show) return null
+
   const panelStyle = anchorRect
     ? {
         position: 'fixed' as const,
@@ -61,6 +66,21 @@ const FilterSortDropdown: React.FC<FilterSortDropdownProps> = ({
         width: PANEL_WIDTH,
         zIndex: 99999
       }
+
+  const handleTagSearch = () => {
+    setShowTagSearch(true)
+  }
+
+  const handleTagsChange = (newTags: string[]) => {
+    // Remove any tags that are no longer selected
+    const remainingFilters = activeFilters.filter(filter => 
+      !availableTags.includes(filter) || newTags.includes(filter)
+    )
+    // Add any newly selected tags
+    const finalFilters = [...new Set([...remainingFilters, ...newTags])]
+    setActiveFilters(finalFilters)
+  }
+
   return createPortal(
     <>
       <div className="fixed inset-0 z-[9999] bg-black/10" onClick={onClose}></div>
@@ -105,7 +125,7 @@ const FilterSortDropdown: React.FC<FilterSortDropdownProps> = ({
             ))}
           </div>
           <div className="flex flex-wrap gap-2">
-            {availableTags.map(tag => (
+            {availableTags.slice(0, 6).map(tag => (
               <label key={tag} className="flex items-center gap-2 px-3 py-2 rounded-full text-sm font-medium bg-linen-100 border border-linen-200 text-charcoal-500 hover:bg-linen-200 cursor-pointer">
                 <input
                   type="checkbox"
@@ -116,6 +136,14 @@ const FilterSortDropdown: React.FC<FilterSortDropdownProps> = ({
                 {tag}
               </label>
             ))}
+            {availableTags.length > 6 && (
+              <button
+                onClick={handleTagSearch}
+                className="flex items-center gap-2 px-3 py-2 rounded-full text-sm font-medium bg-linen-100 border border-linen-200 text-charcoal-500 hover:bg-linen-200 cursor-pointer transition"
+              >
+                <EllipsisHorizontalIcon className="w-4 h-4" />
+              </button>
+            )}
           </div>
         </div>
         <button
@@ -125,6 +153,14 @@ const FilterSortDropdown: React.FC<FilterSortDropdownProps> = ({
           Apply Filters
         </button>
       </div>
+
+      <TagSearchModal
+        isOpen={showTagSearch}
+        onClose={() => setShowTagSearch(false)}
+        availableTags={availableTags}
+        selectedTags={activeFilters.filter(filter => availableTags.includes(filter))}
+        onTagsChange={handleTagsChange}
+      />
     </>,
     document.body
   )

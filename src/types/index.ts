@@ -50,6 +50,9 @@ export interface Comment {
   userAvatar: string
   text: string
   createdAt: string
+  likes: number
+  likedBy: string[]
+  replies?: Comment[]
 }
 
 export interface List {

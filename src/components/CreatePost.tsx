@@ -15,11 +15,11 @@ async function extractLocationFromImage(file: File): Promise<{ lat: number, lng:
 interface CreatePostProps {
   isOpen: boolean
   onClose: () => void
-  preSelectedHub?: Hub
+  preSelectedHub?: CreatePostHub
   preSelectedListIds?: string[]
 }
 
-interface Hub {
+interface CreatePostHub {
   id: string
   name: string
   address: string
@@ -32,15 +32,15 @@ const CreatePost = ({ isOpen, onClose, preSelectedHub, preSelectedListIds }: Cre
   const [step, setStep] = useState<'photo' | 'location' | 'details'>('photo')
   const [photos, setPhotos] = useState<File[]>([])
   const [extractedLocation, setExtractedLocation] = useState<{ lat: number, lng: number } | null>(null)
-  const [hubGuess, setHubGuess] = useState<Hub | null>(null)
+  const [hubGuess, setHubGuess] = useState<CreatePostHub | null>(null)
   const [hubConfirmed, setHubConfirmed] = useState(false)
-  const [selectedHub, setSelectedHub] = useState<Hub | null>(preSelectedHub || null)
+  const [selectedHub, setSelectedHub] = useState<CreatePostHub | null>(preSelectedHub || null)
   const [isCreatingNewHub, setIsCreatingNewHub] = useState(false)
   const [newHubName, setNewHubName] = useState('')
   const [newHubAddress, setNewHubAddress] = useState('')
   const [newHubDescription, setNewHubDescription] = useState('')
   const [locationSearch, setLocationSearch] = useState('')
-  const [searchResults, setSearchResults] = useState<Hub[]>([])
+  const [searchResults, setSearchResults] = useState<CreatePostHub[]>([])
   const [isSearching, setIsSearching] = useState(false)
   const [howWasIt, setHowWasIt] = useState<'loved' | 'tried'>('loved')
   const [triedFeeling, setTriedFeeling] = useState<'liked' | 'neutral' | 'disliked'>('liked')
@@ -59,7 +59,7 @@ const CreatePost = ({ isOpen, onClose, preSelectedHub, preSelectedListIds }: Cre
     { id: '5', name: 'Book Nooks' },
     { id: '6', name: 'Vegan Eats' },
   ]
-  const mockSearchResults: Hub[] = [
+  const mockSearchResults: CreatePostHub[] = [
     { id: '1', name: 'Blue Bottle Coffee', address: '300 Webster St, Oakland, CA', lat: 37.8044, lng: -122.2712 },
     { id: '2', name: 'Tacos El Gordo', address: '123 Mission St, San Francisco, CA', lat: 37.7749, lng: -122.4194 },
     { id: '3', name: 'Golden Gate Park', address: 'San Francisco, CA', lat: 37.7694, lng: -122.4862 },
@@ -121,14 +121,14 @@ const CreatePost = ({ isOpen, onClose, preSelectedHub, preSelectedListIds }: Cre
       setSearchResults([])
     }
   }
-  const handleSelectHub = (hub: Hub) => {
+  const handleSelectHub = (hub: CreatePostHub) => {
     setSelectedHub(hub)
     setHubConfirmed(true)
     setStep('details')
   }
   const handleCreateNewHub = () => {
     if (newHubName && newHubAddress) {
-      const newHub: Hub = {
+      const newHub: CreatePostHub = {
         id: 'new',
         name: newHubName,
         address: newHubAddress,

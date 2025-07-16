@@ -476,6 +476,10 @@ const Demo = ({ activeTab }: DemoProps) => {
                       isLiked={list.isLiked}
                       onLike={() => handleLike(list.id)}
                       onView={() => handleView(list.id)}
+                      onEditList={() => console.log('Edit list:', list.title)}
+                      onTogglePrivacy={() => console.log('Toggle privacy for:', list.title)}
+                      onDelete={() => console.log('Delete list:', list.title)}
+                      isOwner={true}
                     />
                   ))}
                 </div>

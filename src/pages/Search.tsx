@@ -1,9 +1,11 @@
 import { useState } from 'react'
-import { MagnifyingGlassIcon, MapPinIcon, HeartIcon, UserIcon, FunnelIcon, ClockIcon, FireIcon, BookmarkIcon, PlusIcon } from '@heroicons/react/24/outline'
-import SearchBar from '../components/SearchBar'
+import { MapPinIcon, HeartIcon, UserIcon, ClockIcon, FireIcon, BookmarkIcon, PlusIcon } from '@heroicons/react/24/outline'
+import SearchAndFilter from '../components/SearchAndFilter'
 import HubModal from '../components/HubModal'
 import SaveModal from '../components/SaveModal'
 import LocationSelectModal from '../components/LocationSelectModal'
+import CreatePost from '../components/CreatePost'
+
 import type { Hub, Place, List } from '../types/index.js'
 
 const allData = {
@@ -103,7 +105,6 @@ const Search = () => {
   const [selectedTags, setSelectedTags] = useState<string[]>([])
   const [showSearchHistory, setShowSearchHistory] = useState(false)
   const [isSearching, setIsSearching] = useState(false)
-  const [showDropdown, setShowDropdown] = useState(false)
   const [sortBy, setSortBy] = useState('popular')
   const [activeFilters, setActiveFilters] = useState<string[]>([])
   const [showMap, setShowMap] = useState(false)
@@ -111,11 +112,15 @@ const Search = () => {
   const [showHubModal, setShowHubModal] = useState(false)
   const [showSaveModal, setShowSaveModal] = useState(false)
   const [showLocationModal, setShowLocationModal] = useState(false)
+  const [showCreatePost, setShowCreatePost] = useState(false)
   const [selectedPlace, setSelectedPlace] = useState<Place | null>(null)
   const [selectedLocation, setSelectedLocation] = useState<{ id: string; name: string; address: string; coordinates: { lat: number; lng: number } } | null>(null)
   const [likedLists, setLikedLists] = useState<Set<string>>(new Set())
   const [savedLists, setSavedLists] = useState<Set<string>>(new Set())
+  const [followingUsers, setFollowingUsers] = useState<Set<string>>(new Set())
   const [userLists, setUserLists] = useState(allData.lists)
+  const [createPostListId, setCreatePostListId] = useState<string | null>(null)
+
 
 
   // Mock data
@@ -304,6 +309,23 @@ const Search = () => {
     setShowHubModal(true)
   }
 
+  const handleCreatePost = (listId?: string) => {
+    setCreatePostListId(listId || null)
+    setShowCreatePost(true)
+  }
+
+  const handleFollowUser = (userId: string) => {
+    setFollowingUsers(prev => {
+      const newSet = new Set(prev)
+      if (newSet.has(userId)) {
+        newSet.delete(userId)
+      } else {
+        newSet.add(userId)
+      }
+      return newSet
+    })
+  }
+
   return (
     <div className="relative min-h-full overflow-x-hidden bg-linen-50">
       {/* Enhanced background: linen texture, sunlight gradient, vignette */}
@@ -317,16 +339,24 @@ const Search = () => {
       <div className="relative z-10 bg-white/90 backdrop-blur-glass border-b border-linen-200 px-6 py-4">
         <div className="flex items-center gap-3 mb-4">
           <div className="flex-1 flex items-center gap-2">
-            <SearchBar
+            <SearchAndFilter
               placeholder="Search places, lists, or people..."
               showBackButton={showSearchHistory}
               onBackClick={() => setShowSearchHistory(false)}
               showFilter={true}
-              onFilterClick={() => setShowDropdown(v => !v)}
-              // Controlled input props:
               value={searchQuery}
               onChange={handleSearchInputChange}
               onFocus={handleSearchInputFocus}
+              onSubmit={handleSearchSubmit}
+              sortOptions={sortOptions}
+              filterOptions={filterOptions}
+              availableTags={availableTags}
+              sortBy={sortBy}
+              setSortBy={handleSortByChange}
+              activeFilters={activeFilters}
+              setActiveFilters={setActiveFilters}
+              onLocationSelect={handleLocationSelect}
+              dropdownPosition="top-right"
             />
           </div>
           <button
@@ -361,66 +391,7 @@ const Search = () => {
         </div>
       )}
 
-      {/* Dropdown */}
-      {showDropdown && (
-        <div className="fixed inset-0 z-20 flex items-start justify-end px-4 pt-24 bg-black/10" onClick={() => setShowDropdown(false)}>
-          <div className="w-80 rounded-2xl shadow-cozy border border-linen-200 bg-white/95 p-6" onClick={e => e.stopPropagation()}>
-            <div className="mb-6">
-              <div className="font-serif font-semibold mb-4 text-lg text-charcoal-700">Sort by</div>
-              <div className="space-y-2">
-                {sortOptions.map(opt => (
-                  <label key={opt.key} className="flex items-center gap-3 p-2 rounded-lg cursor-pointer border border-transparent hover:border-sage-200 hover:bg-sage-50">
-                    <input
-                      type="radio"
-                      name="sortBy"
-                      value={opt.key}
-                      checked={sortBy === opt.key}
-                      onChange={() => handleSortByChange(opt.key)}
-                      className="w-5 h-5 text-sage-500 focus:ring-sage-400"
-                    />
-                    <span className="font-medium text-charcoal-600">{opt.label}</span>
-                  </label>
-                ))}
-              </div>
-            </div>
-            <div>
-              <div className="font-serif font-semibold mb-4 text-lg text-charcoal-700">Filter by</div>
-              <div className="flex flex-wrap gap-2 mb-4">
-                {filterOptions.map(opt => (
-                  <label key={opt.key} className="flex items-center gap-2 px-3 py-2 rounded-full text-sm font-medium bg-sage-50 border border-sage-100 text-sage-700 hover:bg-sage-100 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={activeFilters.includes(opt.key)}
-                      onChange={() => setActiveFilters(f => f.includes(opt.key) ? f.filter(x => x !== opt.key) : [...f, opt.key])}
-                      className="w-4 h-4 text-sage-500 focus:ring-sage-400"
-                    />
-                    {opt.label}
-                  </label>
-                ))}
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {availableTags.map(tag => (
-                  <label key={tag} className="flex items-center gap-2 px-3 py-2 rounded-full text-sm font-medium bg-linen-100 border border-linen-200 text-charcoal-500 hover:bg-linen-200 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={activeFilters.includes(tag)}
-                      onChange={() => setActiveFilters(f => f.includes(tag) ? f.filter(x => x !== tag) : [...f, tag])}
-                      className="w-4 h-4 text-sage-500 focus:ring-sage-400"
-                    />
-                    {tag}
-                  </label>
-                ))}
-              </div>
-            </div>
-            <button
-              className="mt-6 w-full py-3 rounded-full font-semibold bg-sage-400 text-white shadow-soft hover:bg-sage-500 transition"
-              onClick={() => setShowDropdown(false)}
-            >
-              Apply Filters
-            </button>
-          </div>
-        </div>
-      )}
+
 
       {/* Search History */}
       {showSearchHistory && searchHistory.length > 0 && (
@@ -647,17 +618,7 @@ const Search = () => {
                               {list.userId === '1' && (
                                 <button 
                                   onClick={() => { 
-                                    // Create a mock place from the list for demonstration
-                                    const mockPlace = {
-                                      id: list.id,
-                                      name: list.name,
-                                      address: 'Various locations',
-                                      tags: list.tags,
-                                      posts: [],
-                                      savedCount: list.likes || 0,
-                                      createdAt: list.createdAt
-                                    }
-                                    handleSaveToPlace(mockPlace)
+                                    handleCreatePost(list.id)
                                   }}
                                   className="p-1.5 rounded-full bg-gold-50 text-gold-600 hover:bg-gold-100 transition"
                                   title="Create post"
@@ -721,8 +682,15 @@ const Search = () => {
                             <p className="text-sm text-charcoal-600 mt-1">{user.bio}</p>
                           )}
                         </div>
-                        <button className="bg-gradient-to-r from-sage-500 to-sage-600 text-white px-4 py-2 rounded-xl text-sm font-medium hover:from-sage-600 hover:to-sage-700 transition-all duration-300 shadow-soft">
-                          Follow
+                        <button 
+                          onClick={() => handleFollowUser(user.id)}
+                          className={`px-4 py-2 rounded-xl text-sm font-medium transition-all duration-300 shadow-soft ${
+                            followingUsers.has(user.id)
+                              ? 'bg-linen-100 text-charcoal-600 hover:bg-linen-200'
+                              : 'bg-gradient-to-r from-sage-500 to-sage-600 text-white hover:from-sage-600 hover:to-sage-700'
+                          }`}
+                        >
+                          {followingUsers.has(user.id) ? 'Following' : 'Follow'}
                         </button>
                       </div>
                     </div>
@@ -739,6 +707,33 @@ const Search = () => {
           isOpen={showHubModal}
           onClose={() => setShowHubModal(false)}
           hub={selectedHub}
+          onAddPost={(hub) => {
+            // Convert hub to the format expected by CreatePost
+            const createPostHub = {
+              id: hub.id,
+              name: hub.name,
+              address: hub.location.address,
+              description: hub.description,
+              lat: hub.location.lat,
+              lng: hub.location.lng,
+            }
+            handleCreatePost(undefined, createPostHub)
+            setShowHubModal(false)
+          }}
+          onSave={(hub) => {
+            // Convert hub to place format for SaveModal
+            const place: Place = {
+              id: hub.id,
+              name: hub.name,
+              address: hub.location.address,
+              tags: hub.tags,
+              posts: hub.posts,
+              savedCount: 0,
+              createdAt: new Date().toISOString()
+            }
+            handleSaveToPlace(place)
+            setShowHubModal(false)
+          }}
         />
       )}
 
@@ -762,6 +757,17 @@ const Search = () => {
         onClose={() => setShowLocationModal(false)}
         onLocationSelect={handleLocationSelect}
       />
+
+      <CreatePost
+        isOpen={showCreatePost}
+        onClose={() => {
+          setShowCreatePost(false)
+          setCreatePostListId(null)
+        }}
+        preSelectedListIds={createPostListId ? [createPostListId] : undefined}
+      />
+
+
     </div>
   )
 }

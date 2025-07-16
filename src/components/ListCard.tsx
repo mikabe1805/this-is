@@ -1,7 +1,8 @@
 import { useState } from 'react'
-import { HeartIcon, BookmarkIcon, EyeIcon, UserIcon, StarIcon } from '@heroicons/react/24/outline'
+import { HeartIcon, BookmarkIcon, EyeIcon, UserIcon, StarIcon, EllipsisHorizontalIcon } from '@heroicons/react/24/outline'
 import { HeartIcon as HeartIconSolid } from '@heroicons/react/24/solid'
 import TagCloud from './TagCloud'
+import ListMenuDropdown from './ListMenuDropdown'
 
 interface Place {
   id: string
@@ -30,6 +31,10 @@ interface ListCardProps {
   isLiked: boolean
   onLike: () => void
   onView: () => void
+  onEditList?: () => void
+  onTogglePrivacy?: () => void
+  onDelete?: () => void
+  isOwner?: boolean
 }
 
 const ListCard = ({ 
@@ -41,9 +46,14 @@ const ListCard = ({
   likes, 
   isLiked, 
   onLike, 
-  onView 
+  onView,
+  onEditList,
+  onTogglePrivacy,
+  onDelete,
+  isOwner = false
 }: ListCardProps) => {
   const [isExpanded, setIsExpanded] = useState(false)
+  const [showListMenu, setShowListMenu] = useState(false)
 
   // Check if this is a default "All" list
   const isDefaultList = title === 'All Loved' || title === 'All Tried' || title === 'All Want'
@@ -129,13 +139,24 @@ const ListCard = ({
               </div>
             )}
           </div>
-          {isPrivate && (
-            <div className="ml-4">
+          <div className="flex items-center gap-2">
+            {isPrivate && (
               <div className="w-10 h-10 bg-gradient-to-br from-earth-100 to-cream-100 rounded-full flex items-center justify-center border-2 border-white shadow-sm">
                 <UserIcon className="w-5 h-5 text-earth-500" />
               </div>
-            </div>
-          )}
+            )}
+            {isOwner && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation()
+                  setShowListMenu(true)
+                }}
+                className="w-8 h-8 bg-linen-100 rounded-full flex items-center justify-center hover:bg-linen-200 transition-colors"
+              >
+                <EllipsisHorizontalIcon className="w-4 h-4 text-charcoal-600" />
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Owner info and actions */}
@@ -272,6 +293,16 @@ const ListCard = ({
           </div>
         </div>
       </div>
+
+      <ListMenuDropdown
+        isOpen={showListMenu}
+        onClose={() => setShowListMenu(false)}
+        onEditList={onEditList}
+        onTogglePrivacy={onTogglePrivacy}
+        onDelete={onDelete}
+        isPublic={!isPrivate}
+        isOwner={isOwner}
+      />
     </div>
   )
 }

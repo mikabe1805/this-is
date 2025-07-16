@@ -1,5 +1,5 @@
-import { HomeIcon, MagnifyingGlassIcon, HeartIcon, UserIcon, PlusIcon } from '@heroicons/react/24/outline'
-import { HomeIcon as HomeIconSolid, MagnifyingGlassIcon as MagnifyingGlassIconSolid, HeartIcon as HeartIconSolid, UserIcon as UserIconSolid } from '@heroicons/react/24/solid'
+import { HomeIcon, MagnifyingGlassIcon, PhotoIcon, UserIcon, PlusIcon } from '@heroicons/react/24/outline'
+import { HomeIcon as HomeIconSolid, MagnifyingGlassIcon as MagnifyingGlassIconSolid, PhotoIcon as PhotoIconSolid, UserIcon as UserIconSolid } from '@heroicons/react/24/solid'
 
 interface NavbarProps {
   activeTab: string
@@ -11,7 +11,7 @@ const Navbar = ({ activeTab, setActiveTab, onCreatePost }: NavbarProps) => {
   const tabs = [
     { id: 'home', label: 'Home', icon: HomeIcon, activeIcon: HomeIconSolid },
     { id: 'search', label: 'Search', icon: MagnifyingGlassIcon, activeIcon: MagnifyingGlassIconSolid },
-    { id: 'favorites', label: 'Reels', icon: HeartIcon, activeIcon: HeartIconSolid },
+    { id: 'favorites', label: 'Reels', icon: PhotoIcon, activeIcon: PhotoIconSolid },
     { id: 'profile', label: 'Profile', icon: UserIcon, activeIcon: UserIconSolid },
   ]
 

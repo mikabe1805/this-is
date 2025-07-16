@@ -1,10 +1,13 @@
 import type { User, List, Activity, Place } from '../types/index.js'
-import { BookmarkIcon, HeartIcon, PlusIcon, FunnelIcon, MapPinIcon, CalendarIcon } from '@heroicons/react/24/outline'
-import { useState } from 'react'
-import SearchBar from '../components/SearchBar'
+import { BookmarkIcon, HeartIcon, PlusIcon, MapPinIcon, CalendarIcon, EllipsisHorizontalIcon } from '@heroicons/react/24/outline'
+import { useState, useRef } from 'react'
+import SearchAndFilter from '../components/SearchAndFilter'
 import SaveModal from '../components/SaveModal'
 import LocationSelectModal from '../components/LocationSelectModal'
+import CreatePost from '../components/CreatePost'
+import UserMenuDropdown from '../components/UserMenuDropdown'
 import { useNavigate } from 'react-router-dom'
+import { useNavigation } from '../contexts/NavigationContext.tsx'
 
 // SVG botanical accent (e.g., eucalyptus branch)
 const BotanicalAccent = () => (
@@ -33,6 +36,8 @@ const mockComments = [
 ]
 
 const Profile = () => {
+  const { openListModal } = useNavigation()
+  
   // Mock user data
   const currentUser: User = {
     id: '1',
@@ -44,6 +49,54 @@ const Profile = () => {
     influences: 234 // Mock influence count
   }
   const userLists: List[] = [
+    {
+      id: 'all-loved',
+      name: 'All Loved',
+      description: 'All the places you\'ve loved and want to visit again',
+      userId: '1',
+      isPublic: false,
+      isShared: false,
+      privacy: 'private',
+      tags: ['loved', 'favorites', 'auto-generated'],
+      hubs: [],
+      coverImage: 'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=300&h=200&fit=crop',
+      createdAt: '2024-01-01',
+      updatedAt: '2024-01-15',
+      likes: 0,
+      isLiked: false
+    },
+    {
+      id: 'all-tried',
+      name: 'All Tried',
+      description: 'All the places you\'ve tried and experienced',
+      userId: '1',
+      isPublic: false,
+      isShared: false,
+      privacy: 'private',
+      tags: ['tried', 'visited', 'auto-generated'],
+      hubs: [],
+      coverImage: 'https://images.unsplash.com/photo-1501594907352-04cda38ebc29?w=300&h=200&fit=crop',
+      createdAt: '2024-01-01',
+      updatedAt: '2024-01-15',
+      likes: 0,
+      isLiked: false
+    },
+    {
+      id: 'all-want',
+      name: 'All Want',
+      description: 'All the places you want to visit someday',
+      userId: '1',
+      isPublic: false,
+      isShared: false,
+      privacy: 'private',
+      tags: ['want', 'wishlist', 'auto-generated'],
+      hubs: [],
+      coverImage: 'https://images.unsplash.com/photo-1442512595331-e89e73853f31?w=300&h=200&fit=crop',
+      createdAt: '2024-01-01',
+      updatedAt: '2024-01-15',
+      likes: 0,
+      isLiked: false
+    },
     {
       id: '1',
       name: 'Cozy Coffee Spots',
@@ -99,7 +152,6 @@ const Profile = () => {
     }
   ]
   const [sortBy, setSortBy] = useState('popular')
-  const [showDropdown, setShowDropdown] = useState(false)
   const [activeFilters, setActiveFilters] = useState<string[]>([])
   const [profileTags, setProfileTags] = useState<string[]>(['cozy', 'trendy', 'quiet'])
   const [newTag, setNewTag] = useState('')
@@ -109,10 +161,16 @@ const Profile = () => {
   const [savedLists, setSavedLists] = useState<Set<string>>(new Set())
   const [showSaveModal, setShowSaveModal] = useState(false)
   const [showLocationModal, setShowLocationModal] = useState(false)
+  const [showCreatePost, setShowCreatePost] = useState(false)
   const [selectedPlace, setSelectedPlace] = useState<Place | null>(null)
   const [selectedLocation, setSelectedLocation] = useState<{ id: string; name: string; address: string; coordinates: { lat: number; lng: number } } | null>(null)
+  const [createPostListId, setCreatePostListId] = useState<string | null>(null)
+  const [showUserMenu, setShowUserMenu] = useState(false)
+  const userMenuButtonRef = useRef<HTMLButtonElement | null>(null)
   
   let filteredLists = userLists.filter(list => {
+    // Filter out auto-generated lists from popular lists section
+    if (list.tags.includes('auto-generated')) return false
     if (activeFilters.length === 0) return true
     return activeFilters.some(f => list.tags.includes(f))
   })
@@ -185,6 +243,11 @@ const Profile = () => {
     }
   }
 
+  const handleCreatePost = (listId?: string) => {
+    setCreatePostListId(listId || null)
+    setShowCreatePost(true)
+  }
+
   const navigate = useNavigate()
 
   return (
@@ -196,71 +259,20 @@ const Profile = () => {
         <div className="absolute inset-0 bg-gradient-radial from-transparent via-transparent to-charcoal-900/10"></div>
       </div>
       {/* Top Bar */}
-      <div className="relative z-10 px-4 pt-6 flex items-center gap-3">
-        <div className="flex-1">
-          <SearchBar placeholder="Search your lists, places, or friends..." onFilterClick={() => setShowDropdown(true)} />
-        </div>
+      <div className="relative z-10 px-4 pt-6">
+        <SearchAndFilter
+          placeholder="Search your lists, places, or friends..."
+          sortOptions={sortOptions}
+          filterOptions={filterOptions}
+          availableTags={availableTags}
+          sortBy={sortBy}
+          setSortBy={handleSortByChange}
+          activeFilters={activeFilters}
+          setActiveFilters={setActiveFilters}
+          onLocationSelect={handleLocationSelect}
+          dropdownPosition="top-right"
+        />
       </div>
-      {/* Dropdown */}
-      {showDropdown && (
-        <div className="fixed inset-0 z-20 flex items-start justify-end px-4 pt-24 bg-black/10" onClick={() => setShowDropdown(false)}>
-          <div className="w-80 rounded-2xl shadow-cozy border border-linen-200 bg-white/95 p-6" onClick={e => e.stopPropagation()}>
-            <div className="mb-6">
-              <div className="font-serif font-semibold mb-4 text-lg text-charcoal-700">Sort by</div>
-              <div className="space-y-2">
-                {sortOptions.map(opt => (
-                  <label key={opt.key} className="flex items-center gap-3 p-2 rounded-lg cursor-pointer border border-transparent hover:border-sage-200 hover:bg-sage-50">
-                    <input
-                      type="radio"
-                      name="sortBy"
-                      value={opt.key}
-                      checked={sortBy === opt.key}
-                      onChange={() => handleSortByChange(opt.key)}
-                      className="w-5 h-5 text-sage-500 focus:ring-sage-400"
-                    />
-                    <span className="font-medium text-charcoal-600">{opt.label}</span>
-                  </label>
-                ))}
-              </div>
-            </div>
-            <div>
-              <div className="font-serif font-semibold mb-4 text-lg text-charcoal-700">Filter by</div>
-              <div className="flex flex-wrap gap-2 mb-4">
-                {filterOptions.map(opt => (
-                  <label key={opt.key} className="flex items-center gap-2 px-3 py-2 rounded-full text-sm font-medium bg-sage-50 border border-sage-100 text-sage-700 hover:bg-sage-100 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={activeFilters.includes(opt.key)}
-                      onChange={() => setActiveFilters(f => f.includes(opt.key) ? f.filter(x => x !== opt.key) : [...f, opt.key])}
-                      className="w-4 h-4 text-sage-500 focus:ring-sage-400"
-                    />
-                    {opt.label}
-                  </label>
-                ))}
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {availableTags.map(tag => (
-                  <label key={tag} className="flex items-center gap-2 px-3 py-2 rounded-full text-sm font-medium bg-linen-100 border border-linen-200 text-charcoal-500 hover:bg-linen-200 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={activeFilters.includes(tag)}
-                      onChange={() => setActiveFilters(f => f.includes(tag) ? f.filter(x => x !== tag) : [...f, tag])}
-                      className="w-4 h-4 text-sage-500 focus:ring-sage-400"
-                    />
-                    {tag}
-                  </label>
-                ))}
-              </div>
-            </div>
-            <button
-              className="mt-6 w-full py-3 rounded-full font-semibold bg-sage-400 text-white shadow-soft hover:bg-sage-500 transition"
-              onClick={() => setShowDropdown(false)}
-            >
-              Apply Filters
-            </button>
-          </div>
-        </div>
-      )}
       {/* Profile Header with botanical accent */}
       <div className="relative z-10 p-8 mt-8 rounded-3xl shadow-botanical border border-linen-200 bg-white/95 max-w-2xl mx-auto overflow-hidden flex flex-col gap-2">
         {/* Botanical SVG accent */}
@@ -272,14 +284,23 @@ const Profile = () => {
             className="w-24 h-24 rounded-2xl border-4 border-linen-100 shadow-botanical object-cover bg-linen-200"
           />
           <div className="flex-1">
-            <div className="flex items-center gap-2 mb-1">
-              <h2 className="text-3xl font-serif font-extrabold text-charcoal-800 tracking-tight">{currentUser.name}</h2>
-              {/* Small leaf icon accent */}
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" className="ml-1 -mt-1">
-                <path d="M4 20 Q12 4 20 20" stroke="#A3B3A3" strokeWidth="2" fill="none"/>
-                <ellipse cx="8" cy="15" rx="2" ry="4" fill="#C7D0C7"/>
-                <ellipse cx="16" cy="15" rx="2" ry="4" fill="#A3B3A3"/>
-              </svg>
+            <div className="flex items-center justify-between mb-1">
+              <div className="flex items-center gap-2">
+                <h2 className="text-3xl font-serif font-extrabold text-charcoal-800 tracking-tight">{currentUser.name}</h2>
+                {/* Small leaf icon accent */}
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" className="ml-1 -mt-1">
+                  <path d="M4 20 Q12 4 20 20" stroke="#A3B3A3" strokeWidth="2" fill="none"/>
+                  <ellipse cx="8" cy="15" rx="2" ry="4" fill="#C7D0C7"/>
+                  <ellipse cx="16" cy="15" rx="2" ry="4" fill="#A3B3A3"/>
+                </svg>
+              </div>
+              <button
+                ref={userMenuButtonRef}
+                onClick={() => setShowUserMenu(true)}
+                className="w-8 h-8 bg-linen-100 rounded-full flex items-center justify-center hover:bg-linen-200 transition-colors"
+              >
+                <EllipsisHorizontalIcon className="w-5 h-5 text-charcoal-600" />
+              </button>
             </div>
             <p className="text-base text-charcoal-500 mb-1">@{currentUser.username}</p>
             {currentUser.location && (
@@ -350,17 +371,30 @@ const Profile = () => {
       {/* Quick Actions - moved to top */}
       <div className="relative z-10 p-4 max-w-2xl mx-auto">
         <div className="rounded-2xl shadow-botanical border border-linen-200 bg-white/98 p-6 flex gap-4 transition hover:shadow-cozy hover:-translate-y-1">
-          <button className="flex-1 rounded-xl p-4 bg-sage-100 text-sage-700 font-semibold flex flex-col items-center gap-2 shadow-soft hover:bg-sage-200 hover:shadow-botanical transition">
+          <button 
+            onClick={() => {
+              // This will be handled by the parent App component
+              // We'll use a custom event to communicate with the parent
+              window.dispatchEvent(new CustomEvent('openCreateList'))
+            }}
+            className="flex-1 rounded-xl p-4 bg-sage-100 text-sage-700 font-semibold flex flex-col items-center gap-2 shadow-soft hover:bg-sage-200 hover:shadow-botanical transition"
+          >
             <PlusIcon className="w-6 h-6" />
             New List
           </button>
-          <button className="flex-1 rounded-xl p-4 bg-gold-100 text-gold-700 font-semibold flex flex-col items-center gap-2 shadow-soft hover:bg-gold-200 hover:shadow-botanical transition">
+          <button 
+            onClick={() => navigate('/lists')}
+            className="flex-1 rounded-xl p-4 bg-gold-100 text-gold-700 font-semibold flex flex-col items-center gap-2 shadow-soft hover:bg-gold-200 hover:shadow-botanical transition"
+          >
             <BookmarkIcon className="w-6 h-6" />
             View My Lists
           </button>
-          <button className="flex-1 rounded-xl p-4 bg-charcoal-100 text-charcoal-700 font-semibold flex flex-col items-center gap-2 shadow-soft hover:bg-charcoal-200 hover:shadow-botanical transition">
+          <button 
+            onClick={() => navigate('/favorites')}
+            className="flex-1 rounded-xl p-4 bg-charcoal-100 text-charcoal-700 font-semibold flex flex-col items-center gap-2 shadow-soft hover:bg-charcoal-200 hover:shadow-botanical transition"
+          >
             <HeartIcon className="w-6 h-6" />
-            Saved Places
+            Favorites
           </button>
         </div>
       </div>
@@ -370,7 +404,12 @@ const Profile = () => {
         <div>
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-xl font-serif font-semibold text-charcoal-700">Most Popular Lists</h3>
-            <button className="text-sm font-medium text-sage-700 hover:underline">View All</button>
+            <button 
+              onClick={() => navigate('/lists')}
+              className="text-sm font-medium text-sage-700 hover:underline"
+            >
+              View All
+            </button>
           </div>
           <div className="space-y-4">
             {filteredLists.map((list, idx) => (
@@ -379,7 +418,7 @@ const Profile = () => {
                 role="button"
                 tabIndex={0}
                 className="w-full text-left rounded-2xl shadow-botanical border border-linen-200 bg-white/98 flex flex-col md:flex-row gap-4 overflow-hidden transition hover:shadow-cozy hover:-translate-y-1 focus:outline-none focus:ring-2 focus:ring-sage-200"
-                onClick={() => navigate(`/list/${list.id}`)}
+                onClick={() => openListModal(list, 'profile')}
                 aria-label={`Open list ${list.name}`}
               >
                 <div className="w-full md:w-40 h-28 md:h-auto flex-shrink-0 bg-linen-100">
@@ -387,10 +426,17 @@ const Profile = () => {
                 </div>
                 <div className="flex-1 p-4 flex flex-col justify-between">
                   <div>
-                    <h4 className="font-serif font-semibold text-lg text-charcoal-700 mb-1">{list.name}</h4>
+                    <div className="flex items-center gap-2 mb-1">
+                      <h4 className="font-serif font-semibold text-lg text-charcoal-700">{list.name}</h4>
+                      {list.tags.includes('auto-generated') && (
+                        <span className="px-2 py-1 rounded-full text-xs font-medium bg-gold-100 text-gold-700 border border-gold-200">
+                          Auto
+                        </span>
+                      )}
+                    </div>
                     <p className="text-sm text-charcoal-500 mb-2 leading-relaxed break-words">{list.description}</p>
                     <div className="flex flex-wrap gap-2 mb-2">
-                      {list.tags.map(tag => (
+                      {list.tags.filter(tag => tag !== 'auto-generated').map(tag => (
                         <span key={tag} className="px-3 py-1 rounded-full text-xs font-medium bg-sage-50 border border-sage-100 text-sage-700 transition hover:bg-sage-100 hover:shadow-botanical">#{tag}</span>
                       ))}
                     </div>
@@ -435,8 +481,7 @@ const Profile = () => {
                         <button 
                           onClick={e => { 
                             e.stopPropagation()
-                            // TODO: Create new post in this list
-                            console.log('Create new post in list:', list.id)
+                            handleCreatePost(list.id)
                           }}
                           className="p-1.5 rounded-full bg-sage-50 text-sage-600 hover:bg-sage-100 transition"
                           title="Create post"
@@ -538,6 +583,32 @@ const Profile = () => {
         onClose={() => setShowLocationModal(false)}
         onLocationSelect={handleLocationSelect}
       />
+
+      <CreatePost
+        isOpen={showCreatePost}
+        onClose={() => {
+          setShowCreatePost(false)
+          setCreatePostListId(null)
+        }}
+        preSelectedListIds={createPostListId ? [createPostListId] : undefined}
+      />
+
+      <UserMenuDropdown
+        isOpen={showUserMenu}
+        onClose={() => setShowUserMenu(false)}
+        buttonRef={userMenuButtonRef}
+        onEditProfile={() => {
+          navigate('/profile/edit')
+        }}
+        onViewFollowing={() => {
+          navigate('/profile/following')
+        }}
+        onUserSettings={() => {
+          navigate('/settings')
+        }}
+      />
+
+
     </div>
   )
 }

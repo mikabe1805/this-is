@@ -1,5 +1,5 @@
 import type { Hub, Post, List } from '../types/index.js'
-import { MapPinIcon, HeartIcon, BookmarkIcon, PlusIcon, ShareIcon, CameraIcon, ChatBubbleLeftIcon, XMarkIcon, ArrowRightIcon } from '@heroicons/react/24/outline'
+import { MapPinIcon, HeartIcon, BookmarkIcon, PlusIcon, ShareIcon, CameraIcon, ChatBubbleLeftIcon, XMarkIcon, ArrowRightIcon, ArrowsPointingOutIcon, ArrowLeftIcon } from '@heroicons/react/24/outline'
 import { useState } from 'react'
 import { createPortal } from 'react-dom'
 
@@ -7,12 +7,59 @@ interface HubModalProps {
   hub: Hub
   isOpen: boolean
   onClose: () => void
+  onAddPost?: (hub: Hub) => void
+  onSave?: (hub: Hub) => void
+  onShare?: (hub: Hub) => void
+  onOpenFullScreen?: (hub: Hub) => void
+  showBackButton?: boolean
+  onBack?: () => void
 }
 
-const HubModal = ({ hub, isOpen, onClose }: HubModalProps) => {
+const HubModal = ({ hub, isOpen, onClose, onAddPost, onSave, onShare, onOpenFullScreen, showBackButton, onBack }: HubModalProps) => {
   const [tab, setTab] = useState<'overview' | 'posts'>('overview')
   const [posts] = useState<Post[]>(hub.posts || [])
-  const [lists] = useState<List[]>(hub.lists || [])
+  
+  // Create a real list for Rami if this is Tartine Bakery
+  const [lists] = useState<List[]>(() => {
+    if (hub.name === 'Tartine Bakery') {
+      return [
+        {
+          id: 'rami-coffee-tour',
+          name: 'SF Coffee Tour',
+          description: 'Exploring the best coffee spots in San Francisco',
+          userId: 'rami',
+          isPublic: true,
+          isShared: true,
+          privacy: 'public' as const,
+          tags: ['coffee', 'san francisco', 'cafes'],
+          hubs: [],
+          coverImage: 'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=400&h=300&fit=crop',
+          createdAt: '2024-01-15',
+          updatedAt: '2024-01-15',
+          likes: 24,
+          isLiked: false
+        },
+        {
+          id: 'emma-favorites',
+          name: 'Emma\'s Favorites',
+          description: 'My go-to spots for coffee and pastries',
+          userId: 'emma',
+          isPublic: true,
+          isShared: true,
+          privacy: 'public' as const,
+          tags: ['coffee', 'pastries', 'breakfast'],
+          hubs: [],
+          coverImage: 'https://images.unsplash.com/photo-1509440159596-0249088772ff?w=400&h=300&fit=crop',
+          createdAt: '2024-01-10',
+          updatedAt: '2024-01-10',
+          likes: 18,
+          isLiked: true
+        }
+      ]
+    }
+    return hub.lists || []
+  })
+  
   const [commentInput, setCommentInput] = useState('')
   const [comments, setComments] = useState([
     { id: 1, user: { name: 'Emma', avatar: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=150&h=150&fit=crop&crop=face' }, text: 'Love this spot! The atmosphere is amazing 🌟', date: '2d ago' },
@@ -36,11 +83,48 @@ const HubModal = ({ hub, isOpen, onClose }: HubModalProps) => {
     setCommentInput('')
   }
 
+  const handleAddPost = () => {
+    if (onAddPost) {
+      onAddPost(hub)
+    }
+  }
+
+  const handleSave = () => {
+    if (onSave) {
+      onSave(hub)
+    }
+  }
+
+  const handleShare = () => {
+    if (onShare) {
+      onShare(hub)
+    } else {
+      // Fallback share functionality
+      if (navigator.share) {
+        navigator.share({
+          title: hub.name,
+          text: hub.description,
+          url: window.location.href
+        })
+      } else {
+        // Fallback: copy to clipboard
+        navigator.clipboard.writeText(window.location.href)
+        alert('Link copied to clipboard!')
+      }
+    }
+  }
+
+  const handleOpenFullScreen = () => {
+    if (onOpenFullScreen) {
+      onOpenFullScreen(hub)
+    }
+  }
+
   const modalContent = (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
       <div className="relative w-full max-w-2xl max-h-[90vh] bg-white rounded-3xl shadow-botanical border border-linen-200 overflow-hidden">
-        {/* Header with action buttons */}
-        <div className="relative h-48 bg-gradient-to-br from-cream-200 to-coral-200 overflow-hidden">
+        {/* Header with image */}
+        <div className="relative h-64 bg-gradient-to-br from-cream-200 to-coral-200 overflow-hidden">
           {hub.mainImage && (
             <img
               src={hub.mainImage}
@@ -48,102 +132,129 @@ const HubModal = ({ hub, isOpen, onClose }: HubModalProps) => {
               className="w-full h-full object-cover"
             />
           )}
-          <div className="absolute inset-0 bg-gradient-to-t from-black/30 via-black/10 to-transparent" />
+          {/* Gradient overlay for text readability */}
+          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
           
           {/* Top action buttons */}
-          <div className="absolute top-4 left-4 right-4 flex items-center justify-between">
+          <div className="absolute top-4 left-4 right-4 flex items-center justify-between z-10">
             <div className="flex items-center gap-2">
-              <button className="w-10 h-10 bg-white/90 backdrop-blur-sm rounded-full flex items-center justify-center shadow-soft hover:shadow-botanical transition-all duration-200">
-                <ShareIcon className="w-5 h-5 text-charcoal-600" />
+              {showBackButton && onBack && (
+                <button 
+                  onClick={onBack}
+                  className="w-10 h-10 bg-white/90 backdrop-blur-md rounded-full flex items-center justify-center shadow-botanical hover:shadow-liquid hover:scale-105 transition-all duration-200"
+                  title="Go back"
+                >
+                  <ArrowLeftIcon className="w-5 h-5 text-charcoal-600" />
+                </button>
+              )}
+              <button 
+                onClick={handleOpenFullScreen}
+                className="w-10 h-10 bg-white/90 backdrop-blur-md rounded-full flex items-center justify-center shadow-botanical hover:shadow-liquid hover:scale-105 transition-all duration-200"
+                title="Open full screen"
+              >
+                <ArrowsPointingOutIcon className="w-5 h-5 text-sage-600" />
               </button>
             </div>
             <div className="flex items-center gap-2">
+              <button 
+                onClick={handleShare}
+                className="w-10 h-10 bg-white/90 backdrop-blur-md rounded-full flex items-center justify-center shadow-botanical hover:shadow-liquid hover:scale-105 transition-all duration-200"
+              >
+                <ShareIcon className="w-5 h-5 text-coral-600" />
+              </button>
               <button
                 onClick={onClose}
-                className="w-10 h-10 bg-white/90 backdrop-blur-sm rounded-full flex items-center justify-center shadow-soft hover:shadow-botanical transition-all duration-200"
+                className="w-10 h-10 bg-white/90 backdrop-blur-md rounded-full flex items-center justify-center shadow-botanical hover:shadow-liquid hover:scale-105 transition-all duration-200"
               >
                 <XMarkIcon className="w-6 h-6 text-charcoal-600" />
               </button>
             </div>
           </div>
-
-          <div className="absolute bottom-4 left-4 right-4">
-            <h1 className="text-2xl font-serif font-bold text-white mb-2 drop-shadow-lg">{hub.name}</h1>
-            <div className="flex items-center text-white/90 text-sm drop-shadow-md">
-              <MapPinIcon className="w-4 h-4 mr-1" />
+          
+          {/* Text overlay */}
+          <div className="absolute bottom-0 left-0 right-0 p-6 z-10">
+            <h1 className="text-3xl font-serif font-bold text-white mb-2 drop-shadow-lg">{hub.name}</h1>
+            <div className="flex items-center text-white/95 text-base mb-3 drop-shadow-md">
+              <MapPinIcon className="w-5 h-5 mr-2" />
               {hub.location.address}
+            </div>
+            <div className="flex items-center gap-3">
+              <span className="px-3 py-1.5 bg-white/25 backdrop-blur-sm rounded-full text-white text-sm font-medium">
+                {posts.length} posts
+              </span>
+              <span className="px-3 py-1.5 bg-white/25 backdrop-blur-sm rounded-full text-white text-sm font-medium">
+                {hub.tags[0] || 'Popular'}
+              </span>
             </div>
           </div>
         </div>
-
+        
         {/* Content */}
-        <div className="p-6 space-y-6 max-h-[calc(90vh-12rem)] overflow-y-auto">
-          {/* Description and tags */}
-          <div>
-            <p className="text-charcoal-700 mb-4 leading-relaxed">{hub.description}</p>
-            <div className="flex flex-wrap gap-2 mb-4">
-              {hub.tags.map(tag => (
-                <span key={tag} className="px-3 py-1 text-xs rounded-full bg-sage-50 border border-sage-100 text-sage-700 font-medium">
-                  #{tag}
-                </span>
-              ))}
-            </div>
-            <div className="flex items-center gap-3">
-              <a 
-                href={hub.googleMapsUrl} 
-                target="_blank" 
-                rel="noopener noreferrer" 
-                className="inline-flex items-center gap-2 bg-sage-400 text-white px-4 py-2 rounded-xl text-sm font-medium shadow-soft hover:bg-sage-500 transition"
-              >
-                <MapPinIcon className="w-4 h-4" />
-                Directions
-                <ArrowRightIcon className="w-4 h-4" />
-              </a>
-              <button className="inline-flex items-center gap-2 bg-gold-400 text-white px-4 py-2 rounded-xl text-sm font-medium shadow-soft hover:bg-gold-500 transition">
-                <PlusIcon className="w-4 h-4" />
-                Add Post
-              </button>
-              <button className="inline-flex items-center gap-2 bg-sage-400 text-white px-4 py-2 rounded-xl text-sm font-medium shadow-soft hover:bg-sage-500 transition">
-                <BookmarkIcon className="w-4 h-4" />
-                Save
-              </button>
-            </div>
+        <div className="p-6 space-y-6 max-h-[calc(90vh-16rem)] overflow-y-auto">
+          {/* Action Buttons */}
+          <div className="flex gap-3 mb-6">
+            <a 
+              href={hub.googleMapsUrl} 
+              target="_blank" 
+              rel="noopener noreferrer" 
+              className="flex-1 flex items-center justify-center gap-2 bg-gradient-to-r from-sage-500 to-sage-600 text-white px-4 py-3 rounded-xl text-sm font-semibold shadow-botanical hover:shadow-liquid hover:scale-102 transition-all duration-200"
+            >
+              <MapPinIcon className="w-5 h-5" />
+              Directions
+              <ArrowRightIcon className="w-4 h-4" />
+            </a>
+            <button 
+              onClick={handleAddPost}
+              className="flex-1 flex items-center justify-center gap-2 bg-gradient-to-r from-gold-500 to-gold-600 text-white px-4 py-3 rounded-xl text-sm font-semibold shadow-botanical hover:shadow-liquid hover:scale-102 transition-all duration-200"
+            >
+              <PlusIcon className="w-5 h-5" />
+              Add Post
+            </button>
+            <button 
+              onClick={handleSave}
+              className="flex-1 flex items-center justify-center gap-2 bg-gradient-to-r from-coral-500 to-coral-600 text-white px-4 py-3 rounded-xl text-sm font-semibold shadow-botanical hover:shadow-liquid hover:scale-102 transition-all duration-200"
+            >
+              <BookmarkIcon className="w-5 h-5" />
+              Save
+            </button>
           </div>
-
+          
           {/* Tabs */}
-          <div className="flex bg-linen-50 rounded-xl p-1">
-            <button
-              onClick={() => setTab('overview')}
-              className={`flex-1 py-2 px-4 rounded-lg font-medium transition-all duration-200 ${
-                tab === 'overview'
-                  ? 'bg-white text-sage-700 shadow-soft'
-                  : 'text-charcoal-500 hover:text-sage-700'
-              }`}
-            >
-              Overview
-            </button>
-            <button
-              onClick={() => setTab('posts')}
-              className={`flex-1 py-2 px-4 rounded-lg font-medium transition-all duration-200 ${
-                tab === 'posts'
-                  ? 'bg-white text-sage-700 shadow-soft'
-                  : 'text-charcoal-500 hover:text-sage-700'
-              }`}
-            >
-              Posts ({posts.length})
-            </button>
+          <div className="bg-white/80 backdrop-blur-md rounded-xl p-2 shadow-soft border border-white/40 mb-6">
+            <div className="flex gap-2">
+              <button
+                onClick={() => setTab('overview')}
+                className={`flex-1 py-3 px-4 rounded-lg font-semibold text-base transition-all duration-200 ${
+                  tab === 'overview' 
+                    ? 'bg-gradient-to-r from-sage-500 to-gold-500 text-white shadow-liquid transform scale-102' 
+                    : 'text-sage-700 hover:text-sage-900 hover:bg-white/60'
+                }`}
+              >
+                Overview
+              </button>
+              <button
+                onClick={() => setTab('posts')}
+                className={`flex-1 py-3 px-4 rounded-lg font-semibold text-base transition-all duration-200 ${
+                  tab === 'posts' 
+                    ? 'bg-gradient-to-r from-sage-500 to-gold-500 text-white shadow-liquid transform scale-102' 
+                    : 'text-sage-700 hover:text-sage-900 hover:bg-white/60'
+                }`}
+              >
+                Posts ({posts.length})
+              </button>
+            </div>
           </div>
 
           {/* Tab content */}
           {tab === 'overview' && (
             <div className="space-y-4">
               {/* Popular Lists */}
-              <div className="bg-linen-50 rounded-2xl p-4">
+              <div className="bg-linen-50 rounded-xl p-4">
                 <h3 className="text-lg font-serif font-semibold text-charcoal-700 mb-3">Popular Lists</h3>
                 {lists.length > 0 ? (
                   <div className="space-y-3">
                     {lists.slice(0, 3).map((list) => (
-                      <div key={list.id} className="flex items-center gap-3 p-3 bg-white rounded-xl shadow-soft">
+                      <div key={list.id} className="flex items-center gap-3 p-3 bg-white rounded-lg shadow-soft">
                         {list.coverImage && (
                           <img src={list.coverImage} alt={list.name} className="w-12 h-12 rounded-lg object-cover" />
                         )}
@@ -167,18 +278,18 @@ const HubModal = ({ hub, isOpen, onClose }: HubModalProps) => {
               </div>
 
               {/* Friends' Lists */}
-              <div className="bg-linen-50 rounded-2xl p-4">
+              <div className="bg-linen-50 rounded-xl p-4">
                 <h3 className="text-lg font-serif font-semibold text-charcoal-700 mb-3">Friends' Lists</h3>
                 <div className="italic text-charcoal-500">Emma's Favorites, Mika's Coffee Spots...</div>
                 <button className="mt-3 text-sage-700 hover:underline text-sm font-medium">See All</button>
               </div>
 
               {/* Comments Section */}
-              <div className="bg-linen-50 rounded-2xl p-4">
+              <div className="bg-linen-50 rounded-xl p-4">
                 <h3 className="text-lg font-serif font-semibold text-charcoal-700 mb-4">Comments</h3>
                 <div className="space-y-4 mb-4">
                   {comments.map((comment) => (
-                    <div key={comment.id} className="flex items-start gap-4 p-3 bg-white rounded-xl shadow-soft">
+                    <div key={comment.id} className="flex items-start gap-3 p-3 bg-white rounded-lg shadow-soft">
                       <img src={comment.user.avatar} alt={comment.user.name} className="w-10 h-10 rounded-full object-cover border-2 border-white shadow-soft flex-shrink-0" />
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-1">
@@ -190,7 +301,7 @@ const HubModal = ({ hub, isOpen, onClose }: HubModalProps) => {
                     </div>
                   ))}
                 </div>
-                <form onSubmit={handleAddComment} className="flex items-center gap-3 p-3 bg-white rounded-xl border border-linen-200">
+                <form onSubmit={handleAddComment} className="flex items-center gap-3 p-3 bg-white rounded-lg border border-linen-200">
                   <img src="https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=150&h=150&fit=crop&crop=face" alt="You" className="w-10 h-10 rounded-full object-cover border-2 border-white shadow-soft flex-shrink-0" />
                   <input
                     type="text"
@@ -213,7 +324,7 @@ const HubModal = ({ hub, isOpen, onClose }: HubModalProps) => {
                 posts.map((post) => (
                   <div
                     key={post.id}
-                    className="bg-linen-50 rounded-2xl p-4 shadow-soft border border-linen-200"
+                    className="bg-linen-50 rounded-xl p-4 shadow-soft border border-linen-200"
                   >
                     <div className="flex items-start space-x-3 mb-3">
                       <div className="w-10 h-10 rounded-full border-2 border-white bg-white shadow-soft relative overflow-hidden">
@@ -234,11 +345,11 @@ const HubModal = ({ hub, isOpen, onClose }: HubModalProps) => {
                     </div>
                     
                     {post.images.length > 0 && (
-                      <div className="mb-3 relative overflow-hidden rounded-xl">
+                      <div className="mb-3 relative overflow-hidden rounded-lg">
                         <img
                           src={post.images[0]}
                           alt="Post"
-                          className="w-full h-48 object-cover rounded-xl shadow-soft"
+                          className="w-full h-48 object-cover rounded-lg shadow-soft"
                         />
                         <div className="absolute inset-0 bg-gradient-to-t from-black/5 via-transparent to-transparent"></div>
                       </div>
@@ -262,7 +373,7 @@ const HubModal = ({ hub, isOpen, onClose }: HubModalProps) => {
                   </div>
                 ))
               ) : (
-                <div className="bg-linen-50 rounded-2xl p-8 text-center shadow-soft border border-linen-200">
+                <div className="bg-linen-50 rounded-xl p-8 text-center shadow-soft border border-linen-200">
                   <CameraIcon className="w-16 h-16 text-charcoal-300 mx-auto mb-4" />
                   <p className="text-charcoal-500 mb-2">No posts yet</p>
                   <p className="text-sm text-charcoal-400">Be the first to share your experience!</p>
