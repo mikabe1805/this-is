@@ -1,11 +1,13 @@
 import { Routes, Route, useNavigate, useLocation } from 'react-router-dom'
 import { useState, useEffect } from 'react'
 import { NavigationProvider, useNavigation } from './contexts/NavigationContext.tsx'
+import { ModalProvider, useModal } from './contexts/ModalContext.tsx'
 import Navbar from './components/Navbar.tsx'
 import CreatePost from './components/CreatePost.tsx'
 import CreateListModal from './components/CreateListModal.tsx'
 import ListModal from './components/ListModal.tsx'
 import HubModal from './components/HubModal.tsx'
+import SaveModal from './components/SaveModal.tsx'
 import Home from './pages/Home.tsx'
 import Profile from './pages/Profile.tsx'
 import EditProfile from './pages/EditProfile.tsx'
@@ -87,69 +89,187 @@ function App() {
 
   return (
     <NavigationProvider>
-      <div className="h-screen bg-botanical-overlay overflow-hidden">
-        <div className="max-w-md mx-auto bg-white/90 backdrop-blur-glass h-screen shadow-crystal border border-white/30 overflow-hidden">
-          <div className="flex flex-col h-full">
-            {/* Main Content Area */}
-            <main className="flex-1 overflow-y-auto">
-              <Routes>
-                <Route path="/" element={<Home />} />
-                <Route path="/home" element={<Home />} />
-                <Route path="/profile" element={<Profile />} />
-                <Route path="/profile/edit" element={<EditProfile />} />
-                <Route path="/profile/following" element={<Following />} />
-                <Route path="/settings" element={<Settings />} />
-                <Route path="/search" element={<Search />} />
-                <Route path="/list/:id" element={<ListView />} />
-                <Route path="/lists" element={<ViewAllLists />} />
-                <Route path="/reels" element={<Reels />} />
-                <Route path="/favorites" element={<Favorites />} />
-                <Route path="/place/:id" element={<PlaceHub />} />
-                <Route path="/user/:userId" element={<UserProfile />} />
-                <Route path="/demo" element={<Demo activeTab={activeTab} />} />
-              </Routes>
-            </main>
-            {/* Bottom Navigation */}
-            <Navbar 
-              activeTab={activeTab} 
-              setActiveTab={handleTabChange} 
-              onCreatePost={() => setShowCreatePost(true)}
-            />
+      <ModalProvider>
+        <div className="h-screen bg-botanical-overlay overflow-hidden">
+          <div className="max-w-md mx-auto bg-white/90 backdrop-blur-glass h-screen shadow-crystal border border-white/30 overflow-hidden">
+            <div className="flex flex-col h-full">
+              {/* Main Content Area */}
+              <main className="flex-1 overflow-y-auto">
+                <Routes>
+                  <Route path="/" element={<Home />} />
+                  <Route path="/home" element={<Home />} />
+                  <Route path="/profile" element={<Profile />} />
+                  <Route path="/profile/edit" element={<EditProfile />} />
+                  <Route path="/profile/following" element={<Following />} />
+                  <Route path="/settings" element={<Settings />} />
+                  <Route path="/search" element={<Search />} />
+                  <Route path="/list/:id" element={<ListView />} />
+                  <Route path="/lists" element={<ViewAllLists />} />
+                  <Route path="/reels" element={<Reels />} />
+                  <Route path="/favorites" element={<Favorites />} />
+                  <Route path="/place/:id" element={<PlaceHub />} />
+                  <Route path="/user/:userId" element={<UserProfile />} />
+                  <Route path="/demo" element={<Demo activeTab={activeTab} />} />
+                </Routes>
+              </main>
+              {/* Bottom Navigation */}
+              <Navbar 
+                activeTab={activeTab} 
+                setActiveTab={handleTabChange} 
+                onCreatePost={() => setShowCreatePost(true)}
+              />
+            </div>
           </div>
+
+          {/* Create Post Modal */}
+          <CreatePost 
+            isOpen={showCreatePost} 
+            onClose={() => setShowCreatePost(false)} 
+          />
+
+          {/* Create List Modal */}
+          <CreateListModal
+            isOpen={showCreateList}
+            onClose={() => setShowCreateList(false)}
+            onCreate={(listData) => {
+              console.log('Creating new list:', listData)
+              setShowCreateList(false)
+              // In a real app, you would create the list and then navigate to it
+              // navigate(`/list/${newListId}`)
+            }}
+          />
+
+          {/* Global Modals */}
+          <GlobalModals />
+
+          {/* List Modal */}
+          <ListModalWrapper />
+
+          {/* Hub Modal */}
+          <HubModalWrapper />
+
         </div>
+      </ModalProvider>
+    </NavigationProvider>
+  )
+}
 
-        {/* Create Post Modal */}
-        <CreatePost 
-          isOpen={showCreatePost} 
-          onClose={() => setShowCreatePost(false)} 
-        />
+// Global modals component
+const GlobalModals = () => {
+  const { showSaveModal, showCreatePost, saveModalData, createPostData, closeSaveModal, closeCreatePostModal } = useModal()
 
-        {/* Create List Modal */}
-        <CreateListModal
-          isOpen={showCreateList}
-          onClose={() => setShowCreateList(false)}
-          onCreate={(listData) => {
+  // Mock user lists for SaveModal
+  const userLists = [
+    {
+      id: 'all-loved',
+      name: 'All Loved',
+      description: 'All the places you\'ve loved and want to visit again',
+      userId: '1',
+      isPublic: false,
+      isShared: false,
+      privacy: 'private' as const,
+      tags: ['loved', 'favorites', 'auto-generated'],
+      hubs: [],
+      coverImage: 'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=300&h=200&fit=crop',
+      createdAt: '2024-01-01',
+      updatedAt: '2024-01-15',
+      likes: 0,
+      isLiked: false
+    },
+    {
+      id: 'all-tried',
+      name: 'All Tried',
+      description: 'All the places you\'ve tried',
+      userId: '1',
+      isPublic: false,
+      isShared: false,
+      privacy: 'private' as const,
+      tags: ['tried', 'visited', 'auto-generated'],
+      hubs: [],
+      coverImage: 'https://images.unsplash.com/photo-1442512595331-e89e73853f31?w=300&h=200&fit=crop',
+      createdAt: '2024-01-01',
+      updatedAt: '2024-01-15',
+      likes: 0,
+      isLiked: false
+    },
+    {
+      id: '1',
+      name: 'Cozy Coffee Spots',
+      description: 'Perfect places to work and relax',
+      userId: '1',
+      isPublic: true,
+      isShared: false,
+      privacy: 'public' as const,
+      tags: ['coffee', 'work-friendly', 'cozy'],
+      hubs: [],
+      coverImage: 'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=300&h=200&fit=crop',
+      createdAt: '2024-01-10',
+      updatedAt: '2024-01-15',
+      likes: 56,
+      isLiked: false
+    }
+  ]
+
+  return (
+    <>
+      {/* Save Modal */}
+      {showSaveModal && saveModalData && (saveModalData.hub || saveModalData.list) && (
+        <SaveModal
+          isOpen={showSaveModal}
+          onClose={closeSaveModal}
+          place={saveModalData.hub ? {
+            id: saveModalData.hub.id,
+            name: saveModalData.hub.name,
+            address: saveModalData.hub.location.address,
+            tags: saveModalData.hub.tags,
+            posts: saveModalData.hub.posts,
+            savedCount: 0,
+            createdAt: '2024-01-15'
+          } : {
+            id: saveModalData.list!.id,
+            name: saveModalData.list!.name,
+            address: 'List',
+            tags: saveModalData.list!.tags,
+            posts: [],
+            savedCount: 0,
+            createdAt: saveModalData.list!.createdAt
+          }}
+          userLists={userLists}
+          onSave={(status, rating, listIds, note) => {
+            console.log('Saving with status:', status, 'rating:', rating, 'listIds:', listIds, 'note:', note)
+            closeSaveModal()
+          }}
+          onCreateList={(listData) => {
             console.log('Creating new list:', listData)
-            setShowCreateList(false)
-            // In a real app, you would create the list and then navigate to it
-            // navigate(`/list/${newListId}`)
+            closeSaveModal()
           }}
         />
+      )}
 
-        {/* List Modal */}
-        <ListModalWrapper />
-
-        {/* Hub Modal */}
-        <HubModalWrapper />
-
-      </div>
-    </NavigationProvider>
+      {/* Create Post Modal */}
+      {showCreatePost && createPostData && (
+        <CreatePost
+          isOpen={showCreatePost}
+          onClose={closeCreatePostModal}
+          preSelectedHub={createPostData.hub ? {
+            id: createPostData.hub.id,
+            name: createPostData.hub.name,
+            address: createPostData.hub.location.address,
+            description: createPostData.hub.description,
+            lat: createPostData.hub.location.lat,
+            lng: createPostData.hub.location.lng
+          } : undefined}
+          preSelectedListIds={createPostData.list ? [createPostData.list.id] : undefined}
+        />
+      )}
+    </>
   )
 }
 
 // Wrapper component to use navigation context
 const ListModalWrapper = () => {
   const { showListModal, selectedList, closeListModal, openFullScreenList } = useNavigation()
+  const { openSaveModal, openCreatePostModal } = useModal()
 
   if (!selectedList) return null
 
@@ -160,8 +280,7 @@ const ListModalWrapper = () => {
       onClose={closeListModal}
       onOpenFullScreen={openFullScreenList}
       onSave={(list) => {
-        console.log('Saving list:', list.name)
-        // In a real app, this would save the list
+        openSaveModal(undefined, list)
       }}
       onShare={(list) => {
         console.log('Sharing list:', list.name)
@@ -178,8 +297,7 @@ const ListModalWrapper = () => {
         }
       }}
       onAddPost={(list) => {
-        console.log('Adding post to list:', list.name)
-        // In a real app, this would open create post modal
+        openCreatePostModal(undefined, list)
       }}
     />
   )
@@ -188,6 +306,7 @@ const ListModalWrapper = () => {
 // Wrapper component to use navigation context for HubModal
 const HubModalWrapper = () => {
   const { showHubModal, selectedHub, closeHubModal, openFullScreenHub, openListModal, hubModalFromList, goBackFromHubModal } = useNavigation()
+  const { openSaveModal, openCreatePostModal } = useModal()
 
   if (!selectedHub) return null
 
@@ -201,8 +320,7 @@ const HubModalWrapper = () => {
       showBackButton={hubModalFromList}
       onBack={goBackFromHubModal}
       onSave={(hub) => {
-        console.log('Saving hub:', hub.name)
-        // In a real app, this would save the hub
+        openSaveModal(hub)
       }}
       onShare={(hub) => {
         console.log('Sharing hub:', hub.name)
@@ -219,8 +337,7 @@ const HubModalWrapper = () => {
         }
       }}
       onAddPost={(hub) => {
-        console.log('Adding post to hub:', hub.name)
-        // In a real app, this would open create post modal
+        openCreatePostModal(hub)
       }}
     />
   )

@@ -6,6 +6,7 @@ import HubModal from './HubModal'
 import ListModal from './ListModal'
 import ListMenuDropdown from './ListMenuDropdown'
 import { useNavigation } from '../contexts/NavigationContext.tsx'
+import { useModal } from '../contexts/ModalContext.tsx'
 
 const DiscoveryTab = () => {
   const { 
@@ -23,6 +24,7 @@ const DiscoveryTab = () => {
     openFullScreenHub,
     openFullScreenList
   } = useNavigation()
+  const { openSaveModal, openCreatePostModal } = useModal()
   const [savedLists, setSavedLists] = useState<Set<string>>(new Set())
   
   // Mock data - trending hubs (places that are gaining popularity)
@@ -168,14 +170,12 @@ const DiscoveryTab = () => {
 
   // Add handlers for HubModal buttons
   const handleHubModalSave = (hub: Hub) => {
-    // In a real app, this would open SaveModal
-    console.log('Save hub:', hub.name)
+    openSaveModal(hub)
     closeHubModal()
   }
 
   const handleHubModalAddPost = (hub: Hub) => {
-    // In a real app, this would open CreatePost modal
-    console.log('Add post to hub:', hub.name)
+    openCreatePostModal(hub)
     closeHubModal()
   }
 
@@ -344,8 +344,14 @@ const DiscoveryTab = () => {
           list={selectedList}
           isOpen={showListModal}
           onClose={closeListModal}
-          onSave={(list) => console.log('Save list:', list.name)}
-          onAddPost={(list) => console.log('Add post to list:', list.name)}
+          onSave={(list) => {
+            openSaveModal(undefined, list)
+            closeListModal()
+          }}
+          onAddPost={(list) => {
+            openCreatePostModal(undefined, list)
+            closeListModal()
+          }}
           onShare={(list) => console.log('Share list:', list.name)}
           onOpenFullScreen={handleListModalFullScreen}
           onOpenHub={(place) => {
