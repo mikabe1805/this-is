@@ -1,5 +1,6 @@
 import { XMarkIcon, LinkIcon, ShareIcon, ChatBubbleLeftIcon, EnvelopeIcon, DocumentDuplicateIcon, CheckIcon } from '@heroicons/react/24/outline'
 import { useState } from 'react'
+import { createPortal } from 'react-dom'
 
 interface ShareModalProps {
   isOpen: boolean
@@ -117,8 +118,8 @@ const ShareModal = ({ isOpen, onClose, title, description, url, image, type }: S
 
   if (!isOpen) return null
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4">
+  const modalContent = (
+    <div className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center p-4">
       {/* Backdrop */}
       <div 
         className="absolute inset-0 bg-charcoal-900/50 backdrop-blur-sm"
@@ -198,28 +199,19 @@ const ShareModal = ({ isOpen, onClose, title, description, url, image, type }: S
 
         {/* Quick Actions */}
         <div className="p-4 border-t border-linen-200">
-          <div className="space-y-2">
-            <button
-              onClick={handleCopyLink}
-              className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl border border-linen-200 bg-white text-charcoal-700 hover:bg-linen-50 transition"
-            >
-              <DocumentDuplicateIcon className="w-4 h-4" />
-              Copy Link
-            </button>
-            {navigator.share && (
-              <button
-                onClick={handleNativeShare}
-                className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-gradient-to-r from-sage-500 to-gold-500 text-white font-medium hover:shadow-botanical transition"
-              >
-                <ShareIcon className="w-4 h-4" />
-                Share
-              </button>
-            )}
-          </div>
+          <button
+            onClick={handleCopyLink}
+            className="w-full py-3 px-4 bg-gradient-to-r from-sage-500 to-gold-500 text-white rounded-xl font-semibold hover:shadow-botanical transition-all duration-200 flex items-center justify-center gap-2"
+          >
+            <DocumentDuplicateIcon className="w-5 h-5" />
+            {copied ? 'Link Copied!' : 'Copy Link'}
+          </button>
         </div>
       </div>
     </div>
   )
+
+  return createPortal(modalContent, document.body)
 }
 
 export default ShareModal 

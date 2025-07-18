@@ -1,10 +1,11 @@
 import { Routes, Route, useNavigate, useLocation } from 'react-router-dom'
 import { useState, useEffect } from 'react'
-import { NavigationProvider } from './contexts/NavigationContext.tsx'
+import { NavigationProvider, useNavigation } from './contexts/NavigationContext.tsx'
 import Navbar from './components/Navbar.tsx'
 import CreatePost from './components/CreatePost.tsx'
 import CreateListModal from './components/CreateListModal.tsx'
-import NavigationModals from './components/NavigationModals.tsx'
+import ListModal from './components/ListModal.tsx'
+import HubModal from './components/HubModal.tsx'
 import Home from './pages/Home.tsx'
 import Profile from './pages/Profile.tsx'
 import EditProfile from './pages/EditProfile.tsx'
@@ -16,6 +17,7 @@ import ViewAllLists from './pages/ViewAllLists.tsx'
 import Favorites from './pages/SavedLists.tsx'
 import Reels from './pages/Reels.tsx'
 import PlaceHub from './pages/PlaceHub.tsx'
+import UserProfile from './pages/UserProfile.tsx'
 import Demo from './pages/Demo.tsx'
 
 function App() {
@@ -103,6 +105,7 @@ function App() {
                 <Route path="/reels" element={<Reels />} />
                 <Route path="/favorites" element={<Favorites />} />
                 <Route path="/place/:id" element={<PlaceHub />} />
+                <Route path="/user/:userId" element={<UserProfile />} />
                 <Route path="/demo" element={<Demo activeTab={activeTab} />} />
               </Routes>
             </main>
@@ -133,10 +136,93 @@ function App() {
           }}
         />
 
-        {/* Navigation Modals */}
-        <NavigationModals />
+        {/* List Modal */}
+        <ListModalWrapper />
+
+        {/* Hub Modal */}
+        <HubModalWrapper />
+
       </div>
     </NavigationProvider>
+  )
+}
+
+// Wrapper component to use navigation context
+const ListModalWrapper = () => {
+  const { showListModal, selectedList, closeListModal, openFullScreenList } = useNavigation()
+
+  if (!selectedList) return null
+
+  return (
+    <ListModal
+      list={selectedList}
+      isOpen={showListModal}
+      onClose={closeListModal}
+      onOpenFullScreen={openFullScreenList}
+      onSave={(list) => {
+        console.log('Saving list:', list.name)
+        // In a real app, this would save the list
+      }}
+      onShare={(list) => {
+        console.log('Sharing list:', list.name)
+        // In a real app, this would share the list
+        if (navigator.share) {
+          navigator.share({
+            title: list.name,
+            text: list.description,
+            url: window.location.href
+          })
+        } else {
+          navigator.clipboard.writeText(window.location.href)
+          alert('Link copied to clipboard!')
+        }
+      }}
+      onAddPost={(list) => {
+        console.log('Adding post to list:', list.name)
+        // In a real app, this would open create post modal
+      }}
+    />
+  )
+}
+
+// Wrapper component to use navigation context for HubModal
+const HubModalWrapper = () => {
+  const { showHubModal, selectedHub, closeHubModal, openFullScreenHub, openListModal, hubModalFromList, goBackFromHubModal } = useNavigation()
+
+  if (!selectedHub) return null
+
+  return (
+    <HubModal
+      hub={selectedHub}
+      isOpen={showHubModal}
+      onClose={closeHubModal}
+      onOpenFullScreen={openFullScreenHub}
+      onOpenList={openListModal}
+      showBackButton={hubModalFromList}
+      onBack={goBackFromHubModal}
+      onSave={(hub) => {
+        console.log('Saving hub:', hub.name)
+        // In a real app, this would save the hub
+      }}
+      onShare={(hub) => {
+        console.log('Sharing hub:', hub.name)
+        // In a real app, this would share the hub
+        if (navigator.share) {
+          navigator.share({
+            title: hub.name,
+            text: hub.description,
+            url: window.location.href
+          })
+        } else {
+          navigator.clipboard.writeText(window.location.href)
+          alert('Link copied to clipboard!')
+        }
+      }}
+      onAddPost={(hub) => {
+        console.log('Adding post to hub:', hub.name)
+        // In a real app, this would open create post modal
+      }}
+    />
   )
 }
 

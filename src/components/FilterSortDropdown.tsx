@@ -51,21 +51,15 @@ const FilterSortDropdown: React.FC<FilterSortDropdownProps> = ({
 
   if (!show) return null
 
-  const panelStyle = anchorRect
-    ? {
-        position: 'fixed' as const,
-        top: anchorRect.bottom + 4,
-        left: anchorRect.right - PANEL_WIDTH,
-        width: PANEL_WIDTH,
-        zIndex: 99999
-      }
-    : {
-        position: 'fixed' as const,
-        top: '6rem',
-        right: '1rem',
-        width: PANEL_WIDTH,
-        zIndex: 99999
-      }
+  // Center the dropdown on the page to avoid cutting off
+  const panelStyle = {
+    position: 'fixed' as const,
+    top: '50%',
+    left: '50%',
+    transform: 'translate(-50%, -50%)',
+    width: PANEL_WIDTH,
+    zIndex: 99999
+  }
 
   const handleTagSearch = () => {
     setShowTagSearch(true)
@@ -96,10 +90,6 @@ const FilterSortDropdown: React.FC<FilterSortDropdownProps> = ({
                   value={opt.key}
                   checked={sortBy === opt.key}
                   onChange={() => {
-                    if (opt.key === 'nearby' && onLocationSelect) {
-                      // Don't change sortBy yet, let the parent handle location selection
-                      return
-                    }
                     setSortBy(opt.key)
                   }}
                   className="w-5 h-5 text-sage-500 focus:ring-sage-400"

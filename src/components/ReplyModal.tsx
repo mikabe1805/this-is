@@ -1,5 +1,6 @@
 import { XMarkIcon, PaperAirplaneIcon, PhotoIcon, MapPinIcon } from '@heroicons/react/24/outline'
 import { useState, useRef } from 'react'
+import { createPortal } from 'react-dom'
 
 interface ReplyModalProps {
   isOpen: boolean
@@ -70,8 +71,8 @@ const ReplyModal = ({
 
   if (!isOpen) return null
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4">
+  const modalContent = (
+    <div className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center p-4">
       {/* Backdrop */}
       <div 
         className="absolute inset-0 bg-charcoal-900/50 backdrop-blur-sm"
@@ -199,6 +200,8 @@ const ReplyModal = ({
       </div>
     </div>
   )
+
+  return createPortal(modalContent, document.body)
 }
 
 export default ReplyModal 

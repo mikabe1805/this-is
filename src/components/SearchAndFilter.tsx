@@ -68,10 +68,6 @@ const SearchAndFilter: React.FC<SearchAndFilterProps> = ({
   }
 
   const handleSortByChange = (newSortBy: string) => {
-    if (newSortBy === 'nearby' && onLocationSelect) {
-      // Don't change sortBy yet, let the parent handle location selection
-      return
-    }
     setSortBy(newSortBy)
   }
 
@@ -123,7 +119,7 @@ const SearchAndFilter: React.FC<SearchAndFilterProps> = ({
         
         <div className="flex-1 relative">
           <form onSubmit={onSubmit} className="relative">
-            <MagnifyingGlassIcon className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-sage-400 pointer-events-none" />
+            <MagnifyingGlassIcon className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-charcoal-600 pointer-events-none z-10" />
             <input
               type="text"
               placeholder={placeholder}

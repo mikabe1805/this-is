@@ -12,6 +12,7 @@ import EditListModal from '../components/EditListModal'
 import EditPlaceModal from '../components/EditPlaceModal'
 import ConfirmModal from '../components/ConfirmModal'
 import PrivacyModal from '../components/PrivacyModal'
+import SearchAndFilter from '../components/SearchAndFilter'
 
 const ListView = () => {
   const { id } = useParams<{ id: string }>()
@@ -41,6 +42,33 @@ const ListView = () => {
   })
   const listMenuButtonRef = useRef<HTMLButtonElement>(null)
   
+  // Search and filter state
+  const [searchQuery, setSearchQuery] = useState('')
+  const [sortBy, setSortBy] = useState('popular')
+  const [activeFilters, setActiveFilters] = useState<string[]>([])
+  const [selectedTags, setSelectedTags] = useState<string[]>([])
+
+  // Search and filter options - using standard options from other pages
+  const sortOptions = [
+    { key: 'popular', label: 'Most Popular' },
+    { key: 'recent', label: 'Most Recent' },
+    { key: 'nearby', label: 'Closest to Location' },
+  ]
+
+  const filterOptions = [
+    { key: 'coffee', label: 'Coffee' },
+    { key: 'food', label: 'Food' },
+    { key: 'work-friendly', label: 'Work-Friendly' },
+  ]
+
+  const toggleTag = (tag: string) => {
+    setSelectedTags(prev => 
+      prev.includes(tag) 
+        ? prev.filter(t => t !== tag)
+        : [...prev, tag]
+    )
+  }
+
   // Scroll to top when component mounts or when id changes
   useEffect(() => {
     // Force scroll to top with multiple methods
@@ -225,6 +253,73 @@ const ListView = () => {
       status: 'want'
     }
   ]
+
+  // Get all unique tags from places for filtering
+  const allTags = Array.from(new Set(
+    listPlaces.flatMap(place => place.place.tags)
+  )).sort()
+
+  const availableTags = allTags.length > 0 ? allTags : ['coffee', 'cozy', 'work-friendly', 'tacos', 'authentic', 'quick', 'outdoors', 'scenic']
+
+  // Filter and sort places
+  const filteredPlaces = listPlaces.filter(place => {
+    // Search filter
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase()
+      const matchesName = place.place.name.toLowerCase().includes(query)
+      const matchesAddress = place.place.address.toLowerCase().includes(query)
+      const matchesTags = place.place.tags.some(tag => tag.toLowerCase().includes(query))
+      const matchesNote = place.note?.toLowerCase().includes(query)
+      
+      if (!matchesName && !matchesAddress && !matchesTags && !matchesNote) {
+        return false
+      }
+    }
+
+    // Tag-based filter (using standard filter options)
+    if (activeFilters.length > 0) {
+      const hasMatchingFilter = activeFilters.some(filter => {
+        switch (filter) {
+          case 'coffee':
+            return place.place.tags.includes('coffee')
+          case 'food':
+            return place.place.tags.some(tag => ['food', 'tacos', 'restaurant', 'cafe', 'dining'].includes(tag))
+          case 'work-friendly':
+            return place.place.tags.includes('work-friendly')
+          default:
+            return place.place.tags.includes(filter)
+        }
+      })
+      if (!hasMatchingFilter) {
+        return false
+      }
+    }
+
+    // Tag filter
+    if (selectedTags.length > 0) {
+      if (!selectedTags.some(tag => place.place.tags.includes(tag))) {
+        return false
+      }
+    }
+
+    return true
+  })
+
+  // Sort places
+  const sortedPlaces = [...filteredPlaces].sort((a, b) => {
+    switch (sortBy) {
+      case 'popular':
+        return (b.place.savedCount || 0) - (a.place.savedCount || 0)
+      case 'recent':
+        return new Date(b.addedAt).getTime() - new Date(a.addedAt).getTime()
+      case 'nearby':
+        // For now, just sort by name since we don't have location data
+        // In a real app, this would sort by distance from user's location
+        return a.place.name.localeCompare(b.place.name)
+      default:
+        return new Date(b.addedAt).getTime() - new Date(a.addedAt).getTime()
+    }
+  })
 
   const getStatusColor = (status: string, feeling?: string) => {
     switch (status) {
@@ -479,23 +574,61 @@ const ListView = () => {
         </div>
         {/* List meta */}
         <div className="flex items-center gap-4 text-sm text-charcoal-500 px-4 pb-4">
-          <span>{listPlaces.length} places</span>
+          <span>{sortedPlaces.length} places</span>
           <span>•</span>
           <span>Updated {new Date(list.updatedAt).toLocaleDateString()}</span>
         </div>
       </div>
+
+      {/* Search and Filter */}
+      <div className="relative z-10 px-4 pb-4">
+        <SearchAndFilter
+          placeholder="Search places in this list..."
+          sortOptions={sortOptions}
+          filterOptions={filterOptions}
+          availableTags={availableTags}
+          sortBy={sortBy}
+          setSortBy={setSortBy}
+          activeFilters={activeFilters}
+          setActiveFilters={setActiveFilters}
+          dropdownPosition="top-right"
+        />
+      </div>
+
+      {/* Selected Tags */}
+      {selectedTags.length > 0 && (
+        <div className="relative z-10 px-4 pb-2">
+          <div className="flex flex-wrap gap-2">
+            {selectedTags.map(tag => (
+              <button
+                key={tag}
+                onClick={() => toggleTag(tag)}
+                className="px-3 py-1 rounded-full text-sm font-medium bg-sage-100 text-sage-700 border border-sage-200 hover:bg-sage-200 transition flex items-center gap-1"
+              >
+                #{tag}
+                <span className="text-sage-500">×</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Main Content: places */}
       <div className="relative z-10 p-4 space-y-8">
-        {listPlaces.map((listPlace) => (
+        {sortedPlaces.map((listPlace) => (
           <div
             key={listPlace.id}
-            className="bg-white/90 backdrop-blur-sm rounded-3xl shadow-botanical border border-linen-200 overflow-hidden hover:shadow-cozy transition-all duration-300 flex flex-col relative"
+            onClick={() => handlePlaceClick(listPlace)}
+            className="bg-white/90 backdrop-blur-sm rounded-3xl shadow-botanical border border-linen-200 overflow-hidden hover:shadow-cozy transition-all duration-300 flex flex-col relative cursor-pointer"
           >
             {/* Three dots menu on image */}
             <div className="absolute top-4 right-4 z-20">
               <button
                 className="bg-white/80 hover:bg-sage-100 border border-linen-200 rounded-full p-2 shadow-soft focus:outline-none"
-                onClick={() => setCardMenuOpen(cardMenuOpen === listPlace.id ? null : listPlace.id)}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  setCardMenuOpen(cardMenuOpen === listPlace.id ? null : listPlace.id)
+                }}
                 aria-label="Open actions menu"
               >
                 <EllipsisHorizontalIcon className="w-6 h-6 text-sage-600" />
@@ -504,11 +637,17 @@ const ListView = () => {
                 <div className="absolute right-0 mt-2 w-32 bg-white rounded-xl shadow-botanical border border-linen-200 py-2 z-30">
                   <button
                     className="block w-full text-left px-4 py-2 text-charcoal-700 hover:bg-sage-50 rounded-t-xl"
-                    onClick={() => handleEditPlace(listPlace)}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      handleEditPlace(listPlace)
+                    }}
                   >Edit</button>
                   <button
                     className="block w-full text-left px-4 py-2 text-red-600 hover:bg-red-50 rounded-b-xl"
-                    onClick={() => handleRemovePlace(listPlace)}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      handleRemovePlace(listPlace)
+                    }}
                   >Remove</button>
                 </div>
               )}
@@ -567,17 +706,38 @@ const ListView = () => {
           </div>
         ))}
         {/* Empty State */}
-        {listPlaces.length === 0 && (
+        {sortedPlaces.length === 0 && (
           <div className="bg-white/70 backdrop-blur-sm rounded-2xl p-8 text-center shadow-botanical border border-linen-200">
-            <BookmarkIcon className="w-16 h-16 text-sage-300 mx-auto mb-4" />
-            <h3 className="text-lg font-serif font-semibold text-charcoal-800 mb-2">No places yet</h3>
-            <p className="text-charcoal-600 mb-4">Start building your list by adding your favorite places</p>
-            <button 
-              onClick={handleAddFirstPlace}
-              className="bg-gradient-to-r from-sage-500 to-sage-600 text-white px-6 py-3 rounded-xl font-medium hover:from-sage-600 hover:to-sage-700 transition-all duration-300 shadow-soft"
-            >
-              Add Your First Place
-            </button>
+            {listPlaces.length === 0 ? (
+              <>
+                <BookmarkIcon className="w-16 h-16 text-sage-300 mx-auto mb-4" />
+                <h3 className="text-lg font-serif font-semibold text-charcoal-800 mb-2">No places yet</h3>
+                <p className="text-charcoal-600 mb-4">Start building your list by adding your favorite places</p>
+                <button 
+                  onClick={handleAddFirstPlace}
+                  className="bg-gradient-to-r from-sage-500 to-sage-600 text-white px-6 py-3 rounded-xl font-medium hover:from-sage-600 hover:to-sage-700 transition-all duration-300 shadow-soft"
+                >
+                  Add Your First Place
+                </button>
+              </>
+            ) : (
+              <>
+                <BookmarkIcon className="w-16 h-16 text-sage-300 mx-auto mb-4" />
+                <h3 className="text-lg font-serif font-semibold text-charcoal-800 mb-2">No places found</h3>
+                <p className="text-charcoal-600 mb-4">Try adjusting your search or filters</p>
+                <button 
+                  onClick={() => {
+                    setSearchQuery('')
+                    setActiveFilters([])
+                    setSelectedTags([])
+                    setSortBy('recent')
+                  }}
+                  className="bg-gradient-to-r from-sage-500 to-sage-600 text-white px-6 py-3 rounded-xl font-medium hover:from-sage-600 hover:to-sage-700 transition-all duration-300 shadow-soft"
+                >
+                  Clear Filters
+                </button>
+              </>
+            )}
           </div>
         )}
       </div>

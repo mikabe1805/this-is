@@ -11,7 +11,8 @@ import CreatePost from '../components/CreatePost'
 import CommentsModal from '../components/CommentsModal'
 import ReplyModal from '../components/ReplyModal'
 import ShareModal from '../components/ShareModal'
-import type { Hub, Place, List, Post } from '../types/index.js'
+import ProfileModal from '../components/ProfileModal'
+import type { Hub, Place, List, Post, User } from '../types/index.js'
 import { useNavigation } from '../contexts/NavigationContext.tsx'
 
 // Botanical SVG accent (eucalyptus branch)
@@ -119,7 +120,13 @@ const Home = () => {
     openHubModal, 
     openListModal, 
     closeHubModal, 
-    closeListModal 
+    closeListModal,
+    hubModalFromList,
+    goBackFromHubModal,
+    goBackFromListModal,
+    openFullScreenHub,
+    openFullScreenList,
+    openFullScreenUser
   } = useNavigation()
   const [activeTab, setActiveTab] = useState<'friends' | 'discovery'>('friends')
   const [likedItems, setLikedItems] = useState<Set<string>>(new Set())
@@ -137,6 +144,8 @@ const Home = () => {
   const [showReplyModal, setShowReplyModal] = useState(false)
   const [showShareModal, setShowShareModal] = useState(false)
   const [selectedPost, setSelectedPost] = useState<Post | null>(null)
+  const [showProfileModal, setShowProfileModal] = useState(false)
+  const [selectedUser, setSelectedUser] = useState<User | null>(null)
 
   const getActionIcon = (action: string) => {
     switch (action) {
@@ -362,11 +371,104 @@ const Home = () => {
   }
 
   const handleHubModalBack = () => {
-    closeHubModal()
+    if (hubModalFromList) {
+      goBackFromHubModal()
+    } else {
+      closeHubModal()
+    }
   }
 
   const handleListModalBack = () => {
-    closeListModal()
+    goBackFromListModal()
+  }
+
+  // Add handlers for HubModal and ListModal buttons
+  const handleHubModalSave = (hub: Hub) => {
+    // Convert hub to place and open save modal
+    const place: Place = {
+      id: hub.id,
+      name: hub.name,
+      address: hub.location.address,
+      tags: hub.tags,
+      posts: hub.posts,
+      savedCount: 0,
+      createdAt: new Date().toISOString()
+    }
+    setSelectedPlace(place)
+    setShowSaveModal(true)
+  }
+
+  const handleHubModalAddPost = (hub: Hub) => {
+    console.log('Home: handleHubModalAddPost called with hub:', hub.name)
+    console.log('Home: Setting createPostHub and showCreatePost to true')
+    setCreatePostHub(hub)
+    setShowCreatePost(true)
+  }
+
+  const handleHubModalShare = (hub: Hub) => {
+    setShowShareModal(true)
+  }
+
+  const handleListModalSave = (list: List) => {
+    // Convert list to place and open save modal
+    const place: Place = {
+      id: list.id,
+      name: list.name,
+      address: 'List', // Lists don't have addresses, but SaveModal expects a Place
+      tags: list.tags,
+      posts: [],
+      savedCount: list.likes || 0,
+      createdAt: list.createdAt
+    }
+    setSelectedPlace(place)
+    setShowSaveModal(true)
+  }
+
+  const handleListModalAddPost = (list: List) => {
+    setCreatePostListId(list.id)
+    setShowCreatePost(true)
+  }
+
+  const handleListModalShare = (list: List) => {
+    setShowShareModal(true)
+  }
+
+  const handleListModalOpenHub = (place: Place) => {
+    // Convert place to hub and open hub modal
+    const hub: Hub = {
+      id: place.id,
+      name: place.name,
+      description: `A great place to visit`,
+      tags: place.tags,
+      images: [],
+      location: {
+        address: place.address,
+        lat: 37.7749,
+        lng: -122.4194,
+      },
+      googleMapsUrl: `https://www.google.com/maps/search/${encodeURIComponent(place.name)}`,
+      mainImage: place.hubImage,
+      posts: place.posts,
+      lists: [],
+    }
+    openHubModal(hub, 'list-modal')
+  }
+
+  const handleUserClick = (user: User) => {
+    setSelectedUser(user)
+    setShowProfileModal(true)
+  }
+
+  const handleHubModalOpenList = (list: List) => {
+    openListModal(list, 'hub-modal')
+  }
+
+  const handleHubModalFullScreen = (hub: Hub) => {
+    openFullScreenHub(hub)
+  }
+
+  const handleListModalFullScreen = (list: List) => {
+    openFullScreenList(list)
   }
 
   return (
@@ -460,7 +562,27 @@ const Home = () => {
                   />
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-2">
-                      <span className="font-semibold text-charcoal-800">{activity.user.name}</span>
+                      <span
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          handleUserClick({
+                            id: activity.user.name.toLowerCase().replace(' ', '.'),
+                            name: activity.user.name,
+                            username: activity.user.name.toLowerCase().replace(' ', '.'),
+                            avatar: activity.user.avatar,
+                            bio: activity.user.name === 'Emma' ? 'Finding cozy spots and sharing them with friends ✨' : 
+                                 activity.user.name === 'Rami' ? 'Coffee enthusiast and food lover' :
+                                 activity.user.name === 'Sophie' ? 'Exploring hidden gems and local favorites' : '',
+                            location: 'San Francisco, CA',
+                            tags: activity.user.name === 'Emma' ? ['cozy', 'coffee', 'foodie', 'local'] :
+                                  activity.user.name === 'Rami' ? ['coffee', 'artisan', 'tacos', 'authentic'] :
+                                  activity.user.name === 'Sophie' ? ['hidden-gems', 'local', 'authentic', 'charming'] : []
+                          })
+                        }}
+                        className="font-semibold text-charcoal-800 hover:text-sage-600 transition-colors cursor-pointer"
+                      >
+                        {activity.user.name}
+                      </span>
                       <span className="text-sage-400">•</span>
                       <span className="text-sage-500 text-sm">{activity.timestamp}</span>
                     </div>
@@ -520,69 +642,56 @@ const Home = () => {
           /* Discovery Tab */
           <div className="space-y-6">
             <h2 className="text-xl font-serif font-semibold text-charcoal-700 mb-4">
-              Discover New Places
+              Trending Now
             </h2>
             {mockDiscovery.map((item) => (
               <button
                 key={item.id}
                 onClick={() => handleDiscoveryClick(item)}
-                className="w-full bg-white/98 rounded-2xl shadow-botanical border border-linen-200 overflow-hidden hover:shadow-cozy hover:-translate-y-1 transition-all duration-300 text-left flex flex-col md:flex-row gap-0"
+                className="w-full bg-white/98 rounded-2xl shadow-botanical border border-linen-200 p-5 hover:shadow-cozy hover:-translate-y-1 transition-all duration-300 text-left flex flex-col gap-2 overflow-hidden"
               >
-                <img 
-                  src={item.image} 
-                  alt={item.title}
-                  className="w-full md:w-32 h-32 object-cover md:rounded-l-2xl"
-                />
-                <div className="flex-1 p-5 flex flex-col justify-between">
-                  <div className="flex items-start justify-between mb-2">
-                    <h3 className="font-serif font-semibold text-lg text-charcoal-800">{item.title}</h3>
-                    <div className="flex items-center gap-2">
-                      {item.type === 'list' && (
-                        <>
-                          <button
-                            onClick={e => {
-                              e.stopPropagation();
-                              setLikedItems(prev => {
-                                const newSet = new Set(prev);
-                                if (newSet.has(item.id)) {
-                                  newSet.delete(item.id);
-                                } else {
-                                  newSet.add(item.id);
-                                }
-                                return newSet;
-                              });
-                            }}
-                            className={`flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium transition ${
-                              likedItems.has(item.id)
-                                ? 'bg-gold-100 text-gold-700 border border-gold-200'
-                                : 'bg-gold-50 text-gold-600 hover:bg-gold-100'
-                            }`}
-                            title="Add to favorites"
-                          >
-                            <HeartIcon className={`w-4 h-4 ${likedItems.has(item.id) ? 'fill-current' : ''}`} />
-                            {(item.likes ?? 0) + (likedItems.has(item.id) ? 1 : 0)}
-                          </button>
-                          <button
-                            onClick={e => {
-                              e.stopPropagation();
-                              // Save to list modal
-                              const mockPlace = {
-                                id: item.id,
-                                name: item.title,
-                                address: 'Various locations',
-                                tags: [],
-                                posts: [],
-                                savedCount: item.likes || 0,
-                                createdAt: '2024-01-15'
-                              };
-                              handleSaveToPlace(mockPlace);
-                            }}
-                            className="p-1.5 rounded-full bg-gold-50 text-gold-600 hover:bg-gold-100 transition"
-                            title="Save to list"
-                          >
-                            <BookmarkIcon className="w-4 h-4" />
-                          </button>
-                          {item.owner === 'Emma' && (
+                <div className="flex items-start gap-4">
+                  <img 
+                    src={item.image} 
+                    alt={item.title}
+                    className="w-16 h-16 rounded-xl object-cover border-2 border-white shadow-soft"
+                  />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-start justify-between mb-2">
+                      <h3 className="font-semibold text-charcoal-800 line-clamp-2">{item.title}</h3>
+                      <div className="flex items-center gap-1 ml-2">
+                        <button
+                          onClick={e => {
+                            e.stopPropagation();
+                            handleLikeItem(item.id);
+                          }}
+                          className="p-1.5 rounded-full bg-sage-50 text-sage-600 hover:bg-sage-100 transition"
+                          title="Like"
+                        >
+                          <HeartIcon className="w-4 h-4" />
+                        </button>
+                        {item.type === 'list' && (
+                          <>
+                            <button
+                              onClick={e => {
+                                e.stopPropagation();
+                                // Save to list modal
+                                const mockPlace = {
+                                  id: item.id,
+                                  name: item.title,
+                                  address: 'San Francisco, CA',
+                                  tags: [],
+                                  posts: [],
+                                  savedCount: item.likes || 0,
+                                  createdAt: '2024-01-15'
+                                };
+                                handleSaveToPlace(mockPlace);
+                              }}
+                              className="p-1.5 rounded-full bg-gold-50 text-gold-600 hover:bg-gold-100 transition"
+                              title="Save to list"
+                            >
+                              <BookmarkIcon className="w-4 h-4" />
+                            </button>
                             <button
                               onClick={e => {
                                 e.stopPropagation();
@@ -593,69 +702,69 @@ const Home = () => {
                             >
                               <PlusIcon className="w-4 h-4" />
                             </button>
-                          )}
-                        </>
+                          </>
+                        )}
+                        {item.type === 'hub' && (
+                          <>
+                            <button
+                              onClick={e => {
+                                e.stopPropagation();
+                                // Save to list modal
+                                const mockPlace = {
+                                  id: item.id,
+                                  name: item.title,
+                                  address: 'San Francisco, CA',
+                                  tags: [],
+                                  posts: [],
+                                  savedCount: item.likes || 0,
+                                  createdAt: '2024-01-15'
+                                };
+                                handleSaveToPlace(mockPlace);
+                              }}
+                              className="p-1.5 rounded-full bg-gold-50 text-gold-600 hover:bg-gold-100 transition"
+                              title="Save to list"
+                            >
+                              <BookmarkIcon className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={e => {
+                                e.stopPropagation();
+                                // Create a mock hub for the place
+                                const mockHub = {
+                                  id: item.id,
+                                  name: item.title,
+                                  address: 'San Francisco, CA',
+                                  description: item.description,
+                                  lat: 37.7749,
+                                  lng: -122.4194,
+                                }
+                                handleCreatePost(undefined, mockHub);
+                              }}
+                              className="p-1.5 rounded-full bg-sage-50 text-sage-600 hover:bg-sage-100 transition"
+                              title="Create post"
+                            >
+                              <PlusIcon className="w-4 h-4" />
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                    <p className="text-sage-700 text-sm mb-3">{item.description}</p>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      {item.owner && (
+                        <span className="text-xs text-sage-500">by {item.owner}</span>
+                      )}
+                      {item.type === 'list' && (
+                        <span className="text-xs bg-sage-100 text-sage-600 px-2 py-0.5 rounded-full">
+                          {item.places} places
+                        </span>
                       )}
                       {item.type === 'hub' && (
-                        <>
-                          <button
-                            onClick={e => {
-                              e.stopPropagation();
-                              // Save to list modal
-                              const mockPlace = {
-                                id: item.id,
-                                name: item.title,
-                                address: 'San Francisco, CA',
-                                tags: [],
-                                posts: [],
-                                savedCount: item.likes || 0,
-                                createdAt: '2024-01-15'
-                              };
-                              handleSaveToPlace(mockPlace);
-                            }}
-                            className="p-1.5 rounded-full bg-gold-50 text-gold-600 hover:bg-gold-100 transition"
-                            title="Save to list"
-                          >
-                            <BookmarkIcon className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={e => {
-                              e.stopPropagation();
-                              // Create a mock hub for the place
-                              const mockHub = {
-                                id: item.id,
-                                name: item.title,
-                                address: 'San Francisco, CA',
-                                description: item.description,
-                                lat: 37.7749,
-                                lng: -122.4194,
-                              }
-                              handleCreatePost(undefined, mockHub);
-                            }}
-                            className="p-1.5 rounded-full bg-sage-50 text-sage-600 hover:bg-sage-100 transition"
-                            title="Create post"
-                          >
-                            <PlusIcon className="w-4 h-4" />
-                          </button>
-                        </>
+                        <span className="text-xs bg-gold-100 text-gold-700 px-2 py-0.5 rounded-full">
+                          {item.activity}
+                        </span>
                       )}
                     </div>
-                  </div>
-                  <p className="text-sage-700 text-sm mb-3">{item.description}</p>
-                  <div className="flex items-center gap-2 flex-wrap">
-                    {item.owner && (
-                      <span className="text-xs text-sage-500">by {item.owner}</span>
-                    )}
-                    {item.type === 'list' && (
-                      <span className="text-xs bg-sage-100 text-sage-600 px-2 py-0.5 rounded-full">
-                        {item.places} places
-                      </span>
-                    )}
-                    {item.type === 'hub' && (
-                      <span className="text-xs bg-gold-100 text-gold-700 px-2 py-0.5 rounded-full">
-                        {item.activity}
-                      </span>
-                    )}
                   </div>
                 </div>
               </button>
@@ -679,6 +788,8 @@ const Home = () => {
             onCreateList={handleCreateList}
           />
         )}
+
+      {/* Hub Modal and List Modal are now handled globally in App.tsx */}
 
       <LocationSelectModal
         isOpen={showLocationModal}
@@ -740,6 +851,22 @@ const Home = () => {
         url={window.location.href}
         type="post"
       />
+
+      {/* Profile Modal */}
+      {selectedUser && (
+        <ProfileModal
+          user={selectedUser}
+          isOpen={showProfileModal}
+          onClose={() => {
+            setShowProfileModal(false)
+            setSelectedUser(null)
+          }}
+          onFollow={(userId) => {
+            console.log('Followed user:', userId)
+            // In real app, this would make an API call
+          }}
+        />
+      )}
 
 
     </div>

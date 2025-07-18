@@ -1,6 +1,7 @@
 import { XMarkIcon, HeartIcon, PaperAirplaneIcon, UserIcon } from '@heroicons/react/24/outline'
 import { HeartIcon as HeartIconSolid } from '@heroicons/react/24/solid'
 import { useState, useRef, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 
 interface Comment {
   id: string
@@ -194,8 +195,8 @@ const CommentsModal = ({
 
   if (!isOpen) return null
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4">
+  const modalContent = (
+    <div className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center p-4">
       {/* Backdrop */}
       <div 
         className="absolute inset-0 bg-charcoal-900/50 backdrop-blur-sm"
@@ -216,25 +217,27 @@ const CommentsModal = ({
         </div>
 
         {/* Post Title */}
-        <div className="px-4 py-3 bg-linen-50 border-b border-linen-200">
-          <p className="text-sm text-charcoal-600 font-medium">{postTitle}</p>
+        <div className="p-4 border-b border-linen-200 bg-linen-50">
+          <h3 className="font-semibold text-charcoal-800 line-clamp-2">{postTitle}</h3>
         </div>
 
-        {/* Comments List */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        {/* Comments */}
+        <div className="flex-1 overflow-y-auto p-4">
           {comments.length > 0 ? (
-            comments.map(comment => renderComment(comment))
+            <div className="space-y-4">
+              {comments.map(comment => renderComment(comment))}
+            </div>
           ) : (
-            <div className="text-center py-8">
-              <UserIcon className="w-12 h-12 text-linen-300 mx-auto mb-3" />
-              <p className="text-charcoal-500 text-sm">No comments yet</p>
-              <p className="text-charcoal-400 text-xs mt-1">Be the first to share your thoughts!</p>
+            <div className="text-center py-8 text-charcoal-500">
+              <UserIcon className="w-12 h-12 mx-auto mb-2 text-charcoal-300" />
+              <p>No comments yet</p>
+              <p className="text-sm">Be the first to comment!</p>
             </div>
           )}
         </div>
 
-        {/* Add Comment Form */}
-        <div className="p-4 border-t border-linen-200 bg-white">
+        {/* Add Comment */}
+        <div className="p-4 border-t border-linen-200">
           <form onSubmit={handleSubmitComment} className="flex gap-2">
             <input
               ref={inputRef}
@@ -242,21 +245,24 @@ const CommentsModal = ({
               value={newComment}
               onChange={(e) => setNewComment(e.target.value)}
               placeholder="Add a comment..."
-              className="flex-1 px-4 py-3 rounded-xl border border-linen-200 bg-white text-charcoal-700 placeholder-charcoal-400 focus:outline-none focus:ring-2 focus:ring-sage-200 focus:border-transparent"
+              className="flex-1 px-4 py-2 rounded-full border border-linen-200 bg-white text-charcoal-700 placeholder-charcoal-400 focus:outline-none focus:ring-2 focus:ring-sage-200 focus:border-transparent"
               disabled={isSubmitting}
             />
             <button
               type="submit"
               disabled={!newComment.trim() || isSubmitting}
-              className="px-4 py-3 bg-gradient-to-r from-sage-500 to-gold-500 text-white rounded-xl font-medium hover:shadow-botanical disabled:opacity-50 disabled:cursor-not-allowed transition"
+              className="px-4 py-2 bg-sage-500 text-white rounded-full font-medium hover:bg-sage-600 disabled:opacity-50 disabled:cursor-not-allowed transition flex items-center gap-1"
             >
-              <PaperAirplaneIcon className="w-5 h-5" />
+              <PaperAirplaneIcon className="w-4 h-4" />
+              {isSubmitting ? '...' : 'Post'}
             </button>
           </form>
         </div>
       </div>
     </div>
   )
+
+  return createPortal(modalContent, document.body)
 }
 
 export default CommentsModal 

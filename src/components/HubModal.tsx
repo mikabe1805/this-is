@@ -1,7 +1,9 @@
 import type { Hub, Post, List } from '../types/index.js'
 import { MapPinIcon, HeartIcon, BookmarkIcon, PlusIcon, ShareIcon, CameraIcon, ChatBubbleLeftIcon, XMarkIcon, ArrowRightIcon, ArrowsPointingOutIcon, ArrowLeftIcon } from '@heroicons/react/24/outline'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
+import { useNavigation } from '../contexts/NavigationContext.tsx'
+import ImageCarousel from './ImageCarousel.tsx'
 
 interface HubModalProps {
   hub: Hub
@@ -13,11 +15,18 @@ interface HubModalProps {
   onOpenFullScreen?: (hub: Hub) => void
   showBackButton?: boolean
   onBack?: () => void
+  onOpenList?: (list: List) => void
 }
 
-const HubModal = ({ hub, isOpen, onClose, onAddPost, onSave, onShare, onOpenFullScreen, showBackButton, onBack }: HubModalProps) => {
+const HubModal = ({ hub, isOpen, onClose, onAddPost, onSave, onShare, onOpenFullScreen, showBackButton, onBack, onOpenList }: HubModalProps) => {
+  console.log('HubModal: Rendering with isOpen:', isOpen, 'hub:', hub?.name)
+  const { openFullScreenHub } = useNavigation()
   const [tab, setTab] = useState<'overview' | 'posts'>('overview')
   const [posts] = useState<Post[]>(hub.posts || [])
+  
+  useEffect(() => {
+    console.log('HubModal: isOpen changed to:', isOpen)
+  }, [isOpen])
   
   // Create a real list for Rami if this is Tartine Bakery
   const [lists] = useState<List[]>(() => {
@@ -66,7 +75,10 @@ const HubModal = ({ hub, isOpen, onClose, onAddPost, onSave, onShare, onOpenFull
     { id: 2, user: { name: 'Alex', avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=150&fit=crop&crop=face' }, text: 'Perfect for working remotely. Great coffee too!', date: '5d ago' },
   ])
 
-  if (!isOpen) return null
+  if (!isOpen) {
+    console.log('HubModal: Not rendering because isOpen is false')
+    return null
+  }
 
   const handleAddComment = (e: React.FormEvent) => {
     e.preventDefault()
@@ -83,19 +95,32 @@ const HubModal = ({ hub, isOpen, onClose, onAddPost, onSave, onShare, onOpenFull
     setCommentInput('')
   }
 
-  const handleAddPost = () => {
+  const handleAddPost = (e: React.MouseEvent) => {
+    console.log('Add Post button clicked!')
+    e.stopPropagation()
+    console.log('Event propagation stopped')
     if (onAddPost) {
+      console.log('Calling onAddPost with hub:', hub.name)
       onAddPost(hub)
+    } else {
+      console.log('onAddPost handler is not provided')
     }
   }
 
-  const handleSave = () => {
+  const handleSave = (e: React.MouseEvent) => {
+    console.log('Save button clicked!')
+    e.stopPropagation()
+    console.log('Event propagation stopped')
     if (onSave) {
+      console.log('Calling onSave with hub:', hub.name)
       onSave(hub)
+    } else {
+      console.log('onSave handler is not provided')
     }
   }
 
-  const handleShare = () => {
+  const handleShare = (e: React.MouseEvent) => {
+    e.stopPropagation()
     if (onShare) {
       onShare(hub)
     } else {
@@ -114,15 +139,40 @@ const HubModal = ({ hub, isOpen, onClose, onAddPost, onSave, onShare, onOpenFull
     }
   }
 
-  const handleOpenFullScreen = () => {
+  const handleOpenFullScreen = (e: React.MouseEvent) => {
+    e.stopPropagation()
     if (onOpenFullScreen) {
       onOpenFullScreen(hub)
+    } else {
+      // Use navigation context as fallback
+      openFullScreenHub(hub)
+    }
+  }
+
+  const handleListClick = (list: List) => {
+    if (onOpenList) {
+      onOpenList(list)
     }
   }
 
   const modalContent = (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-      <div className="relative w-full max-w-2xl max-h-[90vh] bg-white rounded-3xl shadow-botanical border border-linen-200 overflow-hidden">
+    <div 
+      className="fixed inset-0 z-[9998] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+      onClick={(e) => {
+        // Only close if clicking the backdrop, not the modal content
+        if (e.target === e.currentTarget) {
+          console.log('HubModal: Backdrop clicked, closing modal')
+          onClose()
+        }
+      }}
+    >
+      <div 
+        className="relative w-full max-w-2xl max-h-[90vh] bg-white rounded-3xl shadow-botanical border border-linen-200 overflow-hidden"
+        onClick={(e) => {
+          console.log('HubModal: Modal content clicked, stopping propagation')
+          e.stopPropagation()
+        }}
+      >
         {/* Header with image */}
         <div className="relative h-64 bg-gradient-to-br from-cream-200 to-coral-200 overflow-hidden">
           {hub.mainImage && (
@@ -254,7 +304,11 @@ const HubModal = ({ hub, isOpen, onClose, onAddPost, onSave, onShare, onOpenFull
                 {lists.length > 0 ? (
                   <div className="space-y-3">
                     {lists.slice(0, 3).map((list) => (
-                      <div key={list.id} className="flex items-center gap-3 p-3 bg-white rounded-lg shadow-soft">
+                      <div 
+                        key={list.id} 
+                        className="flex items-center gap-3 p-3 bg-white rounded-lg shadow-soft cursor-pointer hover:shadow-liquid hover:scale-102 transition-all duration-200"
+                        onClick={() => handleListClick(list)}
+                      >
                         {list.coverImage && (
                           <img src={list.coverImage} alt={list.name} className="w-12 h-12 rounded-lg object-cover" />
                         )}
@@ -346,12 +400,20 @@ const HubModal = ({ hub, isOpen, onClose, onAddPost, onSave, onShare, onOpenFull
                     
                     {post.images.length > 0 && (
                       <div className="mb-3 relative overflow-hidden rounded-lg">
-                        <img
-                          src={post.images[0]}
-                          alt="Post"
-                          className="w-full h-48 object-cover rounded-lg shadow-soft"
-                        />
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/5 via-transparent to-transparent"></div>
+                        {post.images.length > 1 ? (
+                          <ImageCarousel 
+                            images={post.images} 
+                            className="h-48"
+                            showArrows={true}
+                          />
+                        ) : (
+                          <img
+                            src={post.images[0]}
+                            alt="Post"
+                            className="w-full h-48 object-cover rounded-lg shadow-soft"
+                          />
+                        )}
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/5 via-transparent to-transparent pointer-events-none"></div>
                       </div>
                     )}
                     <p className="text-charcoal-700 mb-3">{post.description}</p>

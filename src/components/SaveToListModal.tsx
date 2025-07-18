@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { createPortal } from 'react-dom'
 import { XMarkIcon, PlusIcon, LockClosedIcon, UserGroupIcon, GlobeAltIcon, BookmarkIcon } from '@heroicons/react/24/outline'
 import type { List, Place } from '../types/index.js'
 
@@ -72,9 +73,9 @@ const SaveToListModal: React.FC<SaveToListModalProps> = ({
 
   if (!isOpen) return null
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/20 backdrop-blur-sm">
-      <div className="w-full max-w-md rounded-2xl shadow-botanical border border-linen-200 bg-white/98 overflow-hidden">
+  const modalContent = (
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/20 backdrop-blur-sm">
+      <div className="w-full max-w-md rounded-2xl shadow-botanical border border-linen-200 bg-white overflow-hidden">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-linen-200">
           <h2 className="text-xl font-serif font-semibold text-charcoal-700">Save to List</h2>
@@ -201,7 +202,7 @@ const SaveToListModal: React.FC<SaveToListModalProps> = ({
                     onChange={(e) => setNewListDescription(e.target.value)}
                     placeholder="What's this list about?"
                     className="w-full p-3 rounded-xl border border-linen-200 bg-linen-50 text-charcoal-600 focus:outline-none focus:ring-2 focus:ring-sage-200 resize-none"
-                    rows={2}
+                    rows={3}
                   />
                 </div>
 
@@ -209,50 +210,54 @@ const SaveToListModal: React.FC<SaveToListModalProps> = ({
                   <label className="block font-medium text-charcoal-700 mb-2">Privacy</label>
                   <div className="space-y-2">
                     {[
-                      { key: 'public', label: 'Public', icon: GlobeAltIcon, desc: 'Anyone can see this list' },
-                      { key: 'friends', label: 'Friends only', icon: UserGroupIcon, desc: 'Only your friends can see this list' },
-                      { key: 'private', label: 'Private', icon: LockClosedIcon, desc: 'Only you can see this list' }
-                    ].map(option => (
-                      <label
-                        key={option.key}
-                        className={`flex items-center gap-3 p-3 rounded-xl cursor-pointer border transition-all ${
-                          newListPrivacy === option.key
-                            ? 'border-sage-300 bg-sage-50'
-                            : 'border-linen-200 hover:border-sage-200 hover:bg-sage-25'
-                        }`}
-                      >
-                        <input
-                          type="radio"
-                          name="privacy"
-                          value={option.key}
-                          checked={newListPrivacy === option.key}
-                          onChange={(e) => setNewListPrivacy(e.target.value as 'public' | 'private' | 'friends')}
-                          className="w-4 h-4 text-sage-500 focus:ring-sage-400"
-                        />
-                        <option.icon className="w-5 h-5 text-charcoal-500" />
-                        <div>
-                          <div className="font-medium text-charcoal-700">{option.label}</div>
-                          <div className="text-sm text-charcoal-500">{option.desc}</div>
-                        </div>
-                      </label>
-                    ))}
+                      { value: 'public', label: 'Public', icon: GlobeAltIcon, description: 'Anyone can see this list' },
+                      { value: 'friends', label: 'Friends', icon: UserGroupIcon, description: 'Only your friends can see this list' },
+                      { value: 'private', label: 'Private', icon: LockClosedIcon, description: 'Only you can see this list' }
+                    ].map(option => {
+                      const Icon = option.icon
+                      return (
+                        <label
+                          key={option.value}
+                          className={`flex items-center gap-3 p-3 rounded-xl cursor-pointer border transition-all ${
+                            newListPrivacy === option.value
+                              ? 'border-sage-300 bg-sage-50'
+                              : 'border-linen-200 hover:border-sage-200 hover:bg-sage-25'
+                          }`}
+                        >
+                          <input
+                            type="radio"
+                            name="privacy"
+                            value={option.value}
+                            checked={newListPrivacy === option.value}
+                            onChange={(e) => setNewListPrivacy(e.target.value as 'public' | 'private' | 'friends')}
+                            className="w-4 h-4 text-sage-500 focus:ring-sage-400"
+                          />
+                          <Icon className="w-5 h-5 text-charcoal-400" />
+                          <div className="flex-1">
+                            <div className="font-medium text-charcoal-700">{option.label}</div>
+                            <div className="text-sm text-charcoal-500">{option.description}</div>
+                          </div>
+                        </label>
+                      )
+                    })}
                   </div>
                 </div>
 
                 <div>
-                  <label className="block font-medium text-charcoal-700 mb-2">Tags</label>
+                  <label className="block font-medium text-charcoal-700 mb-2">Tags (optional)</label>
                   <div className="flex flex-wrap gap-2 mb-2">
                     {newListTags.map(tag => (
                       <span
                         key={tag}
-                        className="px-3 py-1 rounded-full text-sm bg-sage-100 text-sage-700 border border-sage-200 flex items-center gap-1"
+                        className="px-3 py-1 bg-sage-100 text-sage-700 rounded-full text-sm flex items-center gap-1"
                       >
                         #{tag}
                         <button
+                          type="button"
                           onClick={() => removeTag(tag)}
-                          className="hover:text-sage-900"
+                          className="w-4 h-4 rounded-full bg-sage-200 text-sage-600 hover:bg-sage-300 transition flex items-center justify-center text-xs"
                         >
-                          <XMarkIcon className="w-3 h-3" />
+                          ×
                         </button>
                       </span>
                     ))}
@@ -263,32 +268,32 @@ const SaveToListModal: React.FC<SaveToListModalProps> = ({
                       value={newTag}
                       onChange={(e) => setNewTag(e.target.value)}
                       onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addTag())}
-                      placeholder="Add tag..."
+                      placeholder="Add a tag..."
                       className="flex-1 p-2 rounded-lg border border-linen-200 bg-linen-50 text-charcoal-600 focus:outline-none focus:ring-2 focus:ring-sage-200 text-sm"
                     />
                     <button
+                      type="button"
                       onClick={addTag}
-                      className="px-3 py-2 rounded-lg bg-sage-100 text-sage-700 hover:bg-sage-200 transition text-sm"
+                      className="px-3 py-2 bg-sage-500 text-white rounded-lg text-sm font-medium hover:bg-sage-600 transition"
                     >
                       Add
                     </button>
                   </div>
                 </div>
 
-                {/* Action Buttons */}
                 <div className="flex gap-3 pt-4">
                   <button
                     onClick={() => setShowCreateList(false)}
-                    className="flex-1 py-3 rounded-xl font-medium border border-linen-200 text-charcoal-600 hover:bg-linen-50 transition"
+                    className="flex-1 py-3 rounded-xl border border-linen-200 text-charcoal-600 hover:bg-linen-50 transition"
                   >
                     Cancel
                   </button>
                   <button
                     onClick={handleCreateList}
                     disabled={!newListName.trim()}
-                    className="flex-1 py-3 rounded-xl font-semibold bg-sage-400 text-white shadow-soft hover:bg-sage-500 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="flex-1 py-3 rounded-xl font-semibold bg-sage-500 text-white shadow-soft hover:bg-sage-600 transition disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    Create & Save
+                    Create List
                   </button>
                 </div>
               </div>
@@ -298,6 +303,8 @@ const SaveToListModal: React.FC<SaveToListModalProps> = ({
       </div>
     </div>
   )
+
+  return createPortal(modalContent, document.body)
 }
 
 export default SaveToListModal 

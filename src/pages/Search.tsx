@@ -1,12 +1,15 @@
 import { useState } from 'react'
-import { MapPinIcon, HeartIcon, UserIcon, ClockIcon, FireIcon, BookmarkIcon, PlusIcon } from '@heroicons/react/24/outline'
+import { MapPinIcon, HeartIcon, UserIcon, ClockIcon, FireIcon, BookmarkIcon, PlusIcon, FunnelIcon } from '@heroicons/react/24/outline'
+
 import SearchAndFilter from '../components/SearchAndFilter'
 import HubModal from '../components/HubModal'
+import ListModal from '../components/ListModal'
 import SaveModal from '../components/SaveModal'
 import LocationSelectModal from '../components/LocationSelectModal'
 import CreatePost from '../components/CreatePost'
-
-import type { Hub, Place, List } from '../types/index.js'
+import ProfileModal from '../components/ProfileModal'
+import type { Hub, Place, List, User } from '../types/index.js'
+import { useNavigation } from '../contexts/NavigationContext.tsx'
 
 const allData = {
   places: [
@@ -100,6 +103,22 @@ const allData = {
 }
 
 const Search = () => {
+  const { 
+    showHubModal, 
+    showListModal, 
+    selectedHub, 
+    selectedList, 
+    openHubModal, 
+    openListModal, 
+    closeHubModal, 
+    closeListModal,
+    hubModalFromList,
+    goBackFromHubModal,
+    goBackFromListModal,
+    openFullScreenHub,
+    openFullScreenList,
+    openFullScreenUser
+  } = useNavigation()
   const [searchQuery, setSearchQuery] = useState('')
   const [activeFilter, setActiveFilter] = useState<'all' | 'places' | 'lists' | 'users'>('all')
   const [selectedTags, setSelectedTags] = useState<string[]>([])
@@ -108,8 +127,6 @@ const Search = () => {
   const [sortBy, setSortBy] = useState('popular')
   const [activeFilters, setActiveFilters] = useState<string[]>([])
   const [showMap, setShowMap] = useState(false)
-  const [selectedHub, setSelectedHub] = useState<Hub | null>(null)
-  const [showHubModal, setShowHubModal] = useState(false)
   const [showSaveModal, setShowSaveModal] = useState(false)
   const [showLocationModal, setShowLocationModal] = useState(false)
   const [showCreatePost, setShowCreatePost] = useState(false)
@@ -117,9 +134,13 @@ const Search = () => {
   const [selectedLocation, setSelectedLocation] = useState<{ id: string; name: string; address: string; coordinates: { lat: number; lng: number } } | null>(null)
   const [likedLists, setLikedLists] = useState<Set<string>>(new Set())
   const [savedLists, setSavedLists] = useState<Set<string>>(new Set())
+  const [likedPlaces, setLikedPlaces] = useState<Set<string>>(new Set())
+  const [savedPlaces, setSavedPlaces] = useState<Set<string>>(new Set())
   const [followingUsers, setFollowingUsers] = useState<Set<string>>(new Set())
   const [userLists, setUserLists] = useState(allData.lists)
   const [createPostListId, setCreatePostListId] = useState<string | null>(null)
+  const [showProfileModal, setShowProfileModal] = useState(false)
+  const [selectedUser, setSelectedUser] = useState<User | null>(null)
 
 
 
@@ -305,8 +326,11 @@ const Search = () => {
       posts: place.posts,
       lists: [],
     }
-    setSelectedHub(hub)
-    setShowHubModal(true)
+    openHubModal(hub, 'search')
+  }
+
+  const handleListClick = (list: List) => {
+    openListModal(list, 'search')
   }
 
   const handleCreatePost = (listId?: string) => {
@@ -324,6 +348,93 @@ const Search = () => {
       }
       return newSet
     })
+  }
+
+  const handleUserClick = (user: User) => {
+    setSelectedUser(user)
+    setShowProfileModal(true)
+  }
+
+  const handleHubModalOpenList = (list: List) => {
+    openListModal(list, 'hub-modal')
+  }
+
+  const handleHubModalFullScreen = (hub: Hub) => {
+    openFullScreenHub(hub)
+  }
+
+  const handleListModalFullScreen = (list: List) => {
+    openFullScreenList(list)
+  }
+
+  // Add handlers for HubModal and ListModal buttons
+  const handleHubModalSave = (hub: Hub) => {
+    // Convert hub to place and open save modal
+    const place: Place = {
+      id: hub.id,
+      name: hub.name,
+      address: hub.location.address,
+      tags: hub.tags,
+      posts: hub.posts,
+      savedCount: 0,
+      createdAt: new Date().toISOString()
+    }
+    setSelectedPlace(place)
+    setShowSaveModal(true)
+  }
+
+  const handleHubModalAddPost = (hub: Hub) => {
+    // Convert hub to the format expected by CreatePost
+    const createPostHub = {
+      id: hub.id,
+      name: hub.name,
+      address: hub.location.address,
+      description: hub.description,
+      lat: hub.location.lat,
+      lng: hub.location.lng,
+    }
+    handleCreatePost(undefined, createPostHub)
+  }
+
+  const handleHubModalShare = (hub: Hub) => {
+    // In a real app, this would open a share modal
+    console.log('Sharing hub:', hub.name)
+  }
+
+  const handleListModalSave = (list: List) => {
+    // For lists, we might want to save the list itself or create a copy
+    console.log('Saving list:', list.name)
+    // You could implement list saving functionality here
+  }
+
+  const handleListModalAddPost = (list: List) => {
+    handleCreatePost(list.id)
+  }
+
+  const handleListModalShare = (list: List) => {
+    // In a real app, this would open a share modal
+    console.log('Sharing list:', list.name)
+  }
+
+  const handleListModalOpenHub = (place: Place) => {
+    // Convert place to hub and open hub modal
+    const hub: Hub = {
+      id: place.id,
+      name: place.name,
+      description: `A great place to visit`,
+      tags: place.tags,
+      images: [],
+      location: {
+        address: place.address,
+        lat: 37.7749,
+        lng: -122.4194,
+      },
+      googleMapsUrl: `https://www.google.com/maps/search/${encodeURIComponent(place.name)}`,
+      mainImage: place.hubImage,
+      posts: place.posts,
+      lists: [],
+    }
+    openHubModal(hub, 'list-modal')
   }
 
   return (
@@ -370,11 +481,16 @@ const Search = () => {
       {showMap && (
         <div className="fixed inset-0 z-30 bg-black/40 flex flex-col">
           <div className="bg-white/95 p-4 shadow-botanical flex items-center gap-2">
-            <form className="flex-1">
+            <form className="flex-1 relative">
+              <svg className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-charcoal-600 pointer-events-none z-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
               <input
                 type="text"
                 placeholder="Search hubs on map..."
-                className="w-full px-4 py-2 rounded-full border border-linen-200 bg-linen-50 text-charcoal-600 focus:outline-none focus:ring-2 focus:ring-sage-200 shadow-soft"
+                value={searchQuery}
+                onChange={handleSearchInputChange}
+                className="w-full pl-12 pr-4 py-2 rounded-full border border-linen-200 bg-linen-50 text-charcoal-600 focus:outline-none focus:ring-2 focus:ring-sage-200 shadow-soft"
               />
             </form>
             <button className="p-2 rounded-full bg-white border border-linen-200 shadow-soft hover:bg-linen-100 transition">
@@ -506,35 +622,53 @@ const Search = () => {
                       <div className="flex items-start justify-between">
                         <div className="flex-1">
                           <h4 className="font-semibold text-charcoal-800 mb-1">{place.name}</h4>
-                          <div className="flex items-center text-charcoal-600 text-sm mb-2">
-                            <MapPinIcon className="w-4 h-4 mr-1" />
-                            {place.address}
-                          </div>
-                          <div className="flex flex-wrap gap-1 mb-3">
-                            {place.tags.map((tag) => (
+                          <p className="text-sm text-charcoal-600 mb-2">{place.address}</p>
+                          <div className="flex flex-wrap gap-1">
+                            {place.tags.slice(0, 3).map((tag) => (
                               <span
                                 key={tag}
-                                className="px-2 py-1 bg-gold-100 text-gold-700 text-xs rounded-full"
+                                className="px-2 py-1 bg-sage-100 text-sage-700 text-xs rounded-full"
                               >
-                                {tag}
+                                #{tag}
                               </span>
                             ))}
                           </div>
-                          <div className="flex items-center gap-2 text-sm text-charcoal-600">
-                            <BookmarkIcon className="w-4 h-4" />
-                            <span>{place.savedCount}</span>
-                          </div>
                         </div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-1 ml-4">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setLikedPlaces(prev => {
+                                const newSet = new Set(prev)
+                                if (newSet.has(place.id)) {
+                                  newSet.delete(place.id)
+                                } else {
+                                  newSet.add(place.id)
+                                }
+                                return newSet
+                              })
+                            }}
+                            className={`p-1.5 rounded-full transition ${
+                              likedPlaces.has(place.id)
+                                ? 'bg-gold-100 text-gold-700 border border-gold-200'
+                                : 'bg-gold-50 text-gold-600 hover:bg-gold-100'
+                            }`}
+                          >
+                            <HeartIcon className={`w-4 h-4 ${likedPlaces.has(place.id) ? 'fill-current' : ''}`} />
+                          </button>
                           <button 
-                            onClick={e => { 
+                            onClick={(e) => {
                               e.stopPropagation()
                               handleSaveToPlace(place)
                             }}
-                            className="p-1.5 rounded-full bg-gold-50 text-gold-600 hover:bg-gold-100 transition"
-                            title="Save place"
+                            className={`p-1.5 rounded-full transition ${
+                              savedPlaces.has(place.id)
+                                ? 'bg-sage-100 text-sage-700'
+                                : 'bg-sage-50 text-sage-600 hover:bg-sage-100'
+                            }`}
+                            title="Save to list"
                           >
-                            <BookmarkIcon className="w-4 h-4" />
+                            <BookmarkIcon className={`w-4 h-4 ${savedPlaces.has(place.id) ? 'fill-current' : ''}`} />
                           </button>
                         </div>
                       </div>
@@ -554,80 +688,83 @@ const Search = () => {
                   {(searchResults.lists || []).map((list) => (
                     <div
                       key={list.id}
-                      className="bg-white/70 backdrop-blur-sm rounded-2xl p-4 shadow-soft border border-linen-200 hover:shadow-cozy transition-all duration-300"
+                      onClick={() => handleListClick(list)}
+                      className="w-full bg-white/70 backdrop-blur-sm rounded-2xl p-4 shadow-soft border border-linen-200 hover:shadow-cozy transition-all duration-300 text-left"
                     >
                       <div className="flex items-start justify-between">
                         <div className="flex-1">
                           <h4 className="font-semibold text-charcoal-800 mb-1">{list.name}</h4>
                           <p className="text-sm text-charcoal-600 mb-2">{list.description}</p>
-                          <div className="flex flex-wrap gap-1 mb-3">
-                            {list.tags.map((tag) => (
+                          <div className="flex flex-wrap gap-1">
+                            {list.tags.slice(0, 3).map((tag) => (
                               <span
                                 key={tag}
-                                className="px-2 py-1 bg-sage-100 text-sage-700 text-xs rounded-full"
+                                className="px-2 py-1 bg-gold-100 text-gold-700 text-xs rounded-full"
                               >
-                                {tag}
+                                #{tag}
                               </span>
                             ))}
                           </div>
-                          <div className="flex items-center justify-between">
-                            <span className="text-xs text-charcoal-500">Updated {new Date(list.updatedAt).toLocaleDateString()}</span>
-                            <div className="flex items-center gap-2">
-                              <button 
-                                onClick={() => setLikedLists(prev => {
-                                  const newSet = new Set(prev)
-                                  if (newSet.has(list.id)) {
-                                    newSet.delete(list.id)
-                                  } else {
-                                    newSet.add(list.id)
-                                  }
-                                  return newSet
-                                })}
-                                className={`flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium transition ${
-                                  likedLists.has(list.id)
-                                    ? 'bg-gold-100 text-gold-700 border border-gold-200'
-                                    : 'bg-gold-50 text-gold-600 hover:bg-gold-100'
-                                }`}
-                              >
-                                <HeartIcon className={`w-4 h-4 ${likedLists.has(list.id) ? 'fill-current' : ''}`} />
-                                {(list.likes ?? 0) + (likedLists.has(list.id) ? 1 : 0)}
-                              </button>
-                              <button 
-                                onClick={() => {
-                                  // Open SaveModal for lists as well
-                                  const mockPlace = {
-                                    id: list.id,
-                                    name: list.name,
-                                    address: 'Various locations',
-                                    tags: list.tags,
-                                    posts: [],
-                                    savedCount: list.savedCount || 0,
-                                    createdAt: list.createdAt
-                                  }
-                                  handleSaveToPlace(mockPlace)
-                                }}
-                                className={`p-1.5 rounded-full transition ${
-                                  savedLists.has(list.id)
-                                    ? 'bg-sage-100 text-sage-700'
-                                    : 'bg-sage-50 text-sage-600 hover:bg-sage-100'
-                                }`}
-                                title="Save to list"
-                              >
-                                <BookmarkIcon className={`w-4 h-4 ${savedLists.has(list.id) ? 'fill-current' : ''}`} />
-                              </button>
-                              {list.userId === '1' && (
-                                <button 
-                                  onClick={() => { 
-                                    handleCreatePost(list.id)
-                                  }}
-                                  className="p-1.5 rounded-full bg-gold-50 text-gold-600 hover:bg-gold-100 transition"
-                                  title="Create post"
-                                >
-                                  <PlusIcon className="w-4 h-4" />
-                                </button>
-                              )}
-                            </div>
-                          </div>
+                        </div>
+                        <div className="flex items-center gap-1 ml-4">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setLikedLists(prev => {
+                                const newSet = new Set(prev)
+                                if (newSet.has(list.id)) {
+                                  newSet.delete(list.id)
+                                } else {
+                                  newSet.add(list.id)
+                                }
+                                return newSet
+                              })
+                            }}
+                            className={`p-1.5 rounded-full transition ${
+                              likedLists.has(list.id)
+                                ? 'bg-gold-100 text-gold-700 border border-gold-200'
+                                : 'bg-gold-50 text-gold-600 hover:bg-gold-100'
+                            }`}
+                          >
+                            <HeartIcon className={`w-4 h-4 ${likedLists.has(list.id) ? 'fill-current' : ''}`} />
+                            {(list.likes ?? 0) + (likedLists.has(list.id) ? 1 : 0)}
+                          </button>
+                          <button 
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              // Open SaveModal for lists as well
+                              const mockPlace = {
+                                id: list.id,
+                                name: list.name,
+                                address: 'Various locations',
+                                tags: list.tags,
+                                posts: [],
+                                savedCount: list.savedCount || 0,
+                                createdAt: list.createdAt
+                              }
+                              handleSaveToPlace(mockPlace)
+                            }}
+                            className={`p-1.5 rounded-full transition ${
+                              savedLists.has(list.id)
+                                ? 'bg-sage-100 text-sage-700'
+                                : 'bg-sage-50 text-sage-600 hover:bg-sage-100'
+                            }`}
+                            title="Save to list"
+                          >
+                            <BookmarkIcon className={`w-4 h-4 ${savedLists.has(list.id) ? 'fill-current' : ''}`} />
+                          </button>
+                          {list.userId === '1' && (
+                            <button 
+                              onClick={(e) => { 
+                                e.stopPropagation()
+                                handleCreatePost(list.id)
+                              }}
+                              className="p-1.5 rounded-full bg-gold-50 text-gold-600 hover:bg-gold-100 transition"
+                              title="Create post"
+                            >
+                              <PlusIcon className="w-4 h-4" />
+                            </button>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -664,8 +801,13 @@ const Search = () => {
                           </div>
                         )}
                         <div className="flex-1">
-                          <h4 className="font-semibold text-charcoal-800">{user.name}</h4>
-                          <p className="text-sm text-charcoal-600">@{user.username}</p>
+                          <button
+                            onClick={() => handleUserClick(user)}
+                            className="text-left hover:opacity-80 transition-opacity"
+                          >
+                            <h4 className="font-semibold text-charcoal-800">{user.name}</h4>
+                            <p className="text-sm text-charcoal-600">@{user.username}</p>
+                          </button>
                           {user.tags && user.tags.length > 0 && (
                             <div className="flex flex-wrap gap-1 mt-2 mb-2">
                               {user.tags.map((tag) => (
@@ -701,41 +843,7 @@ const Search = () => {
           </div>
         </div>
       )}
-      {/* Hub Modal */}
-      {selectedHub && (
-        <HubModal
-          isOpen={showHubModal}
-          onClose={() => setShowHubModal(false)}
-          hub={selectedHub}
-          onAddPost={(hub) => {
-            // Convert hub to the format expected by CreatePost
-            const createPostHub = {
-              id: hub.id,
-              name: hub.name,
-              address: hub.location.address,
-              description: hub.description,
-              lat: hub.location.lat,
-              lng: hub.location.lng,
-            }
-            handleCreatePost(undefined, createPostHub)
-            setShowHubModal(false)
-          }}
-          onSave={(hub) => {
-            // Convert hub to place format for SaveModal
-            const place: Place = {
-              id: hub.id,
-              name: hub.name,
-              address: hub.location.address,
-              tags: hub.tags,
-              posts: hub.posts,
-              savedCount: 0,
-              createdAt: new Date().toISOString()
-            }
-            handleSaveToPlace(place)
-            setShowHubModal(false)
-          }}
-        />
-      )}
+      {/* Hub Modal and List Modal are now handled globally in App.tsx */}
 
       {/* Modals */}
       {selectedPlace && (
@@ -766,6 +874,19 @@ const Search = () => {
         }}
         preSelectedListIds={createPostListId ? [createPostListId] : undefined}
       />
+
+      {/* Profile Modal */}
+      {selectedUser && (
+        <ProfileModal
+          user={selectedUser}
+          isOpen={showProfileModal}
+          onClose={() => {
+            setShowProfileModal(false)
+            setSelectedUser(null)
+          }}
+          onFollow={handleFollowUser}
+        />
+      )}
 
 
     </div>

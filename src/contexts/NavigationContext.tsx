@@ -10,6 +10,8 @@ interface NavigationContextType {
   selectedHub: Hub | null
   selectedList: List | null
   hubModalFromList: boolean // Track if hub modal was opened from list modal
+  listModalFromList: boolean // Track if list modal was opened from another list modal
+  previousListModal: List | null // Store previous list when opening from list
   
   // Navigation methods
   openHubModal: (hub: Hub, from?: string) => void
@@ -20,6 +22,10 @@ interface NavigationContextType {
   navigateToList: (list: List, from?: string) => void
   goBack: () => void
   goBackFromHubModal: () => void
+  goBackFromListModal: () => void
+  openFullScreenHub: (hub: Hub) => void
+  openFullScreenList: (list: List) => void
+  openFullScreenUser: (userId: string) => void
 }
 
 const NavigationContext = createContext<NavigationContextType | undefined>(undefined)
@@ -43,6 +49,7 @@ export const NavigationProvider = ({ children }: NavigationProviderProps) => {
   const [selectedHub, setSelectedHub] = useState<Hub | null>(null)
   const [selectedList, setSelectedList] = useState<List | null>(null)
   const [hubModalFromList, setHubModalFromList] = useState(false)
+  const [listModalFromList, setListModalFromList] = useState(false)
   const [previousListModal, setPreviousListModal] = useState<List | null>(null)
 
   const openHubModal = (hub: Hub, from: string = 'unknown') => {
@@ -66,13 +73,23 @@ export const NavigationProvider = ({ children }: NavigationProviderProps) => {
 
   const openListModal = (list: List, from: string = 'unknown') => {
     console.log('Opening list modal from:', from, 'list:', list.name)
+    
+    if (from === 'list-modal' && selectedList) {
+      // If opening from another list modal, store the current one
+      setListModalFromList(true)
+      setPreviousListModal(selectedList)
+    } else {
+      setListModalFromList(false)
+      setPreviousListModal(null)
+    }
+    
     setSelectedList(list)
     setShowListModal(true)
     navigationHistory.push({ from: from as any, listId: list.id })
   }
 
   const closeHubModal = () => {
-    console.log('Closing hub modal')
+    console.log('NavigationContext: closeHubModal called')
     setShowHubModal(false)
     setSelectedHub(null)
     setHubModalFromList(false)
@@ -94,10 +111,26 @@ export const NavigationProvider = ({ children }: NavigationProviderProps) => {
     }
   }
 
+  const goBackFromListModal = () => {
+    console.log('Going back from list modal, listModalFromList:', listModalFromList)
+    if (listModalFromList && previousListModal) {
+      // If list modal was opened from another list modal, go back to the previous list
+      setSelectedList(previousListModal)
+      setListModalFromList(false)
+      setPreviousListModal(null)
+    } else {
+      // Close the modal and go back
+      closeListModal()
+      navigate(-1)
+    }
+  }
+
   const closeListModal = () => {
     console.log('Closing list modal')
     setShowListModal(false)
     setSelectedList(null)
+    setListModalFromList(false)
+    setPreviousListModal(null)
   }
 
   const navigateToHub = (hub: Hub, from: string = 'unknown') => {
@@ -111,24 +144,32 @@ export const NavigationProvider = ({ children }: NavigationProviderProps) => {
   }
 
   const goBack = () => {
-    const previousState = navigationHistory.peek()
-    console.log('Going back, previous state:', previousState)
-    
-    if (previousState?.from === 'list-modal') {
-      // Go back to list modal
-      console.log('Going back to list modal')
-      setShowHubModal(false)
-      setShowListModal(true)
-    } else if (previousState?.from === 'hub-modal') {
-      // Go back to hub modal
-      console.log('Going back to hub modal')
-      setShowListModal(false)
-      setShowHubModal(true)
-    } else {
-      // Default back navigation
-      console.log('Going back in browser history')
-      navigate(-1)
-    }
+    console.log('Going back in browser history')
+    navigate(-1)
+  }
+
+  const openFullScreenHub = (hub: Hub) => {
+    console.log('Opening full screen hub:', hub.name)
+    // Close the modal first, then navigate
+    setShowHubModal(false)
+    setSelectedHub(null)
+    setHubModalFromList(false)
+    navigate(`/place/${hub.id}`)
+  }
+
+  const openFullScreenList = (list: List) => {
+    console.log('Opening full screen list:', list.name)
+    // Close the modal first, then navigate
+    setShowListModal(false)
+    setSelectedList(null)
+    setListModalFromList(false)
+    setPreviousListModal(null)
+    navigate(`/list/${list.id}`)
+  }
+
+  const openFullScreenUser = (userId: string) => {
+    console.log('Opening full screen user profile:', userId)
+    navigate(`/user/${userId}`)
   }
 
   const value: NavigationContextType = {
@@ -137,6 +178,8 @@ export const NavigationProvider = ({ children }: NavigationProviderProps) => {
     selectedHub,
     selectedList,
     hubModalFromList,
+    listModalFromList,
+    previousListModal,
     openHubModal,
     openListModal,
     closeHubModal,
@@ -144,7 +187,11 @@ export const NavigationProvider = ({ children }: NavigationProviderProps) => {
     navigateToHub,
     navigateToList,
     goBack,
-    goBackFromHubModal
+    goBackFromHubModal,
+    goBackFromListModal,
+    openFullScreenHub,
+    openFullScreenList,
+    openFullScreenUser
   }
 
   return (

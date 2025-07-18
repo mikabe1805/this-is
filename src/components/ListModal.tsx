@@ -3,6 +3,8 @@ import { MapPinIcon, HeartIcon, BookmarkIcon, PlusIcon, ShareIcon, XMarkIcon, Us
 import { HeartIcon as HeartIconSolid } from '@heroicons/react/24/solid'
 import { useState } from 'react'
 import { createPortal } from 'react-dom'
+import { useNavigation } from '../contexts/NavigationContext.tsx'
+import ImageCarousel from './ImageCarousel.tsx'
 
 interface ListModalProps {
   list: List
@@ -18,23 +20,27 @@ interface ListModalProps {
 }
 
 const ListModal = ({ list, isOpen, onClose, onSave, onShare, onAddPost, onOpenFullScreen, onOpenHub, showBackButton, onBack }: ListModalProps) => {
+  const { listModalFromList, goBackFromListModal, openFullScreenList } = useNavigation()
   const [isLiked, setIsLiked] = useState(list.isLiked)
   const [likes, setLikes] = useState(list.likes)
 
   if (!isOpen) return null
 
-  const handleLike = () => {
+  const handleLike = (e: React.MouseEvent) => {
+    e.stopPropagation()
     setIsLiked(!isLiked)
     setLikes(isLiked ? likes - 1 : likes + 1)
   }
 
-  const handleSave = () => {
+  const handleSave = (e: React.MouseEvent) => {
+    e.stopPropagation()
     if (onSave) {
       onSave(list)
     }
   }
 
-  const handleShare = () => {
+  const handleShare = (e: React.MouseEvent) => {
+    e.stopPropagation()
     if (onShare) {
       onShare(list)
     } else {
@@ -53,15 +59,32 @@ const ListModal = ({ list, isOpen, onClose, onSave, onShare, onAddPost, onOpenFu
     }
   }
 
-  const handleAddPost = () => {
+  const handleAddPost = (e: React.MouseEvent) => {
+    e.stopPropagation()
     if (onAddPost) {
       onAddPost(list)
     }
   }
 
-  const handleOpenFullScreen = () => {
+  const handleOpenFullScreen = (e: React.MouseEvent) => {
+    e.stopPropagation()
     if (onOpenFullScreen) {
       onOpenFullScreen(list)
+    } else {
+      // Use navigation context as fallback
+      openFullScreenList(list)
+    }
+  }
+
+  const handleBack = () => {
+    if (onBack) {
+      onBack()
+    } else if (listModalFromList) {
+      // Use navigation context for list-to-list back navigation
+      goBackFromListModal()
+    } else {
+      // Default back behavior
+      onClose()
     }
   }
 
@@ -103,8 +126,19 @@ const ListModal = ({ list, isOpen, onClose, onSave, onShare, onAddPost, onOpenFu
   ]
 
   const modalContent = (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-      <div className="relative w-full max-w-2xl max-h-[90vh] bg-white rounded-3xl shadow-botanical border border-linen-200 overflow-hidden">
+    <div 
+      className="fixed inset-0 z-[9998] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+      onClick={(e) => {
+        // Only close if clicking the backdrop, not the modal content
+        if (e.target === e.currentTarget) {
+          onClose()
+        }
+      }}
+    >
+      <div 
+        className="relative w-full max-w-2xl max-h-[90vh] bg-white rounded-3xl shadow-botanical border border-linen-200 overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Header with cover image */}
         <div className="relative h-64 bg-gradient-to-br from-cream-200 to-coral-200 overflow-hidden">
           {list.coverImage && (
@@ -120,9 +154,9 @@ const ListModal = ({ list, isOpen, onClose, onSave, onShare, onAddPost, onOpenFu
           {/* Top action buttons */}
           <div className="absolute top-4 left-4 right-4 flex items-center justify-between z-10">
             <div className="flex items-center gap-2">
-              {showBackButton && onBack && (
+              {(showBackButton || listModalFromList) && (
                 <button 
-                  onClick={onBack}
+                  onClick={handleBack}
                   className="w-10 h-10 bg-white/90 backdrop-blur-md rounded-full flex items-center justify-center shadow-botanical hover:shadow-liquid hover:scale-105 transition-all duration-200"
                   title="Go back"
                 >
@@ -192,84 +226,62 @@ const ListModal = ({ list, isOpen, onClose, onSave, onShare, onAddPost, onOpenFu
           <div className="flex gap-3 mb-6">
             <button 
               onClick={handleLike}
-              className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-semibold shadow-botanical hover:shadow-liquid hover:scale-102 transition-all duration-200 ${
-                isLiked 
-                  ? 'bg-gradient-to-r from-coral-500 to-coral-600 text-white' 
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
+              className="flex-1 flex items-center justify-center gap-2 bg-gradient-to-r from-gold-500 to-gold-600 text-white px-4 py-3 rounded-xl text-sm font-semibold shadow-botanical hover:shadow-liquid hover:scale-102 transition-all duration-200"
             >
-              {isLiked ? <HeartIconSolid className="w-5 h-5" /> : <HeartIcon className="w-5 h-5" />}
+              {isLiked ? (
+                <HeartIconSolid className="w-5 h-5" />
+              ) : (
+                <HeartIcon className="w-5 h-5" />
+              )}
               {isLiked ? 'Liked' : 'Like'}
             </button>
             <button 
               onClick={handleAddPost}
-              className="flex-1 flex items-center justify-center gap-2 bg-gradient-to-r from-gold-500 to-gold-600 text-white px-4 py-3 rounded-xl text-sm font-semibold shadow-botanical hover:shadow-liquid hover:scale-102 transition-all duration-200"
+              className="flex-1 flex items-center justify-center gap-2 bg-gradient-to-r from-sage-500 to-sage-600 text-white px-4 py-3 rounded-xl text-sm font-semibold shadow-botanical hover:shadow-liquid hover:scale-102 transition-all duration-200"
             >
               <PlusIcon className="w-5 h-5" />
               Add Post
             </button>
             <button 
               onClick={handleSave}
-              className="flex-1 flex items-center justify-center gap-2 bg-gradient-to-r from-sage-500 to-sage-600 text-white px-4 py-3 rounded-xl text-sm font-semibold shadow-botanical hover:shadow-liquid hover:scale-102 transition-all duration-200"
+              className="flex-1 flex items-center justify-center gap-2 bg-gradient-to-r from-coral-500 to-coral-600 text-white px-4 py-3 rounded-xl text-sm font-semibold shadow-botanical hover:shadow-liquid hover:scale-102 transition-all duration-200"
             >
               <BookmarkIcon className="w-5 h-5" />
               Save
             </button>
           </div>
 
-          {/* Places in the list */}
-          <div className="space-y-4">
-            <h3 className="text-lg font-serif font-semibold text-charcoal-700">Places in this list</h3>
-            {mockPlaces.length > 0 ? (
-              <div className="space-y-3">
-                {mockPlaces.map((place) => (
-                  <button
-                    key={place.id}
-                    onClick={() => handleOpenHub(place)}
-                    className="w-full flex items-center gap-3 p-3 bg-linen-50 rounded-lg shadow-soft border border-linen-200 hover:shadow-liquid hover:scale-102 transition-all duration-200 text-left"
-                  >
-                    <div className="w-12 h-12 bg-gradient-to-br from-sage-200 to-gold-200 rounded-lg flex items-center justify-center">
-                      <MapPinIcon className="w-6 h-6 text-sage-600" />
+          {/* Places */}
+          <div>
+            <h3 className="text-lg font-serif font-semibold text-charcoal-700 mb-4">Places in this list</h3>
+            <div className="space-y-3">
+              {mockPlaces.map((place) => (
+                <div
+                  key={place.id}
+                  onClick={() => handleOpenHub(place)}
+                  className="flex items-center gap-3 p-3 bg-white rounded-lg shadow-soft cursor-pointer hover:shadow-liquid hover:scale-102 transition-all duration-200"
+                >
+                  <div className="w-12 h-12 bg-linen-100 rounded-lg flex-shrink-0">
+                    <img src="https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=48&h=48&fit=crop" alt={place.name} className="w-full h-full object-cover rounded-lg" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h4 className="font-medium text-charcoal-700 truncate">{place.name}</h4>
+                    <div className="flex items-center text-charcoal-500 text-sm">
+                      <MapPinIcon className="w-4 h-4 mr-1" />
+                      {place.address}
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <h4 className="font-medium text-charcoal-700 truncate">{place.name}</h4>
-                      <p className="text-sm text-charcoal-500 truncate">{place.address}</p>
-                      <div className="flex items-center gap-2 mt-1">
-                        {place.tags.slice(0, 2).map((tag) => (
-                          <span key={tag} className="text-xs px-2 py-1 bg-sage-100 text-sage-700 rounded-full">
-                            {tag}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                    <div className="p-2 rounded-full bg-sage-50 text-sage-600">
-                      <BookmarkIcon className="w-4 h-4" />
-                    </div>
-                  </button>
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-8 text-charcoal-500">
-                <MapPinIcon className="w-16 h-16 mx-auto mb-4 text-charcoal-300" />
-                <p>No places added yet</p>
-                <p className="text-sm text-charcoal-400">Start exploring and add places to this list!</p>
-              </div>
-            )}
-          </div>
-
-          {/* Tags */}
-          {list.tags.length > 0 && (
-            <div className="bg-linen-50 rounded-xl p-4">
-              <h3 className="text-lg font-serif font-semibold text-charcoal-700 mb-3">Tags</h3>
-              <div className="flex flex-wrap gap-2">
-                {list.tags.map((tag) => (
-                  <span key={tag} className="px-3 py-1.5 bg-white text-sage-700 rounded-full text-sm font-medium border border-sage-200">
-                    #{tag}
-                  </span>
-                ))}
-              </div>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    {place.tags.slice(0, 2).map((tag) => (
+                      <span key={tag} className="px-2 py-1 text-xs rounded-full bg-sage-50 text-sage-700 border border-sage-100">
+                        #{tag}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              ))}
             </div>
-          )}
+          </div>
         </div>
       </div>
     </div>

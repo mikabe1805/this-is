@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
-import { XMarkIcon, HeartIcon, BookmarkIcon, EyeIcon, PlusIcon, LockClosedIcon, UserGroupIcon, GlobeAltIcon } from '@heroicons/react/24/outline'
+import { XMarkIcon, HeartIcon, BookmarkIcon, EyeIcon, PlusIcon, LockClosedIcon, UserGroupIcon, GlobeAltIcon, MagnifyingGlassIcon } from '@heroicons/react/24/outline'
 import { HeartIcon as HeartIconSolid, BookmarkIcon as BookmarkIconSolid, EyeIcon as EyeIconSolid } from '@heroicons/react/24/solid'
+import { createPortal } from 'react-dom'
 import type { List, Place } from '../types/index.js'
 import SearchBar from './SearchBar'
 
@@ -154,9 +155,8 @@ const SaveModal: React.FC<SaveModalProps> = ({
   }
 
   if (!isOpen) return null
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/20 backdrop-blur-sm">
+  const modalContent = (
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/20 backdrop-blur-sm">
       <div className="w-full max-w-md max-h-[90vh] rounded-2xl shadow-botanical border border-linen-200 bg-white overflow-hidden flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-linen-200 flex-shrink-0">
@@ -262,12 +262,13 @@ const SaveModal: React.FC<SaveModalProps> = ({
                   Add to specific lists? <span className="text-sm text-charcoal-500 font-normal">(Optional)</span>
                 </label>
                 <div className="relative mb-2">
+                  <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-charcoal-600 pointer-events-none z-10" />
                   <input
                     type="text"
                     value={listSearch}
                     onChange={e => setListSearch(e.target.value)}
                     placeholder="Search or select lists..."
-                    className="w-full p-2 rounded-xl border border-linen-200 bg-linen-50 text-charcoal-600 focus:outline-none focus:ring-2 focus:ring-sage-200 pr-10 text-sm"
+                    className="w-full p-2 pl-10 pr-10 rounded-xl border border-linen-200 bg-linen-50 text-charcoal-600 focus:outline-none focus:ring-2 focus:ring-sage-200 text-sm"
                   />
                   <button
                     type="button"
@@ -411,6 +412,8 @@ const SaveModal: React.FC<SaveModalProps> = ({
       </div>
     </div>
   )
+
+  return createPortal(modalContent, document.body)
 }
 
 export default SaveModal 

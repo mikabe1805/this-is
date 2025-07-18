@@ -334,7 +334,7 @@ const Demo = ({ activeTab }: DemoProps) => {
               
               {/* Search Bar */}
               <form onSubmit={handleSearchSubmit} className="relative">
-                <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-sage-400" />
+                <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-charcoal-600 z-10" />
                 <input
                   type="text"
                   placeholder="Search places, lists, or people..."

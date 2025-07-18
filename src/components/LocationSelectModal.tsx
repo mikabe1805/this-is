@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { XMarkIcon, MapPinIcon, MagnifyingGlassIcon } from '@heroicons/react/24/outline'
 
 interface Location {
@@ -146,8 +147,8 @@ const LocationSelectModal: React.FC<LocationSelectModalProps> = ({
 
   if (!isOpen) return null
 
-  return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/20 backdrop-blur-sm">
+  return createPortal(
+    <div className="fixed inset-0 z-[999999] flex items-center justify-center p-4 bg-black/20 backdrop-blur-sm">
       <div className="w-full max-w-md rounded-2xl shadow-botanical border border-linen-200 bg-white overflow-hidden">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-linen-200">
@@ -263,7 +264,8 @@ const LocationSelectModal: React.FC<LocationSelectModalProps> = ({
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }
 

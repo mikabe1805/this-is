@@ -61,7 +61,7 @@ const TagSearchModal: React.FC<TagSearchModalProps> = ({
         {/* Search Input */}
         <div className="p-6 border-b border-linen-200">
           <div className="relative">
-            <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-sage-400" />
+            <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-charcoal-600 z-10" />
             <input
               type="text"
               placeholder="Search tags..."

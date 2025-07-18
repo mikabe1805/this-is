@@ -3,12 +3,27 @@ import { MapPinIcon, BookmarkIcon, StarIcon, TrendingUpIcon, FireIcon, EllipsisH
 import { useState } from 'react'
 import SearchAndFilter from './SearchAndFilter'
 import HubModal from './HubModal'
+import ListModal from './ListModal'
 import ListMenuDropdown from './ListMenuDropdown'
+import { useNavigation } from '../contexts/NavigationContext.tsx'
 
 const DiscoveryTab = () => {
+  const { 
+    showHubModal, 
+    showListModal, 
+    selectedHub, 
+    selectedList, 
+    openHubModal, 
+    openListModal, 
+    closeHubModal, 
+    closeListModal,
+    hubModalFromList,
+    goBackFromHubModal,
+    goBackFromListModal,
+    openFullScreenHub,
+    openFullScreenList
+  } = useNavigation()
   const [savedLists, setSavedLists] = useState<Set<string>>(new Set())
-  const [selectedHub, setSelectedHub] = useState<Hub | null>(null)
-  const [showHubModal, setShowHubModal] = useState(false)
   
   // Mock data - trending hubs (places that are gaining popularity)
   const trendingHubs: Place[] = [
@@ -131,8 +146,7 @@ const DiscoveryTab = () => {
       posts: place.posts,
       lists: [],
     }
-    setSelectedHub(hub)
-    setShowHubModal(true)
+    openHubModal(hub, 'discovery')
   }
 
   const sortOptions = [
@@ -151,6 +165,36 @@ const DiscoveryTab = () => {
   const [activeFilters, setActiveFilters] = useState<string[]>([])
   const [showListMenu, setShowListMenu] = useState(false)
   const [selectedListId, setSelectedListId] = useState<string | null>(null)
+
+  // Add handlers for HubModal buttons
+  const handleHubModalSave = (hub: Hub) => {
+    // In a real app, this would open SaveModal
+    console.log('Save hub:', hub.name)
+    closeHubModal()
+  }
+
+  const handleHubModalAddPost = (hub: Hub) => {
+    // In a real app, this would open CreatePost modal
+    console.log('Add post to hub:', hub.name)
+    closeHubModal()
+  }
+
+  const handleHubModalShare = (hub: Hub) => {
+    // In a real app, this would open ShareModal
+    console.log('Share hub:', hub.name)
+  }
+
+  const handleHubModalOpenList = (list: List) => {
+    openListModal(list, 'hub-modal')
+  }
+
+  const handleHubModalFullScreen = (hub: Hub) => {
+    openFullScreenHub(hub)
+  }
+
+  const handleListModalFullScreen = (list: List) => {
+    openFullScreenList(list)
+  }
 
   return (
     <div className="p-4 space-y-8">
@@ -279,21 +323,51 @@ const DiscoveryTab = () => {
       </div>
 
       {/* Hub Modal */}
-      {selectedHub && (
+      {showHubModal && selectedHub && (
         <HubModal
-          isOpen={showHubModal}
-          onClose={() => setShowHubModal(false)}
           hub={selectedHub}
-          onAddPost={(hub) => {
-            // In a real app, this would open CreatePost modal
-            console.log('Add post to hub:', hub.name)
-            setShowHubModal(false)
+          isOpen={showHubModal}
+          onClose={closeHubModal}
+          onSave={handleHubModalSave}
+          onAddPost={handleHubModalAddPost}
+          onShare={handleHubModalShare}
+          onOpenFullScreen={handleHubModalFullScreen}
+          onOpenList={handleHubModalOpenList}
+          showBackButton={hubModalFromList}
+          onBack={goBackFromHubModal}
+        />
+      )}
+
+      {/* List Modal */}
+      {showListModal && selectedList && (
+        <ListModal
+          list={selectedList}
+          isOpen={showListModal}
+          onClose={closeListModal}
+          onSave={(list) => console.log('Save list:', list.name)}
+          onAddPost={(list) => console.log('Add post to list:', list.name)}
+          onShare={(list) => console.log('Share list:', list.name)}
+          onOpenFullScreen={handleListModalFullScreen}
+          onOpenHub={(place) => {
+            const hub: Hub = {
+              id: place.id,
+              name: place.name,
+              description: `A great place to visit`,
+              tags: place.tags,
+              images: [],
+              location: {
+                address: place.address,
+                lat: 37.7749,
+                lng: -122.4194,
+              },
+              googleMapsUrl: `https://www.google.com/maps/search/${encodeURIComponent(place.name)}`,
+              mainImage: place.hubImage,
+              posts: place.posts,
+              lists: [],
+            }
+            openHubModal(hub, 'list-modal')
           }}
-          onSave={(hub) => {
-            // In a real app, this would open SaveModal
-            console.log('Save hub:', hub.name)
-            setShowHubModal(false)
-          }}
+          showBackButton={false}
         />
       )}
 
