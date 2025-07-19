@@ -1,5 +1,6 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { MapPinIcon, HeartIcon, UserIcon, ClockIcon, FireIcon, BookmarkIcon, PlusIcon, FunnelIcon } from '@heroicons/react/24/outline'
+import { useSearchParams } from 'react-router-dom'
 
 import SearchAndFilter from '../components/SearchAndFilter'
 import HubModal from '../components/HubModal'
@@ -119,6 +120,7 @@ const Search = () => {
     openFullScreenList,
     openFullScreenUser
   } = useNavigation()
+  const [searchParams] = useSearchParams()
   const [searchQuery, setSearchQuery] = useState('')
   const [activeFilter, setActiveFilter] = useState<'all' | 'places' | 'lists' | 'users'>('all')
   const [selectedTags, setSelectedTags] = useState<string[]>([])
@@ -142,6 +144,15 @@ const Search = () => {
   const [showProfileModal, setShowProfileModal] = useState(false)
   const [selectedUser, setSelectedUser] = useState<User | null>(null)
 
+  // Handle URL parameters for tag filtering
+  useEffect(() => {
+    const tag = searchParams.get('tag')
+    if (tag && !selectedTags.includes(tag)) {
+      setSelectedTags([tag])
+      setSearchQuery(`#${tag}`)
+      setIsSearching(true)
+    }
+  }, [searchParams, selectedTags])
 
 
   // Mock data
@@ -226,9 +237,22 @@ const Search = () => {
   }
 
   const handleHashtagClick = (hashtag: string) => {
+    // Remove the # symbol and add to selected tags
+    const tag = hashtag.replace('#', '')
+    if (!selectedTags.includes(tag)) {
+      setSelectedTags([...selectedTags, tag])
+    }
+    // Set search query to the hashtag
     setSearchQuery(hashtag)
-    setShowSearchHistory(false)
-    setIsSearching(true)
+  }
+
+  const handleTagClick = (tag: string) => {
+    // Toggle tag in selected tags
+    if (selectedTags.includes(tag)) {
+      setSelectedTags(selectedTags.filter(t => t !== tag))
+    } else {
+      setSelectedTags([...selectedTags, tag])
+    }
   }
 
   const handleSearchInputFocus = () => {
@@ -625,12 +649,20 @@ const Search = () => {
                           <p className="text-sm text-charcoal-600 mb-2">{place.address}</p>
                           <div className="flex flex-wrap gap-1">
                             {place.tags.slice(0, 3).map((tag) => (
-                              <span
+                              <button
                                 key={tag}
-                                className="px-2 py-1 bg-sage-100 text-sage-700 text-xs rounded-full"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  handleTagClick(tag)
+                                }}
+                                className={`px-2 py-1 text-xs rounded-full transition-colors ${
+                                  selectedTags.includes(tag)
+                                    ? 'bg-sage-200 text-sage-800 border border-sage-300'
+                                    : 'bg-sage-100 text-sage-700 hover:bg-sage-200'
+                                }`}
                               >
                                 #{tag}
-                              </span>
+                              </button>
                             ))}
                           </div>
                         </div>
@@ -697,12 +729,20 @@ const Search = () => {
                           <p className="text-sm text-charcoal-600 mb-2">{list.description}</p>
                           <div className="flex flex-wrap gap-1">
                             {list.tags.slice(0, 3).map((tag) => (
-                              <span
+                              <button
                                 key={tag}
-                                className="px-2 py-1 bg-gold-100 text-gold-700 text-xs rounded-full"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  handleTagClick(tag)
+                                }}
+                                className={`px-2 py-1 text-xs rounded-full transition-colors ${
+                                  selectedTags.includes(tag)
+                                    ? 'bg-gold-200 text-gold-800 border border-gold-300'
+                                    : 'bg-gold-100 text-gold-700 hover:bg-gold-200'
+                                }`}
                               >
                                 #{tag}
-                              </span>
+                              </button>
                             ))}
                           </div>
                         </div>

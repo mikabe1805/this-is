@@ -34,6 +34,8 @@ interface SearchAndFilterProps {
   setSortBy: (key: string) => void
   activeFilters: string[]
   setActiveFilters: (filters: string[]) => void
+  selectedTags?: string[]
+  setSelectedTags?: (tags: string[]) => void
   onLocationSelect?: (location: Location) => void
   // Positioning
   dropdownPosition?: 'top-right' | 'bottom-right' | 'center'
@@ -55,6 +57,8 @@ const SearchAndFilter: React.FC<SearchAndFilterProps> = ({
   setSortBy,
   activeFilters,
   setActiveFilters,
+  selectedTags = [],
+  setSelectedTags,
   onLocationSelect,
   dropdownPosition = 'top-right'
 }) => {
@@ -123,7 +127,8 @@ const SearchAndFilter: React.FC<SearchAndFilterProps> = ({
             <input
               type="text"
               placeholder={placeholder}
-              value={value}
+              value={onChange ? value : undefined}
+              defaultValue={!onChange ? value : undefined}
               onChange={onChange}
               onFocus={onFocus}
               className="w-full pl-12 pr-4 py-3 bg-white/80 backdrop-blur-sm border border-linen-200 rounded-2xl text-charcoal-600 placeholder-charcoal-400 focus:outline-none focus:ring-2 focus:ring-sage-200 focus:border-sage-300 shadow-soft transition-all duration-300"
@@ -150,6 +155,8 @@ const SearchAndFilter: React.FC<SearchAndFilterProps> = ({
         setSortBy={handleSortByChange}
         activeFilters={activeFilters}
         setActiveFilters={setActiveFilters}
+        selectedTags={selectedTags}
+        setSelectedTags={setSelectedTags}
         show={showDropdown}
         onClose={() => setShowDropdown(false)}
         anchorRect={filterButtonRef.current?.getBoundingClientRect() || null}

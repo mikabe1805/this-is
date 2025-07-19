@@ -11,7 +11,7 @@ interface EditListModalProps {
     privacy: 'public' | 'private' | 'friends'
     tags: string[]
     coverImage: string
-  }
+  } | null
   onSave: (listData: {
     name: string
     description: string
@@ -19,21 +19,23 @@ interface EditListModalProps {
     tags: string[]
     coverImage?: string
   }) => void
+  onDelete?: (list: any) => void
+  onPrivacyChange?: (listId: string, newPrivacy: 'public' | 'private' | 'friends') => void
 }
 
 const EditListModal = ({ isOpen, onClose, list, onSave }: EditListModalProps) => {
   const [formData, setFormData] = useState({
-    name: list.name,
-    description: list.description,
-    privacy: list.privacy,
-    tags: [...list.tags],
-    coverImage: list.coverImage
+    name: '',
+    description: '',
+    privacy: 'public' as const,
+    tags: [] as string[],
+    coverImage: ''
   })
   const [newTag, setNewTag] = useState('')
   const [isSaving, setIsSaving] = useState(false)
 
   useEffect(() => {
-    if (isOpen) {
+    if (isOpen && list) {
       setFormData({
         name: list.name,
         description: list.description,
@@ -83,7 +85,7 @@ const EditListModal = ({ isOpen, onClose, list, onSave }: EditListModalProps) =>
     }
   }
 
-  if (!isOpen) return null
+  if (!isOpen || !list) return null
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">

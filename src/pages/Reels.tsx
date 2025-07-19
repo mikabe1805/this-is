@@ -3,7 +3,7 @@ import { HeartIcon, ChatBubbleLeftIcon, ShareIcon, BookmarkIcon, PlayIcon, Pause
 import { HeartIcon as HeartIconSolid, BookmarkIcon as BookmarkIconSolid } from '@heroicons/react/24/solid'
 import { useNavigation } from '../contexts/NavigationContext.tsx'
 import CommentsModal from '../components/CommentsModal.tsx'
-import SaveToListModal from '../components/SaveToListModal.tsx'
+import SaveModal from '../components/SaveModal.tsx'
 import ProfileModal from '../components/ProfileModal.tsx'
 import HubModal from '../components/HubModal.tsx'
 import ImageCarousel from '../components/ImageCarousel.tsx'
@@ -342,12 +342,21 @@ const Reels = () => {
   }
 
   const handleSave = (reelId: string) => {
+    console.log('Reels: Save button clicked for reel:', reelId)
+    console.log('Reels: Setting showSaveModal to true')
     setShowSaveModal(true)
   }
 
-  const handleSaveToList = (listId: string, note?: string) => {
-    // In real app, this would save the place to the selected list
-    console.log('Saving to list:', listId, 'with note:', note)
+  const handleSaveToPlace = (place: Place) => {
+    console.log('Reels: handleSaveToPlace called with place:', place.name)
+    // This will be called by SaveModal when user wants to save
+    setShowSaveModal(true)
+  }
+
+  const handleSavePlace = (status: 'loved' | 'tried' | 'want', rating?: 'liked' | 'neutral' | 'disliked', listIds?: string[], note?: string) => {
+    console.log('Reels: handleSavePlace called with status:', status, 'rating:', rating, 'listIds:', listIds, 'note:', note)
+    // In real app, this would save the place with the given status
+    console.log('Saving place with status:', status, 'rating:', rating, 'listIds:', listIds, 'note:', note)
     setSavedReels(prev => {
       const newSet = new Set(prev)
       newSet.add(currentReel.id)
@@ -356,10 +365,9 @@ const Reels = () => {
     setShowSaveModal(false)
   }
 
-  const handleCreateList = (listData: { name: string; description: string; privacy: 'public' | 'private' | 'friends'; tags: string[] }) => {
-    // In real app, this would create a new list and save the place to it
+  const handleCreateList = (listData: { name: string; description: string; privacy: 'public' | 'private' | 'friends'; tags?: string[]; coverImage?: string }) => {
+    // In real app, this would create a new list
     console.log('Creating new list:', listData)
-    setShowSaveModal(false)
   }
 
   const handleFollow = (userId: string) => {
@@ -565,7 +573,7 @@ const Reels = () => {
     )
   }
 
-  // Convert reel to place object for SaveToListModal
+  // Convert reel to place object for SaveModal
   const getPlaceFromReel = (reel: Reel): Place => ({
     id: reel.id,
     name: reel.place.name,
@@ -859,13 +867,13 @@ const Reels = () => {
         currentUserId="current-user"
       />
 
-      {/* Save to List Modal */}
-      <SaveToListModal
+      {/* Save Modal */}
+      <SaveModal
         isOpen={showSaveModal}
         onClose={() => setShowSaveModal(false)}
         place={getPlaceFromReel(currentReel)}
         userLists={mockUserLists}
-        onSave={handleSaveToList}
+        onSave={handleSavePlace}
         onCreateList={handleCreateList}
       />
 

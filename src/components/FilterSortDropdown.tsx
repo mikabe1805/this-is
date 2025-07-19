@@ -26,6 +26,8 @@ interface FilterSortDropdownProps {
   setSortBy: (key: string) => void
   activeFilters: string[]
   setActiveFilters: (filters: string[]) => void
+  selectedTags?: string[]
+  setSelectedTags?: (tags: string[]) => void
   show: boolean
   onClose: () => void
   anchorRect?: DOMRect | null
@@ -42,6 +44,8 @@ const FilterSortDropdown: React.FC<FilterSortDropdownProps> = ({
   setSortBy,
   activeFilters,
   setActiveFilters,
+  selectedTags = [],
+  setSelectedTags,
   show,
   onClose,
   anchorRect,

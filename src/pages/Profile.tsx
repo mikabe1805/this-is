@@ -328,7 +328,16 @@ const Profile = () => {
         {/* Profile Tags */}
         <div className="flex flex-wrap gap-2 mt-4">
           {profileTags.map(tag => (
-            <span key={tag} className="px-4 py-2 rounded-full text-sm font-medium bg-sage-50 border border-sage-100 text-sage-700 shadow-soft transition hover:bg-sage-100 hover:shadow-botanical">#{tag}</span>
+            <button
+              key={tag}
+              onClick={() => {
+                // Navigate to search page with tag filter
+                navigate(`/search?tag=${tag}`)
+              }}
+              className="px-4 py-2 rounded-full text-sm font-medium bg-sage-50 border border-sage-100 text-sage-700 shadow-soft transition hover:bg-sage-100 hover:shadow-botanical"
+            >
+              #{tag}
+            </button>
           ))}
           <form
             onSubmit={e => {
@@ -437,7 +446,16 @@ const Profile = () => {
                     <p className="text-sm text-charcoal-500 mb-2 leading-relaxed break-words">{list.description}</p>
                     <div className="flex flex-wrap gap-2 mb-2">
                       {list.tags.filter(tag => tag !== 'auto-generated').map(tag => (
-                        <span key={tag} className="px-3 py-1 rounded-full text-xs font-medium bg-sage-50 border border-sage-100 text-sage-700 transition hover:bg-sage-100 hover:shadow-botanical">#{tag}</span>
+                        <button
+                          key={tag}
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            navigate(`/search?tag=${tag}`)
+                          }}
+                          className="px-3 py-1 rounded-full text-xs font-medium bg-sage-50 border border-sage-100 text-sage-700 transition hover:bg-sage-100 hover:shadow-botanical"
+                        >
+                          #{tag}
+                        </button>
                       ))}
                     </div>
                   </div>
