@@ -9,6 +9,7 @@ import UserMenuDropdown from '../components/UserMenuDropdown'
 import GoogleMapsImportModal from '../components/GoogleMapsImportModal'
 import { useNavigate } from 'react-router-dom'
 import { useNavigation } from '../contexts/NavigationContext.tsx'
+import { useAuth } from '../contexts/AuthContext.tsx'
 
 // SVG botanical accent (e.g., eucalyptus branch)
 const BotanicalAccent = () => (
@@ -38,6 +39,8 @@ const mockComments = [
 
 const Profile = () => {
   const { openListModal } = useNavigation()
+  const { currentUser: authUser, logout } = useAuth()
+  const navigate = useNavigate()
   
   // Mock user data
   const currentUser: User = {
@@ -260,7 +263,14 @@ const Profile = () => {
     // This would create a new list with the imported places
   }
 
-  const navigate = useNavigate()
+  const handleLogout = async () => {
+    try {
+      await logout()
+      navigate('/')
+    } catch (error) {
+      console.error('Logout error:', error)
+    }
+  }
 
   return (
     <div className="relative min-h-full overflow-x-hidden bg-linen-50">
@@ -637,6 +647,7 @@ const Profile = () => {
           navigate('/settings')
         }}
         onImportFromGoogleMaps={handleImportFromGoogleMaps}
+        onLogout={handleLogout}
       />
 
       <GoogleMapsImportModal

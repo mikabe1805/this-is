@@ -24,8 +24,8 @@ html, body {
   background: #fdf8f3;
   font-family: 'Inter', system-ui, sans-serif;
   color: #4e3521;
-  overflow: hidden;
-  height: 100vh;
+  overflow-y: auto;
+  min-height: 100vh;
 }
 
 h1, h2, h3, h4, h5, h6, .font-serif, .logo {

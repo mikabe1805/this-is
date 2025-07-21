@@ -2,6 +2,7 @@ import { Routes, Route, useNavigate, useLocation } from 'react-router-dom'
 import { useState, useEffect } from 'react'
 import { NavigationProvider, useNavigation } from './contexts/NavigationContext.tsx'
 import { ModalProvider, useModal } from './contexts/ModalContext.tsx'
+import { AuthProvider, useAuth } from './contexts/AuthContext.tsx'
 import Navbar from './components/Navbar.tsx'
 import CreatePost from './components/CreatePost.tsx'
 import CreateListModal from './components/CreateListModal.tsx'
@@ -22,14 +23,16 @@ import Reels from './pages/Reels.tsx'
 import PlaceHub from './pages/PlaceHub.tsx'
 import UserProfile from './pages/UserProfile.tsx'
 import Demo from './pages/Demo.tsx'
+import Auth from './pages/Auth.tsx'
 
-function App() {
+function AppContent() {
   const [activeTab, setActiveTab] = useState('home')
   const [showCreatePost, setShowCreatePost] = useState(false)
   const [showEmbedFromModal, setShowEmbedFromModal] = useState(false)
   const [showCreateList, setShowCreateList] = useState(false)
   const navigate = useNavigate()
   const location = useLocation()
+  const { currentUser } = useAuth()
 
   // Update active tab based on current route
   useEffect(() => {
@@ -87,6 +90,11 @@ function App() {
       default:
         navigate('/')
     }
+  }
+
+  // If user is not authenticated, show auth page
+  if (!currentUser) {
+    return <Auth />
   }
 
   return (
@@ -356,6 +364,14 @@ const HubModalWrapper = () => {
         openCreatePostModal(hub);
       }}
     />
+  )
+}
+
+function App() {
+  return (
+    <AuthProvider>
+      <AppContent />
+    </AuthProvider>
   )
 }
 

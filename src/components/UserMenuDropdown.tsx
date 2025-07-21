@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react'
 import { createPortal } from 'react-dom'
-import { EllipsisHorizontalIcon, UserIcon, Cog6ToothIcon, HeartIcon, MapIcon } from '@heroicons/react/24/outline'
+import { EllipsisHorizontalIcon, UserIcon, Cog6ToothIcon, HeartIcon, MapIcon, ArrowRightOnRectangleIcon } from '@heroicons/react/24/outline'
 import { useNavigate } from 'react-router-dom'
 
 interface UserMenuDropdownProps {
@@ -10,6 +10,7 @@ interface UserMenuDropdownProps {
   onViewFollowing?: () => void
   onUserSettings?: () => void
   onImportFromGoogleMaps?: () => void
+  onLogout?: () => void
   buttonRef?: React.RefObject<HTMLButtonElement | null>
 }
 
@@ -20,6 +21,7 @@ const UserMenuDropdown: React.FC<UserMenuDropdownProps> = ({
   onViewFollowing,
   onUserSettings,
   onImportFromGoogleMaps,
+  onLogout,
   buttonRef
 }) => {
   const navigate = useNavigate()
@@ -79,6 +81,16 @@ const UserMenuDropdown: React.FC<UserMenuDropdownProps> = ({
     } else {
       // Default behavior - could navigate to import page
       console.log('Import from Google Maps')
+    }
+    onClose()
+  }
+
+  const handleLogout = () => {
+    if (onLogout) {
+      onLogout()
+    } else {
+      // Default behavior - could navigate to logout
+      console.log('Logout')
     }
     onClose()
   }
@@ -177,6 +189,16 @@ const UserMenuDropdown: React.FC<UserMenuDropdownProps> = ({
           >
             <MapIcon className="w-5 h-5 text-sage-600" />
             <span className="font-medium">Import from Google Maps</span>
+          </button>
+
+          <div className="border-t border-linen-200 my-1"></div>
+
+          <button
+            onClick={handleLogout}
+            className="w-full flex items-center gap-3 px-4 py-3 text-left text-red-600 hover:bg-red-50 transition-colors"
+          >
+            <ArrowRightOnRectangleIcon className="w-5 h-5 text-red-500" />
+            <span className="font-medium">Sign Out</span>
           </button>
         </div>
       </div>
