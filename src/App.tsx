@@ -34,6 +34,32 @@ function AppContent() {
   const location = useLocation()
   const { currentUser } = useAuth()
 
+  // Prevent scroll when touching navbar area (but allow button interactions)
+  useEffect(() => {
+    const handleTouchMove = (e: TouchEvent) => {
+      const target = e.target as HTMLElement
+      const nav = target.closest('nav')
+      if (nav && !target.closest('button')) {
+        e.preventDefault()
+      }
+    }
+
+    const handleWheel = (e: WheelEvent) => {
+      const target = e.target as HTMLElement
+      if (target.closest('nav')) {
+        e.preventDefault()
+      }
+    }
+
+    document.addEventListener('touchmove', handleTouchMove, { passive: false })
+    document.addEventListener('wheel', handleWheel, { passive: false })
+
+    return () => {
+      document.removeEventListener('touchmove', handleTouchMove)
+      document.removeEventListener('wheel', handleWheel)
+    }
+  }, [])
+
   // Update active tab based on current route
   useEffect(() => {
     const path = location.pathname
@@ -104,7 +130,9 @@ function AppContent() {
           <div className="max-w-md mx-auto bg-white/90 backdrop-blur-glass h-screen shadow-crystal border border-white/30 overflow-hidden">
             <div className="flex flex-col h-full">
               {/* Main Content Area */}
-              <main className="flex-1 overflow-y-auto">
+              <main className={`flex-1 overflow-x-hidden pb-28 ${
+                location.pathname === '/reels' ? 'overflow-hidden overscroll-none' : 'overflow-y-auto'
+              }`}>
                 <Routes>
                   <Route path="/" element={<Home />} />
                   <Route path="/home" element={<Home />} />

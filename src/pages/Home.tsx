@@ -472,7 +472,7 @@ const Home = () => {
   }
 
   return (
-    <div className="min-h-full relative bg-linen-50">
+    <div className="min-h-full relative bg-linen-50 overflow-x-hidden">
       {/* Enhanced background: linen texture, sunlight gradient, vignette */}
       <div className="absolute inset-0 z-0 pointer-events-none">
         <div className="absolute inset-0 bg-linen-texture opacity-80 mix-blend-multiply"></div>
@@ -541,7 +541,7 @@ const Home = () => {
         </div>
       </div>
       {/* Content */}
-      <div className="relative z-10 px-8 pb-8 max-w-2xl mx-auto">
+      <div className="relative z-10 px-8 pb-8 max-w-2xl mx-auto overflow-x-hidden">
         {activeTab === 'friends' ? (
           /* Friends Tab */
           <div className="space-y-6">

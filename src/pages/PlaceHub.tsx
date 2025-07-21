@@ -244,7 +244,7 @@ const PlaceHub = () => {
   }
 
   return (
-    <div className="min-h-full bg-gradient-to-br from-[#FEF6E9] via-[#FBF0D9] to-[#F7E8CC] relative overflow-hidden">
+    <div className="min-h-full bg-gradient-to-br from-[#FEF6E9] via-[#FBF0D9] to-[#F7E8CC] relative overflow-hidden overflow-x-hidden">
       {/* Botanical Accents - Matching HubModal Style */}
       <div className="absolute inset-0 pointer-events-none z-0 overflow-hidden">
         {/* Primary climbing vine - larger and warmer */}

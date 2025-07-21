@@ -1,5 +1,5 @@
 import type { Place, List, Hub } from '../types/index.js'
-import { MapPinIcon, BookmarkIcon, StarIcon, TrendingUpIcon, FireIcon, EllipsisHorizontalIcon } from '@heroicons/react/24/outline'
+import { MapPinIcon, BookmarkIcon, StarIcon, FireIcon, EllipsisHorizontalIcon } from '@heroicons/react/24/outline'
 import { useState } from 'react'
 import SearchAndFilter from './SearchAndFilter'
 import HubModal from './HubModal'

@@ -314,6 +314,18 @@ const Reels = () => {
     }
   }, [currentReelIndex])
 
+  // Prevent body scrolling when Reels page is active
+  useEffect(() => {
+    const originalStyle = window.getComputedStyle(document.body).overflow
+    document.body.style.overflow = 'hidden'
+    document.body.style.overscrollBehavior = 'none'
+    
+    return () => {
+      document.body.style.overflow = originalStyle
+      document.body.style.overscrollBehavior = 'auto'
+    }
+  }, [])
+
   const handleVideoClick = () => {
     const video = videoRefs.current[currentReelIndex]
     if (video) {
@@ -590,9 +602,23 @@ const Reels = () => {
   return (
     <div 
       ref={containerRef}
-      className="h-full bg-black relative overflow-hidden"
+      className="h-screen bg-black relative overflow-hidden overscroll-none"
       onWheel={handleWheel}
       onTouchStart={handleTouchStart}
+      style={{ 
+        height: '100vh', 
+        position: 'fixed', 
+        top: 0, 
+        left: '50%', 
+        transform: 'translateX(-50%)',
+        width: '100%',
+        maxWidth: '28rem',
+        bottom: 0,
+        zIndex: 10,
+        overflow: 'hidden',
+        overscrollBehavior: 'none'
+      }}
+      data-reels-page="true"
     >
       {/* Tab Navigation */}
       <div className="absolute top-0 left-0 right-0 z-20 bg-gradient-to-b from-black/50 to-transparent pt-12 pb-4">

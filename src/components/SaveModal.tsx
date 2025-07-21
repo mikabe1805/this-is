@@ -164,7 +164,7 @@ const SaveModal: React.FC<SaveModalProps> = ({
   console.log('SaveModal: Rendering modal content')
   const modalContent = (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/20 backdrop-blur-sm">
-      <div className="w-full max-w-md max-h-[90vh] rounded-2xl shadow-botanical border border-linen-200 bg-white overflow-hidden flex flex-col">
+      <div className="w-full max-w-md max-h-[80vh] rounded-2xl shadow-botanical border border-linen-200 bg-white overflow-hidden flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-linen-200 flex-shrink-0">
           <h2 className="text-lg font-serif font-semibold text-charcoal-700">Save Place</h2>

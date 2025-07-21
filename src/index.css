@@ -24,8 +24,12 @@ html, body {
   background: #fdf8f3;
   font-family: 'Inter', system-ui, sans-serif;
   color: #4e3521;
-  overflow-y: auto;
-  min-height: 100vh;
+  overflow-x: hidden;
+  height: 100vh;
+  width: 100%;
+  /* Mobile viewport fixes */
+  height: 100dvh;
+  min-height: 100dvh;
 }
 
 h1, h2, h3, h4, h5, h6, .font-serif, .logo {
@@ -43,8 +47,10 @@ h1, h2, h3, h4, h5, h6, .font-serif, .logo {
 body {
   margin: 0;
   min-width: 320px;
-  min-height: 100vh;
+  height: 100vh;
   background-color: #fdf8f3;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: none;
 }
 
 /* Debug styles to ensure content is visible */
@@ -79,4 +85,119 @@ body {
 
 .shadow-warm-200 {
   box-shadow: 0 4px 20px rgba(231, 160, 122, 0.2);
+}
+
+/* Mobile optimizations */
+@media (max-width: 768px) {
+  /* Prevent horizontal scroll on mobile */
+  * {
+    max-width: 100vw;
+    box-sizing: border-box;
+  }
+
+  /* Disable outer page scroll */
+  html, body {
+    overflow-y: hidden !important;
+    overscroll-behavior-y: none !important;
+    height: 100dvh !important;
+  }
+
+  /* Improve touch scrolling inside inner containers */
+  .overflow-y-auto {
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+  }
+
+  /* Prevent zoom on input focus */
+  input, textarea, select {
+    font-size: 16px;
+  }
+
+  /* Optimize animations for mobile */
+  * {
+    will-change: auto;
+  }
+
+  /* Ensure navbar is always visible */
+  nav {
+    position: fixed !important;
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 40px) !important;
+    z-index: 50 !important;
+    width: 100% !important;
+    max-width: 28rem !important;
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+    touch-action: pan-x !important;
+    pointer-events: auto !important;
+  }
+  
+  /* Allow button interactions in navbar */
+  nav button {
+    touch-action: manipulation !important;
+    pointer-events: auto !important;
+  }
+  
+  /* Add safe area padding for devices with home indicators */
+  @supports (padding-bottom: env(safe-area-inset-bottom)) {
+    nav {
+      padding-bottom: calc(env(safe-area-inset-bottom) + 0.5rem);
+    }
+  }
+  
+  /* Additional padding for mobile browser testing */
+  main {
+    padding-bottom: 7rem !important;
+    padding-top: env(safe-area-inset-top, 0px) !important;
+    overscroll-behavior: contain !important;
+  }
+  
+  /* Prevent content from scrolling below navbar */
+  main > * {
+    max-height: calc(100vh - 7rem - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 40px) !important;
+    overflow-y: auto !important;
+  }
+  
+  /* Reels page specific styles */
+  main:has([data-reels-page]) {
+    padding-bottom: 0 !important;
+    overflow: hidden !important;
+    overscroll-behavior: none !important;
+  }
+  
+  /* Ensure reels page container prevents all scrolling */
+  [data-reels-page="true"] {
+    overflow: hidden !important;
+    overscroll-behavior: none !important;
+    touch-action: pan-y !important;
+  }
+  
+  /* Prevent body scrolling when reels page is active */
+  body:has([data-reels-page="true"]) {
+    overflow: hidden !important;
+    overscroll-behavior: none !important;
+  }
+  
+  /* Modal positioning for mobile */
+  .fixed.inset-0 {
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 40px);
+  }
+  
+  /* Ensure modals don't get cut off */
+  [class*="max-h-\[90vh\]"] {
+    max-height: 75vh !important;
+  }
+  
+  [class*="max-h-\[80vh\]"] {
+    max-height: 70vh !important;
+  }
+  
+  /* Reduce motion for better performance */
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
 }

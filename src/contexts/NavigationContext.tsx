@@ -1,7 +1,8 @@
-import React, { createContext, useContext, useState, ReactNode } from 'react'
+import React, { createContext, useContext, useState } from 'react'
+import type { ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { navigationHistory } from '../utils/navigationHistory.js'
-import type { Hub, List, Place } from '../types/index.js'
+import type { Hub, List } from '../types/index.js'
 
 interface NavigationContextType {
   // Modal states

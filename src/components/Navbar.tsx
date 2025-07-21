@@ -22,7 +22,12 @@ const Navbar = ({ activeTab, setActiveTab, onCreatePost, onEmbedFrom }: NavbarPr
   }
 
   return (
-    <nav className="bg-white/90 backdrop-blur-glass border-t border-linen-200/50 shadow-crystal">
+    <nav 
+      className="fixed bottom-0 left-1/2 transform -translate-x-1/2 w-full max-w-md bg-white/90 backdrop-blur-glass border-t border-linen-200/50 shadow-crystal z-50" 
+      style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 40px)' }}
+      onTouchMove={(e) => e.preventDefault()}
+      onWheel={(e) => e.preventDefault()}
+    >
       <div className="flex items-center py-2 px-4">
         {/* Left side tabs */}
         <div className="flex flex-1 justify-around">
