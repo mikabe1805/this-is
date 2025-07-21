@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react'
 import { createPortal } from 'react-dom'
-import { EllipsisHorizontalIcon, UserIcon, Cog6ToothIcon, HeartIcon } from '@heroicons/react/24/outline'
+import { EllipsisHorizontalIcon, UserIcon, Cog6ToothIcon, HeartIcon, MapIcon } from '@heroicons/react/24/outline'
 import { useNavigate } from 'react-router-dom'
 
 interface UserMenuDropdownProps {
@@ -9,6 +9,7 @@ interface UserMenuDropdownProps {
   onEditProfile?: () => void
   onViewFollowing?: () => void
   onUserSettings?: () => void
+  onImportFromGoogleMaps?: () => void
   buttonRef?: React.RefObject<HTMLButtonElement | null>
 }
 
@@ -18,6 +19,7 @@ const UserMenuDropdown: React.FC<UserMenuDropdownProps> = ({
   onEditProfile,
   onViewFollowing,
   onUserSettings,
+  onImportFromGoogleMaps,
   buttonRef
 }) => {
   const navigate = useNavigate()
@@ -67,6 +69,16 @@ const UserMenuDropdown: React.FC<UserMenuDropdownProps> = ({
     } else {
       // Default behavior - navigate to settings page
       navigate('/settings')
+    }
+    onClose()
+  }
+
+  const handleImportFromGoogleMaps = () => {
+    if (onImportFromGoogleMaps) {
+      onImportFromGoogleMaps()
+    } else {
+      // Default behavior - could navigate to import page
+      console.log('Import from Google Maps')
     }
     onClose()
   }
@@ -157,6 +169,14 @@ const UserMenuDropdown: React.FC<UserMenuDropdownProps> = ({
           >
             <Cog6ToothIcon className="w-5 h-5 text-sage-600" />
             <span className="font-medium">User Settings</span>
+          </button>
+          
+          <button
+            onClick={handleImportFromGoogleMaps}
+            className="w-full flex items-center gap-3 px-4 py-3 text-left text-charcoal-700 hover:bg-sage-50 transition-colors"
+          >
+            <MapIcon className="w-5 h-5 text-sage-600" />
+            <span className="font-medium">Import from Google Maps</span>
           </button>
         </div>
       </div>

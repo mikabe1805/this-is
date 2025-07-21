@@ -6,6 +6,7 @@ import SaveModal from '../components/SaveModal'
 import LocationSelectModal from '../components/LocationSelectModal'
 import CreatePost from '../components/CreatePost'
 import UserMenuDropdown from '../components/UserMenuDropdown'
+import GoogleMapsImportModal from '../components/GoogleMapsImportModal'
 import { useNavigate } from 'react-router-dom'
 import { useNavigation } from '../contexts/NavigationContext.tsx'
 
@@ -166,6 +167,7 @@ const Profile = () => {
   const [selectedLocation, setSelectedLocation] = useState<{ id: string; name: string; address: string; coordinates: { lat: number; lng: number } } | null>(null)
   const [createPostListId, setCreatePostListId] = useState<string | null>(null)
   const [showUserMenu, setShowUserMenu] = useState(false)
+  const [showGoogleMapsImport, setShowGoogleMapsImport] = useState(false)
   const userMenuButtonRef = useRef<HTMLButtonElement | null>(null)
   
   let filteredLists = userLists.filter(list => {
@@ -246,6 +248,16 @@ const Profile = () => {
   const handleCreatePost = (listId?: string) => {
     setCreatePostListId(listId || null)
     setShowCreatePost(true)
+  }
+
+  const handleImportFromGoogleMaps = () => {
+    setShowGoogleMapsImport(true)
+  }
+
+  const handleGoogleMapsImport = (importData: any) => {
+    console.log('Importing from Google Maps:', importData)
+    // TODO: Implement actual import logic
+    // This would create a new list with the imported places
   }
 
   const navigate = useNavigate()
@@ -624,6 +636,13 @@ const Profile = () => {
         onUserSettings={() => {
           navigate('/settings')
         }}
+        onImportFromGoogleMaps={handleImportFromGoogleMaps}
+      />
+
+      <GoogleMapsImportModal
+        isOpen={showGoogleMapsImport}
+        onClose={() => setShowGoogleMapsImport(false)}
+        onImport={handleGoogleMapsImport}
       />
 
 

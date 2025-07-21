@@ -1,13 +1,15 @@
-import { HomeIcon, MagnifyingGlassIcon, PhotoIcon, UserIcon, PlusIcon } from '@heroicons/react/24/outline'
+import { HomeIcon, MagnifyingGlassIcon, PhotoIcon, UserIcon } from '@heroicons/react/24/outline'
 import { HomeIcon as HomeIconSolid, MagnifyingGlassIcon as MagnifyingGlassIconSolid, PhotoIcon as PhotoIconSolid, UserIcon as UserIconSolid } from '@heroicons/react/24/solid'
+import PlusDropdown from './PlusDropdown'
 
 interface NavbarProps {
   activeTab: string
   setActiveTab: (tab: string) => void
   onCreatePost: () => void
+  onEmbedFrom?: () => void
 }
 
-const Navbar = ({ activeTab, setActiveTab, onCreatePost }: NavbarProps) => {
+const Navbar = ({ activeTab, setActiveTab, onCreatePost, onEmbedFrom }: NavbarProps) => {
   const tabs = [
     { id: 'home', label: 'Home', icon: HomeIcon, activeIcon: HomeIconSolid },
     { id: 'search', label: 'Search', icon: MagnifyingGlassIcon, activeIcon: MagnifyingGlassIconSolid },
@@ -56,12 +58,13 @@ const Navbar = ({ activeTab, setActiveTab, onCreatePost }: NavbarProps) => {
 
         {/* Center create post button */}
         <div className="flex justify-center mx-4">
-          <button
-            onClick={handleCreatePost}
-            className="w-14 h-14 bg-gradient-to-r from-sage-500 to-gold-500 rounded-full flex items-center justify-center text-white shadow-soft hover:shadow-lg transition-all duration-300 transform hover:scale-105 -mt-4"
-          >
-            <PlusIcon className="w-7 h-7" />
-          </button>
+          <div className="-mt-4">
+            <PlusDropdown 
+              onCreatePost={onCreatePost}
+              onEmbedFrom={onEmbedFrom}
+              variant="main"
+            />
+          </div>
         </div>
 
         {/* Right side tabs */}

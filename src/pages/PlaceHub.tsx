@@ -244,83 +244,152 @@ const PlaceHub = () => {
   }
 
   return (
-    <div className="min-h-full bg-gradient-to-br from-cream-50 to-coral-50">
+    <div className="min-h-full bg-gradient-to-br from-[#FEF6E9] via-[#FBF0D9] to-[#F7E8CC] relative overflow-hidden">
+      {/* Botanical Accents - Matching HubModal Style */}
+      <div className="absolute inset-0 pointer-events-none z-0 overflow-hidden">
+        {/* Primary climbing vine - larger and warmer */}
+        <div className="absolute bottom-0 left-0 h-full w-12 sm:w-14 md:w-16 pointer-events-none">
+          <img
+            src="/assets/leaf2.png"
+            alt=""
+            className="absolute bottom-0 left-0 h-full w-full object-contain opacity-8 sm:opacity-10 pointer-events-none blur-[0.5px] sm:blur-[0.3px]"
+            style={{
+              transform: 'scaleY(1.2) translateY(-12%) rotate(-5deg)',
+              filter: 'brightness(0.8) contrast(0.9) saturate(1.1) hue-rotate(5deg)'
+            }}
+          />
+        </div>
+        
+        {/* Secondary vine - positioned to avoid overlap */}
+        <div className="absolute top-56 sm:top-64 right-0 h-[calc(100%-14rem)] sm:h-[calc(100%-16rem)] w-8 sm:w-10 md:w-12 pointer-events-none">
+          <img
+            src="/assets/leaf2.png"
+            alt=""
+            className="absolute top-0 right-0 h-full w-full object-contain opacity-6 sm:opacity-8 pointer-events-none blur-[0.4px] sm:blur-[0.2px]"
+            style={{
+              transform: 'scaleY(1.1) translateY(-8%) rotate(8deg)',
+              filter: 'brightness(0.9) contrast(0.8) saturate(1.0) hue-rotate(-3deg)'
+            }}
+          />
+        </div>
+        
+        {/* Connected Leaf Clusters - Cozy and Intertwined */}
+        <img
+          src="/assets/leaf2.png"
+          alt=""
+          className="absolute top-6 sm:top-8 md:top-10 left-4 sm:left-6 md:left-8 w-12 h-12 sm:w-14 sm:h-14 md:w-16 md:h-16 lg:w-18 lg:h-18 opacity-15 sm:opacity-18 md:opacity-20 pointer-events-none blur-[0.3px] sm:blur-[0.2px]"
+          style={{
+            transform: 'rotate(-25deg) scale(0.8)',
+            filter: 'brightness(0.9) contrast(0.9) saturate(1.1) hue-rotate(8deg)'
+          }}
+        />
+        
+        <img
+          src="/assets/leaf2.png"
+          alt=""
+          className="absolute top-8 sm:top-10 md:top-12 left-6 sm:left-8 md:left-10 w-10 h-10 sm:w-12 sm:h-12 md:w-14 md:h-14 lg:w-16 lg:h-16 opacity-12 sm:opacity-15 md:opacity-18 pointer-events-none blur-[0.4px] sm:blur-[0.3px]"
+          style={{
+            transform: 'rotate(15deg) scale(0.7)',
+            filter: 'brightness(1.0) contrast(0.8) saturate(1.0) hue-rotate(-5deg)'
+          }}
+        />
+        
+        <img
+          src="/assets/leaf2.png"
+          alt=""
+          className="absolute top-44 sm:top-48 md:top-52 left-3 sm:left-4 w-14 h-14 sm:w-16 sm:h-16 md:w-18 md:h-18 lg:w-20 lg:h-20 opacity-12 sm:opacity-15 md:opacity-18 pointer-events-none blur-[0.4px] sm:blur-[0.3px]"
+          style={{
+            transform: 'rotate(35deg) scale(0.9)',
+            filter: 'brightness(1.0) contrast(0.8) saturate(1.0) hue-rotate(-5deg)'
+          }}
+        />
+        
+        <img
+          src="/assets/leaf2.png"
+          alt=""
+          className="absolute bottom-4 sm:bottom-6 md:bottom-8 right-3 sm:right-4 md:right-6 w-16 h-16 sm:w-18 sm:h-18 md:w-20 md:h-20 lg:w-22 lg:h-22 opacity-15 sm:opacity-17 md:opacity-20 pointer-events-none blur-[0.4px] sm:blur-[0.3px]"
+          style={{
+            transform: 'rotate(45deg) scale(1.0)',
+            filter: 'brightness(0.9) contrast(0.9) saturate(1.1) hue-rotate(6deg)'
+          }}
+        />
+      </div>
       {/* Header */}
-      <div className="bg-white/80 backdrop-blur-md border-b border-cream-200 px-6 py-4">
+      <div className="relative z-10 bg-white/98 backdrop-blur-md border-b border-linen-200 px-6 py-4 shadow-soft">
         <div className="flex items-center justify-between mb-4">
           <button 
             onClick={handleBack}
-            className="w-10 h-10 bg-gradient-to-br from-sage-100 to-sage-200 rounded-full flex items-center justify-center shadow-soft hover:shadow-botanical transition"
+            className="w-10 h-10 bg-gradient-to-br from-sage-100 to-sage-200 rounded-full flex items-center justify-center shadow-soft hover:shadow-botanical transition-all duration-300 transform hover:scale-105"
             aria-label="Go back"
           >
             <ArrowLeftIcon className="w-5 h-5 text-sage-600" />
           </button>
-          <h1 className="text-xl font-semibold text-sage-800">{hub.name}</h1>
+          <h1 className="text-xl font-serif font-semibold text-charcoal-700">{hub.name}</h1>
           <button 
             onClick={handleShare}
-            className="w-10 h-10 bg-gradient-to-br from-coral-100 to-coral-200 rounded-full flex items-center justify-center shadow-soft hover:shadow-botanical transition"
+            className="w-10 h-10 bg-gradient-to-br from-gold-100 to-gold-200 rounded-full flex items-center justify-center shadow-soft hover:shadow-botanical transition-all duration-300 transform hover:scale-105"
           >
-            <ShareIcon className="w-5 h-5 text-coral-600" />
+            <ShareIcon className="w-5 h-5 text-gold-600" />
           </button>
         </div>
       </div>
 
-      <div className="p-4 space-y-4 max-w-2xl mx-auto">
+      <div className="relative z-10 p-4 space-y-4 max-w-2xl mx-auto">
         {/* Main Images */}
-        <div className="bg-white/70 backdrop-blur-sm rounded-2xl overflow-hidden shadow-soft border border-cream-200">
-          {hub.mainImage && (
-            <div className="h-96 bg-gradient-to-br from-cream-200 to-coral-200 relative overflow-hidden">
-              <img
-                src={hub.mainImage}
-                alt={hub.name}
-                className="w-full h-full object-cover"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-black/10 to-transparent backdrop-blur-[1px]" />
-              <div className="absolute inset-0 border border-white/20" />
-              
-              {/* Text overlay with enhanced background for better readability */}
-              <div className="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-black/90 via-black/70 to-transparent">
-                <h2 className="text-4xl font-bold text-white mb-4 drop-shadow-lg font-serif">{hub.name}</h2>
-                <div className="flex items-center text-white text-lg mb-4">
-                  <MapPinIcon className="w-6 h-6 mr-3" />
-                  {hub.location.address}
-                </div>
-                <div className="flex items-center gap-4">
-                  <span className="px-4 py-2 bg-white/30 backdrop-blur-sm rounded-full text-white text-sm font-semibold border border-white/20">
-                    {posts.length} posts
-                  </span>
-                  <span className="px-4 py-2 bg-white/30 backdrop-blur-sm rounded-full text-white text-sm font-semibold border border-white/20">
-                    {hub.tags[0] || 'Popular'}
-                  </span>
+        <div className="bg-white/98 backdrop-blur-md rounded-2xl overflow-hidden shadow-botanical border border-linen-200 transition-all duration-300 hover:shadow-cozy hover:-translate-y-1">
+                      {hub.mainImage && (
+              <div className="h-96 bg-gradient-to-br from-linen-200 to-sage-200 relative overflow-hidden">
+                <img
+                  src={hub.mainImage}
+                  alt={hub.name}
+                  className="w-full h-full object-cover"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-black/10 to-transparent backdrop-blur-[1px]" />
+                <div className="absolute inset-0 border border-white/20" />
+                
+                {/* Text overlay with enhanced background for better readability */}
+                <div className="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-black/90 via-black/70 to-transparent">
+                  <h2 className="text-4xl font-bold text-white mb-4 drop-shadow-lg font-serif">{hub.name}</h2>
+                  <div className="flex items-center text-white text-lg mb-4">
+                    <MapPinIcon className="w-6 h-6 mr-3" />
+                    {hub.location.address}
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <span className="px-4 py-2 bg-white/30 backdrop-blur-sm rounded-full text-white text-sm font-semibold border border-white/20">
+                      {posts.length} posts
+                    </span>
+                    <span className="px-4 py-2 bg-white/30 backdrop-blur-sm rounded-full text-white text-sm font-semibold border border-white/20">
+                      {hub.tags[0] || 'Popular'}
+                    </span>
+                  </div>
                 </div>
               </div>
-            </div>
-          )}
+            )}
           <div className="p-6">
-            <p className="text-sage-600 text-sm mb-4">{hub.description}</p>
+            <p className="text-charcoal-600 text-sm mb-4 leading-relaxed">{hub.description}</p>
             <div className="flex flex-wrap gap-2 mb-4">
               {hub.tags.map(tag => (
-                <span key={tag} className="px-3 py-1 text-xs rounded-full bg-coral-100 text-coral-700 font-medium">#{tag}</span>
+                <span key={tag} className="px-3 py-1 text-xs rounded-full bg-sage-100 text-sage-700 font-medium border border-sage-200">#{tag}</span>
               ))}
             </div>
             
-            {/* Enhanced Action Buttons */}
+            {/* Action Buttons - Matching HubModal Style */}
             <div className="grid grid-cols-3 gap-3 mb-8">
               <a 
                 href={hub.googleMapsUrl} 
                 target="_blank" 
                 rel="noopener noreferrer" 
-                className="flex items-center justify-center gap-2 bg-gradient-to-r from-sage-500 to-sage-600 text-white px-4 py-4 rounded-2xl text-sm font-bold shadow-botanical hover:shadow-liquid hover:scale-102 transition-all duration-300 border-2 border-sage-400/20"
+                className="flex-1 flex items-center justify-center gap-2 bg-gradient-to-r from-[#B08968] to-[#9A7B5A] text-[#FEF6E9] px-3 py-3 rounded-xl text-sm font-semibold shadow-lg border border-[#9A7B5A]/30 active:scale-95 transition-all duration-200"
               >
-                <MapPinIcon className="w-5 h-5" />
+                <MapPinIcon className="w-4 h-4" />
                 <span className="hidden sm:inline">Directions</span>
-                <ArrowRightIcon className="w-4 h-4" />
+                <ArrowRightIcon className="w-3 h-3" />
               </a>
               <button 
                 onClick={handleCreatePost}
-                className="flex items-center justify-center gap-2 bg-gradient-to-r from-gold-500 to-gold-600 text-white px-4 py-4 rounded-2xl text-sm font-bold shadow-botanical hover:shadow-liquid hover:scale-102 transition-all duration-300 border-2 border-gold-400/20"
+                className="flex-1 flex items-center justify-center gap-2 bg-gradient-to-r from-[#D4A574] to-[#B08968] text-[#FEF6E9] px-3 py-3 rounded-xl text-sm font-semibold shadow-lg border border-[#B08968]/30 active:scale-95 transition-all duration-200"
               >
-                <PlusIcon className="w-5 h-5" />
+                <PlusIcon className="w-4 h-4" />
                 <span className="hidden sm:inline">Add Post</span>
               </button>
               <button 
@@ -333,35 +402,35 @@ const PlaceHub = () => {
                   savedCount: 0,
                   createdAt: new Date().toISOString()
                 })}
-                className="flex items-center justify-center gap-2 bg-gradient-to-r from-coral-500 to-coral-600 text-white px-4 py-4 rounded-2xl text-sm font-bold shadow-botanical hover:shadow-liquid hover:scale-102 transition-all duration-300 border-2 border-coral-400/20"
+                className="flex-1 flex items-center justify-center gap-2 bg-gradient-to-r from-[#C17F59] to-[#B08968] text-[#FEF6E9] px-3 py-3 rounded-xl text-sm font-semibold shadow-lg border border-[#B08968]/30 active:scale-95 transition-all duration-200"
               >
-                <BookmarkIcon className="w-5 h-5" />
+                <BookmarkIcon className="w-4 h-4" />
                 <span className="hidden sm:inline">Save</span>
               </button>
             </div>
           </div>
         </div>
 
-        {/* Enhanced Tabs with Glass Morphism */}
-        <div className="bg-white/70 backdrop-blur-md rounded-2xl p-3 shadow-botanical border border-white/40 mb-8">
-          <div className="flex gap-3">
+        {/* Tabs - Matching HubModal Style */}
+        <div className="bg-[#E8D4C0]/25 backdrop-blur-sm rounded-xl p-2 shadow-lg border border-[#E8D4C0]/50 mb-8">
+          <div className="flex gap-2">
             <button
-              className={`flex-1 py-5 px-8 rounded-xl font-bold text-lg transition-all duration-300 ${
-                tab === 'overview' 
-                  ? 'bg-gradient-to-r from-sage-500 to-gold-500 text-white shadow-liquid transform scale-102 border-2 border-white/20' 
-                  : 'text-sage-700 hover:text-sage-900 hover:bg-white/60 hover:shadow-soft border-2 border-transparent'
-              }`}
               onClick={() => setTab('overview')}
+              className={`flex-1 py-3 px-4 rounded-lg font-serif font-semibold text-sm transition-all duration-300 ${
+                tab === 'overview' 
+                  ? 'bg-gradient-to-r from-[#B08968] to-[#9A7B5A] text-[#FEF6E9] shadow-lg transform scale-102' 
+                  : 'text-[#7A5D3F] bg-[#FEF6E9]/70'
+              }`}
             >
               Overview
             </button>
             <button
-              className={`flex-1 py-5 px-8 rounded-xl font-bold text-lg transition-all duration-300 ${
-                tab === 'posts' 
-                  ? 'bg-gradient-to-r from-sage-500 to-gold-500 text-white shadow-liquid transform scale-102 border-2 border-white/20' 
-                  : 'text-sage-700 hover:text-sage-900 hover:bg-white/60 hover:shadow-soft border-2 border-transparent'
-              }`}
               onClick={() => setTab('posts')}
+              className={`flex-1 py-3 px-4 rounded-lg font-serif font-semibold text-sm transition-all duration-300 ${
+                tab === 'posts' 
+                  ? 'bg-gradient-to-r from-[#B08968] to-[#9A7B5A] text-[#FEF6E9] shadow-lg transform scale-102' 
+                  : 'text-[#7A5D3F] bg-[#FEF6E9]/70'
+              }`}
             >
               Posts ({posts.length})
             </button>
@@ -370,73 +439,94 @@ const PlaceHub = () => {
 
         {/* Tab Content */}
         {tab === 'overview' && (
-          <div className="space-y-6">
-            <div className="bg-white/70 backdrop-blur-sm rounded-2xl p-4 shadow-soft border border-cream-200">
-              <h3 className="text-lg font-semibold text-sage-800 mb-3">What people are saying</h3>
-              <div className="italic text-sage-700">"The cold brew here is absolutely divine!"</div>
-              {/* TODO: Add real comments */}
-            </div>
-            <div className="bg-white/70 backdrop-blur-sm rounded-2xl p-4 shadow-soft border border-cream-200">
-              <h3 className="text-lg font-semibold text-sage-800 mb-3">Popular Lists</h3>
-              <div className="italic text-sage-700">Book Nooks, All Loved, SF Coffee Tour...</div>
+          <div className="space-y-4 pb-6">
+            {/* Popular Lists */}
+            <div className="bg-[#E8D4C0]/20 backdrop-blur-sm rounded-xl p-4 border border-[#E8D4C0]/40 shadow-lg relative">
+              {/* Mobile-optimized floating leaf accent */}
+              <img
+                src="/assets/leaf.png"
+                alt=""
+                className="absolute top-1 sm:top-2 right-2 sm:right-3 w-6 h-6 sm:w-7 sm:h-7 md:w-8 md:h-8 opacity-15 sm:opacity-18 md:opacity-20 pointer-events-none transition-transform duration-300"
+                style={{
+                  transform: 'rotate(15deg) scale(0.7)',
+                  filter: 'brightness(0.9) contrast(0.8) saturate(1.1) hue-rotate(5deg)'
+                }}
+              />
+              <h3 className="text-lg font-serif font-semibold text-[#5D4A2E] mb-3">Popular Lists</h3>
+              <div className="italic text-[#7A5D3F] font-serif text-sm">Book Nooks, All Loved, SF Coffee Tour...</div>
               <button 
                 onClick={handleViewAllLists}
-                className="mt-2 text-sage-700 hover:underline text-sm font-medium"
+                className="mt-3 text-[#B08968] text-sm font-medium font-serif"
               >
                 See All
               </button>
             </div>
-            <div className="bg-white/70 backdrop-blur-sm rounded-2xl p-4 shadow-soft border border-cream-200">
-              <h3 className="text-lg font-semibold text-sage-800 mb-3">Friends' Lists</h3>
-              <div className="italic text-sage-700">Emma's Favorites, Mika's Coffee Spots...</div>
+
+            {/* Friends' Lists */}
+            <div className="bg-[#E8D4C0]/20 backdrop-blur-sm rounded-xl p-4 border border-[#E8D4C0]/40 shadow-lg relative">
+              {/* Mobile-optimized floating leaf accent */}
+              <img
+                src="/assets/leaf.png"
+                alt=""
+                className="absolute top-1 sm:top-2 left-2 sm:left-3 w-5 h-5 sm:w-6 sm:h-6 opacity-10 sm:opacity-12 md:opacity-15 pointer-events-none transition-transform duration-300"
+                style={{
+                  transform: 'rotate(-20deg) scale(0.6)',
+                  filter: 'brightness(0.9) contrast(0.8) saturate(1.1) hue-rotate(-3deg)'
+                }}
+              />
+              <h3 className="text-lg font-serif font-semibold text-[#5D4A2E] mb-3">Friends' Lists</h3>
+              <div className="italic text-[#7A5D3F] font-serif text-sm">Emma's Favorites, Mika's Coffee Spots...</div>
               <button 
                 onClick={handleViewAllFriendsLists}
-                className="mt-2 text-sage-700 hover:underline text-sm font-medium"
+                className="mt-3 text-[#B08968] text-sm font-medium font-serif"
               >
                 See All
               </button>
+            </div>
+
+            {/* Comments Section */}
+            <div className="bg-[#E8D4C0]/20 backdrop-blur-sm rounded-xl p-4 border border-[#E8D4C0]/40 shadow-lg relative">
+              {/* Mobile-optimized floating leaf accent */}
+              <img
+                src="/assets/leaf.png"
+                alt=""
+                className="absolute bottom-1 sm:bottom-2 right-1 sm:right-2 w-5 h-5 sm:w-6 sm:h-6 md:w-7 md:h-7 opacity-12 sm:opacity-15 md:opacity-18 pointer-events-none transition-transform duration-300"
+                style={{
+                  transform: 'rotate(30deg) scale(0.6)',
+                  filter: 'brightness(0.9) contrast(0.9) saturate(1.1) hue-rotate(2deg)'
+                }}
+              />
+              <h3 className="text-lg font-serif font-semibold text-[#5D4A2E] mb-4">What people are saying</h3>
+              <div className="italic text-[#7A5D3F] font-serif text-sm">"The cold brew here is absolutely divine!"</div>
+              {/* TODO: Add real comments */}
             </div>
           </div>
         )}
         {tab === 'posts' && (
-          <div className="space-y-4">
+          <div className="space-y-4 pb-6">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-sage-800">Posts</h3>
-              <button 
-                onClick={handleCreatePost}
-                className="bg-gradient-to-r from-coral-500 to-coral-600 text-white px-4 py-2 rounded-xl text-sm font-medium hover:from-coral-600 hover:to-coral-700 transition-all duration-300 shadow-soft"
-              >
-                <PlusIcon className="w-4 h-4 mr-1 inline" />
-                Add Post
-              </button>
+              <h3 className="text-lg font-serif font-semibold text-[#6B5B47]">Posts</h3>
             </div>
-            {posts.map((post) => (
-              <div
-                key={post.id}
-                className="bg-white/80 backdrop-blur-md rounded-2xl p-6 shadow-botanical border border-white/30 hover:shadow-liquid hover:scale-[1.01] transition-all duration-300"
-              >
-                <div className="flex items-start space-x-4 mb-4">
-                  <div className="w-12 h-12 rounded-full border-3 border-white/50 bg-white/80 backdrop-blur-sm relative overflow-hidden shadow-soft">
+            {posts.length > 0 ? (
+              posts.map((post) => (
+                <div
+                  key={post.id}
+                  className="bg-[#E4D5C7]/15 backdrop-blur-sm rounded-xl p-4 shadow-lg border border-[#E4D5C7]/30"
+                >
+                <div className="flex items-start space-x-3 mb-3">
+                  <div className="w-10 h-10 rounded-lg border border-[#E4D5C7] bg-[#FDF8F0] shadow-sm relative overflow-hidden">
                     <img
                       src={post.userAvatar}
                       alt={post.username}
                       className="w-full h-full object-cover"
                     />
-                    <div className="absolute inset-0 border border-white/40 rounded-full"></div>
                   </div>
                   <div className="flex-1">
-                    <div className="flex items-center space-x-3 mb-1">
-                      <span className="font-semibold text-sage-800 text-lg">{post.username}</span>
-                      <span className="px-2 py-1 bg-sage-100 text-sage-700 text-xs rounded-full font-medium">
-                        {post.postType}
-                      </span>
+                    <div className="flex items-center space-x-2">
+                      <span className="font-serif font-semibold text-[#6B5B47] text-sm">{post.username}</span>
                     </div>
-                    <p className="text-sm text-sage-500">
-                      {new Date(post.createdAt).toLocaleDateString('en-US', { 
-                        month: 'long', 
-                        day: 'numeric',
-                        year: 'numeric'
-                      })}
+                    <p className="text-xs text-[#8B7355] font-serif">
+                      {new Date(post.createdAt).toLocaleDateString()}
                     </p>
                   </div>
                 </div>
@@ -451,53 +541,61 @@ const PlaceHub = () => {
                     <div className="absolute inset-0 border border-white/30 rounded-2xl"></div>
                   </div>
                 )}
-                <p className="text-sage-700 mb-4 text-base leading-relaxed">{post.description}</p>
-                <div className="flex items-center justify-between pt-4 border-t border-sage-100">
-                  <div className="flex items-center space-x-6 text-sm">
-                    <button 
+                <p className="text-sm text-[#7A5D3F] mb-3 leading-relaxed">{post.description}</p>
+                
+                {/* Post Actions */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-4">
+                    <button
                       onClick={() => handleLikePost(post.id)}
-                      className={`flex items-center gap-2 px-3 py-2 rounded-xl transition-all duration-200 ${
-                        likedPosts.has(post.id) 
-                          ? 'text-coral-600 bg-coral-50 shadow-soft' 
-                          : 'text-sage-600 hover:text-coral-600 hover:bg-sage-50'
-                      }`}
+                      className={`flex items-center space-x-1 ${
+                        likedPosts.has(post.id) ? 'text-[#C17F59]' : 'text-[#8B7355]'
+                      } hover:text-[#C17F59] transition-colors`}
                     >
                       <HeartIcon className={`w-5 h-5 ${likedPosts.has(post.id) ? 'fill-current' : ''}`} />
-                      <span className="font-medium">{post.likes + (likedPosts.has(post.id) ? 1 : 0)}</span>
+                      <span className="text-sm font-medium">{post.likes}</span>
                     </button>
-                    <button 
+                    <button
                       onClick={() => handleViewComments(post)}
-                      className="flex items-center gap-2 px-3 py-2 rounded-xl text-sage-600 hover:text-coral-600 hover:bg-sage-50 transition-all duration-200"
+                      className="flex items-center space-x-1 text-[#8B7355] hover:text-[#7A5D3F] transition-colors"
                     >
                       <ChatBubbleLeftIcon className="w-5 h-5" />
-                      <span className="font-medium">{post.comments?.length || 0}</span>
-                    </button>
-                    <button 
-                      onClick={() => handleReply(post)}
-                      className="flex items-center gap-2 px-3 py-2 rounded-xl text-sage-600 hover:text-coral-600 hover:bg-sage-50 transition-all duration-200"
-                    >
-                      <ShareIcon className="w-5 h-5" />
-                      <span className="font-medium">Reply</span>
+                      <span className="text-sm font-medium">{post.comments?.length || 0}</span>
                     </button>
                   </div>
-                  <button 
-                    onClick={() => handleSavePostToList(post)}
-                    className={`px-4 py-2 rounded-xl font-medium transition-all duration-200 ${
-                      savedPosts.has(post.id) 
-                        ? 'bg-coral-100 text-coral-700 shadow-soft' 
-                        : 'text-coral-600 hover:bg-coral-50'
-                    }`}
-                  >
-                    {savedPosts.has(post.id) ? 'Saved' : 'Save'}
-                  </button>
+                  <div className="flex items-center space-x-2">
+                    <button
+                      onClick={() => handleSavePost(post.id)}
+                      className={`p-2 rounded-full ${
+                        savedPosts.has(post.id) ? 'bg-[#B08968]/25 text-[#B08968]' : 'bg-[#E8D4C0]/50 text-[#8B7355]'
+                      } hover:bg-[#B08968]/35 transition-colors`}
+                    >
+                      <BookmarkIcon className={`w-4 h-4 ${savedPosts.has(post.id) ? 'fill-current' : ''}`} />
+                    </button>
+                    <button
+                      onClick={() => handleReply(post)}
+                      className="p-2 rounded-full bg-[#E8D4C0]/50 text-[#8B7355] hover:bg-[#E8D4C0]/70 transition-colors"
+                    >
+                      <ShareIcon className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
               </div>
-            ))}
-            {posts.length === 0 && (
-              <div className="bg-white/70 backdrop-blur-sm rounded-2xl p-8 text-center shadow-soft border border-cream-200">
-                <CameraIcon className="w-16 h-16 text-sage-300 mx-auto mb-4" />
-                <h3 className="text-lg font-semibold text-sage-800 mb-2">No posts yet</h3>
-                <p className="text-sage-700">Be the first to share your experience at this hub!</p>
+            ))
+            ) : (
+              <div className="text-center py-12">
+                <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-[#E8D4C0]/50 flex items-center justify-center">
+                  <CameraIcon className="w-8 h-8 text-[#8B7355]" />
+                </div>
+                <h3 className="text-lg font-serif font-semibold text-[#6B5B47] mb-2">No posts yet</h3>
+                <p className="text-[#7A5D3F] mb-4">Be the first to share your experience!</p>
+                <button
+                  onClick={handleCreatePost}
+                  className="bg-gradient-to-r from-[#D4A574] to-[#B08968] text-[#FEF6E9] px-4 py-2 rounded-xl text-sm font-semibold shadow-lg border border-[#B08968]/30 active:scale-95 transition-all duration-200"
+                >
+                  <PlusIcon className="w-4 h-4 mr-1 inline" />
+                  Add Post
+                </button>
               </div>
             )}
           </div>

@@ -7,6 +7,7 @@ import PlusDropdown from '../components/PlusDropdown'
 import HubSearchModal from '../components/HubSearchModal'
 import SaveModal from '../components/SaveModal'
 import CreatePost from '../components/CreatePost'
+import EmbedFromModal from '../components/EmbedFromModal'
 import ListMenuDropdown from '../components/ListMenuDropdown'
 import EditListModal from '../components/EditListModal'
 import EditPlaceModal from '../components/EditPlaceModal'
@@ -26,6 +27,7 @@ const ListView = () => {
   const [showHubSearchModal, setShowHubSearchModal] = useState(false)
   const [showSaveModal, setShowSaveModal] = useState(false)
   const [showCreatePost, setShowCreatePost] = useState(false)
+  const [showEmbedFromModal, setShowEmbedFromModal] = useState(false)
   const [hubToSave, setHubToSave] = useState<Hub | null>(null)
   const [selectedPlace, setSelectedPlace] = useState<Place | null>(null)
   const [showListMenu, setShowListMenu] = useState(false)
@@ -390,6 +392,16 @@ const ListView = () => {
     setShowHubSearchModal(true)
   }
 
+  const handleEmbedFrom = () => {
+    setShowEmbedFromModal(true)
+  }
+
+  const handleEmbed = (embedData: any) => {
+    console.log('Creating embed post:', embedData)
+    // TODO: Implement embed post creation
+    // This would create a private post with the embed data
+  }
+
   const handleSaveToPlace = (place: Place) => {
     setSelectedPlace(place)
     setShowSaveModal(true)
@@ -547,7 +559,12 @@ const ListView = () => {
             <HeartIcon className={`w-5 h-5 ${isLiked ? 'text-gold-600 fill-current' : 'text-sage-600'}`} />
           </button>
           {isOwner ? (
-            <PlusDropdown onCreatePost={handleCreatePost} onSaveHub={handleSaveHub} />
+            <PlusDropdown 
+          onCreatePost={handleCreatePost} 
+          onSaveHub={handleSaveHub} 
+          onEmbedFrom={handleEmbedFrom}
+          variant="list"
+        />
           ) : (
             <button 
               onClick={() => setIsSaved(!isSaved)}
@@ -799,6 +816,13 @@ const ListView = () => {
         isOpen={showCreatePost}
         onClose={() => setShowCreatePost(false)}
         preSelectedListIds={[list.id]} // Pre-select the current list
+      />
+
+      {/* Embed From Modal */}
+      <EmbedFromModal
+        isOpen={showEmbedFromModal}
+        onClose={() => setShowEmbedFromModal(false)}
+        onEmbed={handleEmbed}
       />
 
       {/* Save Modal */}

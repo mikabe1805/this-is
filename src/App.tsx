@@ -8,6 +8,7 @@ import CreateListModal from './components/CreateListModal.tsx'
 import ListModal from './components/ListModal.tsx'
 import HubModal from './components/HubModal.tsx'
 import SaveModal from './components/SaveModal.tsx'
+import EmbedFromModal from './components/EmbedFromModal.tsx'
 import Home from './pages/Home.tsx'
 import Profile from './pages/Profile.tsx'
 import EditProfile from './pages/EditProfile.tsx'
@@ -25,6 +26,7 @@ import Demo from './pages/Demo.tsx'
 function App() {
   const [activeTab, setActiveTab] = useState('home')
   const [showCreatePost, setShowCreatePost] = useState(false)
+  const [showEmbedFromModal, setShowEmbedFromModal] = useState(false)
   const [showCreateList, setShowCreateList] = useState(false)
   const navigate = useNavigate()
   const location = useLocation()
@@ -117,6 +119,7 @@ function App() {
                 activeTab={activeTab} 
                 setActiveTab={handleTabChange} 
                 onCreatePost={() => setShowCreatePost(true)}
+                onEmbedFrom={() => setShowEmbedFromModal(true)}
               />
             </div>
           </div>
@@ -125,6 +128,17 @@ function App() {
           <CreatePost 
             isOpen={showCreatePost} 
             onClose={() => setShowCreatePost(false)} 
+          />
+
+          {/* Embed From Modal */}
+          <EmbedFromModal
+            isOpen={showEmbedFromModal}
+            onClose={() => setShowEmbedFromModal(false)}
+            onEmbed={(embedData) => {
+              console.log('Creating embed post:', embedData)
+              // TODO: Implement embed post creation
+              setShowEmbedFromModal(false)
+            }}
           />
 
           {/* Create List Modal */}
@@ -336,8 +350,10 @@ const HubModalWrapper = () => {
           alert('Link copied to clipboard!')
         }
       }}
-      onAddPost={(hub) => {
-        openCreatePostModal(hub)
+            onAddPost={(hub) => {
+        // TODO: Implement create post modal/page
+        console.log('Add post for hub:', hub);
+        openCreatePostModal(hub);
       }}
     />
   )

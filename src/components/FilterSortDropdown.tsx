@@ -32,6 +32,7 @@ interface FilterSortDropdownProps {
   onClose: () => void
   anchorRect?: DOMRect | null
   onLocationSelect?: (location: Location) => void
+  hubFilter?: string | null
 }
 
 const PANEL_WIDTH = 320
@@ -49,7 +50,8 @@ const FilterSortDropdown: React.FC<FilterSortDropdownProps> = ({
   show,
   onClose,
   anchorRect,
-  onLocationSelect
+  onLocationSelect,
+  hubFilter
 }) => {
   const [showTagSearch, setShowTagSearch] = useState(false)
 
@@ -105,6 +107,15 @@ const FilterSortDropdown: React.FC<FilterSortDropdownProps> = ({
         </div>
         <div>
           <div className="font-serif font-semibold mb-4 text-lg text-charcoal-700">Filter by</div>
+          
+          {/* Hub Filter Display */}
+          {hubFilter && (
+            <div className="mb-4 p-3 bg-sage-50 border border-sage-200 rounded-lg">
+              <div className="text-sm font-medium text-sage-700 mb-1">Include:</div>
+              <div className="text-sm text-charcoal-600">{hubFilter}</div>
+            </div>
+          )}
+          
           <div className="flex flex-wrap gap-2 mb-4">
             {filterOptions.map(opt => (
               <label key={opt.key} className="flex items-center gap-2 px-3 py-2 rounded-full text-sm font-medium bg-sage-50 border border-sage-100 text-sage-700 hover:bg-sage-100 cursor-pointer">

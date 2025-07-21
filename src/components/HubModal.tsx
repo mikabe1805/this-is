@@ -267,16 +267,16 @@ const HubModal = ({ hub, isOpen, onClose, onAddPost, onSave, onShare, onOpenFull
       }}
     >
       <div 
-        className={`w-full max-w-[600px] mx-1 max-h-screen bg-gradient-to-br from-[#FDF8F0] via-[#FAF3E0] to-[#F5E6D3] rounded-3xl shadow-2xl border border-[#E4D5C7]/60 overflow-hidden relative transition-all duration-500 ease-out ${
+        className={`w-full max-w-[600px] mx-1 max-h-screen bg-gradient-to-br from-[#FEF6E9] via-[#FBF0D9] to-[#F7E8CC] rounded-3xl shadow-2xl border border-[#E8D4C0]/60 overflow-hidden relative transition-all duration-500 ease-out ${
           isVisible ? 'opacity-100 scale-100' : 'opacity-0 scale-95'
         }`}
         style={{
           backgroundImage: `
-            radial-gradient(circle at 20% 80%, rgba(228, 213, 199, 0.2) 0%, transparent 50%), 
-            radial-gradient(circle at 80% 20%, rgba(250, 243, 224, 0.25) 0%, transparent 50%),
-            radial-gradient(circle at 50% 50%, rgba(139, 115, 85, 0.05) 0%, transparent 70%),
-            radial-gradient(circle at 10% 10%, rgba(245, 230, 211, 0.15) 0%, transparent 60%),
-            radial-gradient(circle at 90% 90%, rgba(228, 213, 199, 0.1) 0%, transparent 40%)
+            radial-gradient(circle at 20% 80%, rgba(232, 212, 192, 0.25) 0%, transparent 50%), 
+            radial-gradient(circle at 80% 20%, rgba(251, 240, 217, 0.3) 0%, transparent 50%),
+            radial-gradient(circle at 50% 50%, rgba(139, 115, 85, 0.08) 0%, transparent 70%),
+            radial-gradient(circle at 10% 10%, rgba(247, 232, 204, 0.2) 0%, transparent 60%),
+            radial-gradient(circle at 90% 90%, rgba(232, 212, 192, 0.15) 0%, transparent 40%)
           `
         }}
         onClick={(e) => {
@@ -284,156 +284,243 @@ const HubModal = ({ hub, isOpen, onClose, onAddPost, onSave, onShare, onOpenFull
           e.stopPropagation()
         }}
       >
-        {/* Plant background accent - subtle and behind all content */}
+        {/* Warmer, Larger Botanical Accents - Non-Overlapping and Slightly Blurred */}
+        <div className="absolute inset-0 pointer-events-none z-0 overflow-hidden">
+          {/* Primary climbing vine - larger and warmer */}
+          <div className="absolute bottom-0 left-0 h-full w-12 sm:w-14 md:w-16 pointer-events-none">
+            <img
+              src="/assets/leaf2.png"
+              alt=""
+              className="absolute bottom-0 left-0 h-full w-full object-contain opacity-8 sm:opacity-10 pointer-events-none blur-[0.5px] sm:blur-[0.3px]"
+              style={{
+                transform: 'scaleY(1.2) translateY(-12%) rotate(-5deg)',
+                filter: 'brightness(0.8) contrast(0.9) saturate(1.1) hue-rotate(5deg)'
+              }}
+            />
+          </div>
+          
+          {/* Secondary vine - positioned to avoid overlap */}
+          <div className="absolute top-56 sm:top-64 right-0 h-[calc(100%-14rem)] sm:h-[calc(100%-16rem)] w-8 sm:w-10 md:w-12 pointer-events-none">
+            <img
+              src="/assets/leaf2.png"
+              alt=""
+              className="absolute top-0 right-0 h-full w-full object-contain opacity-6 sm:opacity-8 pointer-events-none blur-[0.4px] sm:blur-[0.2px]"
+              style={{
+                transform: 'scaleY(1.1) translateY(-8%) rotate(8deg)',
+                filter: 'brightness(0.9) contrast(0.8) saturate(1.0) hue-rotate(-3deg)'
+              }}
+            />
+          </div>
+          
+          {/* Connecting vine segment - positioned to bridge without overlap */}
+          <div className="absolute top-2/3 right-6 sm:right-8 md:right-10 h-24 sm:h-28 md:h-32 w-6 sm:w-8 md:w-10 pointer-events-none">
+            <img
+              src="/assets/leaf2.png"
+              alt=""
+              className="absolute top-0 right-0 h-full w-full object-contain opacity-5 sm:opacity-7 pointer-events-none blur-[0.6px] sm:blur-[0.4px]"
+              style={{
+                transform: 'scaleY(0.8) translateY(-5%) rotate(25deg)',
+                filter: 'brightness(1.0) contrast(0.7) saturate(0.9) hue-rotate(2deg)'
+              }}
+            />
+          </div>
+        </div>
+
+        {/* Connected Leaf Clusters - Cozy and Intertwined for Mobile */}
+        <div className="absolute inset-0 pointer-events-none z-0">
+          {/* Top-left cluster - connected leaves */}
+          <img
+            src="/assets/leaf2.png"
+            alt=""
+            className="absolute top-6 sm:top-8 md:top-10 left-4 sm:left-6 md:left-8 w-12 h-12 sm:w-14 sm:h-14 md:w-16 md:h-16 lg:w-18 lg:h-18 opacity-15 sm:opacity-18 md:opacity-20 pointer-events-none blur-[0.3px] sm:blur-[0.2px]"
+            style={{
+              transform: 'rotate(-25deg) scale(0.8)',
+              filter: 'brightness(0.9) contrast(0.9) saturate(1.1) hue-rotate(8deg)'
+            }}
+          />
+          
+          {/* Connected leaf - overlapping with top-left */}
+          <img
+            src="/assets/leaf2.png"
+            alt=""
+            className="absolute top-8 sm:top-10 md:top-12 left-6 sm:left-8 md:left-10 w-10 h-10 sm:w-12 sm:h-12 md:w-14 md:h-14 lg:w-16 lg:h-16 opacity-12 sm:opacity-15 md:opacity-18 pointer-events-none blur-[0.4px] sm:blur-[0.3px]"
+            style={{
+              transform: 'rotate(15deg) scale(0.7)',
+              filter: 'brightness(1.0) contrast(0.8) saturate(1.0) hue-rotate(-5deg)'
+            }}
+          />
+          
+          {/* Upper-middle cluster - connected leaves */}
+          <img
+            src="/assets/leaf2.png"
+            alt=""
+            className="absolute top-44 sm:top-48 md:top-52 left-3 sm:left-4 w-14 h-14 sm:w-16 sm:h-16 md:w-18 md:h-18 lg:w-20 lg:h-20 opacity-12 sm:opacity-15 md:opacity-18 pointer-events-none blur-[0.4px] sm:blur-[0.3px]"
+            style={{
+              transform: 'rotate(35deg) scale(0.9)',
+              filter: 'brightness(1.0) contrast(0.8) saturate(1.0) hue-rotate(-5deg)'
+            }}
+          />
+          
+          {/* Connected leaf - overlapping with upper-middle */}
+          <img
+            src="/assets/leaf2.png"
+            alt=""
+            className="absolute top-46 sm:top-50 md:top-54 left-5 sm:left-6 w-12 h-12 sm:w-14 sm:h-14 md:w-16 md:h-16 lg:w-18 lg:h-18 opacity-10 sm:opacity-12 md:opacity-15 pointer-events-none blur-[0.5px] sm:blur-[0.4px]"
+            style={{
+              transform: 'rotate(55deg) scale(0.8)',
+              filter: 'brightness(1.1) contrast(0.7) saturate(0.9) hue-rotate(3deg)'
+            }}
+          />
+          
+          {/* Middle-left cluster - connected leaves */}
+          <img
+            src="/assets/leaf2.png"
+            alt=""
+            className="absolute top-2/3 left-2 sm:left-3 w-12 h-12 sm:w-14 sm:h-14 md:w-16 md:h-16 opacity-10 sm:opacity-12 md:opacity-15 pointer-events-none blur-[0.5px] sm:blur-[0.4px]"
+            style={{
+              transform: 'rotate(55deg) scale(0.8)',
+              filter: 'brightness(1.1) contrast(0.7) saturate(0.9) hue-rotate(3deg)'
+            }}
+          />
+          
+          {/* Connected leaf - overlapping with middle-left */}
+          <img
+            src="/assets/leaf2.png"
+            alt=""
+            className="absolute top-[calc(2/3+2rem)] sm:top-[calc(2/3+2.5rem)] left-4 sm:left-5 w-10 h-10 sm:w-12 sm:h-12 md:w-14 md:h-14 lg:w-16 lg:h-16 opacity-8 sm:opacity-10 md:opacity-12 pointer-events-none blur-[0.6px] sm:blur-[0.5px]"
+            style={{
+              transform: 'rotate(25deg) scale(0.7)',
+              filter: 'brightness(0.9) contrast(0.8) saturate(1.0) hue-rotate(-2deg)'
+            }}
+          />
+          
+          {/* Lower-middle cluster - connected leaves */}
+          <img
+            src="/assets/leaf2.png"
+            alt=""
+            className="absolute bottom-1/4 left-4 sm:left-5 md:left-6 w-14 h-14 sm:w-16 sm:h-16 md:w-18 md:h-18 lg:w-20 lg:h-20 opacity-12 sm:opacity-14 md:opacity-16 pointer-events-none blur-[0.3px] sm:blur-[0.2px]"
+            style={{
+              transform: 'rotate(-15deg) scale(0.9)',
+              filter: 'brightness(0.8) contrast(1.0) saturate(1.1) hue-rotate(-2deg)'
+            }}
+          />
+          
+          {/* Connected leaf - overlapping with lower-middle */}
+          <img
+            src="/assets/leaf2.png"
+            alt=""
+            className="absolute bottom-[calc(1/4-1rem)] sm:bottom-[calc(1/4-1.5rem)] left-6 sm:left-7 md:left-8 w-12 h-12 sm:w-14 sm:h-14 md:w-16 md:h-16 lg:w-18 lg:h-18 opacity-10 sm:opacity-12 md:opacity-14 pointer-events-none blur-[0.4px] sm:blur-[0.3px]"
+            style={{
+              transform: 'rotate(5deg) scale(0.8)',
+              filter: 'brightness(1.0) contrast(0.9) saturate(1.1) hue-rotate(4deg)'
+            }}
+          />
+          
+          {/* Bottom-right cluster - connected leaves */}
+          <img
+            src="/assets/leaf2.png"
+            alt=""
+            className="absolute bottom-4 sm:bottom-6 md:bottom-8 right-3 sm:right-4 md:right-6 w-16 h-16 sm:w-18 sm:h-18 md:w-20 md:h-20 lg:w-22 lg:h-22 opacity-15 sm:opacity-17 md:opacity-20 pointer-events-none blur-[0.4px] sm:blur-[0.3px]"
+            style={{
+              transform: 'rotate(45deg) scale(1.0)',
+              filter: 'brightness(0.9) contrast(0.9) saturate(1.1) hue-rotate(6deg)'
+            }}
+          />
+          
+          {/* Connected leaf - overlapping with bottom-right */}
+          <img
+            src="/assets/leaf2.png"
+            alt=""
+            className="absolute bottom-6 sm:bottom-8 md:bottom-10 right-5 sm:right-6 md:right-8 w-14 h-14 sm:w-16 sm:h-16 md:w-18 md:h-18 lg:w-20 lg:h-20 opacity-12 sm:opacity-14 md:opacity-16 pointer-events-none blur-[0.5px] sm:blur-[0.4px]"
+            style={{
+              transform: 'rotate(65deg) scale(0.9)',
+              filter: 'brightness(1.0) contrast(0.8) saturate(1.0) hue-rotate(-3deg)'
+            }}
+          />
+          
+          {/* Content-aware accent - positioned to avoid interactive areas */}
+          <img
+            src="/assets/leaf2.png"
+            alt=""
+            className="absolute top-80 sm:top-88 md:top-96 left-6 sm:left-8 md:left-10 w-12 h-12 sm:w-14 sm:h-14 md:w-16 md:h-16 lg:w-18 lg:h-18 opacity-8 sm:opacity-10 md:opacity-12 pointer-events-none blur-[0.6px] sm:blur-[0.5px]"
+            style={{
+              transform: 'rotate(-40deg) scale(0.8)',
+              filter: 'brightness(1.0) contrast(0.8) saturate(1.0) hue-rotate(-4deg)'
+            }}
+          />
+          
+          {/* Small connecting leaf - bridging content areas */}
+          <img
+            src="/assets/leaf2.png"
+            alt=""
+            className="absolute top-82 sm:top-90 md:top-98 left-8 sm:left-10 md:left-12 w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 lg:w-14 lg:h-14 opacity-6 sm:opacity-8 md:opacity-10 pointer-events-none blur-[0.8px] sm:blur-[0.7px]"
+            style={{
+              transform: 'rotate(-20deg) scale(0.6)',
+              filter: 'brightness(1.1) contrast(0.7) saturate(0.9) hue-rotate(2deg)'
+            }}
+          />
+          
+          {/* Bottom content accent - positioned to avoid scroll areas */}
+          <img
+            src="/assets/leaf2.png"
+            alt=""
+            className="absolute bottom-20 sm:bottom-24 md:bottom-28 left-3 sm:left-4 w-10 h-10 sm:w-12 sm:h-12 md:w-14 md:h-14 lg:w-16 lg:h-16 opacity-6 sm:opacity-8 md:opacity-10 pointer-events-none blur-[0.7px] sm:blur-[0.6px]"
+            style={{
+              transform: 'rotate(70deg) scale(0.7)',
+              filter: 'brightness(1.1) contrast(0.6) saturate(0.8) hue-rotate(1deg)'
+            }}
+          />
+          
+          {/* Small connecting leaf - bridging bottom areas */}
+          <img
+            src="/assets/leaf2.png"
+            alt=""
+            className="absolute bottom-22 sm:bottom-26 md:bottom-30 left-5 sm:left-6 w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 lg:w-14 lg:h-14 opacity-5 sm:opacity-6 md:opacity-8 pointer-events-none blur-[0.9px] sm:blur-[0.8px]"
+            style={{
+              transform: 'rotate(85deg) scale(0.5)',
+              filter: 'brightness(1.0) contrast(0.5) saturate(0.7) hue-rotate(-1deg)'
+            }}
+          />
+        </div>
+
+        {/* Larger background leaf - warmer and slightly blurred */}
         <img
           src="/assets/leaf.png"
           alt=""
-          className="absolute bottom-0 right-0 w-32 opacity-12 pointer-events-none z-0 blur-sm scale-105"
+          className="absolute bottom-0 right-0 w-24 sm:w-28 md:w-32 lg:w-36 opacity-10 sm:opacity-12 md:opacity-15 pointer-events-none z-0 blur-[1px] sm:blur-[0.8px] scale-105"
+          style={{
+            filter: 'brightness(0.9) contrast(0.9) saturate(1.1) hue-rotate(3deg)'
+          }}
         />
 
-        {/* Climbing Vine System - continuous pattern from opposite corners */}
-        <div className="absolute inset-0 pointer-events-none z-0 overflow-hidden">
-          {/* Primary vine - starts bottom-left, climbs up */}
-          <div className="absolute bottom-0 left-0 h-full w-12 pointer-events-none">
-            <img
-              src="/assets/leaf2.png"
-              alt=""
-              className="absolute bottom-0 left-0 h-full w-full object-contain opacity-8 pointer-events-none"
-              style={{
-                transform: 'scaleY(1.2) translateY(-15%) rotate(-5deg)',
-                filter: 'brightness(0.6) contrast(0.8)'
-              }}
-            />
-          </div>
-          
-          {/* Secondary vine - starts top-right, trails down to connect */}
-          <div className="absolute top-48 right-0 h-[calc(100%-12rem)] w-10 pointer-events-none">
-            <img
-              src="/assets/leaf2.png"
-              alt=""
-              className="absolute top-0 right-0 h-full w-full object-contain opacity-6 pointer-events-none"
-              style={{
-                transform: 'scaleY(1.1) translateY(-8%) rotate(8deg)',
-                filter: 'brightness(0.7) contrast(0.7)'
-              }}
-            />
-          </div>
-          
-          {/* Connecting vine segment - bridges the gap */}
-          <div className="absolute top-1/3 right-8 h-32 w-8 pointer-events-none">
-            <img
-              src="/assets/leaf2.png"
-              alt=""
-              className="absolute top-0 right-0 h-full w-full object-contain opacity-5 pointer-events-none"
-              style={{
-                transform: 'scaleY(0.8) translateY(-5%) rotate(25deg)',
-                filter: 'brightness(0.8) contrast(0.6)'
-              }}
-            />
-          </div>
-        </div>
-
-        {/* Extra Leaf Accents - scattered throughout content with better spacing */}
-        <div className="absolute inset-0 pointer-events-none z-0">
-          {/* Top edge leaf accent - framing */}
-          <img
-            src="/assets/leaf2.png"
-            alt=""
-            className="absolute top-8 left-6 w-14 h-14 opacity-18 pointer-events-none"
-            style={{
-              transform: 'rotate(-25deg) scale(0.75)',
-              filter: 'brightness(0.7) contrast(0.8)'
-            }}
-          />
-          
-          {/* Upper-middle leaf accent */}
-          <img
-            src="/assets/leaf2.png"
-            alt=""
-            className="absolute top-40 left-3 w-16 h-16 opacity-15 pointer-events-none"
-            style={{
-              transform: 'rotate(35deg) scale(0.85)',
-              filter: 'brightness(0.8) contrast(0.7)'
-            }}
-          />
-          
-          {/* Middle-left leaf accent */}
-          <img
-            src="/assets/leaf2.png"
-            alt=""
-            className="absolute top-1/2 left-2 w-12 h-12 opacity-12 pointer-events-none"
-            style={{
-              transform: 'rotate(55deg) scale(0.7)',
-              filter: 'brightness(0.9) contrast(0.6)'
-            }}
-          />
-          
-          {/* Lower-middle leaf accent */}
-          <img
-            src="/assets/leaf2.png"
-            alt=""
-            className="absolute bottom-1/3 left-5 w-15 h-15 opacity-14 pointer-events-none"
-            style={{
-              transform: 'rotate(-15deg) scale(0.8)',
-              filter: 'brightness(0.6) contrast(0.9)'
-            }}
-          />
-          
-          {/* Bottom edge leaf accent - framing */}
-          <img
-            src="/assets/leaf2.png"
-            alt=""
-            className="absolute bottom-6 right-4 w-18 h-18 opacity-16 pointer-events-none"
-            style={{
-              transform: 'rotate(45deg) scale(0.9)',
-              filter: 'brightness(0.7) contrast(0.8)'
-            }}
-          />
-          
-          {/* Behind Popular Lists section - positioned to not block content */}
-          <img
-            src="/assets/leaf2.png"
-            alt=""
-            className="absolute top-72 left-8 w-16 h-16 opacity-10 pointer-events-none"
-            style={{
-              transform: 'rotate(-40deg) scale(0.65)',
-              filter: 'brightness(0.8) contrast(0.7)'
-            }}
-          />
-          
-          {/* Behind Comments section - positioned to not block content */}
-          <img
-            src="/assets/leaf2.png"
-            alt=""
-            className="absolute bottom-24 left-3 w-14 h-14 opacity-8 pointer-events-none"
-            style={{
-              transform: 'rotate(70deg) scale(0.6)',
-              filter: 'brightness(0.9) contrast(0.5)'
-            }}
-          />
-        </div>
-
-        {/* Enhanced dreamy light rays */}
+        {/* Warmer Ambient Lighting - Enhanced and Cozy */}
         <div className="absolute inset-0 pointer-events-none">
-          <div className="absolute top-0 left-1/4 w-40 h-40 bg-gradient-to-br from-[#F5E6D3]/25 via-transparent to-transparent transform -rotate-12 animate-pulse" style={{ animationDuration: '4s' }} />
-          <div className="absolute top-0 right-1/3 w-32 h-32 bg-gradient-to-bl from-[#E4D5C7]/20 via-transparent to-transparent transform rotate-6 animate-pulse" style={{ animationDuration: '6s' }} />
-          <div className="absolute bottom-0 left-1/3 w-36 h-36 bg-gradient-to-tr from-[#F5E6D3]/20 via-transparent to-transparent transform rotate-12 animate-pulse" style={{ animationDuration: '5s' }} />
-          <div className="absolute top-1/2 right-0 w-24 h-24 bg-gradient-to-l from-[#E4D5C7]/15 via-transparent to-transparent transform -rotate-45 animate-pulse" style={{ animationDuration: '7s' }} />
+          {/* Top-left light ray - warmer tones */}
+          <div className="absolute top-0 left-1/4 w-24 h-24 sm:w-32 sm:h-32 md:w-40 md:h-40 bg-gradient-to-br from-[#F7E8CC]/25 sm:from-[#F7E8CC]/30 via-transparent to-transparent transform -rotate-12 animate-pulse" style={{ animationDuration: '5s' }} />
+          
+          {/* Top-right light ray - warmer tones */}
+          <div className="absolute top-0 right-1/4 sm:right-1/3 w-20 h-20 sm:w-28 sm:h-28 md:w-32 md:h-32 bg-gradient-to-bl from-[#E8D4C0]/20 sm:from-[#E8D4C0]/25 via-transparent to-transparent transform rotate-6 animate-pulse" style={{ animationDuration: '7s' }} />
+          
+          {/* Bottom-left light ray - warmer tones */}
+          <div className="absolute bottom-0 left-1/4 sm:left-1/3 w-28 h-28 sm:w-32 sm:h-32 md:w-36 md:h-36 bg-gradient-to-tr from-[#F7E8CC]/20 sm:from-[#F7E8CC]/25 via-transparent to-transparent transform rotate-12 animate-pulse" style={{ animationDuration: '6s' }} />
+          
+          {/* Middle-right light ray - warmer tones */}
+          <div className="absolute top-1/2 right-0 w-16 h-16 sm:w-20 sm:h-20 md:w-24 md:h-24 bg-gradient-to-l from-[#E8D4C0]/15 sm:from-[#E8D4C0]/20 via-transparent to-transparent transform -rotate-45 animate-pulse" style={{ animationDuration: '8s' }} />
         </div>
 
-        {/* Enhanced grain texture */}
-        <div className="absolute inset-0 pointer-events-none opacity-40">
+        {/* Refined grain texture - mobile-optimized */}
+        <div className="absolute inset-0 pointer-events-none opacity-30 sm:opacity-35 md:opacity-40">
           <div className="w-full h-full" style={{
-            backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.1'/%3E%3C/svg%3E")`,
-            backgroundSize: '200px 200px'
+            backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.08'/%3E%3C/svg%3E")`,
+            backgroundSize: '150px 150px'
           }} />
         </div>
 
-        {/* Warm light leak overlay */}
-        <div className="absolute top-0 left-0 w-full h-48 bg-gradient-to-b from-[#F5E6D3]/50 via-[#F5E6D3]/25 to-transparent pointer-events-none" />
+        {/* Warmer light leak overlay */}
+        <div className="absolute top-0 left-0 w-full h-32 sm:h-40 md:h-48 bg-gradient-to-b from-[#F7E8CC]/45 sm:from-[#F7E8CC]/50 md:from-[#F7E8CC]/55 via-[#F7E8CC]/25 sm:via-[#F7E8CC]/30 to-transparent pointer-events-none" />
         
-        {/* Header blur integration - cohesive fade effect */}
-        <div className="absolute top-0 w-full h-16 z-10 bg-gradient-to-b from-[#fdf6ec]/80 to-transparent backdrop-blur-sm pointer-events-none" />
+        {/* Warmer header blur integration */}
+        <div className="absolute top-0 w-full h-12 sm:h-14 md:h-16 z-10 bg-gradient-to-b from-[#fef6e9]/75 sm:from-[#fef6e9]/80 md:from-[#fef6e9]/85 to-transparent backdrop-blur-sm pointer-events-none" />
         
         {/* Header with image */}
         <div className="relative h-48 bg-gradient-to-br from-[#D4A574] via-[#C17F59] to-[#A67C52] overflow-hidden">
@@ -486,17 +573,17 @@ const HubModal = ({ hub, isOpen, onClose, onAddPost, onSave, onShare, onOpenFull
           {/* Text overlay */}
           <div className="absolute bottom-0 left-0 right-0 p-4 z-10">
             {/* Improved parchment-style background for better contrast */}
-            <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-[#f9f2e9]/80 via-[#f9f2e9]/40 to-transparent backdrop-blur-sm rounded-t-xl">
-              <h1 className="text-2xl sm:text-3xl font-serif font-bold text-[#4a2e1e] mb-2 leading-tight drop-shadow-lg" style={{ textShadow: '1px 1px 3px rgba(255,255,255,0.8)' }}>{hub.name}</h1>
-              <div className="flex items-center text-[#6B5B47] text-sm sm:text-base mb-3 drop-shadow-md">
+            <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-[#f9f2e9]/85 via-[#f9f2e9]/50 to-transparent backdrop-blur-sm rounded-t-xl">
+              <h1 className="text-2xl sm:text-3xl font-serif font-bold text-[#3D2A1A] mb-2 leading-tight drop-shadow-lg" style={{ textShadow: '1px 1px 3px rgba(255,255,255,0.9)' }}>{hub.name}</h1>
+              <div className="flex items-center text-[#5D4A2E] text-sm sm:text-base mb-3 drop-shadow-md">
                 <MapPinIcon className="w-5 h-5 mr-2" />
                 {hub.location.address}
               </div>
               <div className="flex items-center gap-2">
-                <span className="px-3 py-1.5 bg-[#8B7355]/20 backdrop-blur-sm rounded-xl text-[#6B5B47] text-sm font-medium border border-[#8B7355]/30 shadow-sm">
+                <span className="px-3 py-1.5 bg-[#9A7B5A]/25 backdrop-blur-sm rounded-xl text-[#5D4A2E] text-sm font-medium border border-[#9A7B5A]/35 shadow-sm">
                   {posts.length} posts
                 </span>
-                <span className="px-3 py-1.5 bg-[#8B7355]/20 backdrop-blur-sm rounded-xl text-[#6B5B47] text-sm font-medium border border-[#8B7355]/30 shadow-sm">
+                <span className="px-3 py-1.5 bg-[#9A7B5A]/25 backdrop-blur-sm rounded-xl text-[#5D4A2E] text-sm font-medium border border-[#9A7B5A]/35 shadow-sm">
                   {hub.tags[0] || 'Popular'}
                 </span>
               </div>
@@ -513,7 +600,7 @@ const HubModal = ({ hub, isOpen, onClose, onAddPost, onSave, onShare, onOpenFull
                 href={hub.googleMapsUrl} 
                 target="_blank" 
                 rel="noopener noreferrer" 
-                className="flex-1 flex items-center justify-center gap-2 bg-gradient-to-r from-[#A67C52] to-[#8B7355] text-[#FDF8F0] px-3 py-3 rounded-xl text-sm font-semibold shadow-lg border border-[#8B7355]/30 active:scale-95 transition-all duration-200"
+                className="flex-1 flex items-center justify-center gap-2 bg-gradient-to-r from-[#B08968] to-[#9A7B5A] text-[#FEF6E9] px-3 py-3 rounded-xl text-sm font-semibold shadow-lg border border-[#9A7B5A]/30 active:scale-95 transition-all duration-200"
               >
                 <MapPinIcon className="w-4 h-4" />
                 Directions
@@ -521,14 +608,14 @@ const HubModal = ({ hub, isOpen, onClose, onAddPost, onSave, onShare, onOpenFull
               </a>
               <button 
                 onClick={handleAddPost}
-                className="flex-1 flex items-center justify-center gap-2 bg-gradient-to-r from-[#D4A574] to-[#B08968] text-[#FDF8F0] px-3 py-3 rounded-xl text-sm font-semibold shadow-lg border border-[#B08968]/30 active:scale-95 transition-all duration-200"
+                className="flex-1 flex items-center justify-center gap-2 bg-gradient-to-r from-[#D4A574] to-[#B08968] text-[#FEF6E9] px-3 py-3 rounded-xl text-sm font-semibold shadow-lg border border-[#B08968]/30 active:scale-95 transition-all duration-200"
               >
                 <PlusIcon className="w-4 h-4" />
                 Add Post
               </button>
               <button 
                 onClick={handleSave}
-                className="flex-1 flex items-center justify-center gap-2 bg-gradient-to-r from-[#C17F59] to-[#A67C52] text-[#FDF8F0] px-3 py-3 rounded-xl text-sm font-semibold shadow-lg border border-[#A67C52]/30 active:scale-95 transition-all duration-200"
+                className="flex-1 flex items-center justify-center gap-2 bg-gradient-to-r from-[#C17F59] to-[#B08968] text-[#FEF6E9] px-3 py-3 rounded-xl text-sm font-semibold shadow-lg border border-[#B08968]/30 active:scale-95 transition-all duration-200"
               >
                 <BookmarkIcon className="w-4 h-4" />
                 Save
@@ -536,14 +623,14 @@ const HubModal = ({ hub, isOpen, onClose, onAddPost, onSave, onShare, onOpenFull
             </div>
             
             {/* Tabs */}
-            <div className="bg-[#E4D5C7]/20 backdrop-blur-sm rounded-xl p-2 shadow-lg border border-[#E4D5C7]/40">
+            <div className="bg-[#E8D4C0]/25 backdrop-blur-sm rounded-xl p-2 shadow-lg border border-[#E8D4C0]/50">
               <div className="flex gap-2">
                 <button
                   onClick={() => setTab('overview')}
                   className={`flex-1 py-3 px-4 rounded-lg font-serif font-semibold text-sm transition-all duration-300 ${
                     tab === 'overview' 
-                      ? 'bg-gradient-to-r from-[#A67C52] to-[#8B7355] text-[#FDF8F0] shadow-lg transform scale-102' 
-                      : 'text-[#8B7355] bg-[#FDF8F0]/60'
+                      ? 'bg-gradient-to-r from-[#B08968] to-[#9A7B5A] text-[#FEF6E9] shadow-lg transform scale-102' 
+                      : 'text-[#7A5D3F] bg-[#FEF6E9]/70'
                   }`}
                 >
                   Overview
@@ -552,8 +639,8 @@ const HubModal = ({ hub, isOpen, onClose, onAddPost, onSave, onShare, onOpenFull
                   onClick={() => setTab('posts')}
                   className={`flex-1 py-3 px-4 rounded-lg font-serif font-semibold text-sm transition-all duration-300 ${
                     tab === 'posts' 
-                      ? 'bg-gradient-to-r from-[#A67C52] to-[#8B7355] text-[#FDF8F0] shadow-lg transform scale-102' 
-                      : 'text-[#8B7355] bg-[#FDF8F0]/60'
+                      ? 'bg-gradient-to-r from-[#B08968] to-[#9A7B5A] text-[#FEF6E9] shadow-lg transform scale-102' 
+                      : 'text-[#7A5D3F] bg-[#FEF6E9]/70'
                   }`}
                 >
                   Posts ({posts.length})
@@ -565,35 +652,35 @@ const HubModal = ({ hub, isOpen, onClose, onAddPost, onSave, onShare, onOpenFull
             {tab === 'overview' && (
               <div className="space-y-4 pb-6">
                 {/* Popular Lists */}
-                <div className="bg-[#E4D5C7]/15 backdrop-blur-sm rounded-xl p-4 border border-[#E4D5C7]/30 shadow-lg relative">
-                  {/* Scroll-synced floating leaf */}
+                <div className="bg-[#E8D4C0]/20 backdrop-blur-sm rounded-xl p-4 border border-[#E8D4C0]/40 shadow-lg relative">
+                  {/* Mobile-optimized floating leaf accent */}
                   <img
                     src="/assets/leaf.png"
                     alt=""
-                    className="absolute top-2 right-3 w-8 h-8 opacity-20 pointer-events-none transition-transform duration-300 hover:scale-105"
+                    className="absolute top-1 sm:top-2 right-2 sm:right-3 w-6 h-6 sm:w-7 sm:h-7 md:w-8 md:h-8 opacity-15 sm:opacity-18 md:opacity-20 pointer-events-none transition-transform duration-300"
                     style={{
-                      transform: 'rotate(15deg) scale(0.8)',
-                      filter: 'brightness(0.8) contrast(0.7)'
+                      transform: 'rotate(15deg) scale(0.7)',
+                      filter: 'brightness(0.9) contrast(0.8) saturate(1.1) hue-rotate(5deg)'
                     }}
                   />
-                  <h3 className="text-lg font-serif font-semibold text-[#6B5B47] mb-3">Popular Lists</h3>
+                  <h3 className="text-lg font-serif font-semibold text-[#5D4A2E] mb-3">Popular Lists</h3>
                   {lists.length > 0 ? (
                     <div className="space-y-3">
                       {lists.slice(0, 3).map((list) => (
                         <div 
                           key={list.id} 
-                          className="flex items-center gap-3 p-3 bg-[#FDF8F0]/80 backdrop-blur-sm rounded-xl shadow-md border border-[#E4D5C7]/30 active:scale-98 transition-all duration-200"
+                          className="flex items-center gap-3 p-3 bg-[#FEF6E9]/85 backdrop-blur-sm rounded-xl shadow-md border border-[#E8D4C0]/40 active:scale-98 transition-all duration-200"
                           onClick={() => handleListClick(list)}
                         >
                           {list.coverImage && (
-                            <img src={list.coverImage} alt={list.name} className="w-12 h-12 rounded-lg object-cover border border-[#E4D5C7]/40 shadow-sm" />
+                            <img src={list.coverImage} alt={list.name} className="w-12 h-12 rounded-lg object-cover border border-[#E8D4C0]/50 shadow-sm" />
                           )}
                           <div className="flex-1 min-w-0">
-                            <h4 className="font-serif font-semibold text-[#6B5B47] truncate">{list.name}</h4>
-                            <p className="text-sm text-[#8B7355] truncate">{list.description}</p>
+                            <h4 className="font-serif font-semibold text-[#5D4A2E] truncate">{list.name}</h4>
+                            <p className="text-sm text-[#7A5D3F] truncate">{list.description}</p>
                           </div>
                           <button 
-                            className="p-2 rounded-lg bg-[#A67C52]/20 text-[#A67C52] active:scale-95 transition-all duration-200"
+                            className="p-2 rounded-lg bg-[#B08968]/25 text-[#B08968] active:scale-95 transition-all duration-200"
                             onClick={(e) => {
                               e.stopPropagation()
                               handleSaveList(list)
@@ -605,13 +692,13 @@ const HubModal = ({ hub, isOpen, onClose, onAddPost, onSave, onShare, onOpenFull
                       ))}
                     </div>
                   ) : (
-                    <div className="text-center py-6 text-[#8B7355]">
-                      <BookmarkIcon className="w-12 h-12 mx-auto mb-2 text-[#E4D5C7]" />
+                    <div className="text-center py-6 text-[#7A5D3F]">
+                      <BookmarkIcon className="w-12 h-12 mx-auto mb-2 text-[#E8D4C0]" />
                       <p className="font-serif">No lists yet</p>
                     </div>
                   )}
                   <button 
-                    className="mt-3 text-[#A67C52] text-sm font-medium font-serif"
+                    className="mt-3 text-[#B08968] text-sm font-medium font-serif"
                     onClick={() => handleSeeAllLists('popular')}
                   >
                     See All
@@ -619,21 +706,21 @@ const HubModal = ({ hub, isOpen, onClose, onAddPost, onSave, onShare, onOpenFull
                 </div>
 
                 {/* Friends' Lists */}
-                <div className="bg-[#E4D5C7]/15 backdrop-blur-sm rounded-xl p-4 border border-[#E4D5C7]/30 shadow-lg relative">
-                  {/* Scroll-synced floating leaf */}
+                <div className="bg-[#E8D4C0]/20 backdrop-blur-sm rounded-xl p-4 border border-[#E8D4C0]/40 shadow-lg relative">
+                  {/* Mobile-optimized floating leaf accent */}
                   <img
                     src="/assets/leaf.png"
                     alt=""
-                    className="absolute top-2 left-3 w-6 h-6 opacity-15 pointer-events-none transition-transform duration-300 hover:scale-105"
+                    className="absolute top-1 sm:top-2 left-2 sm:left-3 w-5 h-5 sm:w-6 sm:h-6 opacity-10 sm:opacity-12 md:opacity-15 pointer-events-none transition-transform duration-300"
                     style={{
-                      transform: 'rotate(-20deg) scale(0.7)',
-                      filter: 'brightness(0.7) contrast(0.8)'
+                      transform: 'rotate(-20deg) scale(0.6)',
+                      filter: 'brightness(0.9) contrast(0.8) saturate(1.1) hue-rotate(-3deg)'
                     }}
                   />
-                  <h3 className="text-lg font-serif font-semibold text-[#6B5B47] mb-3">Friends' Lists</h3>
-                  <div className="italic text-[#8B7355] font-serif text-sm">Emma's Favorites, Mika's Coffee Spots...</div>
+                  <h3 className="text-lg font-serif font-semibold text-[#5D4A2E] mb-3">Friends' Lists</h3>
+                  <div className="italic text-[#7A5D3F] font-serif text-sm">Emma's Favorites, Mika's Coffee Spots...</div>
                   <button 
-                    className="mt-3 text-[#A67C52] text-sm font-medium font-serif"
+                    className="mt-3 text-[#B08968] text-sm font-medium font-serif"
                     onClick={() => handleSeeAllLists('friends')}
                   >
                     See All
@@ -641,34 +728,34 @@ const HubModal = ({ hub, isOpen, onClose, onAddPost, onSave, onShare, onOpenFull
                 </div>
 
                 {/* Comments Section */}
-                <div className="bg-[#E4D5C7]/15 backdrop-blur-sm rounded-xl p-4 border border-[#E4D5C7]/30 shadow-lg relative">
-                  {/* Scroll-synced floating leaf */}
+                <div className="bg-[#E8D4C0]/20 backdrop-blur-sm rounded-xl p-4 border border-[#E8D4C0]/40 shadow-lg relative">
+                  {/* Mobile-optimized floating leaf accent */}
                   <img
                     src="/assets/leaf.png"
                     alt=""
-                    className="absolute bottom-2 right-2 w-7 h-7 opacity-18 pointer-events-none transition-transform duration-300 hover:scale-105"
+                    className="absolute bottom-1 sm:bottom-2 right-1 sm:right-2 w-5 h-5 sm:w-6 sm:h-6 md:w-7 md:h-7 opacity-12 sm:opacity-15 md:opacity-18 pointer-events-none transition-transform duration-300"
                     style={{
-                      transform: 'rotate(30deg) scale(0.75)',
-                      filter: 'brightness(0.6) contrast(0.9)'
+                      transform: 'rotate(30deg) scale(0.6)',
+                      filter: 'brightness(0.9) contrast(0.9) saturate(1.1) hue-rotate(2deg)'
                     }}
                   />
-                  <h3 className="text-lg font-serif font-semibold text-[#6B5B47] mb-4">Comments</h3>
+                  <h3 className="text-lg font-serif font-semibold text-[#5D4A2E] mb-4">Comments</h3>
                   <div className="space-y-3 mb-4">
                     {comments.slice(0, 2).map((comment) => (
-                      <div key={comment.id} className="flex items-start gap-3 p-3 bg-[#FDF8F0]/80 backdrop-blur-sm rounded-xl shadow-md border border-[#E4D5C7]/30">
-                        <img src={comment.user.avatar} alt={comment.user.name} className="w-10 h-10 rounded-lg object-cover border border-[#E4D5C7] shadow-sm flex-shrink-0" />
+                      <div key={comment.id} className="flex items-start gap-3 p-3 bg-[#FEF6E9]/85 backdrop-blur-sm rounded-xl shadow-md border border-[#E8D4C0]/40">
+                        <img src={comment.user.avatar} alt={comment.user.name} className="w-10 h-10 rounded-lg object-cover border border-[#E8D4C0] shadow-sm flex-shrink-0" />
                         <div className="flex-1">
                           <div className="flex items-center gap-2 mb-1">
-                            <span className="font-serif font-semibold text-[#6B5B47] text-sm">{comment.user.name}</span>
-                            <span className="text-xs px-2 py-1 rounded-full bg-[#A67C52]/20 text-[#A67C52] border border-[#A67C52]/30 font-medium">{comment.date}</span>
+                            <span className="font-serif font-semibold text-[#5D4A2E] text-sm">{comment.user.name}</span>
+                            <span className="text-xs px-2 py-1 rounded-full bg-[#B08968]/25 text-[#B08968] border border-[#B08968]/35 font-medium">{comment.date}</span>
                           </div>
-                          <p className="text-sm text-[#8B7355] leading-relaxed">{comment.text}</p>
+                          <p className="text-sm text-[#7A5D3F] leading-relaxed">{comment.text}</p>
                         </div>
                       </div>
                     ))}
                   </div>
                   <button 
-                    className="w-full p-3 bg-[#FDF8F0]/80 backdrop-blur-sm rounded-xl border border-[#E4D5C7]/30 shadow-md text-[#6B5B47] font-serif text-sm active:scale-98 transition-all duration-200"
+                    className="w-full p-3 bg-[#FEF6E9]/85 backdrop-blur-sm rounded-xl border border-[#E8D4C0]/40 shadow-md text-[#5D4A2E] font-serif text-sm active:scale-98 transition-all duration-200"
                     onClick={handleCommentsClick}
                   >
                     View all {comments.length} comments

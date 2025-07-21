@@ -37,6 +37,8 @@ interface SearchAndFilterProps {
   selectedTags?: string[]
   setSelectedTags?: (tags: string[]) => void
   onLocationSelect?: (location: Location) => void
+  filterCount?: number
+  hubFilter?: string | null
   // Positioning
   dropdownPosition?: 'top-right' | 'bottom-right' | 'center'
 }
@@ -60,6 +62,8 @@ const SearchAndFilter: React.FC<SearchAndFilterProps> = ({
   selectedTags = [],
   setSelectedTags,
   onLocationSelect,
+  filterCount = 0,
+  hubFilter,
   dropdownPosition = 'top-right'
 }) => {
   const [showDropdown, setShowDropdown] = useState(false)
@@ -140,9 +144,14 @@ const SearchAndFilter: React.FC<SearchAndFilterProps> = ({
           <button
             ref={filterButtonRef}
             onClick={handleFilterClick}
-            className="w-10 h-10 bg-white/80 backdrop-blur-sm rounded-xl flex items-center justify-center shadow-soft border border-linen-200 hover:bg-white transition-all duration-300"
+            className="relative w-10 h-10 bg-white/80 backdrop-blur-sm rounded-xl flex items-center justify-center shadow-soft border border-linen-200 hover:bg-white transition-all duration-300"
           >
             <FunnelIcon className="w-5 h-5 text-sage-600" />
+            {filterCount > 0 && (
+              <div className="absolute -top-1 -right-1 w-5 h-5 bg-sage-500 text-white text-xs rounded-full flex items-center justify-center font-medium">
+                {filterCount}
+              </div>
+            )}
           </button>
         )}
       </div>
@@ -161,6 +170,7 @@ const SearchAndFilter: React.FC<SearchAndFilterProps> = ({
         onClose={() => setShowDropdown(false)}
         anchorRect={filterButtonRef.current?.getBoundingClientRect() || null}
         onLocationSelect={onLocationSelect}
+        hubFilter={hubFilter}
       />
     </div>
   )

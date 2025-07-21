@@ -31,6 +31,62 @@ async function extractLocationFromImages(files: File[]): Promise<{ lat: number, 
   return null
 }
 
+// Detect if an image is likely a screenshot
+async function detectScreenshot(file: File): Promise<boolean> {
+  return new Promise((resolve) => {
+    const img = new Image()
+    const canvas = document.createElement('canvas')
+    const ctx = canvas.getContext('2d')
+    
+    img.onload = () => {
+      canvas.width = img.width
+      canvas.height = img.height
+      ctx?.drawImage(img, 0, 0)
+      
+      const imageData = ctx?.getImageData(0, 0, canvas.width, canvas.height)
+      if (!imageData) {
+        resolve(false)
+        return
+      }
+      
+      const data = imageData.data
+      let textPixels = 0
+      let totalPixels = data.length / 4
+      
+      // Check for high contrast pixels (likely text)
+      for (let i = 0; i < data.length; i += 4) {
+        const r = data[i]
+        const g = data[i + 1]
+        const b = data[i + 2]
+        
+        // Check if pixel is very dark or very light (text-like)
+        const brightness = (r + g + b) / 3
+        if (brightness < 50 || brightness > 200) {
+          textPixels++
+        }
+      }
+      
+      // If more than 30% of pixels are high contrast, likely a screenshot
+      const textRatio = textPixels / totalPixels
+      resolve(textRatio > 0.3)
+    }
+    
+    img.onerror = () => resolve(false)
+    img.src = URL.createObjectURL(file)
+  })
+}
+
+// Enhanced screenshot detection for multiple images
+async function detectScreenshots(files: File[]): Promise<boolean> {
+  for (const file of files) {
+    const isScreenshot = await detectScreenshot(file)
+    if (isScreenshot) {
+      return true
+    }
+  }
+  return false
+}
+
 interface CreatePostProps {
   isOpen: boolean
   onClose: () => void
@@ -61,8 +117,9 @@ const CreatePost = ({ isOpen, onClose, preSelectedHub, preSelectedListIds }: Cre
   const [locationSearch, setLocationSearch] = useState('')
   const [searchResults, setSearchResults] = useState<CreatePostHub[]>([])
   const [isSearching, setIsSearching] = useState(false)
-  const [howWasIt, setHowWasIt] = useState<'loved' | 'tried'>('loved')
+  const [howWasIt, setHowWasIt] = useState<'want' | 'tried' | 'loved'>('loved')
   const [triedFeeling, setTriedFeeling] = useState<'liked' | 'neutral' | 'disliked'>('liked')
+  const [isScreenshot, setIsScreenshot] = useState(false)
   const [description, setDescription] = useState('')
   const [tags, setTags] = useState<string[]>([])
   const [newTag, setNewTag] = useState('')
@@ -101,6 +158,14 @@ const CreatePost = ({ isOpen, onClose, preSelectedHub, preSelectedListIds }: Cre
     if (files.length > 0) {
       // Add new photos to existing ones (for multiple uploads)
       setPhotos(prev => [...prev, ...files])
+      
+      // Detect if any of the new photos are screenshots
+      const screenshotDetected = await detectScreenshots(files)
+      if (screenshotDetected) {
+        setIsScreenshot(true)
+        // For screenshots, default to 'want' status
+        setHowWasIt('want')
+      }
       
       // Only extract location if we don't have one yet
       if (!extractedLocation) {
@@ -199,6 +264,7 @@ const CreatePost = ({ isOpen, onClose, preSelectedHub, preSelectedListIds }: Cre
     setSearchResults([])
     setHowWasIt('loved')
     setTriedFeeling('liked')
+    setIsScreenshot(false)
     setDescription('')
     setTags([])
     setNewTag('')
@@ -324,6 +390,14 @@ const CreatePost = ({ isOpen, onClose, preSelectedHub, preSelectedListIds }: Cre
                       <div className="flex items-center gap-2 text-sage-700 text-sm">
                         <MapPinIcon className="w-4 h-4" />
                         <span>Location detected from photos</span>
+                      </div>
+                    </div>
+                  )}
+                  {isScreenshot && (
+                    <div className="bg-gold-50 border border-gold-200 rounded-xl p-3">
+                      <div className="flex items-center gap-2 text-gold-700 text-sm">
+                        <span className="text-lg">📱</span>
+                        <span>Screenshot detected - you can mark this as want/tried/loved</span>
                       </div>
                     </div>
                   )}
@@ -467,11 +541,13 @@ const CreatePost = ({ isOpen, onClose, preSelectedHub, preSelectedListIds }: Cre
                 <h3 className="text-lg font-semibold text-charcoal-700 mb-2">Post Details</h3>
                 <p className="text-charcoal-500 text-sm mb-4">Tell us about your experience</p>
               </div>
-              {/* How was it? Only Loved/Tried */}
+              {/* How was it? Want/Tried/Loved */}
               <div>
-                <label className="block text-sm font-medium text-charcoal-700 mb-3">How was it?</label>
-                <div className="grid grid-cols-2 gap-3">
-                  {(['loved', 'tried'] as const).map((type) => (
+                <label className="block text-sm font-medium text-charcoal-700 mb-3">
+                  {isScreenshot ? 'How do you feel about this?' : 'How was it?'}
+                </label>
+                <div className="grid grid-cols-3 gap-3">
+                  {(['want', 'tried', 'loved'] as const).map((type) => (
                     <button
                       key={type}
                       onClick={() => setHowWasIt(type)}

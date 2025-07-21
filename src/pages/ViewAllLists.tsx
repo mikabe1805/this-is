@@ -28,9 +28,7 @@ const sortOptions = [
 ]
 
 const filterOptions = [
-  { key: 'public', label: 'Public' },
-  { key: 'private', label: 'Private' },
-  { key: 'friends', label: 'Friends Only' },
+  { key: 'friends', label: 'Friends\' Lists' },
 ]
 
 const availableTags = ['coffee', 'food', 'outdoors', 'work', 'study', 'cozy', 'trendy', 'local', 'authentic']
@@ -42,6 +40,7 @@ const ViewAllLists = () => {
   const [sortBy, setSortBy] = useState('recent')
   const [activeFilters, setActiveFilters] = useState<string[]>([])
   const [selectedTags, setSelectedTags] = useState<string[]>([])
+  const [hubFilter, setHubFilter] = useState<string | null>(null)
   const [likedLists, setLikedLists] = useState<Set<string>>(new Set())
   const [savedLists, setSavedLists] = useState<Set<string>>(new Set())
   const [showSaveModal, setShowSaveModal] = useState(false)
@@ -66,14 +65,14 @@ const ViewAllLists = () => {
     
     if (type === 'popular') {
       setSortBy('popular')
-      setActiveFilters(['public'])
     } else if (type === 'friends') {
       setActiveFilters(['friends'])
     }
     
-    // You could also filter by hub if needed
+    // Set hub filter if provided
     if (hub) {
       console.log('Filtering by hub:', hub)
+      setHubFilter(hub)
     }
   }, [searchParams])
 
@@ -277,9 +276,19 @@ const ViewAllLists = () => {
 
   // Filter and sort lists based on current state
   const filteredLists = allLists.filter(list => {
-    // Filter by privacy
+    // Filter by privacy (friends filter)
     if (activeFilters.length > 0) {
       if (!activeFilters.includes(list.privacy)) return false
+    }
+    
+    // Filter by hub (if hub filter is set)
+    if (hubFilter) {
+      // Check if the list contains the hub (this would need to be implemented based on your data structure)
+      // For now, we'll assume lists have a hubs array or similar
+      const hasHub = list.hubs && list.hubs.some(hub => 
+        hub.toLowerCase().includes(hubFilter.toLowerCase())
+      )
+      if (!hasHub) return false
     }
     
     // Filter by tags
@@ -407,7 +416,10 @@ const ViewAllLists = () => {
                 <ArrowLeftIcon className="w-5 h-5 text-charcoal-600" />
               </button>
               <div>
-                <h1 className="text-xl font-serif font-semibold text-charcoal-700">All Lists</h1>
+                <h1 className="text-xl font-serif font-semibold text-charcoal-700">
+                  {activeFilters.includes('friends') ? 'All Friends\' Lists' : 'All Lists'}
+                  {hubFilter && ` with ${hubFilter}`}
+                </h1>
                 <p className="text-sm text-charcoal-500">{filteredLists.length} lists found</p>
               </div>
             </div>
@@ -435,6 +447,8 @@ const ViewAllLists = () => {
             setActiveFilters={setActiveFilters}
             selectedTags={selectedTags}
             setSelectedTags={setSelectedTags}
+            filterCount={activeFilters.length + selectedTags.length + (hubFilter ? 1 : 0)}
+            hubFilter={hubFilter}
           />
         </div>
       </div>
