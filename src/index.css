@@ -3,6 +3,63 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Heart animation for double-tap like */
+@keyframes heartPop {
+  0% { transform: scale(0); opacity: 1; }
+  50% { transform: scale(1.2); opacity: 1; }
+  100% { transform: scale(0); opacity: 0; }
+}
+
+/* Safe area support */
+@supports (padding-top: env(safe-area-inset-top)) {
+  .pt-safe {
+    padding-top: env(safe-area-inset-top);
+  }
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
+
+/* Fallback for devices without safe area */
+@supports not (padding-top: env(safe-area-inset-top)) {
+  .pt-safe {
+    padding-top: 3rem; /* 48px */
+  }
+  .pb-safe {
+    padding-bottom: 4rem; /* 64px */
+  }
+}
+
+/* Hide scrollbars for image carousel */
+.flex.overflow-x-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+.flex.overflow-x-scroll {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Improve touch handling on mobile */
+* {
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  -khtml-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+}
+
+/* Allow text selection for specific elements */
+input, textarea, [contenteditable] {
+  -webkit-user-select: text;
+  -khtml-user-select: text;
+  -moz-user-select: text;
+  -ms-user-select: text;
+  user-select: text;
+}
+
 /* Custom utilities */
 @layer utilities {
   .line-clamp-2 {

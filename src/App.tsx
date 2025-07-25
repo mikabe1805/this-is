@@ -126,31 +126,14 @@ function AppContent() {
   return (
     <NavigationProvider>
       <ModalProvider>
-        <div className="h-screen bg-botanical-overlay overflow-hidden">
-          <div className="max-w-md mx-auto bg-white/90 backdrop-blur-glass h-screen shadow-crystal border border-white/30 overflow-hidden">
-            <div className="flex flex-col h-full">
-              {/* Main Content Area */}
-              <main className={`flex-1 overflow-x-hidden pb-28 ${
-                location.pathname === '/reels' ? 'overflow-hidden overscroll-none' : 'overflow-y-auto'
-              }`}>
-                <Routes>
-                  <Route path="/" element={<Home />} />
-                  <Route path="/home" element={<Home />} />
-                  <Route path="/profile" element={<Profile />} />
-                  <Route path="/profile/edit" element={<EditProfile />} />
-                  <Route path="/profile/following" element={<Following />} />
-                  <Route path="/settings" element={<Settings />} />
-                  <Route path="/search" element={<Search />} />
-                  <Route path="/list/:id" element={<ListView />} />
-                  <Route path="/lists" element={<ViewAllLists />} />
-                  <Route path="/reels" element={<Reels />} />
-                  <Route path="/favorites" element={<Favorites />} />
-                  <Route path="/place/:id" element={<PlaceHub />} />
-                  <Route path="/user/:userId" element={<UserProfile />} />
-                  <Route path="/demo" element={<Demo activeTab={activeTab} />} />
-                </Routes>
-              </main>
-              {/* Bottom Navigation */}
+        {/* Render Reels completely outside the normal layout */}
+        {location.pathname === '/reels' ? (
+          <div className="relative h-screen w-screen">
+            <Routes>
+              <Route path="/reels" element={<Reels />} />
+            </Routes>
+            {/* Navbar for Reels - positioned absolutely to ensure visibility */}
+            <div className="absolute bottom-0 left-0 right-0 z-[1002]">
               <Navbar 
                 activeTab={activeTab} 
                 setActiveTab={handleTabChange} 
@@ -159,46 +142,77 @@ function AppContent() {
               />
             </div>
           </div>
+        ) : (
+          <div className="h-dvh bg-botanical-overlay">
+            <div className="max-w-md mx-auto bg-white/90 backdrop-blur-glass h-full shadow-crystal border border-white/30">
+              <div className="flex flex-col h-full">
+                {/* Main Content Area */}
+                <main className="flex-1 overflow-y-auto pb-28 overflow-x-hidden">
+                  <Routes>
+                    <Route path="/" element={<Home />} />
+                    <Route path="/home" element={<Home />} />
+                    <Route path="/profile" element={<Profile />} />
+                    <Route path="/profile/edit" element={<EditProfile />} />
+                    <Route path="/profile/following" element={<Following />} />
+                    <Route path="/settings" element={<Settings />} />
+                    <Route path="/search" element={<Search />} />
+                    <Route path="/list/:id" element={<ListView />} />
+                    <Route path="/lists" element={<ViewAllLists />} />
+                    <Route path="/favorites" element={<Favorites />} />
+                    <Route path="/place/:id" element={<PlaceHub />} />
+                    <Route path="/user/:userId" element={<UserProfile />} />
+                    <Route path="/demo" element={<Demo activeTab={activeTab} />} />
+                  </Routes>
+                </main>
+                {/* Bottom Navigation */}
+                <Navbar 
+                  activeTab={activeTab} 
+                  setActiveTab={handleTabChange} 
+                  onCreatePost={() => setShowCreatePost(true)}
+                  onEmbedFrom={() => setShowEmbedFromModal(true)}
+                />
+              </div>
+            </div>
+          </div>
+        )}
 
-          {/* Create Post Modal */}
-          <CreatePost 
-            isOpen={showCreatePost} 
-            onClose={() => setShowCreatePost(false)} 
-          />
+        {/* Create Post Modal */}
+        <CreatePost 
+          isOpen={showCreatePost} 
+          onClose={() => setShowCreatePost(false)} 
+        />
 
-          {/* Embed From Modal */}
-          <EmbedFromModal
-            isOpen={showEmbedFromModal}
-            onClose={() => setShowEmbedFromModal(false)}
-            onEmbed={(embedData) => {
-              console.log('Creating embed post:', embedData)
-              // TODO: Implement embed post creation
-              setShowEmbedFromModal(false)
-            }}
-          />
+        {/* Embed From Modal */}
+        <EmbedFromModal
+          isOpen={showEmbedFromModal}
+          onClose={() => setShowEmbedFromModal(false)}
+          onEmbed={(embedData) => {
+            console.log('Creating embed post:', embedData)
+            // TODO: Implement embed post creation
+            setShowEmbedFromModal(false)
+          }}
+        />
 
-          {/* Create List Modal */}
-          <CreateListModal
-            isOpen={showCreateList}
-            onClose={() => setShowCreateList(false)}
-            onCreate={(listData) => {
-              console.log('Creating new list:', listData)
-              setShowCreateList(false)
-              // In a real app, you would create the list and then navigate to it
-              // navigate(`/list/${newListId}`)
-            }}
-          />
+        {/* Create List Modal */}
+        <CreateListModal
+          isOpen={showCreateList}
+          onClose={() => setShowCreateList(false)}
+          onCreate={(listData) => {
+            console.log('Creating new list:', listData)
+            setShowCreateList(false)
+            // In a real app, you would create the list and then navigate to it
+            // navigate(`/list/${newListId}`)
+          }}
+        />
 
-          {/* Global Modals */}
-          <GlobalModals />
+        {/* Global Modals */}
+        <GlobalModals />
 
-          {/* List Modal */}
-          <ListModalWrapper />
+        {/* List Modal */}
+        <ListModalWrapper />
 
-          {/* Hub Modal */}
-          <HubModalWrapper />
-
-        </div>
+        {/* Hub Modal */}
+        <HubModalWrapper />
       </ModalProvider>
     </NavigationProvider>
   )

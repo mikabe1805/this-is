@@ -17,6 +17,8 @@ interface ProfileModalProps {
 }
 
 const ProfileModal = ({ user, isOpen, onClose, onFollow, onShare, onOpenFullScreen, showBackButton, onBack }: ProfileModalProps) => {
+  if (!isOpen || !user) return null
+
   const navigate = useNavigate()
   const [isFollowing, setIsFollowing] = useState(user.isFollowing || false)
   const [activeTab, setActiveTab] = useState<'posts' | 'lists'>('posts')
@@ -134,7 +136,7 @@ const ProfileModal = ({ user, isOpen, onClose, onFollow, onShare, onOpenFullScre
 
   const modalContent = (
     <div 
-      className="fixed inset-0 z-[9998] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+      className="fixed inset-0 z-[1003] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
       onClick={(e) => {
         // Only close if clicking the backdrop, not the modal content
         if (e.target === e.currentTarget) {
@@ -143,78 +145,99 @@ const ProfileModal = ({ user, isOpen, onClose, onFollow, onShare, onOpenFullScre
       }}
     >
       <div 
-        className="relative w-full max-w-2xl max-h-[90vh] bg-white rounded-3xl shadow-botanical border border-linen-200 overflow-hidden"
+        className="relative w-full max-w-md max-h-[85vh] bg-white/95 backdrop-blur-glass rounded-3xl shadow-crystal border border-white/30 overflow-hidden animate-in zoom-in-95 duration-300"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Header with cover image */}
-        <div className="relative h-64 bg-gradient-to-br from-cream-200 to-coral-200 overflow-hidden">
-          {/* Gradient overlay for text readability */}
-          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
-          
-          {/* Top action buttons */}
-          <div className="absolute top-4 left-4 right-4 flex items-center justify-between z-10">
-            <div className="flex items-center gap-2">
-              {showBackButton && onBack && (
-                <button 
-                  onClick={onBack}
-                  className="w-10 h-10 bg-white/90 backdrop-blur-md rounded-full flex items-center justify-center shadow-botanical hover:shadow-liquid hover:scale-105 transition-all duration-200"
-                  title="Go back"
-                >
-                  <ArrowLeftIcon className="w-5 h-5 text-charcoal-600" />
-                </button>
-              )}
+        {/* Header */}
+        <div className="flex items-center justify-between p-4 border-b border-linen-200/50 bg-gradient-to-r from-sage-50/50 to-linen-50/50">
+          <div className="flex items-center gap-3">
+            {showBackButton && onBack ? (
               <button 
-                onClick={handleOpenFullScreen}
-                className="w-10 h-10 bg-white/90 backdrop-blur-md rounded-full flex items-center justify-center shadow-botanical hover:shadow-liquid hover:scale-105 transition-all duration-200"
-                title="Open full screen"
+                onClick={onBack} 
+                className="text-charcoal-500 hover:text-charcoal-700 transition-colors p-1 rounded-lg hover:bg-white/50"
               >
-                <ArrowsPointingOutIcon className="w-5 h-5 text-sage-600" />
+                <ArrowLeftIcon className="w-5 h-5" />
               </button>
-            </div>
-            <div className="flex items-center gap-2">
-              <button 
-                onClick={handleShare}
-                className="w-10 h-10 bg-white/90 backdrop-blur-md rounded-full flex items-center justify-center shadow-botanical hover:shadow-liquid hover:scale-105 transition-all duration-200"
-              >
-                <ShareIcon className="w-5 h-5 text-coral-600" />
-              </button>
-              <button
-                onClick={onClose}
-                className="w-10 h-10 bg-white/90 backdrop-blur-md rounded-full flex items-center justify-center shadow-botanical hover:shadow-liquid hover:scale-105 transition-all duration-200"
-              >
-                <XMarkIcon className="w-6 h-6 text-charcoal-600" />
-              </button>
-            </div>
+            ) : null}
+            <h2 className="text-lg font-semibold text-charcoal-800">Profile</h2>
           </div>
-          
-          {/* Profile Info */}
-          <div className="absolute bottom-0 left-0 right-0 p-6 z-10">
-            <div className="flex items-end gap-4">
+          <div className="flex items-center gap-2">
+            {onOpenFullScreen && (
+              <button
+                onClick={handleOpenFullScreen}
+                className="text-charcoal-500 hover:text-charcoal-700 transition-colors p-1 rounded-lg hover:bg-white/50"
+              >
+                <ArrowsPointingOutIcon className="w-5 h-5" />
+              </button>
+            )}
+            <button 
+              onClick={handleShare}
+              className="text-charcoal-500 hover:text-charcoal-700 transition-colors p-1 rounded-lg hover:bg-white/50"
+            >
+              <ShareIcon className="w-5 h-5" />
+            </button>
+            <button 
+              onClick={onClose} 
+              className="text-charcoal-500 hover:text-charcoal-700 transition-colors p-1 rounded-lg hover:bg-white/50"
+            >
+              <XMarkIcon className="w-5 h-5" />
+            </button>
+          </div>
+        </div>
+        
+        {/* Profile Header */}
+        <div className="p-6 bg-gradient-to-br from-sage-50/30 to-linen-50/30">
+          <div className="flex items-center gap-4 mb-4">
+            <div className="relative">
               <img
                 src={user.avatar}
                 alt={user.name}
-                className="w-20 h-20 rounded-full border-4 border-white shadow-botanical"
+                className="w-20 h-20 rounded-full object-cover border-4 border-white/80 shadow-soft backdrop-blur-sm"
               />
-              <div className="flex-1">
-                <h1 className="text-2xl font-serif font-bold text-white mb-2 drop-shadow-lg">{user.name}</h1>
-                <div className="flex items-center gap-2 text-white/95 text-base mb-3 drop-shadow-md">
-                  <UserIcon className="w-5 h-5" />
-                  <span>@{user.username}</span>
-                </div>
-                <div className="flex items-center gap-2 text-white/95 text-base mb-3 drop-shadow-md">
-                  <MapPinIcon className="w-5 h-5" />
+              <div className="absolute inset-0 rounded-full border border-white/30"></div>
+            </div>
+            <div className="flex-1">
+              <h3 className="text-xl font-bold text-charcoal-800">{user.name}</h3>
+              <p className="text-charcoal-600">@{user.username}</p>
+              {user.location && (
+                <div className="flex items-center gap-1 text-charcoal-500 text-sm mt-1">
+                  <MapPinIcon className="w-4 h-4" />
                   <span>{user.location}</span>
                 </div>
-                <div className="flex items-center gap-3">
-                  <span className="px-3 py-1.5 bg-white/25 backdrop-blur-sm rounded-full text-white text-sm font-medium">
-                    {mockPosts.length} posts
-                  </span>
-                  <span className="px-3 py-1.5 bg-white/25 backdrop-blur-sm rounded-full text-white text-sm font-medium">
-                    {mockLists.length} lists
-                  </span>
-                </div>
-              </div>
+              )}
             </div>
+          </div>
+
+          {user.bio && (
+            <p className="text-charcoal-700 mb-4 leading-relaxed">{user.bio}</p>
+          )}
+
+          {/* Tags */}
+          {user.tags && user.tags.length > 0 && (
+            <div className="flex flex-wrap gap-2 mb-4">
+              {user.tags.map((tag, index) => (
+                <span
+                  key={index}
+                  className="px-3 py-1 bg-sage-100/70 text-sage-700 text-sm rounded-full border border-sage-200/50 backdrop-blur-sm"
+                >
+                  #{tag}
+                </span>
+              ))}
+            </div>
+          )}
+
+          {/* Action Buttons */}
+          <div className="flex gap-3">
+            <button
+              onClick={handleFollow}
+              className={`flex-1 py-3 px-4 rounded-xl font-semibold transition-all duration-200 ${
+                isFollowing
+                  ? 'bg-sage-100/70 text-sage-700 hover:bg-sage-200/70 border border-sage-200/50'
+                  : 'bg-gradient-to-r from-sage-600 to-sage-700 text-white hover:from-sage-700 hover:to-sage-800 shadow-soft'
+              }`}
+            >
+              {isFollowing ? 'Following' : 'Follow'}
+            </button>
           </div>
         </div>
         

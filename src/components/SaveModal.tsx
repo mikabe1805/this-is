@@ -27,7 +27,6 @@ const SaveModal: React.FC<SaveModalProps> = ({
   onSave,
   onCreateList
 }) => {
-  console.log('SaveModal: Rendering with isOpen:', isOpen, 'place:', place?.name, 'userLists length:', userLists?.length)
   
   const [selectedStatus, setSelectedStatus] = useState<SaveStatus | null>(null)
   const [triedRating, setTriedRating] = useState<TriedRating | null>(null)
@@ -156,12 +155,8 @@ const SaveModal: React.FC<SaveModalProps> = ({
     }
   }
 
-  if (!isOpen) {
-    console.log('SaveModal: Not rendering because isOpen is false')
-    return null
-  }
+  if (!isOpen) return null
   
-  console.log('SaveModal: Rendering modal content')
   const modalContent = (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/20 backdrop-blur-sm">
       <div className="w-full max-w-md max-h-[80vh] rounded-2xl shadow-botanical border border-linen-200 bg-white overflow-hidden flex flex-col">
@@ -201,7 +196,7 @@ const SaveModal: React.FC<SaveModalProps> = ({
         </div>
 
         {/* Content */}
-        <div className="p-4">
+        <div className="p-4 flex-1 overflow-y-auto">
           {!showCreateList ? (
             <>
               {/* Status Selection */}
@@ -389,7 +384,7 @@ const SaveModal: React.FC<SaveModalProps> = ({
         </div>
 
         {/* Save/Cancel Buttons - Always visible at bottom */}
-        <div className="p-4 border-t border-linen-200 flex-shrink-0">
+        <div className="p-4 border-t border-linen-200 flex-shrink-0 bg-white">
           {!showCreateList ? (
             <button
               onClick={handleSave}

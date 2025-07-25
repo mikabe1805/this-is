@@ -28,7 +28,7 @@ interface FollowingUser {
 const Following = () => {
   const navigate = useNavigate()
   const [searchQuery, setSearchQuery] = useState('')
-  const [activeTab, setActiveTab] = useState<'following' | 'followers'>('following')
+  const [activeTab, setActiveTab] = useState<'following' | 'friends' | 'followers'>('following')
 
   // Mock following data
   const [followingUsers, setFollowingUsers] = useState<FollowingUser[]>([
@@ -121,7 +121,17 @@ const Following = () => {
     }
   ])
 
-  const currentUsers = activeTab === 'following' ? followingUsers : followersUsers
+  // Determine mutual followers (friends)
+  const followerIdSet = new Set(followersUsers.map(user => user.id))
+  const friendsUsers = followingUsers.filter(user => followerIdSet.has(user.id))
+  const followingOnlyUsers = followingUsers.filter(user => !followerIdSet.has(user.id))
+
+  const currentUsers =
+    activeTab === 'following'
+      ? followingOnlyUsers
+      : activeTab === 'friends'
+      ? friendsUsers
+      : followersUsers
 
   const filteredUsers = currentUsers.filter(user =>
     user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -190,7 +200,17 @@ const Following = () => {
                 : 'text-charcoal-600 hover:text-charcoal-800'
             }`}
           >
-            Following ({followingUsers.length})
+            Following ({followingOnlyUsers.length})
+          </button>
+          <button
+            onClick={() => setActiveTab('friends')}
+            className={`flex-1 py-2 px-4 rounded-lg font-medium transition-colors ${
+              activeTab === 'friends'
+                ? 'bg-white text-sage-700 shadow-soft'
+                : 'text-charcoal-600 hover:text-charcoal-800'
+            }`}
+          >
+            Friends ({friendsUsers.length})
           </button>
           <button
             onClick={() => setActiveTab('followers')}
@@ -220,7 +240,9 @@ const Following = () => {
                 ? 'Try adjusting your search terms'
                 : activeTab === 'following' 
                   ? 'Start following people to see them here'
-                  : 'When people follow you, they\'ll appear here'
+                  : activeTab === 'friends'
+                    ? 'When you follow each other, you\'ll appear here as friends'
+                    : 'When people follow you, they\'ll appear here'
               }
             </p>
           </div>
