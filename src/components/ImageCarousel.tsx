@@ -38,6 +38,14 @@ const ImageCarousel: React.FC<ImageCarouselProps> = ({
   const handleTouchMove = (e: React.TouchEvent) => {
     touchEndX.current = e.targetTouches[0].clientX
     touchEndY.current = e.targetTouches[0].clientY
+    
+    // Only prevent default if it's a significant horizontal movement
+    const horizontalDistance = Math.abs(touchStartX.current - touchEndX.current)
+    const verticalDistance = Math.abs((touchStartY.current || 0) - (touchEndY.current || 0))
+    
+    if (horizontalDistance > 10 && horizontalDistance > verticalDistance) {
+      e.preventDefault()
+    }
   }
 
   const handleTouchEnd = (e: React.TouchEvent) => {
@@ -56,7 +64,8 @@ const ImageCarousel: React.FC<ImageCarouselProps> = ({
       return
     }
 
-    // Only handle horizontal swipes
+    // Only prevent default and stop propagation if we're handling a horizontal swipe
+    e.preventDefault()
     e.stopPropagation()
     
     if (swipeDistance > 0) {
@@ -100,6 +109,7 @@ const ImageCarousel: React.FC<ImageCarouselProps> = ({
     <div
       ref={containerRef}
       className={`relative w-full h-full overflow-hidden ${className}`}
+      style={{ touchAction: 'pan-x' }}
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}

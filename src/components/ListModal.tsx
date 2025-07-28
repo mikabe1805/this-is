@@ -219,7 +219,7 @@ const ListModal = ({ list, isOpen, onClose, onSave, onShare, onAddPost, onOpenFu
 
   const modalContent = (
     <div 
-      className="fixed inset-0 z-[9998] flex items-center justify-center p-1 bg-black/20 backdrop-blur-md"
+      className="modal-overlay fixed inset-0 z-[9998] flex items-center justify-center p-1 bg-black/20 backdrop-blur-md"
       onClick={(e) => {
         // Only close if clicking the backdrop, not the modal content
         if (e.target === e.currentTarget) {
@@ -228,7 +228,7 @@ const ListModal = ({ list, isOpen, onClose, onSave, onShare, onAddPost, onOpenFu
       }}
     >
       <div 
-        className={`w-full max-w-[600px] mx-1 max-h-screen bg-gradient-to-br from-[#FEF6E9] via-[#FBF0D9] to-[#F7E8CC] rounded-3xl shadow-2xl border border-[#E8D4C0]/60 overflow-hidden relative transition-all duration-500 ease-out ${
+        className={`modal-container w-full max-w-[600px] mx-1 max-h-[90vh] sm:max-h-screen bg-gradient-to-br from-[#FEF6E9] via-[#FBF0D9] to-[#F7E8CC] rounded-3xl shadow-2xl border border-[#E8D4C0]/60 overflow-hidden relative transition-all duration-500 ease-out ${
           isVisible ? 'opacity-100 scale-100' : 'opacity-0 scale-95'
         }`}
         style={{
@@ -550,7 +550,7 @@ const ListModal = ({ list, isOpen, onClose, onSave, onShare, onAddPost, onOpenFu
         </div>
         
         {/* Content - Mobile-optimized scroll container */}
-        <div className="flex flex-col h-[calc(100vh-0.5rem-12rem)] overflow-y-auto" style={{ WebkitOverflowScrolling: 'touch' }}>
+                    <div className="modal-content flex flex-col h-[calc(90vh-12rem)] sm:h-[calc(100vh-0.5rem-12rem)] overflow-y-auto pb-4" style={{ WebkitOverflowScrolling: 'touch' }}>
           <div className="p-4 space-y-5 flex-1 pb-6">
           {/* Description */}
             <div className="bg-[#E8D4C0]/20 backdrop-blur-sm rounded-3xl p-4 border border-[#E8D4C0]/40 shadow-[0_6px_30px_rgba(0,0,0,0.1)] relative overflow-hidden">

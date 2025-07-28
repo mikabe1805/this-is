@@ -152,13 +152,6 @@ body {
     box-sizing: border-box;
   }
 
-  /* Disable outer page scroll */
-  html, body {
-    overflow-y: hidden !important;
-    overscroll-behavior-y: none !important;
-    height: 100dvh !important;
-  }
-
   /* Improve touch scrolling inside inner containers */
   .overflow-y-auto {
     -webkit-overflow-scrolling: touch;
@@ -175,15 +168,8 @@ body {
     will-change: auto;
   }
 
-  /* Ensure navbar is always visible */
+  /* Remove navbar positioning overrides - let component handle it */
   nav {
-    position: fixed !important;
-    bottom: calc(env(safe-area-inset-bottom, 0px) + 40px) !important;
-    z-index: 50 !important;
-    width: 100% !important;
-    max-width: 28rem !important;
-    left: 50% !important;
-    transform: translateX(-50%) !important;
     touch-action: pan-x !important;
     pointer-events: auto !important;
   }
@@ -194,24 +180,11 @@ body {
     pointer-events: auto !important;
   }
   
-  /* Add safe area padding for devices with home indicators */
-  @supports (padding-bottom: env(safe-area-inset-bottom)) {
-    nav {
-      padding-bottom: calc(env(safe-area-inset-bottom) + 0.5rem);
-    }
-  }
-  
-  /* Additional padding for mobile browser testing */
-  main {
-    padding-bottom: 7rem !important;
+  /* Additional padding for mobile browser testing - only for main content pages */
+  main:not(:has([data-reels-page])) {
+    padding-bottom: 3.5rem !important;
     padding-top: env(safe-area-inset-top, 0px) !important;
     overscroll-behavior: contain !important;
-  }
-  
-  /* Prevent content from scrolling below navbar */
-  main > * {
-    max-height: calc(100vh - 7rem - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 40px) !important;
-    overflow-y: auto !important;
   }
   
   /* Reels page specific styles */
@@ -221,32 +194,111 @@ body {
     overscroll-behavior: none !important;
   }
   
-  /* Ensure reels page container prevents all scrolling */
+  /* Simple pull-to-refresh prevention for reels page */
   [data-reels-page="true"] {
     overflow: hidden !important;
     overscroll-behavior: none !important;
-    touch-action: pan-y !important;
   }
   
   /* Prevent body scrolling when reels page is active */
   body:has([data-reels-page="true"]) {
     overflow: hidden !important;
     overscroll-behavior: none !important;
+    overscroll-behavior-y: none !important;
   }
   
-  /* Modal positioning for mobile */
-  .fixed.inset-0 {
-    padding-top: env(safe-area-inset-top, 0px);
-    padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 40px);
+  /* Also prevent html scrolling when reels page is active */
+  html:has([data-reels-page="true"]) {
+    overflow: hidden !important;
+    overscroll-behavior: none !important;
+    overscroll-behavior-y: none !important;
   }
   
-  /* Ensure modals don't get cut off */
-  [class*="max-h-\[90vh\]"] {
-    max-height: 75vh !important;
+
+  
+  /* Modal positioning for mobile - be more specific to avoid affecting all fixed elements */
+  .modal-overlay.fixed.inset-0 {
+    padding-top: max(env(safe-area-inset-top, 0px), 1rem);
+    padding-bottom: max(env(safe-area-inset-bottom, 0px), 1rem);
+    padding-left: 0.5rem;
+    padding-right: 0.5rem;
   }
   
-  [class*="max-h-\[80vh\]"] {
-    max-height: 70vh !important;
+  /* Better modal sizing for mobile */
+  .modal-container {
+    max-height: calc(95vh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)) !important;
+    margin: 0 !important;
+    min-height: 0 !important;
+  }
+  
+  /* Specific modal content adjustments */
+  .modal-content {
+    max-height: calc(85vh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)) !important;
+    padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 1rem) !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
+  
+  /* Better button positioning in modals */
+  .modal-container .rounded-2xl.p-4 {
+    padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 1.5rem) !important;
+  }
+  
+  /* Ensure modal buttons are always accessible */
+  .modal-container button {
+    min-height: 44px !important;
+    min-width: 44px !important;
+    touch-action: manipulation !important;
+  }
+  
+  /* Prevent keyboard displacement issues */
+  body {
+    height: 100vh !important;
+    height: 100dvh !important;
+    overflow: hidden !important;
+  }
+  
+  #root {
+    height: 100vh !important;
+    height: 100dvh !important;
+    overflow: hidden !important;
+    position: relative !important;
+  }
+  
+  /* Ensure main content container handles overflow properly */
+  main {
+    height: 100vh !important;
+    height: 100dvh !important;
+    overflow-y: auto !important;
+    position: relative !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
+  
+  /* Safari-specific fixes */
+  @supports (-webkit-touch-callout: none) {
+    /* This targets Safari specifically */
+    .modal-container {
+      transform: translateZ(0) !important;
+    }
+    
+    nav {
+      transform: translateX(-50%) translateZ(0) !important;
+    }
+    
+    /* Prevent Safari viewport changes on keyboard */
+    body {
+      position: fixed !important;
+      width: 100% !important;
+      height: 100% !important;
+      overflow: hidden !important;
+    }
+    
+    #root {
+      width: 100% !important;
+      height: 100% !important;
+      overflow: auto !important;
+      -webkit-overflow-scrolling: touch !important;
+    }
   }
   
   /* Reduce motion for better performance */

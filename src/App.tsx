@@ -24,6 +24,7 @@ import PlaceHub from './pages/PlaceHub.tsx'
 import UserProfile from './pages/UserProfile.tsx'
 import Demo from './pages/Demo.tsx'
 import Auth from './pages/Auth.tsx'
+import { setupViewportHandler } from './utils/viewportHandler.ts'
 
 function AppContent() {
   const [activeTab, setActiveTab] = useState('home')
@@ -58,6 +59,12 @@ function AppContent() {
       document.removeEventListener('touchmove', handleTouchMove)
       document.removeEventListener('wheel', handleWheel)
     }
+  }, [])
+
+  // Setup viewport handler to prevent keyboard displacement
+  useEffect(() => {
+    const cleanup = setupViewportHandler()
+    return cleanup
   }, [])
 
   // Update active tab based on current route

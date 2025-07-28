@@ -257,7 +257,7 @@ const HubModal = ({ hub, isOpen, onClose, onAddPost, onSave, onShare, onOpenFull
 
   const modalContent = (
     <div 
-      className="fixed inset-0 z-[9998] flex items-center justify-center p-1 bg-black/20 backdrop-blur-md"
+      className="modal-overlay fixed inset-0 z-[9998] flex items-center justify-center p-1 bg-black/20 backdrop-blur-md"
       onClick={(e) => {
         // Only close if clicking the backdrop, not the modal content
         if (e.target === e.currentTarget) {
@@ -267,7 +267,7 @@ const HubModal = ({ hub, isOpen, onClose, onAddPost, onSave, onShare, onOpenFull
       }}
     >
       <div 
-        className={`w-full max-w-[600px] mx-1 max-h-screen bg-gradient-to-br from-[#FEF6E9] via-[#FBF0D9] to-[#F7E8CC] rounded-3xl shadow-2xl border border-[#E8D4C0]/60 overflow-hidden relative transition-all duration-500 ease-out ${
+        className={`modal-container w-full max-w-[600px] mx-1 max-h-[90vh] sm:max-h-screen bg-gradient-to-br from-[#FEF6E9] via-[#FBF0D9] to-[#F7E8CC] rounded-3xl shadow-2xl border border-[#E8D4C0]/60 overflow-hidden relative transition-all duration-500 ease-out ${
           isVisible ? 'opacity-100 scale-100' : 'opacity-0 scale-95'
         }`}
         style={{
@@ -592,7 +592,7 @@ const HubModal = ({ hub, isOpen, onClose, onAddPost, onSave, onShare, onOpenFull
         </div>
         
         {/* Content - Mobile-optimized scroll container */}
-        <div className="flex flex-col h-[calc(100vh-0.5rem-12rem)] overflow-y-auto" style={{ WebkitOverflowScrolling: 'touch' }}>
+                      <div className="modal-content flex flex-col h-[calc(90vh-12rem)] sm:h-[calc(100vh-0.5rem-12rem)] overflow-y-auto pb-4" style={{ WebkitOverflowScrolling: 'touch' }}>
           <div className="p-4 space-y-5 flex-1">
             {/* Action Buttons - Clean sticky positioning without background box */}
             <div className="flex gap-2 sticky top-0 z-10 pt-2 pb-3">
@@ -799,7 +799,6 @@ const HubModal = ({ hub, isOpen, onClose, onAddPost, onSave, onShare, onOpenFull
                             <ImageCarousel 
                               images={post.images} 
                               className="h-48"
-                              showArrows={true}
                             />
                           ) : (
                             <img
@@ -852,8 +851,6 @@ const HubModal = ({ hub, isOpen, onClose, onAddPost, onSave, onShare, onOpenFull
       <CommentsModal
         isOpen={showCommentsModal}
         onClose={() => setShowCommentsModal(false)}
-        postId={hub.id}
-        postTitle={hub.name}
         comments={comments.map(comment => ({
           id: comment.id.toString(),
           userId: '1',
@@ -867,7 +864,6 @@ const HubModal = ({ hub, isOpen, onClose, onAddPost, onSave, onShare, onOpenFull
         onAddComment={handleAddCommentToModal}
         onLikeComment={handleLikeComment}
         onReplyToComment={handleReplyToComment}
-        currentUserId="1"
       />
 
       {/* Save to List Modal */}

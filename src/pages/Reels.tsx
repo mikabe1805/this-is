@@ -253,7 +253,7 @@ const Reels = () => {
     const diffY = touchStartRef.current.y - touchEnd.y
     const diffX = Math.abs(touchStartRef.current.x - touchEnd.x)
     
-    // Only handle vertical swipes
+    // Only handle vertical swipes and prevent default only then
     if (Math.abs(diffY) > 30 && Math.abs(diffY) > diffX) {
       e.preventDefault()
       handleScroll(diffY > 0 ? 'up' : 'down')
@@ -365,7 +365,7 @@ const Reels = () => {
   }
   
   const handleUserClick = (user: any) => {
-    const userObj: User = {
+    const userObj: User & { isFollowing?: boolean } = {
       id: user.id,
       name: user.name,
       username: user.username,
@@ -431,9 +431,14 @@ const Reels = () => {
     <div 
       ref={containerRef}
       className="fixed inset-0 bg-black overflow-hidden"
-      style={{ zIndex: 1000 }}
+      style={{ 
+        zIndex: 1000,
+        overscrollBehavior: 'none'
+      }}
+      data-reels-page="true"
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
+
     >
       {/* Reels Container */}
       <div className="relative w-full h-full">
@@ -449,22 +454,45 @@ const Reels = () => {
               contain: 'layout style paint'
             }}
           >
+            {/* Blurry Background Layer */}
+            <div className="absolute inset-0 w-full h-full">
+              {reel.type === 'video' ? (
+                <div
+                  className="w-full h-full bg-cover bg-center filter blur-2xl scale-110 opacity-80"
+                  style={{
+                    backgroundImage: `url(${reel.content.thumbnail})`,
+                    transform: 'scale(1.1) translateZ(0)',
+                    filter: 'blur(40px) brightness(0.7)'
+                  }}
+                />
+              ) : (
+                <div
+                  className="w-full h-full bg-cover bg-center filter blur-2xl scale-110 opacity-80"
+                  style={{
+                    backgroundImage: `url(${reel.content.images?.[imageIndices[reel.id] || 0]})`,
+                    transform: 'scale(1.1) translateZ(0)',
+                    filter: 'blur(40px) brightness(0.7)'
+                  }}
+                />
+              )}
+            </div>
+
             {/* Media Content */}
-            <div className="relative w-full h-full">
+            <div className="relative w-full h-full z-10">
               {reel.type === 'video' ? (
                 <div className="relative w-full h-full">
                   <video
                     ref={el => { videoRefs.current[index] = el }}
                     src={reel.content.video}
                     poster={reel.content.thumbnail}
-                                    className="w-full h-full object-cover"
-                style={{ 
-                  objectFit: 'cover', 
-                  width: '100%', 
-                  height: '100%',
-                  backfaceVisibility: 'hidden',
-                  transform: 'translateZ(0)'
-                }}
+                    className="w-full h-full object-cover"
+                    style={{ 
+                      objectFit: 'cover', 
+                      width: '100%', 
+                      height: '100%',
+                      backfaceVisibility: 'hidden',
+                      transform: 'translateZ(0)'
+                    }}
                     loop
                     muted
                     playsInline
@@ -669,17 +697,22 @@ const Reels = () => {
          userLists={[]}
        />
        
-       <ProfileModal
-         isOpen={showProfileModal}
-         onClose={() => setShowProfileModal(false)}
-         user={selectedUser}
-         onFollow={handleFollow}
-       />
+       {selectedUser && (
+         <ProfileModal
+           isOpen={showProfileModal}
+           onClose={() => setShowProfileModal(false)}
+           user={selectedUser}
+           onFollow={handleFollow}
+         />
+       )}
        
        <ShareModal
          isOpen={showShareModal}
          onClose={() => setShowShareModal(false)}
+         title={currentReel.place.name}
+         description={currentReel.content.caption}
          url={window.location.href}
+         type="post"
        />
      </div>
    )
