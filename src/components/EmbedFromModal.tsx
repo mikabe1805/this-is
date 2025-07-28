@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react'
-import { XMarkIcon, LinkIcon, PhotoIcon, HeartIcon, BookmarkIcon, EyeIcon, EyeSlashIcon, UsersIcon, TagIcon, PlusIcon } from '@heroicons/react/24/outline'
+import { XMarkIcon, PhotoIcon, HeartIcon, BookmarkIcon, EyeIcon, EyeSlashIcon, UsersIcon, TagIcon, PlusIcon } from '@heroicons/react/24/outline'
 import { createPortal } from 'react-dom'
 import { extractEmbedData, createEmbedPreview, parseSocialMediaUrl, validateUrl, getPlatformPlaceholder, getPlatformDisplayName, type EmbedData, type EmbedPreview } from '../utils/embedUtils'
 
@@ -10,7 +10,7 @@ interface EmbedFromModalProps {
 }
 
 interface EmbedPostData {
-  platform: 'instagram' | 'tiktok' | 'other'
+  platform: 'instagram' | 'tiktok' | 'youtube' | 'twitter' | 'other'
   url: string
   content: string
   mediaUrl?: string
@@ -25,7 +25,7 @@ interface EmbedPostData {
 const EmbedFromModal = ({ isOpen, onClose, onEmbed }: EmbedFromModalProps) => {
   const [step, setStep] = useState<'url' | 'details'>('url')
   const [url, setUrl] = useState('')
-  const [platform, setPlatform] = useState<'instagram' | 'tiktok' | 'other'>('instagram')
+  const [platform, setPlatform] = useState<'instagram' | 'tiktok' | 'youtube' | 'twitter' | 'other'>('instagram')
   const [isLoading, setIsLoading] = useState(false)
   const [embedPreview, setEmbedPreview] = useState<EmbedPreview | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -274,26 +274,41 @@ const EmbedFromModal = ({ isOpen, onClose, onEmbed }: EmbedFromModalProps) => {
             <div className="p-6 space-y-6">
               {/* Embed Preview */}
               <div className="bg-linen-50 rounded-xl p-4 border border-linen-200">
-                <div className="flex items-start gap-3">
-                  <div className="w-12 h-12 bg-sage-100 rounded-full flex items-center justify-center">
-                    <LinkIcon className="w-6 h-6 text-sage-600" />
+                <div className="space-y-3">
+                  {/* Header with platform and author */}
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs px-2 py-1 bg-sage-100 text-sage-700 rounded-full font-medium">
+                      {getPlatformDisplayName(embedPreview.platform)}
+                    </span>
+                    <span className="font-medium text-charcoal-700">{embedPreview.author}</span>
+                    <span className="text-sm text-charcoal-500">{embedPreview.timestamp}</span>
                   </div>
-                                    <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="text-xs px-2 py-1 bg-sage-100 text-sage-700 rounded-full font-medium">
-                        {getPlatformDisplayName(embedPreview.platform)}
-                      </span>
-                      <span className="font-medium text-charcoal-700">{embedPreview.author}</span>
-                      <span className="text-sm text-charcoal-500">{embedPreview.timestamp}</span>
-                    </div>
-                    <p className="text-sm text-charcoal-600 mb-3">{embedPreview.content}</p>
+                  
+                  {/* Content preview with thumbnail */}
+                  <div className="flex gap-3">
                     {embedPreview.mediaUrl && (
                       <img
                         src={embedPreview.mediaUrl}
-                        alt="Embed preview"
-                        className="w-full h-32 object-cover rounded-lg"
+                        alt="Content preview"
+                        className="w-20 h-20 object-cover rounded-lg flex-shrink-0"
                       />
                     )}
+                    <div className="flex-1 min-w-0">
+                      {/* Title */}
+                      {embedPreview.title && (
+                        <h4 className="font-semibold text-charcoal-800 mb-1 line-clamp-2">
+                          {embedPreview.title}
+                        </h4>
+                      )}
+                      {/* Description/Content */}
+                      <p className="text-sm text-charcoal-600 line-clamp-3">
+                        {embedPreview.description || embedPreview.content}
+                      </p>
+                      {/* URL for reference */}
+                      <p className="text-xs text-charcoal-400 mt-2 truncate">
+                        {embedPreview.url}
+                      </p>
+                    </div>
                   </div>
                 </div>
               </div>

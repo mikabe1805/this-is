@@ -1,19 +1,24 @@
 export interface EmbedData {
-  platform: 'instagram' | 'tiktok' | 'other'
+  platform: 'instagram' | 'tiktok' | 'youtube' | 'twitter' | 'other'
   url: string
-  content: string
-  mediaUrl?: string
-  author?: string
-  timestamp?: string
   title?: string
   description?: string
+  author?: string
+  authorUrl?: string
   thumbnail?: string
+  mediaUrl?: string
   videoUrl?: string
+  publishedAt?: string
+  siteName?: string
+  type?: 'video' | 'photo' | 'article' | 'website'
   error?: string
+  // Legacy fields for compatibility
+  content?: string
+  timestamp?: string
 }
 
 export interface EmbedPreview {
-  platform: 'instagram' | 'tiktok' | 'other'
+  platform: 'instagram' | 'tiktok' | 'youtube' | 'twitter' | 'other'
   url: string
   content: string
   mediaUrl?: string
@@ -34,12 +39,21 @@ const URL_PATTERNS = {
   ],
   tiktok: [
     /^https?:\/\/(www\.)?tiktok\.com\/@[^\/]+\/video\/[0-9]+/,
-    /^https?:\/\/(www\.)?vm\.tiktok\.com\/[a-zA-Z0-9]+/
+    /^https?:\/\/(www\.)?vm\.tiktok\.com\/[a-zA-Z0-9]+/,
+    /^https?:\/\/(www\.)?tiktok\.com\/t\/[a-zA-Z0-9]+/
+  ],
+  youtube: [
+    /^https?:\/\/(www\.)?youtube\.com\/watch\?v=([a-zA-Z0-9_-]+)/,
+    /^https?:\/\/(www\.)?youtu\.be\/([a-zA-Z0-9_-]+)/,
+    /^https?:\/\/(www\.)?youtube\.com\/embed\/([a-zA-Z0-9_-]+)/
+  ],
+  twitter: [
+    /^https?:\/\/(www\.)?(twitter\.com|x\.com)\/[^\/]+\/status\/[0-9]+/
   ]
 }
 
 // Extract platform and ID from URL
-export function parseSocialMediaUrl(url: string): { platform: 'instagram' | 'tiktok' | 'other', id?: string } {
+export function parseSocialMediaUrl(url: string): { platform: 'instagram' | 'tiktok' | 'youtube' | 'twitter' | 'other', id?: string } {
   const cleanUrl = url.trim()
   
   // Check Instagram patterns
@@ -58,149 +72,106 @@ export function parseSocialMediaUrl(url: string): { platform: 'instagram' | 'tik
     }
   }
   
+  // Check YouTube patterns
+  for (const pattern of URL_PATTERNS.youtube) {
+    const match = cleanUrl.match(pattern)
+    if (match) {
+      return { platform: 'youtube', id: match[2] || match[1] }
+    }
+  }
+  
+  // Check Twitter patterns
+  for (const pattern of URL_PATTERNS.twitter) {
+    const match = cleanUrl.match(pattern)
+    if (match) {
+      return { platform: 'twitter', id: match[0] }
+    }
+  }
+  
   return { platform: 'other' }
 }
 
-// Extract Instagram content using oEmbed API
-async function extractInstagramContent(url: string): Promise<EmbedData> {
-  try {
-    // Instagram oEmbed endpoint
-    const oembedUrl = `https://api.instagram.com/oembed/?url=${encodeURIComponent(url)}`
-    
-    const response = await fetch(oembedUrl)
-    if (!response.ok) {
-      throw new Error('Failed to fetch Instagram data')
-    }
-    
-    const data = await response.json()
-    
-    return {
-      platform: 'instagram',
-      url,
-      content: data.title || 'Instagram post',
-      mediaUrl: data.thumbnail_url,
-      author: data.author_name || '@instagram_user',
-      timestamp: 'Recently',
-      title: data.title,
-      description: data.title
-    }
-  } catch (error) {
-    console.error('Instagram extraction error:', error)
-    // Fallback: create basic embed data from URL
-    const urlParts = url.split('/')
-    const postId = urlParts[urlParts.length - 1] || 'post'
-    
-    return {
-      platform: 'instagram',
-      url,
-      content: `Instagram post ${postId}`,
-      author: '@instagram_user',
-      timestamp: 'Recently',
-      title: 'Instagram Post',
-      description: 'Content from Instagram'
-    }
-  }
-}
+import { httpsCallable } from 'firebase/functions'
+import { functions } from '../firebase/config'
 
-// Extract TikTok content using oEmbed API
-async function extractTikTokContent(url: string): Promise<EmbedData> {
+// Main function to extract embed data from URL using Firebase Functions
+export async function extractEmbedData(url: string): Promise<EmbedData> {
+  console.log('🔍 Starting embed extraction for:', url)
+  
+  // Skip callable function for now, go directly to HTTP (more reliable)
   try {
-    // TikTok oEmbed endpoint
-    const oembedUrl = `https://www.tiktok.com/oembed?url=${encodeURIComponent(url)}`
+    const functionUrl = import.meta.env.DEV && import.meta.env.VITE_USE_FIREBASE_EMULATORS === 'true'
+      ? 'http://localhost:5001/this-is-76332/us-central1/extractEmbed'
+      : 'https://us-central1-this-is-76332.cloudfunctions.net/extractEmbed'
     
-    const response = await fetch(oembedUrl)
-    if (!response.ok) {
-      throw new Error('Failed to fetch TikTok data')
-    }
+    console.log('📡 Calling Firebase Function:', functionUrl)
     
-    const data = await response.json()
-    
-    return {
-      platform: 'tiktok',
-      url,
-      content: data.title || 'TikTok video',
-      mediaUrl: data.thumbnail_url,
-      author: data.author_name || '@tiktok_user',
-      timestamp: 'Recently',
-      title: data.title,
-      description: data.title,
-      videoUrl: url
-    }
-  } catch (error) {
-    console.error('TikTok extraction error:', error)
-    // Fallback: create basic embed data from URL
-    const urlParts = url.split('/')
-    const videoId = urlParts[urlParts.length - 1] || 'video'
-    
-    return {
-      platform: 'tiktok',
-      url,
-      content: `TikTok video ${videoId}`,
-      author: '@tiktok_user',
-      timestamp: 'Recently',
-      title: 'TikTok Video',
-      description: 'Content from TikTok',
-      videoUrl: url
-    }
-  }
-}
-
-// Extract generic content from any URL
-async function extractGenericContent(url: string): Promise<EmbedData> {
-  try {
-    // Try to fetch basic metadata
-    const response = await fetch(url, {
-      method: 'HEAD',
-      mode: 'no-cors' // Handle CORS issues
+    const response = await fetch(functionUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ url }),
     })
     
-    return {
-      platform: 'other',
-      url,
-      content: 'External content',
-      author: 'Unknown',
-      timestamp: 'Recently',
-      title: 'External Link',
-      description: 'Content from external source'
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`)
     }
+    
+    const data = await response.json() as EmbedData
+    console.log('✅ Firebase Function returned data:', data)
+    
+    // Add legacy fields for compatibility
+    if (data.title && !data.content) {
+      data.content = data.title
+    }
+    if (data.publishedAt && !data.timestamp) {
+      data.timestamp = data.publishedAt
+    } else if (!data.timestamp) {
+      data.timestamp = 'Recently'
+    }
+    
+    console.log('🎯 Final processed data:', data)
+    return data
+    
   } catch (error) {
-    console.error('Generic extraction error:', error)
+    console.error('❌ Firebase Function failed:', error)
+    
+    // Final fallback: basic URL parsing
+    const { platform } = parseSocialMediaUrl(url)
+    const domain = new URL(url).hostname.replace('www.', '')
+    
     return {
-      platform: 'other',
+      platform,
       url,
-      content: 'External content',
-      author: 'Unknown',
+      title: `Content from ${domain}`,
+      description: 'Could not extract detailed content',
+      author: domain,
+      content: `Content from ${domain}`,
       timestamp: 'Recently',
-      error: 'Could not extract content'
+      siteName: domain,
+      type: 'website',
+      error: 'Failed to extract content from this URL'
     }
-  }
-}
-
-// Main function to extract embed data from URL
-export async function extractEmbedData(url: string): Promise<EmbedData> {
-  const { platform } = parseSocialMediaUrl(url)
-  
-  switch (platform) {
-    case 'instagram':
-      return await extractInstagramContent(url)
-    case 'tiktok':
-      return await extractTikTokContent(url)
-    case 'other':
-      return await extractGenericContent(url)
-    default:
-      return await extractGenericContent(url)
   }
 }
 
 // Create embed preview for display
 export function createEmbedPreview(embedData: EmbedData): EmbedPreview {
+  // Use the rich content data from Firebase Functions
+  const displayContent = embedData.title || embedData.description || embedData.content || 'Content preview'
+  const displayAuthor = embedData.author || '@user'
+  const displayTimestamp = embedData.publishedAt 
+    ? new Date(embedData.publishedAt).toLocaleDateString()
+    : (embedData.timestamp || 'Recently')
+  
   return {
     platform: embedData.platform,
     url: embedData.url,
-    content: embedData.content,
-    mediaUrl: embedData.mediaUrl,
-    author: embedData.author || '@user',
-    timestamp: embedData.timestamp || 'Recently',
+    content: displayContent,
+    mediaUrl: embedData.thumbnail || embedData.mediaUrl, // Use thumbnail first, then mediaUrl
+    author: displayAuthor,
+    timestamp: displayTimestamp,
     title: embedData.title,
     description: embedData.description,
     thumbnail: embedData.thumbnail,
@@ -219,12 +190,16 @@ export function validateUrl(url: string): boolean {
 }
 
 // Get platform-specific placeholder text
-export function getPlatformPlaceholder(platform: 'instagram' | 'tiktok' | 'other'): string {
+export function getPlatformPlaceholder(platform: 'instagram' | 'tiktok' | 'youtube' | 'twitter' | 'other'): string {
   switch (platform) {
     case 'instagram':
       return 'https://www.instagram.com/p/...'
     case 'tiktok':
       return 'https://www.tiktok.com/@username/video/...'
+    case 'youtube':
+      return 'https://www.youtube.com/watch?v=...'
+    case 'twitter':
+      return 'https://twitter.com/user/status/...'
     case 'other':
       return 'https://...'
     default:
@@ -233,12 +208,16 @@ export function getPlatformPlaceholder(platform: 'instagram' | 'tiktok' | 'other
 }
 
 // Get platform display name
-export function getPlatformDisplayName(platform: 'instagram' | 'tiktok' | 'other'): string {
+export function getPlatformDisplayName(platform: 'instagram' | 'tiktok' | 'youtube' | 'twitter' | 'other'): string {
   switch (platform) {
     case 'instagram':
       return 'Instagram'
     case 'tiktok':
       return 'TikTok'
+    case 'youtube':
+      return 'YouTube'
+    case 'twitter':
+      return 'Twitter'
     case 'other':
       return 'Other'
     default:

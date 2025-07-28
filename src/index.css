@@ -3,6 +3,21 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Line clamp utilities for text truncation */
+.line-clamp-2 {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+
+.line-clamp-3 {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  overflow: hidden;
+}
+
 /* Heart animation for double-tap like */
 @keyframes heartPop {
   0% { transform: scale(0); opacity: 1; }
