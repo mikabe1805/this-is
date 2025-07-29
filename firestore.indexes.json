@@ -1,6 +1,60 @@
 {
   "indexes": [
     {
+      "collectionGroup": "lists",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "privacy",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "likes",
+          "order": "DESCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "lists",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "tags",
+          "arrayConfig": "CONTAINS"
+        },
+        {
+          "fieldPath": "likes",
+          "order": "DESCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "lists",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "isPublic",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "likes",
+          "order": "DESCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
       "collectionGroup": "places",
       "queryScope": "COLLECTION",
       "fields": [
@@ -11,6 +65,10 @@
         {
           "fieldPath": "savedCount",
           "order": "DESCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "DESCENDING"
         }
       ]
     },
@@ -25,47 +83,9 @@
         {
           "fieldPath": "savedCount",
           "order": "DESCENDING"
-        }
-      ]
-    },
-    {
-      "collectionGroup": "lists",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {
-          "fieldPath": "privacy",
-          "order": "ASCENDING"
         },
         {
-          "fieldPath": "likes",
-          "order": "DESCENDING"
-        }
-      ]
-    },
-    {
-      "collectionGroup": "lists",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {
-          "fieldPath": "tags",
-          "arrayConfig": "CONTAINS"
-        },
-        {
-          "fieldPath": "likes",
-          "order": "DESCENDING"
-        }
-      ]
-    },
-    {
-      "collectionGroup": "posts",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {
-          "fieldPath": "privacy",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "likes",
+          "fieldPath": "__name__",
           "order": "DESCENDING"
         }
       ]
@@ -81,49 +101,27 @@
         {
           "fieldPath": "createdAt",
           "order": "DESCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "DESCENDING"
         }
-              ]
-      },
-      {
-      "collectionGroup": "events",
-      "queryScope": "COLLECTION_GROUP",
+      ]
+    },
+    {
+      "collectionGroup": "posts",
+      "queryScope": "COLLECTION",
       "fields": [
         {
-          "fieldPath": "userId",
+          "fieldPath": "privacy",
           "order": "ASCENDING"
         },
         {
-          "fieldPath": "timestamp",
+          "fieldPath": "likes",
           "order": "DESCENDING"
-        }
-      ]
-    },
-    {
-      "collectionGroup": "savedPlaces",
-      "queryScope": "COLLECTION_GROUP",
-      "fields": [
+        },
         {
-          "fieldPath": "savedAt",
-          "order": "DESCENDING"
-        }
-      ]
-    },
-    {
-      "collectionGroup": "likedPosts",
-      "queryScope": "COLLECTION_GROUP",
-      "fields": [
-        {
-          "fieldPath": "likedAt",
-          "order": "DESCENDING"
-        }
-      ]
-    },
-    {
-      "collectionGroup": "activity",
-      "queryScope": "COLLECTION_GROUP",
-      "fields": [
-        {
-          "fieldPath": "createdAt",
+          "fieldPath": "__name__",
           "order": "DESCENDING"
         }
       ]

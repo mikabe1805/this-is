@@ -220,8 +220,8 @@ function determineSearchIntent(parsed: ParsedQuery, query: string): ParsedQuery[
 function findUserByNameOrUsername(name: string, context: SearchContext): User | null {
   const allUsers = [...context.friends, ...context.following]
   return allUsers.find(user => 
-    user.name.toLowerCase().includes(name.toLowerCase()) ||
-    user.username.toLowerCase().includes(name.toLowerCase())
+    (user.name && user.name.toLowerCase().includes(name.toLowerCase())) ||
+    (user.username && user.username.toLowerCase().includes(name.toLowerCase()))
   ) || null
 }
 
@@ -321,7 +321,10 @@ function calculateItemScore<T>(
   return { total: score, primaryCategory }
 }
 
-function exactMatch(text: string, searchTerms: string[]): boolean {
+function exactMatch(text: string | undefined | null, searchTerms: string[]): boolean {
+  if (!text || typeof text !== 'string') {
+    return false
+  }
   const lowerText = text.toLowerCase()
   return searchTerms.some(term => lowerText.includes(term.toLowerCase()))
 }
@@ -331,7 +334,7 @@ function calculateSemanticScore(
   searchTerms: string[]
 ): number {
   let score = 0
-  const searchText = `${metadata.name} ${metadata.description || ''} ${(metadata.tags || []).join(' ')}`.toLowerCase()
+  const searchText = `${metadata.name || ''} ${metadata.description || ''} ${(metadata.tags || []).join(' ')}`.toLowerCase()
   
   for (const term of searchTerms) {
     const termLower = term.toLowerCase()
@@ -396,8 +399,8 @@ function calculatePersonalizationScore(
   }
   
   // Bonus for places user has searched before
-  if (context.userHistory.searches.some(search => 
-    search.toLowerCase().includes(metadata.name.toLowerCase())
+  if (metadata.name && context.userPreferences.interactionHistory.searchHistory.some(search => 
+    search && typeof search === 'string' && search.toLowerCase().includes(metadata.name.toLowerCase())
   )) {
     score += 10
   }

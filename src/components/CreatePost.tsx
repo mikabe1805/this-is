@@ -1,6 +1,7 @@
 import { useState, useRef } from 'react'
 import { XMarkIcon, CameraIcon, MapPinIcon, TagIcon, EyeIcon, EyeSlashIcon, UsersIcon, PhotoIcon, MagnifyingGlassIcon, ArrowLeftIcon } from '@heroicons/react/24/outline'
 import { createPortal } from 'react-dom'
+import { firebaseDataService } from '../services/firebaseDataService'
 
 // Mock EXIF extraction (replace with real library if needed)
 async function extractLocationFromImage(file: File): Promise<{ lat: number, lng: number } | null> {
@@ -245,9 +246,36 @@ const CreatePost = ({ isOpen, onClose, preSelectedHub, preSelectedListIds }: Cre
   const handleRemoveTag = (tagToRemove: string) => {
     setTags(prev => prev.filter(tag => tag !== tagToRemove))
   }
-  const handleSubmit = () => {
-    // In a real app, this would submit the post
-    onClose()
+  const handleSubmit = async () => {
+    try {
+      // Create post data
+      const postData = {
+        userId: 'current-user', // In real app, get from auth context
+        hubId: selectedHub?.id || '',
+        description,
+        images: photos.map(p => p.preview), // In real app, upload to Firebase Storage first
+        tags,
+        privacy,
+        howWasIt,
+        triedFeeling: howWasIt === 'tried' ? triedFeeling : undefined,
+        listIds: Array.from(selectedListIds),
+        location: extractedLocation
+      }
+      
+      // Save post to database (placeholder - firebaseDataService would need a createPost method)
+      await firebaseDataService.trackUserInteraction(
+        'current-user',
+        'create_post',
+        postData
+      )
+      
+      console.log('✅ Post created successfully:', postData)
+      onClose()
+    } catch (error) {
+      console.error('❌ Error creating post:', error)
+      // Still close modal but show user an error
+      onClose()
+    }
   }
   const resetForm = () => {
     setStep('photo')

@@ -43,7 +43,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         // Update the user's display name
         return updateProfile(result.user, {
           displayName: displayName
-        })
+        }).then(() => result) // Return the UserCredential
       })
   }
 

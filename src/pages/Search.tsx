@@ -303,29 +303,21 @@ const Search = () => {
     }
   }
 
-  const searchResults = getFilteredResults()
-  
-  // Use intelligent results if available, otherwise fall back to basic results
+  // Use intelligent results (which now contains real database data)
   const displayResults = intelligentResults || {
-    places: searchResults.places.map(place => ({
-      item: place,
-      score: 75,
-      reasons: ['Basic search match'],
-      category: 'semantic_match' as const
-    })),
-    lists: searchResults.lists.map(list => ({
-      item: list,
-      score: 75,
-      reasons: ['Basic search match'],
-      category: 'semantic_match' as const
-    })),
-    users: searchResults.users.map(user => ({
-      item: user,
-      score: 75,
-      reasons: ['Basic search match'],
-      category: 'semantic_match' as const
-    })),
-    posts: []
+    places: [],
+    lists: [],
+    users: [],
+    posts: [],
+    smartSuggestions: [],
+    discoveries: [],
+    metadata: {
+      totalResults: 0,
+      searchTime: 0,
+      query: searchQuery,
+      algorithms: ['none'],
+      confidence: 0
+    }
   }
 
   const toggleTag = (tag: string) => {
@@ -429,29 +421,8 @@ const Search = () => {
         }
       )
 
-      // Map the current data to intelligent results format
-      const enhancedResults: IntelligentSearchResult = {
-        ...results,
-        places: getFilteredResults().places.map(place => ({
-          item: place,
-          score: 85 + Math.random() * 15,
-          reasons: generatePlaceReasons(place, query),
-          category: determineResultCategory(place, query)
-        })),
-        lists: getFilteredResults().lists.map(list => ({
-          item: list,
-          score: 80 + Math.random() * 20,
-          reasons: generateListReasons(list, query),
-          category: determineListCategory(list, query)
-        })),
-        users: getFilteredResults().users.map(user => ({
-          item: user,
-          score: 90 + Math.random() * 10,
-          reasons: generateUserReasons(user, query),
-          category: 'exact_match' as const
-        })),
-        posts: []
-      }
+      // Use the actual intelligent search results from the database
+      const enhancedResults: IntelligentSearchResult = results
 
       setIntelligentResults(enhancedResults)
     } catch (error) {
@@ -549,18 +520,33 @@ const Search = () => {
     setShowSaveModal(true)
   }
 
-  const handleSave = (status: 'loved' | 'tried' | 'want', rating?: 'liked' | 'neutral' | 'disliked', listIds?: string[], note?: string) => {
-    // In a real app, this would save the place with the selected status
-    console.log('Saving place:', { 
-      place: selectedPlace, 
-      status, 
-      rating, 
-      listIds, 
-      note,
-      // Auto-save to appropriate "All" list
-      autoSaveToList: `All ${status.charAt(0).toUpperCase() + status.slice(1)}`
-    })
-    // You could also show a success toast here
+  const handleSave = async (status: 'loved' | 'tried' | 'want', rating?: 'liked' | 'neutral' | 'disliked', listIds?: string[], note?: string) => {
+    if (!selectedPlace) return
+    
+    try {
+      // Track user interaction with the place
+      await firebaseDataService.trackUserInteraction(
+        currentUser.id,
+        'place_action',
+        { 
+          placeId: selectedPlace.id, 
+          action: status, 
+          rating, 
+          note 
+        }
+      )
+      
+      // Update local state
+      if (status === 'loved') {
+        setLikedPlaces(prev => new Set(prev).add(selectedPlace.id))
+      }
+      setSavedPlaces(prev => new Set(prev).add(selectedPlace.id))
+      
+      setShowSaveModal(false)
+      console.log('✅ Saved place to database:', { place: selectedPlace.name, status })
+    } catch (error) {
+      console.error('❌ Error saving place:', error)
+    }
   }
 
   const handleCreateList = (listData: { name: string; description: string; privacy: 'public' | 'private' | 'friends'; tags?: string[]; coverImage?: string }) => {
@@ -613,16 +599,33 @@ const Search = () => {
     setShowCreatePost(true)
   }
 
-  const handleFollowUser = (userId: string) => {
-    setFollowingUsers(prev => {
-      const newSet = new Set(prev)
-      if (newSet.has(userId)) {
-        newSet.delete(userId)
-      } else {
-        newSet.add(userId)
-      }
-      return newSet
-    })
+  const handleFollowUser = async (userId: string) => {
+    try {
+      const isFollowing = followingUsers.has(userId)
+      const action = isFollowing ? 'unfollow' : 'follow'
+      
+      // Track interaction in database
+      await firebaseDataService.trackUserInteraction(
+        currentUser.id,
+        'user_follow',
+        { targetUserId: userId, action }
+      )
+      
+      // Update local state
+      setFollowingUsers(prev => {
+        const newSet = new Set(prev)
+        if (newSet.has(userId)) {
+          newSet.delete(userId)
+        } else {
+          newSet.add(userId)
+        }
+        return newSet
+      })
+      
+      console.log(`✅ ${action}ed user in database`)
+    } catch (error) {
+      console.error(`❌ Error ${followingUsers.has(userId) ? 'unfollowing' : 'following'} user:`, error)
+    }
   }
 
   const handleUserClick = (user: User) => {
@@ -1006,17 +1009,32 @@ const Search = () => {
                         </div>
                         <div className="flex items-center gap-1 ml-4">
                           <button
-                            onClick={(e) => {
+                            onClick={async (e) => {
                               e.stopPropagation()
-                              setLikedPlaces(prev => {
-                                const newSet = new Set(prev)
-                                if (newSet.has(result.item.id)) {
-                                  newSet.delete(result.item.id)
-                                } else {
-                                  newSet.add(result.item.id)
-                                }
-                                return newSet
-                              })
+                              try {
+                                const isLiked = likedPlaces.has(result.item.id)
+                                const action = isLiked ? 'unlike' : 'like'
+                                
+                                // Track interaction in database
+                                await firebaseDataService.trackUserInteraction(
+                                  currentUser.id,
+                                  'place_like',
+                                  { placeId: result.item.id, action }
+                                )
+                                
+                                // Update local state
+                                setLikedPlaces(prev => {
+                                  const newSet = new Set(prev)
+                                  if (newSet.has(result.item.id)) {
+                                    newSet.delete(result.item.id)
+                                  } else {
+                                    newSet.add(result.item.id)
+                                  }
+                                  return newSet
+                                })
+                              } catch (error) {
+                                console.error('❌ Error liking place:', error)
+                              }
                             }}
                             className={`p-1.5 rounded-full transition ${
                               likedPlaces.has(result.item.id)
@@ -1106,17 +1124,32 @@ const Search = () => {
                         </div>
                         <div className="flex items-center gap-1 ml-4">
                           <button
-                            onClick={(e) => {
+                            onClick={async (e) => {
                               e.stopPropagation()
-                              setLikedLists(prev => {
-                                const newSet = new Set(prev)
-                                if (newSet.has(result.item.id)) {
-                                  newSet.delete(result.item.id)
-                                } else {
-                                  newSet.add(result.item.id)
-                                }
-                                return newSet
-                              })
+                              try {
+                                const isLiked = likedLists.has(result.item.id)
+                                const action = isLiked ? 'unlike' : 'like'
+                                
+                                // Track interaction in database
+                                await firebaseDataService.trackUserInteraction(
+                                  currentUser.id,
+                                  'list_like',
+                                  { listId: result.item.id, action }
+                                )
+                                
+                                // Update local state
+                                setLikedLists(prev => {
+                                  const newSet = new Set(prev)
+                                  if (newSet.has(result.item.id)) {
+                                    newSet.delete(result.item.id)
+                                  } else {
+                                    newSet.add(result.item.id)
+                                  }
+                                  return newSet
+                                })
+                              } catch (error) {
+                                console.error('❌ Error liking list:', error)
+                              }
                             }}
                             className={`p-1.5 rounded-full transition ${
                               likedLists.has(result.item.id)

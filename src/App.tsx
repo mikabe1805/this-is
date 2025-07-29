@@ -354,7 +354,7 @@ const GlobalModals = () => {
 
 // Wrapper component to use navigation context
 const ListModalWrapper = () => {
-  const { showListModal, selectedList, closeListModal, openFullScreenList } = useNavigation()
+  const { showListModal, selectedList, closeListModal, openFullScreenList, openHubModal } = useNavigation()
   const { openSaveModal, openCreatePostModal } = useModal()
 
   if (!selectedList) return null
@@ -365,6 +365,26 @@ const ListModalWrapper = () => {
       isOpen={showListModal}
       onClose={closeListModal}
       onOpenFullScreen={openFullScreenList}
+      onOpenHub={(place) => {
+        // Convert Place to Hub and open with proper back navigation
+        const hub = {
+          id: place.id,
+          name: place.name,
+          description: `${place.category || 'Place'} located at ${place.address}`,
+          tags: place.tags,
+          images: place.hubImage ? [place.hubImage] : [],
+          location: {
+            address: place.address,
+            lat: place.coordinates?.lat || 0,
+            lng: place.coordinates?.lng || 0
+          },
+          googleMapsUrl: `https://maps.google.com/?q=${encodeURIComponent(place.address)}`,
+          mainImage: place.hubImage,
+          posts: place.posts || [],
+          lists: [] // Places don't have associated lists in this context
+        }
+        openHubModal(hub, 'list-modal')
+      }}
       onSave={(list) => {
         openSaveModal(undefined, list)
       }}

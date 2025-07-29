@@ -1,32 +1,9 @@
 import type { User, Place, List, Post, Hub } from '../types/index.js'
+import type { UserPreferences } from '../services/firebaseDataService'
 
 // ========================================
 // USER PREFERENCE ANALYSIS
 // ========================================
-
-export interface UserPreferences {
-  places: {
-    categories: { [key: string]: number } // category -> preference score
-    tags: { [key: string]: number } // tag -> preference score
-    priceRange: 'budget' | 'mid' | 'luxury' | 'mixed'
-    atmospherePrefs: { [key: string]: number } // cozy, trendy, quiet, etc.
-  }
-  social: {
-    followsSimilarUsers: string[] // user IDs with similar taste
-    influencedBy: string[] // users whose recommendations they often follow
-    interactionPattern: 'discoverer' | 'follower' | 'curator' | 'mixed'
-  }
-  temporal: {
-    activeHours: number[] // hours of day when most active
-    weekdayVsWeekend: 'weekday' | 'weekend' | 'both'
-    seasonalPrefs: { [season: string]: number }
-  }
-  behavioral: {
-    explorationVsReliability: number // 0-1: 0 = always goes to known places, 1 = always tries new
-    groupVsIndividual: number // 0-1: preference for group vs solo activities
-    plannerVsSpontaneous: number // 0-1: plans trips vs spontaneous decisions
-  }
-}
 
 export interface DiscoveryContext {
   currentUser: User
@@ -83,26 +60,22 @@ export function analyzeUserPreferences(
 ): UserPreferences {
   
   const preferences: UserPreferences = {
-    places: {
-      categories: {},
-      tags: {},
-      priceRange: 'mixed',
-      atmospherePrefs: {}
+    favoriteCategories: [],
+    preferredPriceRange: [],
+    socialPreferences: {
+      exploreNew: 0.5,
+      followFriends: 0.5,
+      trendingContent: 0.5
     },
-    social: {
-      followsSimilarUsers: [],
-      influencedBy: [],
-      interactionPattern: 'mixed'
+    locationPreferences: {
+      nearbyRadius: 50,
+      preferredAreas: []
     },
-    temporal: {
-      activeHours: [],
-      weekdayVsWeekend: 'both',
-      seasonalPrefs: {}
-    },
-    behavioral: {
-      explorationVsReliability: 0.5,
-      groupVsIndividual: 0.5,
-      plannerVsSpontaneous: 0.5
+    interactionHistory: {
+      savedPlaces: interactions.savedPlaces || [],
+      likedPosts: interactions.likedPosts || [],
+      visitedLists: interactions.visitedLists || [],
+      searchHistory: []
     }
   }
 
@@ -113,18 +86,28 @@ export function analyzeUserPreferences(
   )
 
   // Extract place preferences
+  const categoryCount: { [key: string]: number } = {}
+  
   for (const place of userPlaces) {
     // Category preferences
     if (place.category) {
-      preferences.places.categories[place.category] = 
-        (preferences.places.categories[place.category] || 0) + 1
+      categoryCount[place.category] = (categoryCount[place.category] || 0) + 1
     }
 
-    // Tag preferences
-    for (const tag of place.tags) {
-      preferences.places.tags[tag] = (preferences.places.tags[tag] || 0) + 1
+    // Tag preferences (add to categories since they're similar)
+    const placeTags = Array.isArray(place.tags) ? place.tags : []
+    for (const tag of placeTags) {
+      if (tag) {
+        categoryCount[tag] = (categoryCount[tag] || 0) + 1
+      }
     }
   }
+  
+  // Convert top categories to favoriteCategories array
+  preferences.favoriteCategories = Object.entries(categoryCount)
+    .sort(([,a], [,b]) => b - a)  // Sort by count desc
+    .slice(0, 10)  // Take top 10
+    .map(([category]) => category)
 
   // Analyze user's posts for sentiment and preferences
   const userPosts = allPosts.filter(post => post.userId === user.id)
@@ -133,23 +116,33 @@ export function analyzeUserPreferences(
     if (sentiment.score > 0.6) { // Positive post
       const place = allPlaces.find(p => p.id === post.hubId)
       if (place) {
-        for (const tag of place.tags) {
-          preferences.places.tags[tag] = (preferences.places.tags[tag] || 0) + 2
+        // Add place category and tags to favorites with higher weight
+        if (place.category && !preferences.favoriteCategories.includes(place.category)) {
+          preferences.favoriteCategories.unshift(place.category)  // Add to front
+        }
+        
+        const placeTags = Array.isArray(place.tags) ? place.tags : []
+        for (const tag of placeTags) {
+          if (tag && !preferences.favoriteCategories.includes(tag)) {
+            preferences.favoriteCategories.push(tag)
+          }
         }
       }
     }
   }
 
+  // Trim favoriteCategories to reasonable size
+  preferences.favoriteCategories = preferences.favoriteCategories.slice(0, 15)
+  
   // Analyze social behavior
-  preferences.social.interactionPattern = determineSocialPattern(interactions, allLists)
-  preferences.social.followsSimilarUsers = findSimilarUsers(user, interactions, allPlaces)
+  preferences.socialPreferences.exploreNew = calculateExplorationScore(userPlaces, interactions)
+  preferences.socialPreferences.followFriends = Math.min(interactions.visitedLists.length / 10, 1.0)
+  preferences.socialPreferences.trendingContent = 0.5  // Default value
 
-  // Analyze behavioral patterns
-  preferences.behavioral.explorationVsReliability = calculateExplorationScore(userPlaces, interactions)
-  preferences.behavioral.plannerVsSpontaneous = calculatePlanningScore(userPosts, interactions.createdLists.length)
-
-  // Normalize scores
-  normalizePreferences(preferences)
+  // Set location preferences
+  if (user.location) {
+    preferences.locationPreferences.preferredAreas = [user.location]
+  }
 
   return preferences
 }
@@ -233,21 +226,7 @@ function calculatePlanningScore(userPosts: Post[], listsCreated: number): number
   return Math.max(0, Math.min(1, planningScore))
 }
 
-function normalizePreferences(preferences: UserPreferences): void {
-  // Normalize tag scores
-  const tagScores = Object.values(preferences.places.tags)
-  const maxTagScore = Math.max(...tagScores, 1)
-  for (const tag in preferences.places.tags) {
-    preferences.places.tags[tag] /= maxTagScore
-  }
-
-  // Normalize category scores
-  const categoryScores = Object.values(preferences.places.categories)
-  const maxCategoryScore = Math.max(...categoryScores, 1)
-  for (const category in preferences.places.categories) {
-    preferences.places.categories[category] /= maxCategoryScore
-  }
-}
+// Note: Normalization is now handled by sorting and slicing favoriteCategories array
 
 // ========================================
 // RECOMMENDATION ALGORITHMS
@@ -562,9 +541,12 @@ function calculateCollaborativeScore(
   score += (place.savedCount || 0) * 0.3
   
   // Bonus for tags matching user preferences
-  for (const tag of place.tags) {
-    if (context.userPreferences.places.tags[tag]) {
-      score += context.userPreferences.places.tags[tag] * 10
+  const placeTags = Array.isArray(place.tags) ? place.tags : []
+  const favoriteCategories = context.userPreferences.favoriteCategories || []
+  
+  for (const tag of placeTags) {
+    if (tag && favoriteCategories.includes(tag)) {
+      score += 10 // Boost for matching user's favorite categories/tags
     }
   }
   
@@ -574,16 +556,19 @@ function calculateCollaborativeScore(
 function calculateContentBasedScore(place: Place, userPreferences: UserPreferences): number {
   let score = 0
   
-  // Tag matching
-  for (const tag of place.tags) {
-    if (userPreferences.places.tags[tag]) {
-      score += userPreferences.places.tags[tag] * 25
+  // Tag matching - use favoriteCategories as a proxy for preferred tags
+  const placeTags = Array.isArray(place.tags) ? place.tags : []
+  const favoriteCategories = userPreferences.favoriteCategories || []
+  
+  for (const tag of placeTags) {
+    if (tag && favoriteCategories.includes(tag)) {
+      score += 25 // Boost for matching user's favorite categories/tags
     }
   }
   
   // Category matching
-  if (place.category && userPreferences.places.categories[place.category]) {
-    score += userPreferences.places.categories[place.category] * 20
+  if (place.category && favoriteCategories.includes(place.category)) {
+    score += 20 // Boost for matching user's favorite categories
   }
   
   return score
@@ -593,13 +578,16 @@ function generateContentBasedReasons(place: Place, userPreferences: UserPreferen
   const reasons: string[] = []
   
   // Find matching tags
-  const matchingTags = place.tags.filter(tag => userPreferences.places.tags[tag] > 0.5)
+  const placeTags = Array.isArray(place.tags) ? place.tags : []
+  const favoriteCategories = userPreferences.favoriteCategories || []
+  const matchingTags = placeTags.filter(tag => tag && favoriteCategories.includes(tag))
+  
   if (matchingTags.length > 0) {
     reasons.push(`Matches your interests: ${matchingTags.slice(0, 2).join(', ')}`)
   }
   
   // Category match
-  if (place.category && userPreferences.places.categories[place.category] > 0.5) {
+  if (place.category && favoriteCategories.includes(place.category)) {
     reasons.push(`You love ${place.category} places`)
   }
   

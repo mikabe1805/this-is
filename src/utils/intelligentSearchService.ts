@@ -16,6 +16,361 @@ import {
 import { firebaseDataService, type FirebaseSearchData } from '../services/firebaseDataService.js'
 
 // ========================================
+// NEW USER BASELINE RECOMMENDATIONS
+// ========================================
+
+export interface SignupPreferences {
+  favoriteCategories: string[]
+  activityPreferences: string[]
+  budgetPreferences: string[]
+  socialPreferences: {
+    exploreNew: number
+    followFriends: number
+    trendingContent: number
+  }
+  discoveryRadius: number
+  location: string
+}
+
+/**
+ * Creates baseline recommendations for a new user based on their signup preferences
+ * This generates initial content before the user has any interaction history
+ */
+export async function createBaselineRecommendations(
+  userId: string, 
+  signupPrefs: SignupPreferences
+): Promise<DiscoveryRecommendation[]> {
+  try {
+    // Convert signup preferences to discovery algorithm format
+    const userPreferences: UserPreferences = {
+      places: {
+        categories: {},
+        tags: {},
+        priceRange: mapBudgetToRange(signupPrefs.budgetPreferences),
+        atmospherePrefs: mapActivityToAtmosphere(signupPrefs.activityPreferences)
+      },
+      social: {
+        followsSimilarUsers: [],
+        influencedBy: [],
+        interactionPattern: mapSocialToPattern(signupPrefs.socialPreferences)
+      },
+      temporal: {
+        activeHours: [], // Will be learned over time
+        weekdayVsWeekend: 'both',
+        seasonalPrefs: {}
+      },
+      behavioral: {
+        explorationVsReliability: signupPrefs.socialPreferences.exploreNew / 100,
+        groupVsIndividual: mapActivityToGroupPref(signupPrefs.activityPreferences),
+        plannerVsSpontaneous: 0.5 // Default to balanced
+      }
+    }
+
+    // Weight categories based on selections
+    signupPrefs.favoriteCategories.forEach(category => {
+      userPreferences.places.categories[category.toLowerCase()] = 1.0
+    })
+
+    // Weight tags based on activity preferences
+    signupPrefs.activityPreferences.forEach(activity => {
+      userPreferences.places.tags[activity.toLowerCase().replace(/\s+/g, '_')] = 0.8
+    })
+
+    // Get places and lists for recommendations
+    const searchData = await firebaseDataService.performSearch('', {
+      location: signupPrefs.location,
+      radius: signupPrefs.discoveryRadius
+    }, 100)
+
+    // Create mock discovery context for new user
+    const mockUser: User = {
+      id: userId,
+      name: 'New User',
+      username: 'newuser',
+      influences: 0,
+      location: signupPrefs.location
+    }
+
+    const discoveryContext: DiscoveryContext = {
+      currentUser: mockUser,
+      userPreferences,
+      allUsers: [], // Empty for new user
+      allPlaces: searchData.places,
+      allLists: searchData.lists,
+      allPosts: [],
+      userInteractions: {
+        userId,
+        savedPlaces: [],
+        likedLists: [],
+        visitedPlaces: [],
+        createdLists: [],
+        friendsList: [],
+        following: []
+      },
+      currentLocation: undefined, // Could be enhanced with geolocation
+      timeContext: {
+        currentTime: new Date(),
+        season: getCurrentSeason(),
+        isWeekend: isWeekend()
+      }
+    }
+
+    // Generate content-based recommendations
+    const contentBasedRecs = generateContentBasedRecommendations(discoveryContext)
+    
+    // Generate category-based recommendations
+    const categoryBasedRecs = generateCategoryBasedRecommendations(discoveryContext, signupPrefs)
+    
+    // Generate trending recommendations (weighted by user preference)
+    const trendingRecs = generateTrendingRecommendations(discoveryContext, signupPrefs.socialPreferences.trendingContent / 100)
+
+    // Combine and rank all recommendations
+    const allRecs = [...contentBasedRecs, ...categoryBasedRecs, ...trendingRecs]
+    
+    // Sort by score and return top recommendations
+    return allRecs
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 20) // Return top 20 recommendations
+
+  } catch (error) {
+    console.error('Error creating baseline recommendations:', error)
+    return []
+  }
+}
+
+/**
+ * Generate content-based recommendations using category and activity preferences
+ */
+function generateContentBasedRecommendations(context: DiscoveryContext): DiscoveryRecommendation[] {
+  const recommendations: DiscoveryRecommendation[] = []
+  
+  // Recommend places based on favorite categories
+  context.allPlaces.forEach(place => {
+    let score = 0
+    const reasons: string[] = []
+    
+    if (place.category && context.userPreferences.places.categories[place.category.toLowerCase()]) {
+      score += context.userPreferences.places.categories[place.category.toLowerCase()] * 0.8
+      reasons.push(`Matches your interest in ${place.category}`)
+    }
+    
+    // Check tag alignment
+    place.tags?.forEach(tag => {
+      if (context.userPreferences.places.tags[tag.toLowerCase()]) {
+        score += context.userPreferences.places.tags[tag.toLowerCase()] * 0.6
+        reasons.push(`Matches your preference for ${tag} experiences`)
+      }
+    })
+    
+    if (score > 0.3) {
+      recommendations.push({
+        item: place,
+        type: 'place',
+        score,
+        confidence: Math.min(score, 0.8), // Lower confidence for new users
+        reasons,
+        algorithm: 'content_based',
+        metadata: {
+          expectedPreference: 3 + (score * 2), // Scale to 1-5 rating
+          contextualFactors: ['new_user_preference_match']
+        }
+      })
+    }
+  })
+  
+  // Recommend lists based on categories
+  context.allLists.forEach(list => {
+    let score = 0
+    const reasons: string[] = []
+    
+    list.tags?.forEach(tag => {
+      if (context.userPreferences.places.categories[tag.toLowerCase()]) {
+        score += context.userPreferences.places.categories[tag.toLowerCase()] * 0.7
+        reasons.push(`List contains ${tag} places you're interested in`)
+      }
+    })
+    
+    if (score > 0.4) {
+      recommendations.push({
+        item: list,
+        type: 'list',
+        score,
+        confidence: Math.min(score, 0.7),
+        reasons,
+        algorithm: 'content_based',
+        metadata: {
+          expectedPreference: 3 + (score * 1.5),
+          contextualFactors: ['category_match']
+        }
+      })
+    }
+  })
+  
+  return recommendations
+}
+
+/**
+ * Generate category-based recommendations specifically for signup preferences
+ */
+function generateCategoryBasedRecommendations(context: DiscoveryContext, signupPrefs: SignupPreferences): DiscoveryRecommendation[] {
+  const recommendations: DiscoveryRecommendation[] = []
+  
+  // For each favorite category, find the best places
+  signupPrefs.favoriteCategories.forEach(category => {
+    const categoryPlaces = context.allPlaces
+      .filter(place => place.category?.toLowerCase() === category.toLowerCase())
+      .sort((a, b) => (b.savedCount || 0) - (a.savedCount || 0)) // Sort by popularity
+      .slice(0, 3) // Top 3 per category
+    
+    categoryPlaces.forEach(place => {
+      recommendations.push({
+        item: place,
+        type: 'place',
+        score: 0.9, // High score for direct category match
+        confidence: 0.9,
+        reasons: [`Top-rated ${category} place`, 'Popular with other users'],
+        algorithm: 'content_based',
+        metadata: {
+          expectedPreference: 4.2,
+          contextualFactors: ['direct_category_match', 'popular_choice']
+        }
+      })
+    })
+  })
+  
+  return recommendations
+}
+
+/**
+ * Generate trending recommendations weighted by user's preference for trending content
+ */
+function generateTrendingRecommendations(context: DiscoveryContext, trendingWeight: number): DiscoveryRecommendation[] {
+  if (trendingWeight < 0.3) return [] // User doesn't want trending content
+  
+  const recommendations: DiscoveryRecommendation[] = []
+  
+  // Get most saved places (trending places)
+  const trendingPlaces = context.allPlaces
+    .sort((a, b) => (b.savedCount || 0) - (a.savedCount || 0))
+    .slice(0, 5)
+  
+  trendingPlaces.forEach(place => {
+    recommendations.push({
+      item: place,
+      type: 'place',
+      score: 0.7 * trendingWeight,
+      confidence: 0.6,
+      reasons: ['Currently trending', 'Popular with the community'],
+      algorithm: 'trending',
+      metadata: {
+        expectedPreference: 3.8,
+        contextualFactors: ['trending', 'community_favorite']
+      }
+    })
+  })
+  
+  // Get most liked lists (trending lists)
+  const trendingLists = context.allLists
+    .sort((a, b) => (b.likes || 0) - (a.likes || 0))
+    .slice(0, 3)
+  
+  trendingLists.forEach(list => {
+    recommendations.push({
+      item: list,
+      type: 'list',
+      score: 0.6 * trendingWeight,
+      confidence: 0.5,
+      reasons: ['Trending list', 'Highly liked by community'],
+      algorithm: 'trending',
+      metadata: {
+        expectedPreference: 3.5,
+        contextualFactors: ['trending_list']
+      }
+    })
+  })
+  
+  return recommendations
+}
+
+// Helper functions
+function mapBudgetToRange(budgetPrefs: string[]): 'budget' | 'mid' | 'luxury' | 'mixed' {
+  if (budgetPrefs.includes('$') && !budgetPrefs.includes('$$') && !budgetPrefs.includes('$$$')) return 'budget'
+  if (budgetPrefs.includes('$$$') || budgetPrefs.includes('$$$$')) return 'luxury'
+  if (budgetPrefs.includes('$$') && budgetPrefs.length === 1) return 'mid'
+  return 'mixed'
+}
+
+function mapActivityToAtmosphere(activities: string[]): { [key: string]: number } {
+  const atmosphere: { [key: string]: number } = {}
+  
+  activities.forEach(activity => {
+    switch (activity.toLowerCase()) {
+      case 'relaxed & chill':
+        atmosphere['cozy'] = 1.0
+        atmosphere['quiet'] = 0.8
+        break
+      case 'trendy & hip':
+        atmosphere['trendy'] = 1.0
+        atmosphere['modern'] = 0.8
+        break
+      case 'romantic':
+        atmosphere['intimate'] = 1.0
+        atmosphere['elegant'] = 0.8
+        break
+      case 'active & energetic':
+        atmosphere['lively'] = 1.0
+        atmosphere['energetic'] = 0.9
+        break
+      case 'cultural & educational':
+        atmosphere['sophisticated'] = 0.9
+        atmosphere['inspiring'] = 0.8
+        break
+    }
+  })
+  
+  return atmosphere
+}
+
+function mapSocialToPattern(socialPrefs: SignupPreferences['socialPreferences']): 'discoverer' | 'follower' | 'curator' | 'mixed' {
+  if (socialPrefs.exploreNew > 70) return 'discoverer'
+  if (socialPrefs.followFriends > 70) return 'follower'
+  return 'mixed'
+}
+
+function mapActivityToGroupPref(activities: string[]): number {
+  let groupScore = 0.5 // Default neutral
+  
+  activities.forEach(activity => {
+    switch (activity.toLowerCase()) {
+      case 'social experiences':
+        groupScore += 0.3
+        break
+      case 'solo-friendly':
+        groupScore -= 0.3
+        break
+      case 'family-friendly':
+        groupScore += 0.2
+        break
+    }
+  })
+  
+  return Math.max(0, Math.min(1, groupScore))
+}
+
+function getCurrentSeason(): 'spring' | 'summer' | 'fall' | 'winter' {
+  const month = new Date().getMonth()
+  if (month >= 2 && month <= 4) return 'spring'
+  if (month >= 5 && month <= 7) return 'summer'
+  if (month >= 8 && month <= 10) return 'fall'
+  return 'winter'
+}
+
+function isWeekend(): boolean {
+  const day = new Date().getDay()
+  return day === 0 || day === 6
+}
+
+// ========================================
 // UNIFIED SEARCH INTERFACE
 // ========================================
 
@@ -133,7 +488,7 @@ export class IntelligentSearchService {
       this.createBasicParsedQuery(query)
 
     // Prepare data sources
-    const dataSources = await this.prepareDataSources(context, filters)
+    const dataSources = await this.prepareDataSources(query, context, filters)
 
     // Perform direct search
     const searchResults = await this.performDirectSearch(
@@ -206,14 +561,14 @@ export class IntelligentSearchService {
       allPosts: [], // Would be loaded from data source
       userInteractions: {
         userId: context.currentUser.id,
-        savedPlaces: context.userHistory.savedPlaces,
-        likedLists: context.userHistory.likedLists,
-        visitedPlaces: context.userHistory.visitedPlaces,
+        savedPlaces: context.userPreferences.interactionHistory.savedPlaces,
+        likedLists: context.userPreferences.interactionHistory.likedPosts,
+        visitedPlaces: context.userPreferences.interactionHistory.visitedLists,
         createdLists: [],
         friendsList: context.friends.map(f => f.id),
         following: context.following.map(f => f.id)
       },
-      currentLocation: context.location,
+      currentLocation: context.currentUser.location || { lat: 37.7749, lng: -122.4194 },
       timeContext: {
         currentTime: new Date(),
         season: this.getCurrentSeason(),
@@ -362,14 +717,14 @@ export class IntelligentSearchService {
         allPosts: dataSources.posts,
         userInteractions: {
           userId: context.currentUser.id,
-          savedPlaces: context.userHistory.savedPlaces,
-          likedLists: context.userHistory.likedLists,
-          visitedPlaces: context.userHistory.visitedPlaces,
+          savedPlaces: context.userPreferences.interactionHistory.savedPlaces,
+          likedLists: context.userPreferences.interactionHistory.likedPosts,
+          visitedPlaces: context.userPreferences.interactionHistory.visitedLists,
           createdLists: [],
           friendsList: context.friends.map(f => f.id),
           following: context.following.map(f => f.id)
         },
-        currentLocation: context.location,
+        currentLocation: context.currentUser.location || { lat: 37.7749, lng: -122.4194 },
         timeContext: {
           currentTime: new Date(),
           season: this.getCurrentSeason(),
@@ -465,7 +820,7 @@ export class IntelligentSearchService {
     }
   }
 
-  private async prepareDataSources(context: SearchContext, filters: Partial<SearchFilters>) {
+  private async prepareDataSources(query: string, context: SearchContext, filters: Partial<SearchFilters>) {
     try {
       // Use Firebase data service to fetch real data
       const searchFilters = {
@@ -477,8 +832,9 @@ export class IntelligentSearchService {
       }
 
       // Perform search in Firebase to get initial data set
+      // Use the actual search query to get relevant results from Firebase first
       const firebaseData = await firebaseDataService.performSearch(
-        '', // Empty query to get all data, filtering will be done by intelligent algorithms
+        query, // Use actual search query for better initial filtering
         searchFilters,
         100 // Get more results for better algorithmic processing
       )

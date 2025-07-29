@@ -252,6 +252,200 @@ class FirebaseDataService {
   }
 
   // ====================
+  // USER CREATION & SETUP
+  // ====================
+
+  async createUserProfile(userId: string, userData: {
+    displayName: string
+    email: string
+    location: string
+    bio?: string
+    ageRange?: string
+    username?: string
+    userTags?: string[]
+    profilePictureUrl?: string
+  }): Promise<void> {
+    try {
+
+      const userProfile = {
+        id: userId,
+        name: userData.displayName,
+        username: userData.username || userData.displayName.toLowerCase().replace(/\s+/g, ''),
+        location: userData.location,
+        bio: userData.bio || '',
+        influences: 0,
+        tags: userData.userTags || [],
+        createdAt: Timestamp.now(),
+        updatedAt: Timestamp.now(),
+        email: userData.email,
+        ageRange: userData.ageRange,
+        avatar: userData.profilePictureUrl || ''
+      }
+
+      await setDoc(doc(db, 'users', userId), userProfile)
+      console.log('User profile created successfully')
+    } catch (error) {
+      console.error('Error creating user profile:', error)
+      throw error
+    }
+  }
+
+  async initializeUserPreferences(userId: string, signupData: {
+    favoriteCategories: string[]
+    activityPreferences: string[]
+    budgetPreferences: string[]
+    socialPreferences: {
+      exploreNew: number
+      followFriends: number
+      trendingContent: number
+    }
+    discoveryRadius: number
+    location: string
+  }): Promise<void> {
+    try {
+      // Convert signup data to UserPreferences format
+      const preferences: UserPreferences = {
+        favoriteCategories: signupData.favoriteCategories,
+        preferredPriceRange: signupData.budgetPreferences,
+        socialPreferences: {
+          exploreNew: signupData.socialPreferences.exploreNew / 100, // Convert percentage to decimal
+          followFriends: signupData.socialPreferences.followFriends / 100,
+          trendingContent: signupData.socialPreferences.trendingContent / 100
+        },
+        locationPreferences: {
+          nearbyRadius: signupData.discoveryRadius,
+          preferredAreas: [signupData.location]
+        },
+        interactionHistory: {
+          savedPlaces: [],
+          likedPosts: [],
+          visitedLists: [],
+          searchHistory: []
+        }
+      }
+
+      await this.saveUserPreferences(userId, preferences)
+
+      console.log('User preferences initialized successfully')
+    } catch (error) {
+      console.error('Error initializing user preferences:', error)
+      throw error
+    }
+  }
+
+  async setupNewUser(userId: string, userData: {
+    displayName: string
+    email: string
+    location: string
+    bio?: string
+    ageRange?: string
+    favoriteCategories: string[]
+    activityPreferences: string[]
+    budgetPreferences: string[]
+    socialPreferences: {
+      exploreNew: number
+      followFriends: number
+      trendingContent: number
+    }
+    discoveryRadius: number
+    username?: string
+    userTags?: string[]
+    profilePictureUrl?: string
+  }): Promise<void> {
+    try {
+      // Create user profile
+      await this.createUserProfile(userId, {
+        displayName: userData.displayName,
+        email: userData.email,
+        location: userData.location,
+        bio: userData.bio,
+        ageRange: userData.ageRange,
+        username: userData.username,
+        userTags: userData.userTags,
+        profilePictureUrl: userData.profilePictureUrl
+      })
+
+      // Initialize user preferences
+      await this.initializeUserPreferences(userId, {
+        favoriteCategories: userData.favoriteCategories,
+        activityPreferences: userData.activityPreferences,
+        budgetPreferences: userData.budgetPreferences,
+        socialPreferences: userData.socialPreferences,
+        discoveryRadius: userData.discoveryRadius,
+        location: userData.location
+      })
+
+      // Generate and save baseline recommendations
+      await this.generateBaselineRecommendations(userId, {
+        favoriteCategories: userData.favoriteCategories,
+        activityPreferences: userData.activityPreferences,
+        budgetPreferences: userData.budgetPreferences,
+        socialPreferences: userData.socialPreferences,
+        discoveryRadius: userData.discoveryRadius,
+        location: userData.location
+      })
+
+      console.log('New user setup completed successfully')
+    } catch (error) {
+      console.error('Error setting up new user:', error)
+      throw error
+    }
+  }
+
+  async generateBaselineRecommendations(userId: string, signupPrefs: {
+    favoriteCategories: string[]
+    activityPreferences: string[]
+    budgetPreferences: string[]
+    socialPreferences: {
+      exploreNew: number
+      followFriends: number
+      trendingContent: number
+    }
+    discoveryRadius: number
+    location: string
+  }): Promise<void> {
+    try {
+      // Dynamic import to avoid circular dependency
+      const { createBaselineRecommendations } = await import('../utils/intelligentSearchService.js')
+      
+      const recommendations = await createBaselineRecommendations(userId, signupPrefs)
+      
+      // Save recommendations to user's recommendations collection
+      const batch = []
+      recommendations.forEach((rec, index) => {
+        const recData = {
+          userId,
+          itemId: rec.item.id,
+          itemType: rec.type,
+          score: rec.score,
+          confidence: rec.confidence,
+          reasons: rec.reasons,
+          algorithm: rec.algorithm,
+          metadata: rec.metadata,
+          createdAt: Timestamp.now(),
+          rank: index + 1,
+          source: 'signup_preferences'
+        }
+        
+        batch.push(
+          setDoc(
+            doc(db, 'users', userId, 'recommendations', `${rec.type}_${rec.item.id}`),
+            recData
+          )
+        )
+      })
+      
+      // Execute all recommendations saves
+      await Promise.all(batch)
+      
+      console.log(`Generated ${recommendations.length} baseline recommendations for new user`)
+    } catch (error) {
+      console.error('Error generating baseline recommendations:', error)
+      // Don't throw - recommendations are nice to have but not essential for signup
+    }
+  }
+
+  // ====================
   // SEARCH DATA FETCHING
   // ====================
 
@@ -313,7 +507,7 @@ class FirebaseDataService {
     }
   }
 
-  private async searchPlaces(searchQuery: string, filters: any, limit: number): Promise<Place[]> {
+  private async searchPlaces(searchQuery: string, filters: any, limitCount: number): Promise<Place[]> {
     const constraints: QueryConstraint[] = []
     
     if (filters.category) {
@@ -325,7 +519,7 @@ class FirebaseDataService {
     }
 
     constraints.push(orderBy('savedCount', 'desc'))
-    constraints.push(limit(limit))
+    constraints.push(limit(limitCount))
 
     const placesQuery = query(collection(db, 'places'), ...constraints)
     const placesSnapshot = await getDocs(placesQuery)
@@ -348,11 +542,11 @@ class FirebaseDataService {
     return places
   }
 
-  private async searchLists(searchQuery: string, filters: any, limit: number): Promise<List[]> {
+  private async searchLists(searchQuery: string, filters: any, limitCount: number): Promise<List[]> {
     const constraints: QueryConstraint[] = [
       where('isPublic', '==', true),
       orderBy('likes', 'desc'),
-      limit(limit)
+      limit(limitCount)
     ]
 
     if (filters.tags && filters.tags.length > 0) {
@@ -379,11 +573,11 @@ class FirebaseDataService {
     return lists
   }
 
-  private async searchUsers(searchQuery: string, filters: any, limit: number): Promise<User[]> {
+  private async searchUsers(searchQuery: string, filters: any, limitCount: number): Promise<User[]> {
     const usersQuery = query(
       collection(db, 'users'),
       orderBy('influences', 'desc'),
-      limit(limit)
+      limit(limitCount)
     )
     const usersSnapshot = await getDocs(usersQuery)
     
@@ -405,12 +599,12 @@ class FirebaseDataService {
     return users
   }
 
-  private async searchPosts(searchQuery: string, filters: any, limit: number): Promise<Post[]> {
+  private async searchPosts(searchQuery: string, filters: any, limitCount: number): Promise<Post[]> {
     const postsQuery = query(
       collection(db, 'posts'),
       where('privacy', '==', 'public'),
       orderBy('likes', 'desc'),
-      limit(limit)
+      limit(limitCount)
     )
     const postsSnapshot = await getDocs(postsQuery)
     
