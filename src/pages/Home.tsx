@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react'
+import React, { useRef, useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { HeartIcon, BookmarkIcon, EyeIcon, PlusIcon, ChatBubbleLeftIcon, ShareIcon } from '@heroicons/react/24/outline'
 import { HeartIcon as HeartIconSolid } from '@heroicons/react/24/solid'
@@ -14,6 +14,7 @@ import ShareModal from '../components/ShareModal'
 import ProfileModal from '../components/ProfileModal'
 import type { Hub, Place, List, Post, User } from '../types/index.js'
 import { useNavigation } from '../contexts/NavigationContext.tsx'
+import { firebaseDataService } from '../services/firebaseDataService.js'
 
 // Botanical SVG accent (eucalyptus branch)
 const BotanicalAccent = () => (
@@ -25,78 +26,34 @@ const BotanicalAccent = () => (
   </svg>
 )
 
-// Mock data for the home feed
-const mockFriendsActivity = [
-  {
-    id: '1',
-    user: {
-      name: 'Emma',
-      avatar: 'https://randomuser.me/api/portraits/women/44.jpg'
-    },
-    action: 'loved',
-    place: 'Blue Bottle Coffee',
-    placeImage: 'https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?w=400&h=300&fit=crop',
-    note: 'The cold brew here is absolutely divine!',
-    timestamp: '2 hours ago',
-    list: 'All Loved'
-  },
-  {
-    id: '2',
-    user: {
-      name: 'Rami',
-      avatar: 'https://randomuser.me/api/portraits/men/32.jpg'
-    },
-    action: 'created',
-    list: 'SF Coffee Tour',
-    description: 'Exploring the best coffee spots in San Francisco',
-    places: 8,
-    timestamp: '4 hours ago'
-  },
-  {
-    id: '3',
-    user: {
-      name: 'Sophie',
-      avatar: 'https://randomuser.me/api/portraits/women/68.jpg'
-    },
-    action: 'tried',
-    place: 'Tartine Bakery',
-    placeImage: 'https://images.unsplash.com/photo-1509440159596-0249088772ff?w=400&h=300&fit=crop',
-    note: 'Their morning bun is life-changing!',
-    timestamp: '1 day ago',
-    list: 'All Tried'
+// Interface for Firebase activity data
+interface FriendActivity {
+  id: string
+  user: {
+    name: string
+    avatar: string
   }
-]
+  action: 'loved' | 'tried' | 'want' | 'created'
+  place?: string
+  placeImage?: string
+  note?: string
+  timestamp: string
+  list?: string
+  description?: string
+  places?: number
+}
 
-const mockDiscovery = [
-  {
-    id: '1',
-    type: 'list',
-    title: 'Cozy Winter Cafes',
-    description: 'Perfect spots for reading and people watching',
-    owner: 'Emma',
-    likes: 24,
-    places: 12,
-    image: 'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=400&h=300&fit=crop'
-  },
-  {
-    id: '2',
-    type: 'hub',
-    title: 'Mission Chinese Food',
-    description: 'New hub created by Rami',
-    activity: '3 friends have been here',
-    image: 'https://images.unsplash.com/photo-1565299624946-b28f40a0ca4b?w=400&h=300&fit=crop'
-  },
-  {
-    id: '3',
-    type: 'list',
-    title: 'Hidden Bookstores',
-    description: 'Quiet places to discover new reads',
-    owner: 'Sophie',
-    likes: 18,
-    places: 8,
-    image: 'https://images.unsplash.com/photo-1481627834876-b7833e8f5570?w=400&h=300&fit=crop'
-  }
-]
+interface DiscoveryItem {
+  id: string
+  type: 'list' | 'hub'
+  title: string
+  description: string
+  owner?: string
+  likes?: number
+  places?: number
+  image: string
+  activity?: string
+}
 
 const sortOptions = [
   { key: 'popular', label: 'Most Popular' },
@@ -128,6 +85,14 @@ const Home = () => {
     openFullScreenList,
     openFullScreenUser
   } = useNavigation()
+  
+  // Firebase data state
+  const [friendsActivity, setFriendsActivity] = useState<FriendActivity[]>([])
+  const [discoveryItems, setDiscoveryItems] = useState<DiscoveryItem[]>([])
+  const [isLoadingActivity, setIsLoadingActivity] = useState(true)
+  const [isLoadingDiscovery, setIsLoadingDiscovery] = useState(true)
+  
+  // UI state
   const [activeTab, setActiveTab] = useState<'friends' | 'discovery'>('friends')
   const [likedItems, setLikedItems] = useState<Set<string>>(new Set())
   const [savedItems, setSavedItems] = useState<Set<string>>(new Set())
@@ -146,6 +111,126 @@ const Home = () => {
   const [selectedPost, setSelectedPost] = useState<Post | null>(null)
   const [showProfileModal, setShowProfileModal] = useState(false)
   const [selectedUser, setSelectedUser] = useState<User | null>(null)
+
+  // Current user (mock for now, in real app would come from auth)
+  const currentUser: User = {
+    id: 'current-user',
+    name: 'Demo User',
+    username: 'current_user',
+    bio: 'Love discovering amazing places!',
+    avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&h=150&fit=crop&crop=face',
+    influences: 10,
+    location: 'San Francisco, CA',
+    tags: ['coffee', 'food', 'discovery']
+  }
+
+  // Load Firebase data on mount
+  useEffect(() => {
+    loadFriendsActivity()
+    loadDiscoveryItems()
+  }, [])
+
+  const loadFriendsActivity = async () => {
+    try {
+      setIsLoadingActivity(true)
+      
+      // Get recent posts from Firebase
+      const searchData = await firebaseDataService.performSearch('', {}, 20)
+      
+      // Transform posts into activity format
+      const activities: FriendActivity[] = searchData.posts.map(post => ({
+        id: post.id,
+        user: {
+          name: post.username || 'User',
+          avatar: post.userAvatar || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&h=150&fit=crop&crop=face'
+        },
+        action: post.postType as 'loved' | 'tried' | 'want',
+        place: searchData.places.find(p => p.id === post.hubId)?.name || 'Unknown Place',
+        placeImage: post.images?.[0] || 'https://images.unsplash.com/photo-1551218808-94e220e084d2?w=400&h=300&fit=crop',
+        note: post.description,
+        timestamp: formatTimestamp(post.createdAt),
+        list: post.listId ? searchData.lists.find(l => l.id === post.listId)?.name || 'Unknown List' : undefined
+      }))
+
+      // Add some list creation activities
+      const listActivities: FriendActivity[] = searchData.lists.slice(0, 3).map(list => ({
+        id: `list-${list.id}`,
+        user: {
+          name: searchData.users.find(u => u.id === list.userId)?.name || 'User',
+          avatar: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=150&h=150&fit=crop&crop=face'
+        },
+        action: 'created' as const,
+        list: list.name,
+        description: list.description,
+        places: list.hubs?.length || 0,
+        timestamp: formatTimestamp(list.createdAt)
+      }))
+
+      setFriendsActivity([...activities, ...listActivities].slice(0, 10))
+    } catch (error) {
+      console.error('Error loading friends activity:', error)
+      setFriendsActivity([])
+    } finally {
+      setIsLoadingActivity(false)
+    }
+  }
+
+  const loadDiscoveryItems = async () => {
+    try {
+      setIsLoadingDiscovery(true)
+      
+      // Get popular places and lists
+      const searchData = await firebaseDataService.performSearch('', {}, 10)
+      
+      // Transform places and lists into discovery format
+      const placeItems: DiscoveryItem[] = searchData.places.slice(0, 3).map(place => ({
+        id: place.id,
+        type: 'hub' as const,
+        title: place.name,
+        description: place.address || 'Popular spot to discover',
+        activity: `${place.savedCount || 0} people have saved this`,
+        image: place.hubImage || 'https://images.unsplash.com/photo-1565299624946-b28f40a0ca4b?w=400&h=300&fit=crop'
+      }))
+
+      const listItems: DiscoveryItem[] = searchData.lists.slice(0, 3).map(list => ({
+        id: list.id,
+        type: 'list' as const,
+        title: list.name,
+        description: list.description || 'Curated collection of great places',
+        owner: searchData.users.find(u => u.id === list.userId)?.name || 'User',
+        likes: list.likes || 0,
+        places: list.hubs?.length || 0,
+        image: list.coverImage || 'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=400&h=300&fit=crop'
+      }))
+
+      setDiscoveryItems([...placeItems, ...listItems])
+    } catch (error) {
+      console.error('Error loading discovery items:', error)
+      setDiscoveryItems([])
+    } finally {
+      setIsLoadingDiscovery(false)
+    }
+  }
+
+  const formatTimestamp = (timestamp: any): string => {
+    if (!timestamp) return 'Recently'
+    
+    try {
+      const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp)
+      const now = new Date()
+      const diffMs = now.getTime() - date.getTime()
+      const diffHours = Math.floor(diffMs / (1000 * 60 * 60))
+      const diffDays = Math.floor(diffHours / 24)
+      
+      if (diffHours < 1) return 'Just now'
+      if (diffHours < 24) return `${diffHours} ${diffHours === 1 ? 'hour' : 'hours'} ago`
+      if (diffDays === 1) return '1 day ago'
+      if (diffDays < 7) return `${diffDays} days ago`
+      return date.toLocaleDateString()
+    } catch (error) {
+      return 'Recently'
+    }
+  }
 
   const getActionIcon = (action: string) => {
     switch (action) {
@@ -177,7 +262,7 @@ const Home = () => {
     }
   }
 
-  const handleActivityClick = (activity: typeof mockFriendsActivity[0]) => {
+  const handleActivityClick = (activity: FriendActivity) => {
     if (activity.action === 'created') {
       // Create a mock list for the modal
       const mockList: List = {
@@ -219,7 +304,7 @@ const Home = () => {
     }
   }
 
-  const handleDiscoveryClick = (item: typeof mockDiscovery[0]) => {
+  const handleDiscoveryClick = (item: DiscoveryItem) => {
     if (item.type === 'list') {
       // Create a mock list for the modal
       const mockList: List = {
@@ -348,18 +433,18 @@ const Home = () => {
     setShowShareModal(true)
   }
 
-  const handleAddComment = async (text: string) => {
+  const handleAddComment = (text: string) => {
     if (!selectedPost) return
     // In a real app, this would make an API call to add a comment
     console.log('Adding comment to post:', selectedPost.id, 'Text:', text)
   }
 
-  const handleLikeComment = async (commentId: string) => {
+  const handleLikeComment = (commentId: string) => {
     // In a real app, this would make an API call to like a comment
     console.log('Liking comment:', commentId)
   }
 
-  const handleReplyToComment = async (commentId: string, text: string) => {
+  const handleReplyToComment = (commentId: string, text: string) => {
     // In a real app, this would make an API call to reply to a comment
     console.log('Replying to comment:', commentId, 'Text:', text)
   }
@@ -548,95 +633,101 @@ const Home = () => {
             <h2 className="text-xl font-serif font-semibold text-charcoal-700 mb-4">
               Recent Activity
             </h2>
-            {mockFriendsActivity.map((activity) => (
-              <button
-                key={activity.id}
-                onClick={() => handleActivityClick(activity)}
-                className="w-full bg-white/98 rounded-2xl shadow-botanical border border-linen-200 p-5 hover:shadow-cozy hover:-translate-y-1 transition-all duration-300 text-left flex flex-col gap-2 overflow-hidden"
-              >
-                <div className="flex items-start gap-4">
-                  <img 
-                    src={activity.user.avatar} 
-                    alt={activity.user.name}
-                    className="w-12 h-12 rounded-xl object-cover border-2 border-white shadow-soft"
-                  />
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-2">
-                      <span
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          handleUserClick({
-                            id: activity.user.name.toLowerCase().replace(' ', '.'),
-                            name: activity.user.name,
-                            username: activity.user.name.toLowerCase().replace(' ', '.'),
-                            avatar: activity.user.avatar,
-                            bio: activity.user.name === 'Emma' ? 'Finding cozy spots and sharing them with friends ✨' : 
-                                 activity.user.name === 'Rami' ? 'Coffee enthusiast and food lover' :
-                                 activity.user.name === 'Sophie' ? 'Exploring hidden gems and local favorites' : '',
-                            location: 'San Francisco, CA',
-                            tags: activity.user.name === 'Emma' ? ['cozy', 'coffee', 'foodie', 'local'] :
-                                  activity.user.name === 'Rami' ? ['coffee', 'artisan', 'tacos', 'authentic'] :
-                                  activity.user.name === 'Sophie' ? ['hidden-gems', 'local', 'authentic', 'charming'] : []
-                          })
-                        }}
-                        className="font-semibold text-charcoal-800 hover:text-sage-600 transition-colors cursor-pointer"
-                      >
-                        {activity.user.name}
-                      </span>
-                      <span className="text-sage-400">•</span>
-                      <span className="text-sage-500 text-sm">{activity.timestamp}</span>
-                    </div>
-                    <div className="flex items-start gap-2">
-                      {getActionIcon(activity.action)}
-                      <div className="flex-1">
-                        <p className="text-sage-900">
-                          {activity.action === 'created' ? (
-                            <>
-                              <span className="font-medium">{getActionText(activity.action)}</span>
-                              <span className="font-semibold text-charcoal-800"> "{activity.list}"</span>
-                            </>
-                          ) : (
-                            <>
-                              <span className="font-medium">{getActionText(activity.action)}</span>
-                              <span className="font-semibold text-charcoal-800"> {activity.place}</span>
-                            </>
-                          )}
-                        </p>
-                        {activity.action === 'created' && (
-                          <p className="text-sage-700 text-sm mt-1">{activity.description}</p>
-                        )}
-                        {activity.note && (
-                          <p className="text-sage-700 text-sm mt-2 italic">
-                            "{activity.note}"
+            {isLoadingActivity ? (
+              <p className="text-center py-8">Loading activity...</p>
+            ) : friendsActivity.length === 0 ? (
+              <p className="text-center py-8">No recent activity yet.</p>
+            ) : (
+              friendsActivity.map((activity) => (
+                <button
+                  key={activity.id}
+                  onClick={() => handleActivityClick(activity)}
+                  className="w-full bg-white/98 rounded-2xl shadow-botanical border border-linen-200 p-5 hover:shadow-cozy hover:-translate-y-1 transition-all duration-300 text-left flex flex-col gap-2 overflow-hidden"
+                >
+                  <div className="flex items-start gap-4">
+                    <img 
+                      src={activity.user.avatar} 
+                      alt={activity.user.name}
+                      className="w-12 h-12 rounded-xl object-cover border-2 border-white shadow-soft"
+                    />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-2">
+                        <span
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleUserClick({
+                              id: activity.user.name.toLowerCase().replace(' ', '.'),
+                              name: activity.user.name,
+                              username: activity.user.name.toLowerCase().replace(' ', '.'),
+                              avatar: activity.user.avatar,
+                              bio: activity.user.name === 'Emma' ? 'Finding cozy spots and sharing them with friends ✨' : 
+                                   activity.user.name === 'Rami' ? 'Coffee enthusiast and food lover' :
+                                   activity.user.name === 'Sophie' ? 'Exploring hidden gems and local favorites' : '',
+                              location: 'San Francisco, CA',
+                              tags: activity.user.name === 'Emma' ? ['cozy', 'coffee', 'foodie', 'local'] :
+                                    activity.user.name === 'Rami' ? ['coffee', 'artisan', 'tacos', 'authentic'] :
+                                    activity.user.name === 'Sophie' ? ['hidden-gems', 'local', 'authentic', 'charming'] : []
+                            })
+                          }}
+                          className="font-semibold text-charcoal-800 hover:text-sage-600 transition-colors cursor-pointer"
+                        >
+                          {activity.user.name}
+                        </span>
+                        <span className="text-sage-400">•</span>
+                        <span className="text-sage-500 text-sm">{activity.timestamp}</span>
+                      </div>
+                      <div className="flex items-start gap-2">
+                        {getActionIcon(activity.action)}
+                        <div className="flex-1">
+                          <p className="text-sage-900">
+                            {activity.action === 'created' ? (
+                              <>
+                                <span className="font-medium">{getActionText(activity.action)}</span>
+                                <span className="font-semibold text-charcoal-800"> "{activity.list}"</span>
+                              </>
+                            ) : (
+                              <>
+                                <span className="font-medium">{getActionText(activity.action)}</span>
+                                <span className="font-semibold text-charcoal-800"> {activity.place}</span>
+                              </>
+                            )}
                           </p>
-                        )}
-                        {activity.placeImage && (
-                          <img 
-                            src={activity.placeImage} 
-                            alt={activity.place}
-                            className="w-full h-32 object-cover rounded-lg mt-3 shadow-soft"
-                          />
-                        )}
-                        {activity.list && activity.action !== 'created' && (
-                          <div className="mt-2">
-                            <span className="text-xs bg-linen-100 text-sage-700 px-2 py-1 rounded-full">
-                              Saved to {activity.list}
-                            </span>
-                          </div>
-                        )}
-                        {activity.action === 'created' && (
-                          <div className="mt-2">
-                            <span className="text-xs bg-sage-100 text-sage-600 px-2 py-1 rounded-full">
-                              {activity.places} places
-                            </span>
-                          </div>
-                        )}
+                          {activity.action === 'created' && (
+                            <p className="text-sage-700 text-sm mt-1">{activity.description}</p>
+                          )}
+                          {activity.note && (
+                            <p className="text-sage-700 text-sm mt-2 italic">
+                              "{activity.note}"
+                            </p>
+                          )}
+                          {activity.placeImage && (
+                            <img 
+                              src={activity.placeImage} 
+                              alt={activity.place}
+                              className="w-full h-32 object-cover rounded-lg mt-3 shadow-soft"
+                            />
+                          )}
+                          {activity.list && activity.action !== 'created' && (
+                            <div className="mt-2">
+                              <span className="text-xs bg-linen-100 text-sage-700 px-2 py-1 rounded-full">
+                                Saved to {activity.list}
+                              </span>
+                            </div>
+                          )}
+                          {activity.action === 'created' && (
+                            <div className="mt-2">
+                              <span className="text-xs bg-sage-100 text-sage-600 px-2 py-1 rounded-full">
+                                {activity.places} places
+                              </span>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
-              </button>
-            ))}
+                </button>
+              ))
+            )}
           </div>
         ) : (
           /* Discovery Tab */
@@ -644,131 +735,137 @@ const Home = () => {
             <h2 className="text-xl font-serif font-semibold text-charcoal-700 mb-4">
               Trending Now
             </h2>
-            {mockDiscovery.map((item) => (
-              <button
-                key={item.id}
-                onClick={() => handleDiscoveryClick(item)}
-                className="w-full bg-white/98 rounded-2xl shadow-botanical border border-linen-200 p-5 hover:shadow-cozy hover:-translate-y-1 transition-all duration-300 text-left flex flex-col gap-2 overflow-hidden"
-              >
-                <div className="flex items-start gap-4">
-                  <img 
-                    src={item.image} 
-                    alt={item.title}
-                    className="w-16 h-16 rounded-xl object-cover border-2 border-white shadow-soft"
-                  />
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-start justify-between mb-2">
-                      <h3 className="font-semibold text-charcoal-800 line-clamp-2">{item.title}</h3>
-                      <div className="flex items-center gap-1 ml-2">
-                        <button
-                          onClick={e => {
-                            e.stopPropagation();
-                            handleLikeItem(item.id);
-                          }}
-                          className="p-1.5 rounded-full bg-sage-50 text-sage-600 hover:bg-sage-100 transition"
-                          title="Like"
-                        >
-                          <HeartIcon className="w-4 h-4" />
-                        </button>
+            {isLoadingDiscovery ? (
+              <p className="text-center py-8">Loading discovery items...</p>
+            ) : discoveryItems.length === 0 ? (
+              <p className="text-center py-8">No trending items yet.</p>
+            ) : (
+              discoveryItems.map((item) => (
+                <button
+                  key={item.id}
+                  onClick={() => handleDiscoveryClick(item)}
+                  className="w-full bg-white/98 rounded-2xl shadow-botanical border border-linen-200 p-5 hover:shadow-cozy hover:-translate-y-1 transition-all duration-300 text-left flex flex-col gap-2 overflow-hidden"
+                >
+                  <div className="flex items-start gap-4">
+                    <img 
+                      src={item.image} 
+                      alt={item.title}
+                      className="w-16 h-16 rounded-xl object-cover border-2 border-white shadow-soft"
+                    />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-start justify-between mb-2">
+                        <h3 className="font-semibold text-charcoal-800 line-clamp-2">{item.title}</h3>
+                        <div className="flex items-center gap-1 ml-2">
+                          <button
+                            onClick={e => {
+                              e.stopPropagation();
+                              handleLikeItem(item.id);
+                            }}
+                            className="p-1.5 rounded-full bg-sage-50 text-sage-600 hover:bg-sage-100 transition"
+                            title="Like"
+                          >
+                            <HeartIcon className="w-4 h-4" />
+                          </button>
+                          {item.type === 'list' && (
+                            <>
+                              <button
+                                onClick={e => {
+                                  e.stopPropagation();
+                                  // Save to list modal
+                                  const mockPlace = {
+                                    id: item.id,
+                                    name: item.title,
+                                    address: 'San Francisco, CA',
+                                    tags: [],
+                                    posts: [],
+                                    savedCount: item.likes || 0,
+                                    createdAt: '2024-01-15'
+                                  };
+                                  handleSaveToPlace(mockPlace);
+                                }}
+                                className="p-1.5 rounded-full bg-gold-50 text-gold-600 hover:bg-gold-100 transition"
+                                title="Save to list"
+                              >
+                                <BookmarkIcon className="w-4 h-4" />
+                              </button>
+                              <button
+                                onClick={e => {
+                                  e.stopPropagation();
+                                  handleCreatePost(item.id);
+                                }}
+                                className="p-1.5 rounded-full bg-sage-50 text-sage-600 hover:bg-sage-100 transition"
+                                title="Create post"
+                              >
+                                <PlusIcon className="w-4 h-4" />
+                              </button>
+                            </>
+                          )}
+                          {item.type === 'hub' && (
+                            <>
+                              <button
+                                onClick={e => {
+                                  e.stopPropagation();
+                                  // Save to list modal
+                                  const mockPlace = {
+                                    id: item.id,
+                                    name: item.title,
+                                    address: 'San Francisco, CA',
+                                    tags: [],
+                                    posts: [],
+                                    savedCount: item.likes || 0,
+                                    createdAt: '2024-01-15'
+                                  };
+                                  handleSaveToPlace(mockPlace);
+                                }}
+                                className="p-1.5 rounded-full bg-gold-50 text-gold-600 hover:bg-gold-100 transition"
+                                title="Save to list"
+                              >
+                                <BookmarkIcon className="w-4 h-4" />
+                              </button>
+                              <button
+                                onClick={e => {
+                                  e.stopPropagation();
+                                  // Create a mock hub for the place
+                                  const mockHub = {
+                                    id: item.id,
+                                    name: item.title,
+                                    address: 'San Francisco, CA',
+                                    description: item.description,
+                                    lat: 37.7749,
+                                    lng: -122.4194,
+                                  }
+                                  handleCreatePost(undefined, mockHub);
+                                }}
+                                className="p-1.5 rounded-full bg-sage-50 text-sage-600 hover:bg-sage-100 transition"
+                                title="Create post"
+                              >
+                                <PlusIcon className="w-4 h-4" />
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                      <p className="text-sage-700 text-sm mb-3">{item.description}</p>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        {item.owner && (
+                          <span className="text-xs text-sage-500">by {item.owner}</span>
+                        )}
                         {item.type === 'list' && (
-                          <>
-                            <button
-                              onClick={e => {
-                                e.stopPropagation();
-                                // Save to list modal
-                                const mockPlace = {
-                                  id: item.id,
-                                  name: item.title,
-                                  address: 'San Francisco, CA',
-                                  tags: [],
-                                  posts: [],
-                                  savedCount: item.likes || 0,
-                                  createdAt: '2024-01-15'
-                                };
-                                handleSaveToPlace(mockPlace);
-                              }}
-                              className="p-1.5 rounded-full bg-gold-50 text-gold-600 hover:bg-gold-100 transition"
-                              title="Save to list"
-                            >
-                              <BookmarkIcon className="w-4 h-4" />
-                            </button>
-                            <button
-                              onClick={e => {
-                                e.stopPropagation();
-                                handleCreatePost(item.id);
-                              }}
-                              className="p-1.5 rounded-full bg-sage-50 text-sage-600 hover:bg-sage-100 transition"
-                              title="Create post"
-                            >
-                              <PlusIcon className="w-4 h-4" />
-                            </button>
-                          </>
+                          <span className="text-xs bg-sage-100 text-sage-600 px-2 py-0.5 rounded-full">
+                            {item.places} places
+                          </span>
                         )}
                         {item.type === 'hub' && (
-                          <>
-                            <button
-                              onClick={e => {
-                                e.stopPropagation();
-                                // Save to list modal
-                                const mockPlace = {
-                                  id: item.id,
-                                  name: item.title,
-                                  address: 'San Francisco, CA',
-                                  tags: [],
-                                  posts: [],
-                                  savedCount: item.likes || 0,
-                                  createdAt: '2024-01-15'
-                                };
-                                handleSaveToPlace(mockPlace);
-                              }}
-                              className="p-1.5 rounded-full bg-gold-50 text-gold-600 hover:bg-gold-100 transition"
-                              title="Save to list"
-                            >
-                              <BookmarkIcon className="w-4 h-4" />
-                            </button>
-                            <button
-                              onClick={e => {
-                                e.stopPropagation();
-                                // Create a mock hub for the place
-                                const mockHub = {
-                                  id: item.id,
-                                  name: item.title,
-                                  address: 'San Francisco, CA',
-                                  description: item.description,
-                                  lat: 37.7749,
-                                  lng: -122.4194,
-                                }
-                                handleCreatePost(undefined, mockHub);
-                              }}
-                              className="p-1.5 rounded-full bg-sage-50 text-sage-600 hover:bg-sage-100 transition"
-                              title="Create post"
-                            >
-                              <PlusIcon className="w-4 h-4" />
-                            </button>
-                          </>
+                          <span className="text-xs bg-gold-100 text-gold-700 px-2 py-0.5 rounded-full">
+                            {item.activity}
+                          </span>
                         )}
                       </div>
                     </div>
-                    <p className="text-sage-700 text-sm mb-3">{item.description}</p>
-                    <div className="flex items-center gap-2 flex-wrap">
-                      {item.owner && (
-                        <span className="text-xs text-sage-500">by {item.owner}</span>
-                      )}
-                      {item.type === 'list' && (
-                        <span className="text-xs bg-sage-100 text-sage-600 px-2 py-0.5 rounded-full">
-                          {item.places} places
-                        </span>
-                      )}
-                      {item.type === 'hub' && (
-                        <span className="text-xs bg-gold-100 text-gold-700 px-2 py-0.5 rounded-full">
-                          {item.activity}
-                        </span>
-                      )}
-                    </div>
                   </div>
-                </div>
-              </button>
-            ))}
+                </button>
+              ))
+            )}
           </div>
         )}
       </div>
@@ -816,13 +913,10 @@ const Home = () => {
             setShowCommentsModal(false)
             setSelectedPost(null)
           }}
-          postId={selectedPost.id}
-          postTitle={`${selectedPost.username}'s post`}
           comments={selectedPost.comments || []}
           onAddComment={handleAddComment}
           onLikeComment={handleLikeComment}
           onReplyToComment={handleReplyToComment}
-          currentUserId="1" // TODO: Get from auth context
         />
       )}
 

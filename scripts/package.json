@@ -1,0 +1,25 @@
+{
+  "name": "this-is-database-scripts",
+  "version": "1.0.0",
+  "description": "Database management scripts for the this-is app",
+  "scripts": {
+    "seed": "node seed-database.js",
+    "clear": "node clear-database.js",
+    "backup": "node backup-database.js",
+    "restore": "node restore-database.js",
+    "deploy-rules": "firebase deploy --only firestore:rules",
+    "deploy-indexes": "firebase deploy --only firestore:indexes"
+  },
+  "dependencies": {
+    "firebase-admin": "^12.0.0",
+    "dotenv": "^16.0.0",
+    "chalk": "^4.1.2",
+    "inquirer": "^8.2.0"
+  },
+  "devDependencies": {
+    "@types/node": "^18.0.0"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  }
+} 

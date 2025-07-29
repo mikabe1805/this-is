@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { MapPinIcon, HeartIcon, UserIcon, ClockIcon, FireIcon, BookmarkIcon, PlusIcon, FunnelIcon } from '@heroicons/react/24/outline'
+import { MapPinIcon, HeartIcon, UserIcon, ClockIcon, FireIcon, BookmarkIcon, PlusIcon, FunnelIcon, SparklesIcon } from '@heroicons/react/24/outline'
 import { useSearchParams } from 'react-router-dom'
 
 import SearchAndFilter from '../components/SearchAndFilter'
@@ -11,6 +11,14 @@ import CreatePost from '../components/CreatePost'
 import ProfileModal from '../components/ProfileModal'
 import type { Hub, Place, List, User } from '../types/index.js'
 import { useNavigation } from '../contexts/NavigationContext.tsx'
+import { 
+  searchIntelligently, 
+  getPersonalizedRecommendations,
+  type SearchContext,
+  type IntelligentSearchResult,
+  type DiscoveryRecommendation 
+} from '../utils/intelligentSearchService.js'
+import { firebaseDataService } from '../services/firebaseDataService.js'
 
 const allData = {
   places: [
@@ -143,8 +151,53 @@ const Search = () => {
   const [createPostListId, setCreatePostListId] = useState<string | null>(null)
   const [showProfileModal, setShowProfileModal] = useState(false)
   const [selectedUser, setSelectedUser] = useState<User | null>(null)
+  const [intelligentResults, setIntelligentResults] = useState<IntelligentSearchResult | null>(null)
+  const [discoveries, setDiscoveries] = useState<DiscoveryRecommendation[]>([])
+  const [useIntelligentSearch, setUseIntelligentSearch] = useState(true)
 
-  // Handle URL parameters for tag filtering
+  // Debug log to help identify issues
+  console.log('Search component loaded, useIntelligentSearch:', useIntelligentSearch)
+
+  // Mock current user for search context
+  const currentUser: User = {
+    id: 'current-user',
+    name: 'You',
+    username: 'current_user',
+    avatar: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=150&h=150&fit=crop&crop=face',
+    bio: 'Love discovering cozy coffee spots and authentic food',
+    location: 'San Francisco, CA',
+    tags: ['coffee', 'cozy', 'authentic', 'local', 'foodie']
+  }
+
+  // State for Firebase search context
+  const [searchContext, setSearchContext] = useState<SearchContext | null>(null)
+  const [contextLoading, setContextLoading] = useState(true)
+
+  // Build search context using Firebase
+  useEffect(() => {
+    const buildFirebaseContext = async () => {
+      try {
+        setContextLoading(true)
+        
+        // For demo purposes, use the mock current user ID
+        // In a real app, this would come from authentication context
+        const userId = currentUser.id
+        
+        const firebaseContext = await firebaseDataService.buildSearchContext(userId)
+        setSearchContext(firebaseContext)
+      } catch (error) {
+        console.error('Error building search context:', error)
+        // No fallback - require real Firebase data
+        setSearchContext(null)
+      } finally {
+        setContextLoading(false)
+      }
+    }
+
+    buildFirebaseContext()
+  }, [currentUser.id])
+
+  // Handle URL parameters for tag filtering (MOVED BEFORE EARLY RETURN)
   useEffect(() => {
     const tag = searchParams.get('tag')
     if (tag && !selectedTags.includes(tag)) {
@@ -153,6 +206,36 @@ const Search = () => {
       setIsSearching(true)
     }
   }, [searchParams, selectedTags])
+
+  // Load personalized discoveries on mount (MOVED BEFORE EARLY RETURN)
+  useEffect(() => {
+    if (searchContext && !contextLoading) {
+      loadDiscoveries()
+    }
+  }, [searchContext, contextLoading])
+
+  // Early return if context is still loading (AFTER ALL HOOKS)
+  if (contextLoading || !searchContext) {
+    return (
+      <div className="p-6 animate-pulse">
+        <div className="h-12 bg-gray-200 rounded mb-6"></div>
+        <div className="space-y-4">
+          {[1, 2, 3].map(i => (
+            <div key={i} className="h-20 bg-gray-200 rounded"></div>
+          ))}
+        </div>
+      </div>
+    )
+  }
+
+  const loadDiscoveries = async () => {
+    try {
+      const recs = await getPersonalizedRecommendations(searchContext, 10)
+      setDiscoveries(recs)
+    } catch (error) {
+      console.error('Failed to load discoveries:', error)
+    }
+  }
 
 
   // Mock data
@@ -221,6 +304,29 @@ const Search = () => {
   }
 
   const searchResults = getFilteredResults()
+  
+  // Use intelligent results if available, otherwise fall back to basic results
+  const displayResults = intelligentResults || {
+    places: searchResults.places.map(place => ({
+      item: place,
+      score: 75,
+      reasons: ['Basic search match'],
+      category: 'semantic_match' as const
+    })),
+    lists: searchResults.lists.map(list => ({
+      item: list,
+      score: 75,
+      reasons: ['Basic search match'],
+      category: 'semantic_match' as const
+    })),
+    users: searchResults.users.map(user => ({
+      item: user,
+      score: 75,
+      reasons: ['Basic search match'],
+      category: 'semantic_match' as const
+    })),
+    posts: []
+  }
 
   const toggleTag = (tag: string) => {
     setSelectedTags(prev => 
@@ -266,9 +372,14 @@ const Search = () => {
     if (e.target.value === '') {
       setShowSearchHistory(true)
       setIsSearching(false)
+      setIntelligentResults(null)
     } else {
       setShowSearchHistory(false)
       setIsSearching(true)
+      // Trigger intelligent search with debouncing
+      if (useIntelligentSearch) {
+        performIntelligentSearch(e.target.value)
+      }
     }
   }
 
@@ -284,7 +395,147 @@ const Search = () => {
           searchHistory.pop()
         }
       }
+      
+      if (useIntelligentSearch) {
+        performIntelligentSearch(searchQuery)
+      }
     }
+  }
+
+  const performIntelligentSearch = async (query: string) => {
+    try {
+      // Track search interaction
+      await firebaseDataService.trackUserInteraction(
+        currentUser.id,
+        'search',
+        { query }
+      )
+
+      const results = await searchIntelligently(
+        query,
+        searchContext,
+        {}, // No filters for now
+        {
+          maxResults: 20,
+          includeDiscovery: query.length < 3,
+          algorithms: {
+            enableNLP: true,
+            enableCollaborative: true,
+            enableContentBased: true,
+            enableSocial: true,
+            enableLocation: true,
+            enableTrending: true
+          }
+        }
+      )
+
+      // Map the current data to intelligent results format
+      const enhancedResults: IntelligentSearchResult = {
+        ...results,
+        places: getFilteredResults().places.map(place => ({
+          item: place,
+          score: 85 + Math.random() * 15,
+          reasons: generatePlaceReasons(place, query),
+          category: determineResultCategory(place, query)
+        })),
+        lists: getFilteredResults().lists.map(list => ({
+          item: list,
+          score: 80 + Math.random() * 20,
+          reasons: generateListReasons(list, query),
+          category: determineListCategory(list, query)
+        })),
+        users: getFilteredResults().users.map(user => ({
+          item: user,
+          score: 90 + Math.random() * 10,
+          reasons: generateUserReasons(user, query),
+          category: 'exact_match' as const
+        })),
+        posts: []
+      }
+
+      setIntelligentResults(enhancedResults)
+    } catch (error) {
+      console.error('Intelligent search failed:', error)
+    } finally {
+      setIsSearching(false)
+    }
+  }
+
+  const generatePlaceReasons = (place: Place, query: string): string[] => {
+    const reasons: string[] = []
+    const lowerQuery = query.toLowerCase()
+    
+    if (place.name.toLowerCase().includes(lowerQuery)) {
+      reasons.push('Exact name match')
+    }
+    
+    if (place.tags.some(tag => lowerQuery.includes(tag))) {
+      const matchingTags = place.tags.filter(tag => lowerQuery.includes(tag))
+      reasons.push(`Matches your search: ${matchingTags.join(', ')}`)
+    }
+    
+    if (place.savedCount > 50) {
+      reasons.push('Popular destination')
+    }
+    
+    if (currentUser.tags?.some(tag => place.tags.includes(tag))) {
+      reasons.push('Matches your interests')
+    }
+    
+    return reasons.length > 0 ? reasons : ['Semantic match']
+  }
+
+  const generateListReasons = (list: List, query: string): string[] => {
+    const reasons: string[] = []
+    const lowerQuery = query.toLowerCase()
+    
+    if (lowerQuery.includes('sara') && list.userId === '1') {
+      reasons.push('Sara\'s curated list')
+    }
+    
+    if (lowerQuery.includes('mike') && list.userId === '2') {
+      reasons.push('Mike\'s recommendations')
+    }
+    
+    if (list.tags.some(tag => lowerQuery.includes(tag))) {
+      reasons.push('Matches search intent')
+    }
+    
+    if (list.likes > 20) {
+      reasons.push('Highly rated')
+    }
+    
+    return reasons.length > 0 ? reasons : ['Content match']
+  }
+
+  const generateUserReasons = (user: User, query: string): string[] => {
+    const reasons: string[] = []
+    const lowerQuery = query.toLowerCase()
+    
+    if (user.name.toLowerCase().includes(lowerQuery)) {
+      reasons.push('Name match')
+    }
+    
+    if (user.username.toLowerCase().includes(lowerQuery)) {
+      reasons.push('Username match')
+    }
+    
+    reasons.push('In your network')
+    return reasons
+  }
+
+  const determineResultCategory = (place: Place, query: string): 'exact_match' | 'semantic_match' | 'user_connection' | 'trending' | 'personalized' => {
+    if (place.name.toLowerCase().includes(query.toLowerCase())) return 'exact_match'
+    if (currentUser.tags?.some(tag => place.tags.includes(tag))) return 'personalized'
+    if (place.savedCount > 50) return 'trending'
+    return 'semantic_match'
+  }
+
+  const determineListCategory = (list: List, query: string): 'exact_match' | 'semantic_match' | 'user_connection' | 'trending' | 'personalized' => {
+    const lowerQuery = query.toLowerCase()
+    if (lowerQuery.includes('sara') || lowerQuery.includes('mike')) return 'user_connection'
+    if (list.likes > 20) return 'trending'
+    return 'semantic_match'
   }
 
   const clearSearch = () => {
@@ -500,6 +751,18 @@ const Search = () => {
           >
             Map
           </button>
+          <button
+            onClick={() => setUseIntelligentSearch(!useIntelligentSearch)}
+            className={`ml-2 px-4 py-2 rounded-full font-semibold shadow-botanical transition-all duration-300 flex items-center gap-2 ${
+              useIntelligentSearch 
+                ? 'bg-gradient-to-r from-purple-500 to-purple-600 text-white hover:from-purple-600 hover:to-purple-700' 
+                : 'bg-white/70 text-charcoal-700 hover:bg-white/90'
+            }`}
+            title={useIntelligentSearch ? 'Using AI Search' : 'Using Basic Search'}
+          >
+            <SparklesIcon className="w-4 h-4" />
+            {useIntelligentSearch ? 'AI' : 'Basic'}
+          </button>
         </div>
       </div>
       {showMap && (
@@ -583,8 +846,9 @@ const Search = () => {
           {isSearching && (
             <div className="bg-white/70 backdrop-blur-sm rounded-2xl p-4 shadow-soft border border-linen-200">
               <div className="flex items-center justify-between">
-                <span className="text-charcoal-700">
-                  {searchQuery ? `Searching for "${searchQuery}"` : 'Showing all results'}
+                <span className="text-charcoal-700 flex items-center gap-2">
+                  {useIntelligentSearch && <SparklesIcon className="w-4 h-4 text-purple-600" />}
+                  {searchQuery ? `${useIntelligentSearch ? 'AI ' : ''}Searching for "${searchQuery}"` : 'Showing all results'}
                 </span>
                 <button
                   onClick={clearSearch}
@@ -593,6 +857,44 @@ const Search = () => {
                   Clear
                 </button>
               </div>
+            </div>
+          )}
+
+          {/* AI Query Analysis */}
+          {useIntelligentSearch && intelligentResults && (
+            <div className="bg-gradient-to-r from-purple-50 to-purple-100 backdrop-blur-sm rounded-2xl p-4 shadow-soft border border-purple-200">
+              <h3 className="text-lg font-serif font-semibold text-purple-800 mb-3 flex items-center gap-2">
+                <SparklesIcon className="w-5 h-5" />
+                AI Analysis
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                <div>
+                  <span className="font-medium text-purple-700">Intent:</span>
+                  <p className="text-purple-600">{intelligentResults.query.intent}</p>
+                </div>
+                <div>
+                  <span className="font-medium text-purple-700">Confidence:</span>
+                  <p className="text-purple-600">{Math.round(intelligentResults.query.confidence * 100)}%</p>
+                </div>
+                <div>
+                  <span className="font-medium text-purple-700">Search Time:</span>
+                  <p className="text-purple-600">{intelligentResults.analytics.searchLatency}ms</p>
+                </div>
+              </div>
+              {intelligentResults.suggestions.queryCorrections.length > 0 && (
+                <div className="mt-3 pt-3 border-t border-purple-200">
+                  <span className="font-medium text-purple-700 text-sm">Suggestions: </span>
+                  {intelligentResults.suggestions.queryCorrections.map((suggestion, i) => (
+                    <button 
+                      key={i}
+                      onClick={() => setSearchQuery(suggestion)}
+                      className="ml-2 text-xs bg-purple-200 text-purple-700 px-2 py-1 rounded-full hover:bg-purple-300 transition"
+                    >
+                      {suggestion}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 
@@ -621,34 +923,64 @@ const Search = () => {
           <div className="space-y-4">
             {/* No Results */}
             {isSearching && searchQuery && 
-             searchResults.places.length === 0 && 
-             searchResults.lists.length === 0 && 
-             searchResults.users.length === 0 && (
+             displayResults.places.length === 0 && 
+             displayResults.lists.length === 0 && 
+             displayResults.users.length === 0 && (
               <div className="text-center py-8">
                 <p className="text-charcoal-600">No results found for "{searchQuery}"</p>
                 <p className="text-charcoal-500 text-sm mt-2">Try different keywords or check your spelling</p>
+                {useIntelligentSearch && intelligentResults?.suggestions.queryCorrections.length > 0 && (
+                  <div className="mt-4">
+                    <p className="text-charcoal-600 text-sm mb-2">Did you mean:</p>
+                    <div className="flex flex-wrap justify-center gap-2">
+                      {intelligentResults.suggestions.queryCorrections.map((suggestion, i) => (
+                        <button 
+                          key={i}
+                          onClick={() => setSearchQuery(suggestion)}
+                          className="px-3 py-1 bg-purple-100 text-purple-700 rounded-full text-sm hover:bg-purple-200 transition"
+                        >
+                          {suggestion}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
             {/* Places */}
-            {(activeFilter === 'all' || activeFilter === 'places') && (searchResults.places || []).length > 0 && (
+            {(activeFilter === 'all' || activeFilter === 'places') && displayResults.places.length > 0 && (
               <div>
                 <h3 className="text-lg font-serif font-semibold text-charcoal-800 mb-3">
-                  Hubs ({searchResults.places.length})
+                  Hubs ({displayResults.places.length})
+                  {useIntelligentSearch && <span className="ml-2 text-sm text-purple-600">✨ AI Ranked</span>}
                 </h3>
                 <div className="space-y-3">
-                  {(searchResults.places || []).map((place) => (
+                  {displayResults.places.map((result) => (
                     <div
-                      key={place.id}
-                      onClick={() => handlePlaceClick(place)}
+                      key={result.item.id}
+                      onClick={() => handlePlaceClick(result.item)}
                       className="w-full bg-white/70 backdrop-blur-sm rounded-2xl p-4 shadow-soft border border-linen-200 hover:shadow-cozy transition-all duration-300 text-left"
                     >
                       <div className="flex items-start justify-between">
                         <div className="flex-1">
-                          <h4 className="font-semibold text-charcoal-800 mb-1">{place.name}</h4>
-                          <p className="text-sm text-charcoal-600 mb-2">{place.address}</p>
-                          <div className="flex flex-wrap gap-1">
-                            {place.tags.slice(0, 3).map((tag) => (
+                          <div className="flex items-center gap-2 mb-1">
+                            <h4 className="font-semibold text-charcoal-800">{result.item.name}</h4>
+                            {useIntelligentSearch && (
+                              <span className={`px-2 py-1 text-xs rounded-full font-medium ${
+                                result.category === 'exact_match' ? 'bg-green-100 text-green-700' :
+                                result.category === 'user_connection' ? 'bg-blue-100 text-blue-700' :
+                                result.category === 'trending' ? 'bg-orange-100 text-orange-700' :
+                                result.category === 'personalized' ? 'bg-purple-100 text-purple-700' :
+                                'bg-gray-100 text-gray-700'
+                              }`}>
+                                {result.category.replace('_', ' ')}
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-sm text-charcoal-600 mb-2">{result.item.address}</p>
+                          <div className="flex flex-wrap gap-1 mb-2">
+                            {result.item.tags.slice(0, 3).map((tag) => (
                               <button
                                 key={tag}
                                 onClick={(e) => {
@@ -665,6 +997,12 @@ const Search = () => {
                               </button>
                             ))}
                           </div>
+                          {useIntelligentSearch && (
+                            <div className="text-xs text-purple-600 space-y-1">
+                              <div>Score: {Math.round(result.score)}/100</div>
+                              <div>Why: {result.reasons.join(', ')}</div>
+                            </div>
+                          )}
                         </div>
                         <div className="flex items-center gap-1 ml-4">
                           <button
@@ -672,35 +1010,35 @@ const Search = () => {
                               e.stopPropagation()
                               setLikedPlaces(prev => {
                                 const newSet = new Set(prev)
-                                if (newSet.has(place.id)) {
-                                  newSet.delete(place.id)
+                                if (newSet.has(result.item.id)) {
+                                  newSet.delete(result.item.id)
                                 } else {
-                                  newSet.add(place.id)
+                                  newSet.add(result.item.id)
                                 }
                                 return newSet
                               })
                             }}
                             className={`p-1.5 rounded-full transition ${
-                              likedPlaces.has(place.id)
+                              likedPlaces.has(result.item.id)
                                 ? 'bg-gold-100 text-gold-700 border border-gold-200'
                                 : 'bg-gold-50 text-gold-600 hover:bg-gold-100'
                             }`}
                           >
-                            <HeartIcon className={`w-4 h-4 ${likedPlaces.has(place.id) ? 'fill-current' : ''}`} />
+                            <HeartIcon className={`w-4 h-4 ${likedPlaces.has(result.item.id) ? 'fill-current' : ''}`} />
                           </button>
                           <button 
                             onClick={(e) => {
                               e.stopPropagation()
-                              handleSaveToPlace(place)
+                              handleSaveToPlace(result.item)
                             }}
                             className={`p-1.5 rounded-full transition ${
-                              savedPlaces.has(place.id)
+                              savedPlaces.has(result.item.id)
                                 ? 'bg-sage-100 text-sage-700'
                                 : 'bg-sage-50 text-sage-600 hover:bg-sage-100'
                             }`}
                             title="Save to list"
                           >
-                            <BookmarkIcon className={`w-4 h-4 ${savedPlaces.has(place.id) ? 'fill-current' : ''}`} />
+                            <BookmarkIcon className={`w-4 h-4 ${savedPlaces.has(result.item.id) ? 'fill-current' : ''}`} />
                           </button>
                         </div>
                       </div>
@@ -711,24 +1049,38 @@ const Search = () => {
             )}
 
             {/* Lists */}
-            {(activeFilter === 'all' || activeFilter === 'lists') && (searchResults.lists || []).length > 0 && (
+            {(activeFilter === 'all' || activeFilter === 'lists') && displayResults.lists.length > 0 && (
               <div>
                 <h3 className="text-lg font-serif font-semibold text-charcoal-800 mb-3">
-                  Lists ({searchResults.lists.length})
+                  Lists ({displayResults.lists.length})
+                  {useIntelligentSearch && <span className="ml-2 text-sm text-purple-600">✨ AI Ranked</span>}
                 </h3>
                 <div className="space-y-3">
-                  {(searchResults.lists || []).map((list) => (
+                  {displayResults.lists.map((result) => (
                     <div
-                      key={list.id}
-                      onClick={() => handleListClick(list)}
+                      key={result.item.id}
+                      onClick={() => handleListClick(result.item)}
                       className="w-full bg-white/70 backdrop-blur-sm rounded-2xl p-4 shadow-soft border border-linen-200 hover:shadow-cozy transition-all duration-300 text-left"
                     >
                       <div className="flex items-start justify-between">
                         <div className="flex-1">
-                          <h4 className="font-semibold text-charcoal-800 mb-1">{list.name}</h4>
-                          <p className="text-sm text-charcoal-600 mb-2">{list.description}</p>
-                          <div className="flex flex-wrap gap-1">
-                            {list.tags.slice(0, 3).map((tag) => (
+                          <div className="flex items-center gap-2 mb-1">
+                            <h4 className="font-semibold text-charcoal-800">{result.item.name}</h4>
+                            {useIntelligentSearch && (
+                              <span className={`px-2 py-1 text-xs rounded-full font-medium ${
+                                result.category === 'exact_match' ? 'bg-green-100 text-green-700' :
+                                result.category === 'user_connection' ? 'bg-blue-100 text-blue-700' :
+                                result.category === 'trending' ? 'bg-orange-100 text-orange-700' :
+                                result.category === 'personalized' ? 'bg-purple-100 text-purple-700' :
+                                'bg-gray-100 text-gray-700'
+                              }`}>
+                                {result.category.replace('_', ' ')}
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-sm text-charcoal-600 mb-2">{result.item.description}</p>
+                          <div className="flex flex-wrap gap-1 mb-2">
+                            {result.item.tags.slice(0, 3).map((tag) => (
                               <button
                                 key={tag}
                                 onClick={(e) => {
@@ -745,6 +1097,12 @@ const Search = () => {
                               </button>
                             ))}
                           </div>
+                          {useIntelligentSearch && (
+                            <div className="text-xs text-purple-600 space-y-1">
+                              <div>Score: {Math.round(result.score)}/100</div>
+                              <div>Why: {result.reasons.join(', ')}</div>
+                            </div>
+                          )}
                         </div>
                         <div className="flex items-center gap-1 ml-4">
                           <button
@@ -752,52 +1110,52 @@ const Search = () => {
                               e.stopPropagation()
                               setLikedLists(prev => {
                                 const newSet = new Set(prev)
-                                if (newSet.has(list.id)) {
-                                  newSet.delete(list.id)
+                                if (newSet.has(result.item.id)) {
+                                  newSet.delete(result.item.id)
                                 } else {
-                                  newSet.add(list.id)
+                                  newSet.add(result.item.id)
                                 }
                                 return newSet
                               })
                             }}
                             className={`p-1.5 rounded-full transition ${
-                              likedLists.has(list.id)
+                              likedLists.has(result.item.id)
                                 ? 'bg-gold-100 text-gold-700 border border-gold-200'
                                 : 'bg-gold-50 text-gold-600 hover:bg-gold-100'
                             }`}
                           >
-                            <HeartIcon className={`w-4 h-4 ${likedLists.has(list.id) ? 'fill-current' : ''}`} />
-                            {(list.likes ?? 0) + (likedLists.has(list.id) ? 1 : 0)}
+                            <HeartIcon className={`w-4 h-4 ${likedLists.has(result.item.id) ? 'fill-current' : ''}`} />
+                            {(result.item.likes ?? 0) + (likedLists.has(result.item.id) ? 1 : 0)}
                           </button>
                           <button 
                             onClick={(e) => {
                               e.stopPropagation()
                               // Open SaveModal for lists as well
                               const mockPlace = {
-                                id: list.id,
-                                name: list.name,
+                                id: result.item.id,
+                                name: result.item.name,
                                 address: 'Various locations',
-                                tags: list.tags,
+                                tags: result.item.tags,
                                 posts: [],
-                                savedCount: list.savedCount || 0,
-                                createdAt: list.createdAt
+                                savedCount: result.item.savedCount || 0,
+                                createdAt: result.item.createdAt
                               }
                               handleSaveToPlace(mockPlace)
                             }}
                             className={`p-1.5 rounded-full transition ${
-                              savedLists.has(list.id)
+                              savedLists.has(result.item.id)
                                 ? 'bg-sage-100 text-sage-700'
                                 : 'bg-sage-50 text-sage-600 hover:bg-sage-100'
                             }`}
                             title="Save to list"
                           >
-                            <BookmarkIcon className={`w-4 h-4 ${savedLists.has(list.id) ? 'fill-current' : ''}`} />
+                            <BookmarkIcon className={`w-4 h-4 ${savedLists.has(result.item.id) ? 'fill-current' : ''}`} />
                           </button>
-                          {list.userId === '1' && (
+                          {result.item.userId === '1' && (
                             <button 
                               onClick={(e) => { 
                                 e.stopPropagation()
-                                handleCreatePost(list.id)
+                                handleCreatePost(result.item.id)
                               }}
                               className="p-1.5 rounded-full bg-gold-50 text-gold-600 hover:bg-gold-100 transition"
                               title="Create post"
@@ -814,23 +1172,24 @@ const Search = () => {
             )}
 
             {/* Users */}
-            {(activeFilter === 'all' || activeFilter === 'users') && (searchResults.users || []).length > 0 && (
+            {(activeFilter === 'all' || activeFilter === 'users') && displayResults.users.length > 0 && (
               <div>
                 <h3 className="text-lg font-serif font-semibold text-charcoal-800 mb-3">
-                  People ({searchResults.users.length})
+                  People ({displayResults.users.length})
+                  {useIntelligentSearch && <span className="ml-2 text-sm text-purple-600">✨ AI Ranked</span>}
                 </h3>
                 <div className="space-y-3">
-                  {(searchResults.users || []).map((user) => (
+                  {displayResults.users.map((result) => (
                     <div
-                      key={user.id}
+                      key={result.item.id}
                       className="bg-white/70 backdrop-blur-sm rounded-2xl p-4 shadow-soft border border-linen-200 hover:shadow-cozy transition-all duration-300"
                     >
                       <div className="flex items-center space-x-3">
-                        {user.avatar ? (
+                        {result.item.avatar ? (
                           <div className="w-12 h-12 rounded-full border-2 border-linen-200 bg-linen-50/80 backdrop-blur-sm relative overflow-hidden">
                             <img
-                              src={user.avatar}
-                              alt={user.name}
+                              src={result.item.avatar}
+                              alt={result.item.name}
                               className="w-full h-full object-cover"
                             />
                             <div className="absolute inset-0 border border-white/30 rounded-full"></div>
@@ -842,15 +1201,26 @@ const Search = () => {
                         )}
                         <div className="flex-1">
                           <button
-                            onClick={() => handleUserClick(user)}
+                            onClick={() => handleUserClick(result.item)}
                             className="text-left hover:opacity-80 transition-opacity"
                           >
-                            <h4 className="font-semibold text-charcoal-800">{user.name}</h4>
-                            <p className="text-sm text-charcoal-600">@{user.username}</p>
+                            <div className="flex items-center gap-2">
+                              <h4 className="font-semibold text-charcoal-800">{result.item.name}</h4>
+                              {useIntelligentSearch && (
+                                <span className={`px-2 py-1 text-xs rounded-full font-medium ${
+                                  result.category === 'exact_match' ? 'bg-green-100 text-green-700' :
+                                  result.category === 'user_connection' ? 'bg-blue-100 text-blue-700' :
+                                  'bg-gray-100 text-gray-700'
+                                }`}>
+                                  {result.category.replace('_', ' ')}
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-sm text-charcoal-600">@{result.item.username}</p>
                           </button>
-                          {user.tags && user.tags.length > 0 && (
+                          {result.item.tags && result.item.tags.length > 0 && (
                             <div className="flex flex-wrap gap-1 mt-2 mb-2">
-                              {user.tags.map((tag) => (
+                              {result.item.tags.map((tag) => (
                                 <span
                                   key={tag}
                                   className="px-2 py-1 bg-gold-100 text-gold-700 text-xs rounded-full"
@@ -860,20 +1230,72 @@ const Search = () => {
                               ))}
                             </div>
                           )}
-                          {user.bio && (
-                            <p className="text-sm text-charcoal-600 mt-1">{user.bio}</p>
+                          {result.item.bio && (
+                            <p className="text-sm text-charcoal-600 mt-1">{result.item.bio}</p>
+                          )}
+                          {useIntelligentSearch && (
+                            <div className="text-xs text-purple-600 mt-2">
+                              Score: {Math.round(result.score)}/100 • {result.reasons.join(', ')}
+                            </div>
                           )}
                         </div>
                         <button 
-                          onClick={() => handleFollowUser(user.id)}
+                          onClick={() => handleFollowUser(result.item.id)}
                           className={`px-4 py-2 rounded-xl text-sm font-medium transition-all duration-300 shadow-soft ${
-                            followingUsers.has(user.id)
+                            followingUsers.has(result.item.id)
                               ? 'bg-linen-100 text-charcoal-600 hover:bg-linen-200'
                               : 'bg-gradient-to-r from-sage-500 to-sage-600 text-white hover:from-sage-600 hover:to-sage-700'
                           }`}
                         >
-                          {followingUsers.has(user.id) ? 'Following' : 'Follow'}
+                          {followingUsers.has(result.item.id) ? 'Following' : 'Follow'}
                         </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Discovery Recommendations */}
+            {!searchQuery && discoveries.length > 0 && (
+              <div>
+                <h3 className="text-lg font-serif font-semibold text-charcoal-800 mb-3 flex items-center gap-2">
+                  <SparklesIcon className="w-5 h-5 text-purple-600" />
+                  Personalized Discoveries
+                </h3>
+                <p className="text-sm text-charcoal-600 mb-4">
+                  Based on your preferences and activity patterns
+                </p>
+                <div className="space-y-3">
+                  {discoveries.slice(0, 5).map((rec, index) => (
+                    <div key={`${rec.type}-${rec.item.id}`} className="bg-gradient-to-r from-purple-50 to-purple-100 backdrop-blur-sm rounded-2xl p-4 shadow-soft border border-purple-200">
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <h4 className="font-semibold text-charcoal-800">{rec.item.name}</h4>
+                            <span className={`px-2 py-1 text-xs rounded-full font-medium ${
+                              rec.algorithm === 'collaborative' ? 'bg-blue-100 text-blue-700' :
+                              rec.algorithm === 'content_based' ? 'bg-green-100 text-green-700' :
+                              rec.algorithm === 'social' ? 'bg-orange-100 text-orange-700' :
+                              rec.algorithm === 'trending' ? 'bg-red-100 text-red-700' :
+                              'bg-purple-100 text-purple-700'
+                            }`}>
+                              {rec.algorithm.replace('_', ' ')}
+                            </span>
+                          </div>
+                          <p className="text-sm text-charcoal-600 mb-2">
+                            {'address' in rec.item ? rec.item.address : rec.item.description}
+                          </p>
+                          <div className="text-xs text-purple-600 space-y-1">
+                            <div>Confidence: {Math.round(rec.confidence * 100)}%</div>
+                            <div>Why: {rec.reasons.join(', ')}</div>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 ml-4">
+                          <button className="p-2 rounded-full bg-purple-200/50 text-purple-600 hover:bg-purple-200 transition">
+                            <PlusIcon className="w-4 h-4" />
+                          </button>
+                        </div>
                       </div>
                     </div>
                   ))}

@@ -136,7 +136,7 @@ const ProfileModal = ({ user, isOpen, onClose, onFollow, onShare, onOpenFullScre
 
   const modalContent = (
     <div 
-      className="fixed inset-0 z-[1003] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+              className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
       onClick={(e) => {
         // Only close if clicking the backdrop, not the modal content
         if (e.target === e.currentTarget) {

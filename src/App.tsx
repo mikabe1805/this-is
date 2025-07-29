@@ -23,6 +23,8 @@ import Reels from './pages/Reels.tsx'
 import PlaceHub from './pages/PlaceHub.tsx'
 import UserProfile from './pages/UserProfile.tsx'
 import Demo from './pages/Demo.tsx'
+import EnhancedSearchDemo from './components/EnhancedSearchDemo.tsx'
+import DatabaseSeeder from './components/DatabaseSeeder.tsx'
 import Auth from './pages/Auth.tsx'
 import { setupViewportHandler } from './utils/viewportHandler.ts'
 
@@ -133,7 +135,7 @@ function AppContent() {
   return (
     <NavigationProvider>
       <ModalProvider>
-        {/* Render Reels completely outside the normal layout */}
+        {/* Render full-screen components outside the normal layout */}
         {location.pathname === '/reels' ? (
           <div className="relative h-screen w-screen">
             <Routes>
@@ -148,6 +150,18 @@ function AppContent() {
                 onEmbedFrom={() => setShowEmbedFromModal(true)}
               />
             </div>
+          </div>
+        ) : location.pathname === '/search-demo' ? (
+          <div className="relative h-screen w-screen">
+            <Routes>
+              <Route path="/search-demo" element={<EnhancedSearchDemo />} />
+            </Routes>
+          </div>
+        ) : location.pathname === '/seed-database' ? (
+          <div className="relative h-screen w-screen">
+            <Routes>
+              <Route path="/seed-database" element={<DatabaseSeeder />} />
+            </Routes>
           </div>
         ) : (
           <div className="h-dvh bg-botanical-overlay">
@@ -169,6 +183,7 @@ function AppContent() {
                     <Route path="/place/:id" element={<PlaceHub />} />
                     <Route path="/user/:userId" element={<UserProfile />} />
                     <Route path="/demo" element={<Demo activeTab={activeTab} />} />
+                    <Route path="/search-demo-mobile" element={<EnhancedSearchDemo />} />
                   </Routes>
                 </main>
                 {/* Bottom Navigation */}

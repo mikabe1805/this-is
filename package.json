@@ -10,7 +10,17 @@
     "preview": "vite preview",
     "firebase:init": "firebase init",
     "firebase:deploy": "npm run build && firebase deploy",
-    "firebase:serve": "firebase serve"
+    "firebase:serve": "firebase serve",
+    "db:setup": "cd scripts && npm install && node setup-firebase.js",
+    "db:seed": "cd scripts && npm install && node seed-database.js",
+    "db:seed-browser-setup": "cd scripts && npm install && node seed-browser-setup.js",
+    "db:seed-browser": "echo 'First run: npm run db:seed-browser-setup' && echo 'Then visit: http://localhost:5173/seed-database' && npm run dev",
+    "db:restore-rules": "cd scripts && node restore-rules.js",
+    "db:clear": "cd scripts && npm install && node clear-database.js",
+    "db:deploy-rules": "firebase deploy --only firestore:rules",
+    "db:deploy-indexes": "firebase deploy --only firestore:indexes",
+    "db:deploy": "npm run db:deploy-rules && npm run db:deploy-indexes",
+    "setup": "npm run db:setup"
   },
   "dependencies": {
     "@heroicons/react": "^2.2.0",

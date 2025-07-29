@@ -1,0 +1,13 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // TEMPORARY RULES FOR DATABASE SEEDING
+    // ⚠️ These rules allow unrestricted access for seeding purposes
+    // ⚠️ Deploy the original firestore.rules after seeding is complete
+    
+    match /{document=**} {
+      allow read, write: if true;
+    }
+  }
+} 

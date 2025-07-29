@@ -110,9 +110,13 @@ const CommentsModal = ({
   if (!isOpen) return null
 
   return createPortal(
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[1003] p-4">
+    <div 
+      className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[99999] p-4"
+      style={{ zIndex: 99999 }}
+    >
       <div 
         className="bg-white/95 backdrop-blur-glass w-full max-w-md max-h-[80vh] rounded-3xl shadow-crystal border border-white/30 overflow-hidden animate-in zoom-in-95 duration-300"
+        style={{ transform: 'translateZ(0)' }}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
