@@ -211,7 +211,7 @@ function calculatePlanningScore(userPosts: Post[], listsCreated: number): number
   let planningScore = 0.5
   
   for (const post of userPosts) {
-    const text = post.description.toLowerCase()
+    const text = post.description ? post.description.toLowerCase() : ''
     if (planningWords.some(word => text.includes(word))) {
       planningScore += 0.1
     }

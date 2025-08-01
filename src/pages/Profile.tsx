@@ -1,6 +1,6 @@
 import type { User, List, Activity, Place } from '../types/index.js'
 import { BookmarkIcon, HeartIcon, PlusIcon, MapPinIcon, CalendarIcon, EllipsisHorizontalIcon } from '@heroicons/react/24/outline'
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import SearchAndFilter from '../components/SearchAndFilter'
 import SaveModal from '../components/SaveModal'
 import LocationSelectModal from '../components/LocationSelectModal'
@@ -10,6 +10,7 @@ import GoogleMapsImportModal from '../components/GoogleMapsImportModal'
 import { useNavigate } from 'react-router-dom'
 import { useNavigation } from '../contexts/NavigationContext.tsx'
 import { useAuth } from '../contexts/AuthContext.tsx'
+import { firebaseDataService } from '../services/firebaseDataService.js'
 
 // SVG botanical accent (e.g., eucalyptus branch)
 const BotanicalAccent = () => (
@@ -32,146 +33,246 @@ const filterOptions = [
   { key: 'want', label: 'Want to' },
 ]
 const availableTags = ['cozy', 'trendy', 'quiet', 'local', 'charming', 'authentic', 'chill']
-const mockComments = [
-  { id: 1, user: { name: 'Ava', avatar: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=150&h=150&fit=crop&crop=face' }, text: 'mika is so helpful with finding good vegan spots! 🌱', date: '2d ago' },
-  { id: 2, user: { name: 'Leo', avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=150&fit=crop&crop=face' }, text: 'Loved your Book Nooks list! 📚', date: '5d ago' },
-]
 
 const Profile = () => {
   const { openListModal } = useNavigation()
   const { currentUser: authUser, logout } = useAuth()
   const navigate = useNavigate()
   
-  // Mock user data
-  const currentUser: User = {
-    id: '1',
-    name: 'Mika Chen',
-    username: 'mika.chen',
-    avatar: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=150&h=150&fit=crop&crop=face',
-    bio: 'Finding cozy spots and sharing them with friends ✨',
-    location: 'San Francisco, CA',
-    influences: 234 // Mock influence count
-  }
-  const userLists: List[] = [
-    {
-      id: 'all-loved',
-      name: 'All Loved',
-      description: 'All the places you\'ve loved and want to visit again',
-      userId: '1',
-      isPublic: false,
-      isShared: false,
-      privacy: 'private',
-      tags: ['loved', 'favorites', 'auto-generated'],
-      hubs: [],
-      coverImage: 'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=300&h=200&fit=crop',
-      createdAt: '2024-01-01',
-      updatedAt: '2024-01-15',
-      likes: 0,
-      isLiked: false
-    },
-    {
-      id: 'all-tried',
-      name: 'All Tried',
-      description: 'All the places you\'ve tried and experienced',
-      userId: '1',
-      isPublic: false,
-      isShared: false,
-      privacy: 'private',
-      tags: ['tried', 'visited', 'auto-generated'],
-      hubs: [],
-      coverImage: 'https://images.unsplash.com/photo-1501594907352-04cda38ebc29?w=300&h=200&fit=crop',
-      createdAt: '2024-01-01',
-      updatedAt: '2024-01-15',
-      likes: 0,
-      isLiked: false
-    },
-    {
-      id: 'all-want',
-      name: 'All Want',
-      description: 'All the places you want to visit someday',
-      userId: '1',
-      isPublic: false,
-      isShared: false,
-      privacy: 'private',
-      tags: ['want', 'wishlist', 'auto-generated'],
-      hubs: [],
-      coverImage: 'https://images.unsplash.com/photo-1442512595331-e89e73853f31?w=300&h=200&fit=crop',
-      createdAt: '2024-01-01',
-      updatedAt: '2024-01-15',
-      likes: 0,
-      isLiked: false
-    },
-    {
-      id: '1',
-      name: 'Cozy Coffee Spots',
-      description: 'Perfect places to work and relax',
-      userId: '1',
-      isPublic: true,
-      isShared: false,
-      privacy: 'public',
-      tags: ['coffee', 'work-friendly', 'cozy'],
-      hubs: [],
-      coverImage: 'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=300&h=200&fit=crop',
-      createdAt: '2024-01-10',
-      updatedAt: '2024-01-15',
-      likes: 56,
-      isLiked: false
-    },
-    {
-      id: '2',
-      name: 'Hidden Gems',
-      description: 'Local favorites that tourists don\'t know about',
-      userId: '1',
-      isPublic: true,
-      isShared: false,
-      privacy: 'public',
-      tags: ['local', 'hidden-gems', 'authentic'],
-      hubs: [],
-      coverImage: 'https://images.unsplash.com/photo-1501594907352-04cda38ebc29?w=300&h=200&fit=crop',
-      createdAt: '2024-01-12',
-      updatedAt: '2024-01-14',
-      likes: 42,
-      isLiked: false
-    }
-  ]
-  const recentActivity: Activity[] = [
-    {
-      id: '1',
-      type: 'save',
-      userId: '1',
-      user: currentUser,
-      placeId: '1',
-      place: {
-        id: '1',
-        name: 'Blue Bottle Coffee',
-        address: '300 Webster St, Oakland, CA',
-        tags: ['coffee', 'cozy'],
-        posts: [],
-        savedCount: 45,
-        createdAt: '2024-01-15'
-      },
-      listId: '1',
-      list: userLists[0],
-      createdAt: '2024-01-15T10:30:00Z'
-    }
-  ]
+  // ALL HOOKS MUST BE CALLED FIRST - React Hook Rules
+  // Real user data state
+  const [currentUser, setCurrentUser] = useState<User | null>(null)
+  const [userLists, setUserLists] = useState<List[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+
+  // Search and filter state
+  const [searchQuery, setSearchQuery] = useState('')
   const [sortBy, setSortBy] = useState('popular')
   const [activeFilters, setActiveFilters] = useState<string[]>([])
-  const [profileTags, setProfileTags] = useState<string[]>(['cozy', 'trendy', 'quiet'])
-  const [newTag, setNewTag] = useState('')
-  const [comments, setComments] = useState(mockComments)
-  const [commentInput, setCommentInput] = useState('')
-  const [likedLists, setLikedLists] = useState<Set<string>>(new Set())
-  const [savedLists, setSavedLists] = useState<Set<string>>(new Set())
+  const [selectedTags, setSelectedTags] = useState<string[]>([])
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false)
+  const [isFilterDropdownOpen, setIsFilterDropdownOpen] = useState(false)
   const [showSaveModal, setShowSaveModal] = useState(false)
   const [showLocationModal, setShowLocationModal] = useState(false)
   const [showCreatePost, setShowCreatePost] = useState(false)
+  const [showUserMenu, setShowUserMenu] = useState(false)
+  const [showGoogleMapsImport, setShowGoogleMapsImport] = useState(false)
+  const [commentInput, setCommentInput] = useState('')
+
+  // Additional component state - using real user data
+  const [newTag, setNewTag] = useState('')
+  const [comments, setComments] = useState<any[]>([]) // Start with empty comments - no mock data
+  const [likedLists, setLikedLists] = useState<Set<string>>(new Set())
+  const [savedLists, setSavedLists] = useState<Set<string>>(new Set())
   const [selectedPlace, setSelectedPlace] = useState<Place | null>(null)
   const [selectedLocation, setSelectedLocation] = useState<{ id: string; name: string; address: string; coordinates: { lat: number; lng: number } } | null>(null)
   const [createPostListId, setCreatePostListId] = useState<string | null>(null)
-  const [showUserMenu, setShowUserMenu] = useState(false)
-  const [showGoogleMapsImport, setShowGoogleMapsImport] = useState(false)
-  const userMenuButtonRef = useRef<HTMLButtonElement | null>(null)
+
+  // Refs
+  const filterButtonRef = useRef<HTMLButtonElement>(null)
+  const userMenuButtonRef = useRef<HTMLButtonElement>(null)
+
+  // Get user's profile tags (use their actual tags, not mock data)
+  const profileTags = currentUser?.tags || []
+  const setProfileTags = async (newTags: string[] | ((prev: string[]) => string[])) => {
+    if (!currentUser) return
+    
+    const updatedTags = typeof newTags === 'function' ? newTags(currentUser.tags || []) : newTags
+    setCurrentUser({
+      ...currentUser,
+      tags: updatedTags
+    })
+    
+    // Update tags in Firebase
+    try {
+      await firebaseDataService.updateUserTags(currentUser.id, updatedTags)
+    } catch (error) {
+      console.error('Error updating user tags:', error)
+    }
+  }
+
+  // Load real user data
+  useEffect(() => {
+    const loadUserData = async () => {
+      if (!authUser) {
+        navigate('/auth')
+        return
+      }
+
+      try {
+        setLoading(true)
+        
+        // Get user profile from Firebase
+        const userProfile = await firebaseDataService.getCurrentUser(authUser.uid)
+        
+        if (userProfile) {
+          // Calculate real user stats
+          const userActivity = await firebaseDataService.getUserActivity(authUser.uid, 100)
+          const savedPlacesCount = userActivity.filter(a => a.type === 'save').length
+          const likedPostsCount = userActivity.filter(a => a.type === 'like').length
+          const createdListsCount = userActivity.filter(a => a.type === 'create_list').length
+          
+          // Calculate influence score based on activity
+          const influenceScore = (savedPlacesCount * 2) + (likedPostsCount * 1) + (createdListsCount * 5)
+          
+          setCurrentUser({
+            ...userProfile,
+            influences: Math.max(influenceScore, userProfile.influences || 0)
+          })
+          
+          // Update influence score in Firebase if it's higher
+          if (influenceScore > (userProfile.influences || 0)) {
+            try {
+              await firebaseDataService.updateUserTags(authUser.uid, userProfile.tags || [])
+              // Note: We'd need a separate method to update influences, for now just local update
+            } catch (error) {
+              console.error('Error updating user influences:', error)
+            }
+          }
+        } else {
+          // Fallback to auth user data if no profile exists yet
+          setCurrentUser({
+            id: authUser.uid,
+            name: authUser.displayName || 'User',
+            username: authUser.email?.split('@')[0] || 'user',
+            avatar: authUser.photoURL || '',
+            bio: 'Welcome to This Is!',
+            location: '',
+            influences: 0,
+            tags: []
+          })
+        }
+
+        // Load user's lists - use real data or create defaults
+        let userListsData: List[] = []
+        
+        try {
+          // Get user's actual lists from Firebase
+          const searchData = await firebaseDataService.performSearch('', {}, 50)
+          userListsData = searchData.lists.filter(list => list.userId === authUser.uid)
+          
+          // If no lists exist, create default structure
+          if (userListsData.length === 0) {
+            userListsData = [
+          {
+            id: 'all-loved',
+            name: 'All Loved',
+            description: 'All the places you\'ve loved and want to visit again',
+            userId: authUser.uid,
+            isPublic: false,
+            isShared: false,
+            privacy: 'private',
+            tags: ['loved', 'favorites', 'auto-generated'],
+            hubs: [],
+            coverImage: 'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=300&h=200&fit=crop',
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            likes: 0,
+            isLiked: false
+          },
+          {
+            id: 'all-tried',
+            name: 'All Tried',
+            description: 'All the places you\'ve tried and experienced',
+            userId: authUser.uid,
+            isPublic: false,
+            isShared: false,
+            privacy: 'private',
+            tags: ['tried', 'visited', 'auto-generated'],
+            hubs: [],
+            coverImage: 'https://images.unsplash.com/photo-1501594907352-04cda38ebc29?w=300&h=200&fit=crop',
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            likes: 0,
+            isLiked: false
+          },
+          {
+            id: 'all-want',
+            name: 'All Want',
+            description: 'All the places you want to visit someday',
+            userId: authUser.uid,
+            isPublic: false,
+            isShared: false,
+            privacy: 'private',
+            tags: ['want', 'wishlist', 'auto-generated'],
+            hubs: [],
+            coverImage: 'https://images.unsplash.com/photo-1442512595331-e89e73853f31?w=300&h=200&fit=crop',
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            likes: 0,
+            isLiked: false
+          }
+            ]
+          }
+          
+          setUserLists(userListsData)
+        } catch (error) {
+          console.error('Error loading user lists:', error)
+          setUserLists([])
+        }
+        
+      } catch (error) {
+        console.error('Error loading user data:', error)
+        setError('Failed to load profile data')
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    loadUserData()
+  }, [authUser, navigate])
+
+  // Show loading state
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-warmGray-50 via-white to-warmGray-100 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#E17373] mx-auto mb-4"></div>
+          <p className="text-warmGray-600">Loading your profile...</p>
+        </div>
+      </div>
+    )
+  }
+
+  // Show error state
+  if (error || !currentUser) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-warmGray-50 via-white to-warmGray-100 flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-red-600 mb-4">{error || 'Failed to load profile'}</p>
+          <button 
+            onClick={() => window.location.reload()}
+            className="px-4 py-2 bg-[#E17373] text-white rounded-lg hover:bg-[#D55F5F] transition-colors"
+          >
+            Try Again
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  // Real user activity data (loaded async)
+  const [activityItems, setActivityItems] = useState<Activity[]>([])
+  
+  // Load user's real activity
+  useEffect(() => {
+    const loadUserActivity = async () => {
+      if (!authUser) return
+      
+      try {
+        const activity = await firebaseDataService.getUserActivity(authUser.uid, 20)
+        setActivityItems(activity)
+      } catch (error) {
+        console.error('Error loading user activity:', error)
+        setActivityItems([])
+      }
+    }
+    
+    if (currentUser) {
+      loadUserActivity()
+    }
+  }, [currentUser, authUser])
   
   let filteredLists = userLists.filter(list => {
     // Filter out auto-generated lists from popular lists section
@@ -300,11 +401,32 @@ const Profile = () => {
         {/* Botanical SVG accent */}
         <BotanicalAccent />
         <div className="flex items-center gap-6">
-          <img
-            src={currentUser.avatar}
-            alt={currentUser.name}
-            className="w-24 h-24 rounded-2xl border-4 border-linen-100 shadow-botanical object-cover bg-linen-200"
-          />
+          <div className="relative">
+            <img
+              src={currentUser.avatar || 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face'}
+              alt={currentUser.name}
+              className="w-24 h-24 rounded-2xl border-4 border-linen-100 shadow-botanical object-cover bg-linen-200"
+              onError={(e) => {
+                // If the uploaded image fails to load, fallback to default
+                console.warn('Profile image failed to load:', currentUser.avatar)
+                e.currentTarget.src = 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face'
+              }}
+              onLoad={() => {
+                // Debug: Log when image loads successfully
+                if (currentUser.avatar && !currentUser.avatar.includes('unsplash') && !currentUser.avatar.includes('placeholder')) {
+                  console.log('✅ Custom profile image loaded successfully:', currentUser.avatar)
+                }
+              }}
+            />
+            {/* Small indicator if using uploaded photo */}
+            {currentUser.avatar && !currentUser.avatar.includes('unsplash') && !currentUser.avatar.includes('placeholder') && (
+              <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-green-500 rounded-full border-2 border-white flex items-center justify-center">
+                <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+              </div>
+            )}
+          </div>
           <div className="flex-1">
             <div className="flex items-center justify-between mb-1">
               <div className="flex items-center gap-2">
@@ -333,7 +455,7 @@ const Profile = () => {
             )}
             <div className="flex items-center gap-2 text-sm text-gold-600">
               <CalendarIcon className="w-5 h-5 text-gold-400" />
-              <span>Member since January 2024</span>
+              <span>Member since {authUser?.metadata?.creationTime ? new Date(authUser.metadata.creationTime).toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) : 'Recently'}</span>
             </div>
           </div>
         </div>
@@ -482,8 +604,8 @@ const Profile = () => {
                     </div>
                   </div>
                   <div className="flex items-center gap-2 mt-2">
-                    <img src={currentUser.avatar} alt={currentUser.name} className="w-6 h-6 rounded-full border-2 border-white shadow-soft object-cover" />
-                    <span className="text-xs text-charcoal-500 font-medium">{currentUser.name}</span>
+                    <img src={currentUser?.avatar || 'https://via.placeholder.com/150'} alt={currentUser?.name} className="w-6 h-6 rounded-full border-2 border-white shadow-soft object-cover" />
+                    <span className="text-xs text-charcoal-500 font-medium">{currentUser?.name}</span>
                     <div className="ml-auto flex items-center gap-2">
                       <button 
                         onClick={e => { e.stopPropagation(); handleLikeList(list.id) }}
@@ -517,7 +639,7 @@ const Profile = () => {
                       >
                         <BookmarkIcon className="w-4 h-4" />
                       </button>
-                      {currentUser.id === list.userId && (
+                      {currentUser?.id === list.userId && (
                         <button 
                           onClick={e => { 
                             e.stopPropagation()
@@ -540,7 +662,7 @@ const Profile = () => {
         <div>
           <h3 className="text-xl font-serif font-semibold text-charcoal-700 mb-4">Recent Activity</h3>
           <div className="space-y-4">
-            {recentActivity.map((activity, idx) => (
+            {activityItems.map((activity, idx) => (
               <div key={activity.id} className="rounded-2xl shadow-soft border border-linen-200 bg-white/98 flex items-center gap-4 p-4 transition hover:shadow-cozy hover:-translate-y-1">
                 <div className="w-12 h-12 rounded-xl bg-sage-100 flex items-center justify-center">
                   <BookmarkIcon className="w-6 h-6 text-sage-500" />
@@ -558,21 +680,33 @@ const Profile = () => {
           </div>
         </div>
         {/* Comment Wall */}
-        <div className="rounded-2xl shadow-botanical border border-linen-200 bg-white/98 p-6 transition hover:shadow-cozy hover:-translate-y-1">
-          <h3 className="text-xl font-serif font-semibold text-charcoal-700 mb-4">Comment Wall</h3>
+        <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-soft border border-linen-200 p-6">
+          <h3 className="text-xl font-serif font-semibold text-charcoal-700 mb-4">Comments</h3>
           <div className="space-y-4 mb-4">
-            {comments.map((comment, i) => (
-              <div key={comment.id} className="flex items-start gap-4 p-4 rounded-xl bg-linen-100 border border-linen-200 shadow-soft transition hover:shadow-botanical">
-                <img src={comment.user.avatar} alt={comment.user.name} className="w-10 h-10 rounded-full object-cover border-2 border-white shadow-soft" />
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="font-serif font-semibold text-charcoal-700">{comment.user.name}</span>
-                    <span className="text-xs px-2 py-1 rounded-full bg-sage-50 text-sage-700 border border-sage-100">{comment.date}</span>
+            {comments.length > 0 ? (
+              comments.map((comment, idx) => (
+                <div key={comment.id} className="flex items-start gap-3 p-3 bg-linen-50 rounded-xl">
+                  <img src={comment.user.avatar} alt={comment.user.name} className="w-8 h-8 rounded-full object-cover border-2 border-white shadow-soft flex-shrink-0" />
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-sm font-medium text-charcoal-700">{comment.user.name}</span>
+                      <span className="text-xs text-charcoal-400">{comment.date}</span>
+                    </div>
+                    <p className="text-sm text-charcoal-600">{comment.text}</p>
                   </div>
-                  <p className="text-sm text-charcoal-600">{comment.text}</p>
                 </div>
+              ))
+            ) : (
+              <div className="text-center py-8">
+                <div className="w-16 h-16 mx-auto mb-4 bg-linen-100 rounded-full flex items-center justify-center">
+                  <svg className="w-8 h-8 text-linen-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                  </svg>
+                </div>
+                <p className="text-charcoal-500 mb-2">No comments yet</p>
+                <p className="text-sm text-charcoal-400">Be the first to leave a comment on your profile!</p>
               </div>
-            ))}
+            )}
           </div>
           <form
             onSubmit={e => {
@@ -582,7 +716,7 @@ const Profile = () => {
                 ...comments,
                 {
                   id: Date.now(),
-                  user: { name: currentUser.name, avatar: currentUser.avatar || '' },
+                  user: { name: currentUser?.name, avatar: currentUser?.avatar || '' },
                   text: commentInput,
                   date: 'now'
                 }
@@ -591,7 +725,7 @@ const Profile = () => {
             }}
             className="flex items-center gap-3 p-4 bg-linen-50 rounded-xl border border-linen-200"
           >
-            <img src={currentUser.avatar} alt={currentUser.name} className="w-10 h-10 rounded-full object-cover border-2 border-white shadow-soft flex-shrink-0" />
+            <img src={currentUser?.avatar || 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face'} alt={currentUser?.name} className="w-10 h-10 rounded-full object-cover border-2 border-white shadow-soft flex-shrink-0" />
             <input
               type="text"
               value={commentInput}

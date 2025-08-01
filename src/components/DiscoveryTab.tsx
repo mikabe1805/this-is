@@ -7,6 +7,7 @@ import ListModal from './ListModal'
 import ListMenuDropdown from './ListMenuDropdown'
 import { useNavigation } from '../contexts/NavigationContext.tsx'
 import { useModal } from '../contexts/ModalContext.tsx'
+import { useAuth } from '../contexts/AuthContext.tsx'
 import { 
   getPersonalizedRecommendations,
   type SearchContext,
@@ -31,6 +32,7 @@ const DiscoveryTab = () => {
     openFullScreenList
   } = useNavigation()
   const { openSaveModal, openCreatePostModal } = useModal()
+  const { currentUser: authUser } = useAuth()
   const [savedLists, setSavedLists] = useState<Set<string>>(new Set())
   const [personalizedRecommendations, setPersonalizedRecommendations] = useState<DiscoveryRecommendation[]>([])
   const [isLoadingRecommendations, setIsLoadingRecommendations] = useState(true)
@@ -39,46 +41,54 @@ const DiscoveryTab = () => {
   const [trendingHubs, setTrendingHubs] = useState<Place[]>([])
   const [popularLists, setPopularLists] = useState<List[]>([])
   const [isLoadingTrending, setIsLoadingTrending] = useState(true)
-
-  // Mock current user for search context
-  const currentUser: User = {
-    id: 'current-user',
-    name: 'You',
-    username: 'current_user',
-    avatar: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=150&h=150&fit=crop&crop=face',
-    bio: 'Love discovering cozy coffee spots and authentic food',
-    location: 'San Francisco, CA',
-    tags: ['coffee', 'cozy', 'authentic', 'local', 'foodie']
-  }
+  const [currentUser, setCurrentUser] = useState<User | null>(null)
 
   // State for Firebase search context
   const [searchContext, setSearchContext] = useState<SearchContext | null>(null)
   const [contextLoading, setContextLoading] = useState(true)
 
-  // Build search context using Firebase
+  // Load real user data and build search context
   useEffect(() => {
-    const buildFirebaseContext = async () => {
+    const loadUserAndBuildContext = async () => {
+      if (!authUser) {
+        setContextLoading(false)
+        return
+      }
+
       try {
         setContextLoading(true)
         
-        // For demo purposes, use the mock current user ID
-        // In a real app, this would come from authentication context
-        const userId = currentUser.id
+        // Get real user data from Firebase
+        const userProfile = await firebaseDataService.getCurrentUser(authUser.uid)
+        if (userProfile) {
+          setCurrentUser(userProfile)
+        } else {
+          // Fallback if profile doesn't exist yet
+          setCurrentUser({
+            id: authUser.uid,
+            name: authUser.displayName || 'User',
+            username: authUser.email?.split('@')[0] || 'user',
+            avatar: authUser.photoURL || '',
+            bio: 'Welcome to This Is!',
+            location: '',
+            influences: 0,
+            tags: []
+          })
+        }
         
-        const firebaseContext = await firebaseDataService.buildSearchContext(userId)
+        // Build search context with real user data
+        const firebaseContext = await firebaseDataService.buildSearchContext(authUser.uid)
         setSearchContext(firebaseContext)
       } catch (error) {
-        console.error('Error building search context:', error)
-        
-        // No fallback - require real data
+        console.error('Error loading user data and building search context:', error)
         setSearchContext(null)
       } finally {
         setContextLoading(false)
       }
     }
 
-    buildFirebaseContext()
-  }, [currentUser.id])
+    loadUserAndBuildContext()
+  }, [authUser])
   
   // Load trending data from Firebase
   const loadTrendingData = async () => {
@@ -279,10 +289,10 @@ const DiscoveryTab = () => {
                         rec.algorithm === 'location' ? 'bg-teal-100 text-teal-700' :
                         'bg-purple-100 text-purple-700'
                       }`}>
-                        {rec.algorithm.replace('_', ' ')}
+                        {rec.algorithm ? rec.algorithm.replace('_', ' ') : 'Unknown'}
                       </span>
                       <span className="px-2 py-1 bg-yellow-100 text-yellow-700 text-xs rounded-full font-medium">
-                        {Math.round(rec.confidence * 100)}% match
+                        {Math.round((rec.confidence || 0) * 100)}% match
                       </span>
                     </div>
                     
@@ -305,7 +315,7 @@ const DiscoveryTab = () => {
 
                     <div className="text-xs text-purple-600 space-y-1">
                       <div className="font-medium">Why we think you'll love this:</div>
-                      <div>{rec.reasons.join(' • ')}</div>
+                      <div>{rec.reasons ? rec.reasons.join(' • ') : 'No reasons available'}</div>
                       <div className="text-purple-500">
                         Expected rating: {rec.metadata.expectedPreference ? `${rec.metadata.expectedPreference.toFixed(1)}/5 ⭐` : 'High'}
                       </div>

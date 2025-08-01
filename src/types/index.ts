@@ -13,6 +13,7 @@ export interface Place {
   id: string
   name: string
   address: string
+  description?: string
   coordinates?: {
     lat: number
     lng: number
@@ -58,18 +59,20 @@ export interface Comment {
 export interface List {
   id: string
   name: string
+  listName?: string // For compatibility with seed data
   description: string
   userId: string
   isPublic: boolean
-  isShared: boolean
-  privacy: Privacy
+  isShared?: boolean
+  privacy?: Privacy
   tags: string[]
-  hubs: Hub[]
+  listTags?: string[] // For compatibility with seed data
+  hubs?: Hub[]
   coverImage?: string
-  createdAt: string
-  updatedAt: string
-  likes: number
-  isLiked: boolean
+  createdAt?: string
+  updatedAt?: string
+  likes?: number
+  isLiked?: boolean
 }
 
 export interface ListPlace {

@@ -372,7 +372,7 @@ const EnhancedSearchDemo = () => {
                 </div>
                 <div>
                   <span className="font-medium text-[#7A5D3F]">Confidence:</span>
-                  <p className="text-[#5D4A2E]">{Math.round(searchResults.query.confidence * 100)}%</p>
+                  <p className="text-[#5D4A2E]">{Math.round((searchResults.query.confidence || 0) * 100)}%</p>
                 </div>
                 <div>
                   <span className="font-medium text-[#7A5D3F]">Algorithms:</span>
@@ -405,8 +405,8 @@ const EnhancedSearchDemo = () => {
                             ))}
                           </div>
                           <div className="text-xs text-[#9A7B5A] space-y-1">
-                            <div>Score: {Math.round(result.score)}/100</div>
-                            <div>Reasons: {result.reasons.join(', ')}</div>
+                            <div>Score: {Math.round(result.score || 0)}/100</div>
+                            <div>Reasons: {result.reasons ? result.reasons.join(', ') : 'No reasons available'}</div>
                           </div>
                         </div>
                         <div className="flex items-center gap-2 ml-4">
@@ -452,8 +452,8 @@ const EnhancedSearchDemo = () => {
                             ))}
                           </div>
                           <div className="text-xs text-[#9A7B5A] space-y-1">
-                            <div>Score: {Math.round(result.score)}/100</div>
-                            <div>Reasons: {result.reasons.join(', ')}</div>
+                            <div>Score: {Math.round(result.score || 0)}/100</div>
+                            <div>Reasons: {result.reasons ? result.reasons.join(', ') : 'No reasons available'}</div>
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
@@ -493,7 +493,7 @@ const EnhancedSearchDemo = () => {
                             <p className="text-sm text-[#9A7B5A] mt-1">{result.item.bio}</p>
                           )}
                           <div className="text-xs text-[#9A7B5A] mt-2">
-                            Reasons: {result.reasons.join(', ')}
+                            Reasons: {result.reasons ? result.reasons.join(', ') : 'No reasons available'}
                           </div>
                         </div>
                         <button className="px-4 py-2 bg-gradient-to-r from-[#B08968] to-[#9A7B5A] text-white rounded-xl text-sm font-medium hover:from-[#9A7B5A] hover:to-[#8B6F47] transition">
@@ -529,8 +529,8 @@ const EnhancedSearchDemo = () => {
                       </p>
                       <div className="text-xs text-[#9A7B5A] space-y-1">
                         <div>Algorithm: {rec.algorithm}</div>
-                        <div>Confidence: {Math.round(rec.confidence * 100)}%</div>
-                        <div>Reasons: {rec.reasons.join(', ')}</div>
+                        <div>Confidence: {Math.round((rec.confidence || 0) * 100)}%</div>
+                        <div>Reasons: {rec.reasons ? rec.reasons.join(', ') : 'No reasons available'}</div>
                       </div>
                     </div>
                     <div className="flex items-center gap-2 ml-4">

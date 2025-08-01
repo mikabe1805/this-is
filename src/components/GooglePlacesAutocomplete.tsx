@@ -54,7 +54,7 @@ export default function GooglePlacesAutocomplete({
         return
       }
 
-      script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places&callback=initGoogleMaps`
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places&loading=async&language=en&callback=initGoogleMaps`
       script.async = true
       script.defer = true
 
@@ -78,14 +78,30 @@ export default function GooglePlacesAutocomplete({
     if (!isLoaded || !inputRef.current) return
 
     try {
+      // Note: google.maps.places.Autocomplete is deprecated as of March 2025
+      // Google recommends migrating to PlaceAutocompleteElement, but this requires 
+      // a significant API rewrite. For now, suppress the deprecation warning.
+      const originalWarn = console.warn
+      console.warn = (message, ...args) => {
+        if (typeof message === 'string' && message.includes('google.maps.places.Autocomplete')) {
+          return // Suppress the deprecation warning
+        }
+        originalWarn(message, ...args)
+      }
+
       // Create autocomplete instance
       autocompleteRef.current = new window.google.maps.places.Autocomplete(
         inputRef.current,
         {
           types: ['(cities)'], // Only cities and localities
-          fields: ['formatted_address', 'name', 'place_id', 'geometry']
+          fields: ['formatted_address', 'name', 'place_id', 'geometry'],
+          componentRestrictions: undefined, // Allow global results
+          strictBounds: false
         }
       )
+
+      // Restore original console.warn
+      console.warn = originalWarn
 
       // Add place selection listener
       autocompleteRef.current.addListener('place_changed', () => {

@@ -3,7 +3,7 @@ import { getFirestore, collection, getDocs } from 'firebase/firestore'
 import fs from 'fs'
 
 // Load environment variables
-const envContent = fs.readFileSync('../.env.local', 'utf8')
+const envContent = fs.readFileSync('.env.local', 'utf8')
 const envVars = {}
 envContent.split('\n').forEach(line => {
   const [key, value] = line.split('=')

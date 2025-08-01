@@ -3,6 +3,7 @@ import { MapPinIcon, HeartIcon, BookmarkIcon, PlusIcon, ShareIcon, CameraIcon, C
 import { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { useNavigation } from '../contexts/NavigationContext.tsx'
+import { formatTimestamp } from '../utils/dateUtils.ts'
 import ImageCarousel from './ImageCarousel.tsx'
 import CommentsModal from './CommentsModal.tsx'
 import SaveToListModal from './SaveToListModal.tsx'
@@ -788,7 +789,7 @@ const HubModal = ({ hub, isOpen, onClose, onAddPost, onSave, onShare, onOpenFull
                             <span className="font-serif font-semibold text-[#6B5B47] text-sm">{post.username}</span>
                           </div>
                           <p className="text-xs text-[#8B7355] font-serif">
-                            {new Date(post.createdAt).toLocaleDateString()}
+                            {formatTimestamp(post.createdAt)}
                           </p>
                         </div>
                       </div>

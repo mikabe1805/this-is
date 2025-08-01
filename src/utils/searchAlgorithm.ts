@@ -257,12 +257,14 @@ export function rankSearchResults<T>(
     const score = calculateItemScore(item, metadata, parsed, context)
     const reasons = generateScoreReasons(metadata, parsed, context)
     
-    results.push({
-      item,
-      score: score.total,
-      reasons,
-      category: score.primaryCategory
-    })
+    if (score.total > 0) {
+      results.push({
+        item,
+        score: score.total,
+        reasons,
+        category: score.primaryCategory
+      })
+    }
   }
   
   return results.sort((a, b) => b.score - a.score)
@@ -274,51 +276,39 @@ function calculateItemScore<T>(
   parsed: ParsedQuery,
   context: SearchContext
 ) {
-  let score = 0
+  // Calculate component scores with proper normalization
+  const exactMatchScore = exactMatch(metadata.name, parsed.searchTerms) ? 100 : 0
+  const semanticScore = calculateSemanticScore(metadata, parsed.searchTerms) // Already capped at 100
+  const userConnectionScore = (metadata.userId && isUserConnected(metadata.userId, context)) ? 25 : 0
+  const possessiveScore = parsed.possessiveContext.username ? 
+    Math.min(calculatePossessiveScore(metadata, parsed, context), 30) : 0
+  const popularityScore = Math.min(calculatePopularityScore(metadata), 20)
+  const personalizationScore = Math.min(calculatePersonalizationScore(metadata, context), 15)
+  const recencyScore = metadata.createdAt ? Math.min(calculateRecencyScore(metadata.createdAt), 10) : 0
+  
+  // Sum all scores
+  const totalScore = exactMatchScore + semanticScore + userConnectionScore + 
+                    possessiveScore + popularityScore + personalizationScore + recencyScore
+  
+  // Normalize to 0-100 scale using logarithmic scaling for high scores
+  let finalScore: number
+  if (totalScore <= 100) {
+    finalScore = totalScore
+  } else {
+    // Use logarithmic scaling to compress scores above 100 into 80-100 range
+    const excess = totalScore - 100
+    const compressedExcess = Math.log(excess + 1) * 8
+    finalScore = Math.min(80 + compressedExcess, 100)
+  }
+  
+  // Determine primary category based on highest contributing factor
   let primaryCategory: SearchResult<T>['category'] = 'semantic_match'
+  if (exactMatchScore > 0) primaryCategory = 'exact_match'
+  else if (userConnectionScore > 15 || possessiveScore > 20) primaryCategory = 'user_connection'
+  else if (popularityScore > 15) primaryCategory = 'trending'
+  else if (personalizationScore > 10) primaryCategory = 'personalized'
   
-  // Exact name/description match (highest priority)
-  if (exactMatch(metadata.name, parsed.searchTerms)) {
-    score += 100
-    primaryCategory = 'exact_match'
-  }
-  
-  // Semantic similarity
-  const semanticScore = calculateSemanticScore(metadata, parsed.searchTerms)
-  score += semanticScore
-  
-  // User connection bonus
-  if (metadata.userId && isUserConnected(metadata.userId, context)) {
-    score += 50
-    if (primaryCategory === 'semantic_match') primaryCategory = 'user_connection'
-  }
-  
-  // Possessive context bonus
-  if (parsed.possessiveContext.username) {
-    const possessiveScore = calculatePossessiveScore(metadata, parsed, context)
-    score += possessiveScore
-    if (possessiveScore > 30) primaryCategory = 'user_connection'
-  }
-  
-  // Popularity bonus
-  const popularityScore = calculatePopularityScore(metadata)
-  score += popularityScore
-  if (popularityScore > 20 && primaryCategory === 'semantic_match') {
-    primaryCategory = 'trending'
-  }
-  
-  // Personalization bonus
-  const personalizationScore = calculatePersonalizationScore(metadata, context)
-  score += personalizationScore
-  if (personalizationScore > 15) primaryCategory = 'personalized'
-  
-  // Recency bonus
-  if (metadata.createdAt) {
-    const recencyScore = calculateRecencyScore(metadata.createdAt)
-    score += recencyScore
-  }
-  
-  return { total: score, primaryCategory }
+  return { total: Math.round(finalScore), primaryCategory }
 }
 
 function exactMatch(text: string | undefined | null, searchTerms: string[]): boolean {
@@ -334,21 +324,34 @@ function calculateSemanticScore(
   searchTerms: string[]
 ): number {
   let score = 0
-  const searchText = `${metadata.name || ''} ${metadata.description || ''} ${(metadata.tags || []).join(' ')}`.toLowerCase()
   
   for (const term of searchTerms) {
     const termLower = term.toLowerCase()
-    if (searchText.includes(termLower)) {
+    
+    // Exact match in name gets highest score (40 points per term)
+    if (metadata.name && metadata.name.toLowerCase().includes(termLower)) {
+      score += 40
+    }
+    // Match in tags gets good score (30 points per term)  
+    else if (metadata.tags && Array.isArray(metadata.tags) && metadata.tags.some(tag => 
+      tag && tag.toLowerCase().includes(termLower))) {
+      score += 30
+    }
+    // Match in description gets medium score (20 points per term)
+    else if (metadata.description && metadata.description.toLowerCase().includes(termLower)) {
       score += 20
     }
-    
-    // Fuzzy matching for slight variations
-    if (fuzzyMatch(searchText, termLower)) {
-      score += 10
+    // Fuzzy matching for slight variations (10 points per term)
+    else {
+      const searchText = `${metadata.name || ''} ${metadata.description || ''} ${(metadata.tags || []).join(' ')}`.toLowerCase()
+      if (fuzzyMatch(searchText, termLower)) {
+        score += 10
+      }
     }
   }
   
-  return Math.min(score, 60) // Cap semantic score
+  // Cap semantic score at 80 (allows room for other factors)
+  return Math.min(score, 80)
 }
 
 function isUserConnected(userId: string, context: SearchContext): boolean {

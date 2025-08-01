@@ -1,66 +1,55 @@
 import type { Activity } from '../types/index.js'
 import { HeartIcon, BookmarkIcon, PlusIcon, UserIcon } from '@heroicons/react/24/outline'
+import { useState, useEffect } from 'react'
+import { useAuth } from '../contexts/AuthContext.tsx'
+import { firebaseDataService } from '../services/firebaseDataService.js'
 
 const FriendsTab = () => {
-  // Mock data - in real app this would come from API
-  const mockActivities: Activity[] = [
-    {
-      id: '1',
-      type: 'save',
-      userId: '1',
-      user: {
-        id: '1',
-        name: 'Sara Chen',
-        username: 'sara.chen',
-        avatar: 'https://images.unsplash.com/photo-1494790108755-2616b612b786?w=150&h=150&fit=crop&crop=face'
-      },
-      placeId: '1',
-      place: {
-        id: '1',
-        name: 'Blue Bottle Coffee',
-        address: '300 Webster St, Oakland, CA',
-        tags: ['coffee', 'cozy', 'work-friendly'],
-        posts: [],
-        savedCount: 45,
-        createdAt: '2024-01-15'
-      },
-      listId: '1',
-      list: {
-        id: '1',
-        name: 'Oakland Coffee Spots',
-        userId: '1',
-        isPublic: true,
-        isShared: false,
-        tags: ['coffee', 'oakland'],
-        places: [],
-        createdAt: '2024-01-10',
-        updatedAt: '2024-01-15'
-      },
-      createdAt: '2024-01-15T10:30:00Z'
-    },
-    {
-      id: '2',
-      type: 'post',
-      userId: '2',
-      user: {
-        id: '2',
-        name: 'Alex Rivera',
-        username: 'alex.rivera',
-        avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=150&fit=crop&crop=face'
-      },
-      placeId: '2',
-      place: {
-        id: '2',
-        name: 'Tacos El Gordo',
-        address: '123 Mission St, San Francisco, CA',
-        tags: ['tacos', 'authentic', 'quick'],
-        posts: [],
-        savedCount: 23,
-        createdAt: '2024-01-14'
-      },
-      createdAt: '2024-01-15T09:15:00Z'
+  const { currentUser: authUser } = useAuth()
+  const [activities, setActivities] = useState<Activity[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+
+  // Load real friends activity data
+  useEffect(() => {
+    const loadFriendsActivity = async () => {
+      if (!authUser) {
+        setLoading(false)
+        return
+      }
+
+      try {
+        setLoading(true)
+        setError('')
+        
+        // Get user's friends
+        const friends = await firebaseDataService.getUserFriends(authUser.uid)
+        
+        // Get activity from friends
+        const allActivities: Activity[] = []
+        for (const friend of friends) {
+          const friendActivity = await firebaseDataService.getUserActivity(friend.id, 10)
+          allActivities.push(...friendActivity)
+        }
+        
+        // Sort by most recent
+        allActivities.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+        
+        setActivities(allActivities.slice(0, 20)) // Show latest 20 activities
+      } catch (error) {
+        console.error('Error loading friends activity:', error)
+        setError('Failed to load friends activity')
+        // Fallback to empty array for now
+        setActivities([])
+      } finally {
+        setLoading(false)
+      }
     }
-  ]
+
+    loadFriendsActivity()
+  }, [authUser])
+
+
 
   const getActivityIcon = (type: Activity['type']) => {
     switch (type) {
@@ -102,9 +91,48 @@ const FriendsTab = () => {
     return `${Math.floor(diffInMinutes / 1440)}d ago`
   }
 
+  if (loading) {
+    return (
+      <div className="p-4 space-y-4">
+        <div className="text-center py-8">
+          <div className="animate-spin h-8 w-8 border-2 border-sage-300 border-t-sage-600 rounded-full mx-auto mb-4"></div>
+          <p className="text-sage-600">Loading friends activity...</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="p-4 space-y-4">
+        <div className="text-center py-8">
+          <p className="text-red-600 mb-4">{error}</p>
+          <button 
+            onClick={() => window.location.reload()}
+            className="px-4 py-2 bg-sage-600 text-white rounded-lg hover:bg-sage-700 transition-colors"
+          >
+            Try Again
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  if (activities.length === 0) {
+    return (
+      <div className="p-4 space-y-4">
+        <div className="text-center py-8">
+          <UserIcon className="w-12 h-12 text-sage-400 mx-auto mb-4" />
+          <h3 className="text-lg font-medium text-sage-700 mb-2">No Friends Activity Yet</h3>
+          <p className="text-sage-500 mb-4">Follow some friends to see their activity here!</p>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="p-4 space-y-4">
-      {mockActivities.map((activity) => (
+      {activities.map((activity) => (
         <div
           key={activity.id}
           className="bg-white/70 backdrop-blur-sm rounded-2xl p-4 shadow-soft border border-cream-200 hover:shadow-liquid transition-all duration-300"

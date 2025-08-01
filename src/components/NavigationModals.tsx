@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useNavigation } from '../contexts/NavigationContext.tsx'
 import HubModal from './HubModal'
 import ListModal from './ListModal'
+import ProfileModal from './ProfileModal'
 
 const NavigationModals = () => {
   const navigate = useNavigate()
@@ -15,7 +16,10 @@ const NavigationModals = () => {
     closeHubModal, 
     closeListModal,
     openHubModal,
-    goBackFromHubModal
+    goBackFromHubModal,
+    showProfileModal,
+    selectedUserId,
+    closeProfileModal
   } = useNavigation()
 
   const handleHubModalBack = () => {
@@ -113,6 +117,15 @@ const NavigationModals = () => {
             // Open the hub modal using the navigation context
             openHubModal(mockHub, 'list-modal')
           }}
+        />
+      )}
+
+      {/* Profile Modal */}
+      {selectedUserId && (
+        <ProfileModal
+          isOpen={showProfileModal}
+          onClose={closeProfileModal}
+          userId={selectedUserId}
         />
       )}
     </>

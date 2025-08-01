@@ -4,6 +4,7 @@ import { HeartIcon as HeartIconSolid } from '@heroicons/react/24/solid'
 import { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { useNavigation } from '../contexts/NavigationContext.tsx'
+import { formatTimestamp } from '../utils/dateUtils.ts'
 import ImageCarousel from './ImageCarousel.tsx'
 import CommentsModal from './CommentsModal.tsx'
 import SaveToListModal from './SaveToListModal.tsx'
@@ -570,7 +571,7 @@ const ListModal = ({ list, isOpen, onClose, onSave, onShare, onAddPost, onOpenFu
               <div className="flex items-center gap-4 mt-3 text-sm text-[#7A5D3F] relative z-10">
               <div className="flex items-center gap-1">
                 <CalendarIcon className="w-4 h-4" />
-                Created {new Date(list.createdAt).toLocaleDateString()}
+                Created {formatTimestamp(list.createdAt)}
               </div>
               <div className="flex items-center gap-1">
                 <HeartIcon className="w-4 h-4" />

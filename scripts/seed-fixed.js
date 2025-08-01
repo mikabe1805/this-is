@@ -186,23 +186,37 @@ const samplePlaces = [
 const sampleLists = [
   {
     id: 'list-1',
-    listName: 'SF Coffee Crawl',
+    name: 'SF Coffee Crawl',
+    listName: 'SF Coffee Crawl', // Keep for compatibility
     description: 'The ultimate guide to San Francisco\'s best coffee shops.',
     userId: 'user-1',
-    listTags: ['coffee', 'san francisco'],
+    tags: ['coffee', 'san francisco'],
+    listTags: ['coffee', 'san francisco'], // Keep for compatibility
     privacy: 'public',
     isPublic: true,
-    likes: 67
+    likes: 67,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    isLiked: false,
+    isShared: false,
+    hubs: []
   },
   {
     id: 'list-2', 
-    listName: 'Austin Adventures',
+    name: 'Austin Adventures',
+    listName: 'Austin Adventures', // Keep for compatibility
     description: 'Outdoor activities and hidden gems in Austin.',
     userId: 'user-2',
-    listTags: ['outdoor', 'austin', 'adventure'],
+    tags: ['outdoor', 'austin', 'adventure'],
+    listTags: ['outdoor', 'austin', 'adventure'], // Keep for compatibility
     privacy: 'public',
     isPublic: true,
-    likes: 43
+    likes: 43,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    isLiked: false,
+    isShared: false,
+    hubs: []
   }
 ]
 

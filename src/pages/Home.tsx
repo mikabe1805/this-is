@@ -15,6 +15,7 @@ import ProfileModal from '../components/ProfileModal'
 import type { Hub, Place, List, Post, User } from '../types/index.js'
 import { useNavigation } from '../contexts/NavigationContext.tsx'
 import { firebaseDataService } from '../services/firebaseDataService.js'
+import { auth } from '../firebase/config.ts'
 
 // Botanical SVG accent (eucalyptus branch)
 const BotanicalAccent = () => (
@@ -134,39 +135,72 @@ const Home = () => {
     try {
       setIsLoadingActivity(true)
       
-      // Get recent posts from Firebase
-      const searchData = await firebaseDataService.performSearch('', {}, 20)
+      // Get current user to load their friends
+      const currentUser = auth.currentUser
+      if (!currentUser) {
+        setFriendsActivity([])
+        return
+      }
       
-      // Transform posts into activity format
-      const activities: FriendActivity[] = searchData.posts.map(post => ({
-        id: post.id,
-        user: {
-          name: post.username || 'User',
-          avatar: post.userAvatar || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&h=150&fit=crop&crop=face'
-        },
-        action: post.postType as 'loved' | 'tried' | 'want',
-        place: searchData.places.find(p => p.id === post.hubId)?.name || 'Unknown Place',
-        placeImage: post.images?.[0] || 'https://images.unsplash.com/photo-1551218808-94e220e084d2?w=400&h=300&fit=crop',
-        note: post.description,
-        timestamp: formatTimestamp(post.createdAt),
-        list: post.listId ? searchData.lists.find(l => l.id === post.listId)?.name || 'Unknown List' : undefined
-      }))
-
-      // Add some list creation activities
-      const listActivities: FriendActivity[] = searchData.lists.slice(0, 3).map(list => ({
-        id: `list-${list.id}`,
-        user: {
-          name: searchData.users.find(u => u.id === list.userId)?.name || 'User',
-          avatar: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=150&h=150&fit=crop&crop=face'
-        },
-        action: 'created' as const,
-        list: list.name,
-        description: list.description,
-        places: list.hubs?.length || 0,
-        timestamp: formatTimestamp(list.createdAt)
-      }))
-
-      setFriendsActivity([...activities, ...listActivities].slice(0, 10))
+      // Get user's friends first
+      const friends = await firebaseDataService.getUserFriends(currentUser.uid)
+      
+      if (friends.length === 0) {
+        // If no friends, show general recent activity as fallback
+        const searchData = await firebaseDataService.performSearch('', {}, 15)
+        
+        const fallbackActivities: FriendActivity[] = searchData.posts.slice(0, 8).map(post => ({
+          id: post.id,
+          user: {
+            name: post.username || 'User',
+            avatar: post.userAvatar || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&h=150&fit=crop&crop=face'
+          },
+          action: post.postType as 'loved' | 'tried' | 'want',
+          place: searchData.places.find(p => p.id === post.hubId)?.name || 'Unknown Place',
+          placeImage: post.images?.[0] || 'https://images.unsplash.com/photo-1551218808-94e220e084d2?w=400&h=300&fit=crop',
+          note: post.description,
+          timestamp: formatTimestamp(post.createdAt),
+          list: post.listId ? searchData.lists.find(l => l.id === post.listId)?.name || 'Unknown List' : undefined
+        }))
+        
+        setFriendsActivity(fallbackActivities)
+        return
+      }
+      
+      // Get activity from friends
+      const allActivities: FriendActivity[] = []
+      for (const friend of friends.slice(0, 10)) { // Limit to 10 friends for performance
+        try {
+          const friendActivity = await firebaseDataService.getUserActivity(friend.id, 5)
+          
+          // Transform activities to FriendActivity format
+          const transformedActivities: FriendActivity[] = friendActivity.map(activity => ({
+            id: activity.id,
+            user: {
+              name: friend.name,
+              avatar: friend.avatar || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&h=150&fit=crop&crop=face'
+            },
+            action: activity.type as 'loved' | 'tried' | 'want' | 'created',
+            place: activity.place?.name,
+            placeImage: activity.place?.hubImage || 'https://images.unsplash.com/photo-1551218808-94e220e084d2?w=400&h=300&fit=crop',
+            note: activity.description,
+            timestamp: formatTimestamp(activity.createdAt),
+            list: activity.list?.name,
+            description: activity.list?.description,
+            places: activity.list?.hubs?.length || 0
+          }))
+          
+          allActivities.push(...transformedActivities)
+        } catch (error) {
+          console.error(`Error loading activity for friend ${friend.id}:`, error)
+          // Continue with other friends
+        }
+      }
+      
+      // Sort by most recent and limit to 12 activities
+      allActivities.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+      setFriendsActivity(allActivities.slice(0, 12))
+      
     } catch (error) {
       console.error('Error loading friends activity:', error)
       setFriendsActivity([])
@@ -741,10 +775,10 @@ const Home = () => {
               <p className="text-center py-8">No trending items yet.</p>
             ) : (
               discoveryItems.map((item) => (
-                <button
+                <div
                   key={item.id}
                   onClick={() => handleDiscoveryClick(item)}
-                  className="w-full bg-white/98 rounded-2xl shadow-botanical border border-linen-200 p-5 hover:shadow-cozy hover:-translate-y-1 transition-all duration-300 text-left flex flex-col gap-2 overflow-hidden"
+                  className="w-full bg-white/98 rounded-2xl shadow-botanical border border-linen-200 p-5 hover:shadow-cozy hover:-translate-y-1 transition-all duration-300 text-left flex flex-col gap-2 overflow-hidden cursor-pointer"
                 >
                   <div className="flex items-start gap-4">
                     <img 
@@ -863,7 +897,7 @@ const Home = () => {
                       </div>
                     </div>
                   </div>
-                </button>
+                </div>
               ))
             )}
           </div>

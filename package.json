@@ -16,7 +16,10 @@
     "db:seed-with-images": "cd scripts && npm install && node seed-with-images.js",
     "db:test": "cd scripts && npm install && node test-firebase.js",
     "db:seed-fixed": "cd scripts && npm install && node seed-fixed.js",
-    "db:cleanup-and-seed": "cd scripts && npm install && node cleanup-and-seed.js",
+    "db:cleanup-and-seed": "node scripts/cleanup-and-seed.js",
+    "db:populate-real-hubs": "node scripts/populate-real-hubs.js",
+    "db:populate-real-lists": "node scripts/populate-real-lists.js",
+    "db:populate-all-real-data": "npm run db:populate-real-hubs && npm run db:populate-real-lists",
     "db:seed-browser-setup": "cd scripts && npm install && node seed-browser-setup.js",
     "db:seed-browser": "echo 'First run: npm run db:seed-browser-setup' && echo 'Then visit: http://localhost:5173/seed-database' && npm run dev",
     "db:restore-rules": "cd scripts && node restore-rules.js",
@@ -29,6 +32,7 @@
   "dependencies": {
     "@heroicons/react": "^2.2.0",
     "firebase": "^11.10.0",
+    "openai": "^5.11.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "react-router-dom": "^7.6.3"

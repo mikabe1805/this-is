@@ -126,7 +126,7 @@ const SearchAndFilter: React.FC<SearchAndFilterProps> = ({
         )}
         
         <div className="flex-1 relative">
-          <form onSubmit={onSubmit} className="relative">
+          <div className="relative">
             <MagnifyingGlassIcon className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-charcoal-600 pointer-events-none z-10" />
             <input
               type="text"
@@ -137,7 +137,7 @@ const SearchAndFilter: React.FC<SearchAndFilterProps> = ({
               onFocus={onFocus}
               className="w-full pl-12 pr-4 py-3 bg-white/80 backdrop-blur-sm border border-linen-200 rounded-2xl text-charcoal-600 placeholder-charcoal-400 focus:outline-none focus:ring-2 focus:ring-sage-200 focus:border-sage-300 shadow-soft transition-all duration-300"
             />
-          </form>
+          </div>
         </div>
         
         {showFilter && (

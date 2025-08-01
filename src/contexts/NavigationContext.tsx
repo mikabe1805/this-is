@@ -13,10 +13,13 @@ interface NavigationContextType {
   hubModalFromList: boolean // Track if hub modal was opened from list modal
   listModalFromList: boolean // Track if list modal was opened from another list modal
   previousListModal: List | null // Store previous list when opening from list
-  
+  showProfileModal: boolean
+  selectedUserId: string | null
+
   // Navigation methods
   openHubModal: (hub: Hub, from?: string) => void
   openListModal: (list: List, from?: string) => void
+  openProfileModal: (userId: string, from?: string) => void
   closeHubModal: () => void
   closeListModal: () => void
   navigateToHub: (hub: Hub, from?: string) => void
@@ -52,6 +55,21 @@ export const NavigationProvider = ({ children }: NavigationProviderProps) => {
   const [hubModalFromList, setHubModalFromList] = useState(false)
   const [listModalFromList, setListModalFromList] = useState(false)
   const [previousListModal, setPreviousListModal] = useState<List | null>(null)
+  const [showProfileModal, setShowProfileModal] = useState(false)
+  const [selectedUserId, setSelectedUserId] = useState<string | null>(null)
+
+  const openProfileModal = (userId: string, from: string = 'unknown') => {
+    console.log('Opening profile modal from:', from, 'userId:', userId);
+    setSelectedUserId(userId);
+    setShowProfileModal(true);
+    navigationHistory.push({ from: from as any, userId });
+  };
+
+  const closeProfileModal = () => {
+    console.log('Closing profile modal');
+    setShowProfileModal(false);
+    setSelectedUserId(null);
+  };
 
   const openHubModal = (hub: Hub, from: string = 'unknown') => {
     console.log('Opening hub modal from:', from, 'hub:', hub.name)
@@ -181,10 +199,14 @@ export const NavigationProvider = ({ children }: NavigationProviderProps) => {
     hubModalFromList,
     listModalFromList,
     previousListModal,
+    showProfileModal,
+    selectedUserId,
     openHubModal,
     openListModal,
+    openProfileModal,
     closeHubModal,
     closeListModal,
+    closeProfileModal,
     navigateToHub,
     navigateToList,
     goBack,

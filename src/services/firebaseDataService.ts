@@ -1,23 +1,8 @@
-import { 
-  collection, 
-  query, 
-  where, 
-  orderBy, 
-  limit, 
-  getDocs, 
-  doc, 
-  getDoc, 
-  setDoc, 
-  updateDoc, 
-  onSnapshot, 
-  Timestamp,
-  QuerySnapshot,
-  startAfter,
-  endBefore,
-  QueryConstraint
-} from 'firebase/firestore'
+import { collection, doc, getDoc, getDocs, setDoc, updateDoc, query, where, orderBy, limit, startAfter, endBefore, onSnapshot, Timestamp, QueryConstraint } from 'firebase/firestore'
 import { db } from '../firebase/config'
 import type { User, Place, List, Post, Comment, Activity } from '../types'
+import { auth } from '../firebase/config'
+
 
 export interface SearchContext {
   currentUser: User
@@ -252,20 +237,147 @@ class FirebaseDataService {
   }
 
   // ====================
+  // AI ANALYSIS UTILITIES
+  // ====================
+
+  private async analyzeUserBio(bio: string): Promise<{
+    interests: string[]
+    preferences: string[]
+    suggestedCategories: string[]
+    suggestedTags: string[]
+  }> {
+    if (!bio || bio.trim().length < 10) {
+      return {
+        interests: [],
+        preferences: [],
+        suggestedCategories: [],
+        suggestedTags: []
+      }
+    }
+
+    try {
+      // Simple keyword-based analysis for now
+      // In a real implementation, this would use an AI service like OpenAI GPT
+      const bioLower = bio.toLowerCase()
+      
+      // Define keyword mappings for interests and categories
+      const keywordMappings = {
+        food: {
+          keywords: ['food', 'cooking', 'eating', 'chef', 'restaurant', 'culinary', 'dining', 'taste', 'flavor', 'recipe'],
+          categories: ['Restaurants', 'Food Trucks', 'Markets'],
+          tags: ['foodie', 'culinary', 'dining']
+        },
+        coffee: {
+          keywords: ['coffee', 'espresso', 'latte', 'cappuccino', 'cafe', 'caffeine', 'brew'],
+          categories: ['Coffee Shops'],
+          tags: ['coffee enthusiast', 'caffeine', 'cozy']
+        },
+        nature: {
+          keywords: ['nature', 'hiking', 'outdoors', 'park', 'trail', 'mountain', 'forest', 'trees', 'wildlife'],
+          categories: ['Parks & Nature', 'Hiking Trails', 'Outdoor Activities'],
+          tags: ['nature enthusiast', 'hiking', 'outdoors']
+        },
+        art: {
+          keywords: ['art', 'painting', 'drawing', 'creative', 'design', 'artist', 'gallery', 'museum'],
+          categories: ['Art Galleries', 'Museums', 'Creative Spaces'],
+          tags: ['art aficionado', 'creative', 'visual artist']
+        },
+        fitness: {
+          keywords: ['fitness', 'gym', 'workout', 'exercise', 'yoga', 'running', 'sports', 'health'],
+          categories: ['Sports & Fitness', 'Yoga Studios'],
+          tags: ['fitness enthusiast', 'health conscious', 'active']
+        },
+        music: {
+          keywords: ['music', 'concert', 'band', 'singing', 'musician', 'guitar', 'piano', 'jazz', 'rock'],
+          categories: ['Live Music', 'Entertainment'],
+          tags: ['music lover', 'musician', 'live music']
+        },
+        travel: {
+          keywords: ['travel', 'explore', 'adventure', 'journey', 'discover', 'wanderlust', 'trip'],
+          categories: ['Tourist Attractions', 'Adventure Sports'],
+          tags: ['adventurer', 'travel blogger', 'explorer']
+        },
+        work: {
+          keywords: ['work', 'business', 'professional', 'meeting', 'coworking', 'laptop', 'remote'],
+          categories: ['Co-working Spaces'],
+          tags: ['remote worker', 'professional', 'digital nomad']
+        },
+        social: {
+          keywords: ['social', 'friends', 'community', 'networking', 'people', 'party', 'gathering'],
+          categories: ['Community Centers', 'Bars & Nightlife'],
+          tags: ['social butterfly', 'community builder', 'networker']
+        }
+      }
+
+      const detectedInterests: string[] = []
+      const detectedCategories: string[] = []
+      const detectedTags: string[] = []
+      const detectedPreferences: string[] = []
+
+      // Analyze bio for keywords
+      Object.entries(keywordMappings).forEach(([interest, mapping]) => {
+        const hasKeyword = mapping.keywords.some(keyword => bioLower.includes(keyword))
+        if (hasKeyword) {
+          detectedInterests.push(interest)
+          detectedCategories.push(...mapping.categories)
+          detectedTags.push(...mapping.tags)
+        }
+      })
+
+      // Extract preferences based on descriptive words
+      const preferenceKeywords = {
+        'cozy': ['cozy', 'comfortable', 'warm', 'intimate', 'relaxed'],
+        'trendy': ['trendy', 'modern', 'hip', 'stylish', 'contemporary'],
+        'quiet': ['quiet', 'peaceful', 'calm', 'serene', 'tranquil'],
+        'authentic': ['authentic', 'genuine', 'traditional', 'local', 'real'],
+        'luxury': ['luxury', 'upscale', 'premium', 'high-end', 'exclusive'],
+        'budget-friendly': ['cheap', 'affordable', 'budget', 'inexpensive', 'economical']
+      }
+
+      Object.entries(preferenceKeywords).forEach(([preference, keywords]) => {
+        const hasKeyword = keywords.some(keyword => bioLower.includes(keyword))
+        if (hasKeyword) {
+          detectedPreferences.push(preference)
+        }
+      })
+
+      return {
+        interests: [...new Set(detectedInterests)],
+        preferences: [...new Set(detectedPreferences)],
+        suggestedCategories: [...new Set(detectedCategories)],
+        suggestedTags: [...new Set(detectedTags)]
+      }
+    } catch (error) {
+      console.error('Error analyzing user bio:', error)
+      return {
+        interests: [],
+        preferences: [],
+        suggestedCategories: [],
+        suggestedTags: []
+      }
+    }
+  }
+
+  // ====================
   // USER CREATION & SETUP
   // ====================
 
-  async createUserProfile(userId: string, userData: {
+  private async createUserProfile(userId: string, userData: {
     displayName: string
     email: string
+    username?: string
     location: string
     bio?: string
-    ageRange?: string
-    username?: string
+    ageRange: string
     userTags?: string[]
     profilePictureUrl?: string
   }): Promise<void> {
     try {
+      // Verify user is authenticated
+      const currentUser = auth.currentUser
+      if (!currentUser || currentUser.uid !== userId) {
+        throw new Error('User not properly authenticated')
+      }
 
       const userProfile = {
         id: userId,
@@ -282,10 +394,11 @@ class FirebaseDataService {
         avatar: userData.profilePictureUrl || ''
       }
 
+      console.log('💾 Saving user profile with avatar:', userData.profilePictureUrl)
       await setDoc(doc(db, 'users', userId), userProfile)
-      console.log('User profile created successfully')
+      console.log('✅ User profile created successfully')
     } catch (error) {
-      console.error('Error creating user profile:', error)
+      console.error('❌ Error creating user profile:', error)
       throw error
     }
   }
@@ -353,46 +466,84 @@ class FirebaseDataService {
     profilePictureUrl?: string
   }): Promise<void> {
     try {
-      // Create user profile
+      // Analyze user bio with AI to enhance recommendations
+      let enhancedCategories = [...userData.favoriteCategories]
+      let enhancedTags = [...(userData.userTags || [])]
+      let enhancedPreferences = [...userData.activityPreferences]
+
+      if (userData.bio) {
+        console.log('🤖 Analyzing user bio for personalized recommendations...')
+        const bioAnalysis = await this.analyzeUserBio(userData.bio)
+        
+        // Merge AI suggestions with user selections (avoid duplicates)
+        bioAnalysis.suggestedCategories.forEach(category => {
+          if (!enhancedCategories.includes(category)) {
+            enhancedCategories.push(category)
+          }
+        })
+        
+        bioAnalysis.suggestedTags.forEach(tag => {
+          if (!enhancedTags.includes(tag)) {
+            enhancedTags.push(tag)
+          }
+        })
+        
+        bioAnalysis.preferences.forEach(pref => {
+          const prefLabel = pref.charAt(0).toUpperCase() + pref.slice(1).replace('-', ' ')
+          if (!enhancedPreferences.includes(prefLabel)) {
+            enhancedPreferences.push(prefLabel)
+          }
+        })
+
+        console.log('✨ Bio analysis complete:', {
+          originalCategories: userData.favoriteCategories.length,
+          enhancedCategories: enhancedCategories.length,
+          originalTags: userData.userTags?.length || 0,
+          enhancedTags: enhancedTags.length,
+          detectedInterests: bioAnalysis.interests
+        })
+      }
+
+      // Create user profile with enhanced data
       await this.createUserProfile(userId, {
         displayName: userData.displayName,
         email: userData.email,
         location: userData.location,
         bio: userData.bio,
-        ageRange: userData.ageRange,
+        ageRange: userData.ageRange || '18-25', // Default to 18-25 if not provided
         username: userData.username,
-        userTags: userData.userTags,
+        userTags: enhancedTags,
         profilePictureUrl: userData.profilePictureUrl
       })
 
-      // Initialize user preferences
+      // Initialize user preferences with enhanced data
       await this.initializeUserPreferences(userId, {
-        favoriteCategories: userData.favoriteCategories,
-        activityPreferences: userData.activityPreferences,
+        favoriteCategories: enhancedCategories,
+        activityPreferences: enhancedPreferences,
         budgetPreferences: userData.budgetPreferences,
         socialPreferences: userData.socialPreferences,
         discoveryRadius: userData.discoveryRadius,
         location: userData.location
       })
 
-      // Generate and save baseline recommendations
+      // Generate and save baseline recommendations with enhanced data
       await this.generateBaselineRecommendations(userId, {
-        favoriteCategories: userData.favoriteCategories,
-        activityPreferences: userData.activityPreferences,
+        favoriteCategories: enhancedCategories,
+        activityPreferences: enhancedPreferences,
         budgetPreferences: userData.budgetPreferences,
         socialPreferences: userData.socialPreferences,
         discoveryRadius: userData.discoveryRadius,
         location: userData.location
       })
 
-      console.log('New user setup completed successfully')
+      console.log('✅ New user setup completed successfully with AI-enhanced preferences')
     } catch (error) {
       console.error('Error setting up new user:', error)
       throw error
     }
   }
 
-  async generateBaselineRecommendations(userId: string, signupPrefs: {
+  private async generateBaselineRecommendations(userId: string, signupPrefs: {
     favoriteCategories: string[]
     activityPreferences: string[]
     budgetPreferences: string[]
@@ -405,26 +556,26 @@ class FirebaseDataService {
     location: string
   }): Promise<void> {
     try {
-      // Dynamic import to avoid circular dependency
-      const { createBaselineRecommendations } = await import('../utils/intelligentSearchService.js')
-      
+      // Verify user is authenticated
+      const currentUser = auth.currentUser
+      if (!currentUser || currentUser.uid !== userId) {
+        console.warn('User not properly authenticated for baseline recommendations, skipping...')
+        return
+      }
+
+      // Use intelligent search service to generate baseline recommendations
       const recommendations = await createBaselineRecommendations(userId, signupPrefs)
       
-      // Save recommendations to user's recommendations collection
-      const batch = []
-      recommendations.forEach((rec, index) => {
+      const batch: Promise<any>[] = []
+      
+      recommendations.forEach(rec => {
         const recData = {
-          userId,
+          type: rec.type,
           itemId: rec.item.id,
-          itemType: rec.type,
           score: rec.score,
-          confidence: rec.confidence,
           reasons: rec.reasons,
-          algorithm: rec.algorithm,
-          metadata: rec.metadata,
           createdAt: Timestamp.now(),
-          rank: index + 1,
-          source: 'signup_preferences'
+          isBaseline: true
         }
         
         batch.push(
@@ -508,46 +659,66 @@ class FirebaseDataService {
   }
 
   private async searchPlaces(searchQuery: string, filters: any, limitCount: number): Promise<Place[]> {
-    const constraints: QueryConstraint[] = []
+    console.log(`🏢 Searching places for: "${searchQuery}"`)
     
+    const constraints: QueryConstraint[] = []
+
+    // If we have a search query, we need to get more results first, then filter and rank
+    if (searchQuery && searchQuery.trim()) {
+      // For text search, get a larger set first, then filter client-side
+      constraints.push(limit(limitCount * 5)) // Get 5x more results for better search coverage
+    } else {
+      // For browsing without search, order by popularity
+      constraints.push(orderBy('savedCount', 'desc'))
+      constraints.push(limit(limitCount))
+    }
+
     if (filters.category) {
       constraints.push(where('category', '==', filters.category))
     }
-    
+
     if (filters.tags && filters.tags.length > 0) {
       constraints.push(where('tags', 'array-contains-any', filters.tags))
     }
 
-    constraints.push(orderBy('savedCount', 'desc'))
-    constraints.push(limit(limitCount))
-
     const placesQuery = query(collection(db, 'places'), ...constraints)
     const placesSnapshot = await getDocs(placesQuery)
     
-    const places = placesSnapshot.docs.map(doc => ({
+    let places = placesSnapshot.docs.map(doc => ({
       id: doc.id,
       ...doc.data()
     })) as Place[]
 
-    // Filter by name/address if search query provided
-    if (searchQuery) {
-      const searchLower = searchQuery.toLowerCase()
-      return places.filter(place => 
-        place.name.toLowerCase().includes(searchLower) ||
-        place.address.toLowerCase().includes(searchLower) ||
-        place.tags.some(tag => tag.toLowerCase().includes(searchLower))
-      )
-    }
+    // Debug: Log what we got from Firebase
+    console.log(`🏢 Found ${places.length} places from Firebase:`)
+    places.forEach(place => {
+      const name = place.name || place.placeName || 'NO_NAME'
+      const tags = place.tags || place.placeTags || []
+      console.log(`  - ${name} (tags: ${Array.isArray(tags) ? tags.join(', ') : 'none'})`)
+    })
 
+    // AI search will handle relevance filtering, so we can remove the client-side filtering here.
+
+    console.log(`🏢 Final places result: ${places.length} places`)
     return places
   }
 
   private async searchLists(searchQuery: string, filters: any, limitCount: number): Promise<List[]> {
     const constraints: QueryConstraint[] = [
-      where('isPublic', '==', true),
-      orderBy('likes', 'desc'),
-      limit(limitCount)
+      where('isPublic', '==', true)
     ]
+
+    console.log(`🔍 Searching lists for: "${searchQuery}"`)
+
+    // If we have a search query, we need to get more results first, then filter and rank
+    if (searchQuery && searchQuery.trim()) {
+      // For text search, get a larger set first, then filter client-side
+      constraints.push(limit(limitCount * 5)) // Get 5x more results for better search coverage
+    } else {
+      // For browsing without search, order by popularity
+      constraints.push(orderBy('likes', 'desc'))
+      constraints.push(limit(limitCount))
+    }
 
     if (filters.tags && filters.tags.length > 0) {
       constraints.push(where('tags', 'array-contains-any', filters.tags))
@@ -556,19 +727,18 @@ class FirebaseDataService {
     const listsQuery = query(collection(db, 'lists'), ...constraints)
     const listsSnapshot = await getDocs(listsQuery)
     
-    const lists = listsSnapshot.docs.map(doc => ({
+    let lists = listsSnapshot.docs.map(doc => ({
       id: doc.id,
       ...doc.data()
     })) as List[]
 
-    if (searchQuery) {
-      const searchLower = searchQuery.toLowerCase()
-      return lists.filter(list => 
-        list.name.toLowerCase().includes(searchLower) ||
-        list.description.toLowerCase().includes(searchLower) ||
-        list.tags.some(tag => tag.toLowerCase().includes(searchLower))
-      )
-    }
+    // Debug: Log what we got from Firebase
+    console.log(`📋 Found ${lists.length} lists from Firebase:`)
+    lists.forEach(list => {
+      console.log(`  - ${list.name || list.listName || 'NO_NAME'} (tags: ${(list.tags || list.listTags || []).join(', ')})`)
+    })
+
+    // AI search will handle relevance filtering, so we can remove the client-side filtering here.
 
     return lists
   }
@@ -720,6 +890,19 @@ class FirebaseDataService {
 
     } catch (error) {
       console.error('Error tracking user interaction:', error)
+    }
+  }
+
+  async updateUserTags(userId: string, tags: string[]): Promise<void> {
+    try {
+      await updateDoc(doc(db, 'users', userId), {
+        tags: tags,
+        updatedAt: Timestamp.now()
+      })
+      console.log('User tags updated successfully')
+    } catch (error) {
+      console.error('Error updating user tags:', error)
+      throw error
     }
   }
 

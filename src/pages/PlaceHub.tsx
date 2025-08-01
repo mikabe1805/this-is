@@ -1,7 +1,7 @@
 import type { Hub, Post, List } from '../types/index.js'
 import { MapPinIcon, HeartIcon, BookmarkIcon, PlusIcon, ShareIcon, CameraIcon, ChatBubbleLeftIcon, ArrowRightIcon, ArrowLeftIcon } from '@heroicons/react/24/outline'
-import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useState, useEffect } from 'react'
+import { useNavigate, useParams } from 'react-router-dom'
 import CreatePost from '../components/CreatePost'
 import SaveModal from '../components/SaveModal'
 import CommentsModal from '../components/CommentsModal'
@@ -9,6 +9,8 @@ import ReplyModal from '../components/ReplyModal'
 import ShareModal from '../components/ShareModal'
 import type { Place } from '../types/index.js'
 import { useNavigation } from '../contexts/NavigationContext.tsx'
+import { useAuth } from '../contexts/AuthContext.tsx'
+import { firebaseDataService } from '../services/firebaseDataService.js'
 
 const mockHub: Hub = {
   id: '1',
@@ -114,6 +116,8 @@ mockHub.posts = mockPosts
 
 const PlaceHub = () => {
   const { goBack } = useNavigation()
+  const { currentUser: authUser } = useAuth()
+  const { placeId } = useParams<{ placeId: string }>()
   const [tab, setTab] = useState<'overview' | 'posts'>('overview')
   const [showCreatePost, setShowCreatePost] = useState(false)
   const [showSaveModal, setShowSaveModal] = useState(false)
@@ -124,9 +128,65 @@ const PlaceHub = () => {
   const [selectedPost, setSelectedPost] = useState<Post | null>(null)
   const [likedPosts, setLikedPosts] = useState<Set<string>>(new Set())
   const [savedPosts, setSavedPosts] = useState<Set<string>>(new Set())
-  const hub = mockHub
-  const posts = hub.posts
+  
+  // Real data state
+  const [hub, setHub] = useState<Hub | null>(null)
+  const [posts, setPosts] = useState<Post[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
   const navigate = useNavigate()
+
+  // Load real hub data from Firebase
+  useEffect(() => {
+    const loadHubData = async () => {
+      if (!placeId) {
+        setError('No place ID provided')
+        setLoading(false)
+        return
+      }
+
+      try {
+        setLoading(true)
+        setError('')
+        
+        // Get place data from Firebase
+        const place = await firebaseDataService.getPlace(placeId)
+        if (!place) {
+          setError('Place not found')
+          setLoading(false)
+          return
+        }
+
+        // Convert Place to Hub format for display
+        const hubData: Hub = {
+          id: place.id,
+          name: place.name,
+          description: `Discover ${place.name}, a ${place.category || 'great'} place in ${place.address}`,
+          tags: place.tags,
+          images: place.hubImage ? [place.hubImage] : [],
+          location: {
+            address: place.address,
+            lat: place.coordinates?.lat || 0,
+            lng: place.coordinates?.lng || 0,
+          },
+          googleMapsUrl: `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(place.address)}`,
+          mainImage: place.hubImage || '',
+          posts: [],
+          lists: [],
+        }
+        
+        setHub(hubData)
+        setPosts(place.posts || [])
+      } catch (error) {
+        console.error('Error loading hub data:', error)
+        setError('Failed to load place data')
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    loadHubData()
+  }, [placeId])
 
   const handleLikePost = (postId: string) => {
     setLikedPosts(prev => {
@@ -241,6 +301,52 @@ const PlaceHub = () => {
       createdAt: post.createdAt
     }
     handleSaveToPlace(place)
+  }
+
+  // Loading state
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-[#FEF6E9] via-[#FBF0D9] to-[#F7E8CC] flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin h-12 w-12 border-4 border-[#E17373] border-t-transparent rounded-full mx-auto mb-4"></div>
+          <p className="text-[#8B7355] text-lg">Loading place details...</p>
+        </div>
+      </div>
+    )
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-[#FEF6E9] via-[#FBF0D9] to-[#F7E8CC] flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-red-600 text-lg mb-4">{error}</p>
+          <button 
+            onClick={() => navigate(-1)}
+            className="px-6 py-3 bg-[#E17373] text-white rounded-lg hover:bg-[#D55F5F] transition-colors"
+          >
+            Go Back
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  // No hub data
+  if (!hub) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-[#FEF6E9] via-[#FBF0D9] to-[#F7E8CC] flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-[#8B7355] text-lg mb-4">Place not found</p>
+          <button 
+            onClick={() => navigate(-1)}
+            className="px-6 py-3 bg-[#E17373] text-white rounded-lg hover:bg-[#D55F5F] transition-colors"
+          >
+            Go Back
+          </button>
+        </div>
+      </div>
+    )
   }
 
   return (

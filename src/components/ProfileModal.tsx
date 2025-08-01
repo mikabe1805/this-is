@@ -6,7 +6,7 @@ import { HeartIcon as HeartIconSolid, BookmarkIcon as BookmarkIconSolid, EyeIcon
 import type { User, Post, List } from '../types/index.js'
 
 interface ProfileModalProps {
-  user: User
+  userId: string
   isOpen: boolean
   onClose: () => void
   onFollow?: (userId: string) => void
@@ -16,8 +16,49 @@ interface ProfileModalProps {
   onBack?: () => void
 }
 
-const ProfileModal = ({ user, isOpen, onClose, onFollow, onShare, onOpenFullScreen, showBackButton, onBack }: ProfileModalProps) => {
-  if (!isOpen || !user) return null
+import { firebaseDataService } from '../services/firebaseDataService';
+
+const ProfileModal = ({ userId, isOpen, onClose, onFollow, onShare, onOpenFullScreen, showBackButton, onBack }: ProfileModalProps) => {
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (isOpen && userId) {
+      setLoading(true);
+      firebaseDataService.getUser(userId)
+        .then(fetchedUser => {
+          setUser(fetchedUser);
+          setLoading(false);
+        })
+        .catch(error => {
+          console.error("Error fetching user:", error);
+          setLoading(false);
+        });
+    }
+  }, [isOpen, userId]);
+
+  if (!isOpen) return null;
+
+  if (loading) {
+    return createPortal(
+      <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white"></div>
+      </div>,
+      document.body
+    );
+  }
+
+  if (!user) {
+    return createPortal(
+      <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={onClose}>
+        <div className="bg-white/95 backdrop-blur-glass rounded-3xl p-8 shadow-crystal border border-white/30">
+          <h2 className="text-lg font-semibold text-charcoal-800">User not found</h2>
+          <p className="text-charcoal-600">The requested user could not be found.</p>
+        </div>
+      </div>,
+      document.body
+    );
+  }
 
   const navigate = useNavigate()
   const [isFollowing, setIsFollowing] = useState(user.isFollowing || false)

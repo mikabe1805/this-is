@@ -68,11 +68,77 @@ const BUDGET_OPTIONS = ['$', '$$', '$$$', '$$$$']
 const AGE_RANGES = ['18-25', '26-35', '36-45', '46-55', '56+', 'Other', 'Prefer not to say']
 
 const USER_TAGS = [
+  // Lifestyle & Personality
   'Foodie', 'Adventurer', 'Culture Lover', 'Nature Enthusiast', 'Art Aficionado',
   'Music Lover', 'Fitness Enthusiast', 'Bookworm', 'Photography', 'Travel Blogger',
   'Local Explorer', 'Trendsetter', 'Budget Traveler', 'Luxury Seeker', 'Family Person',
   'Solo Traveler', 'Party Goer', 'Early Bird', 'Night Owl', 'Weekend Warrior',
-  'Seasonal Explorer', 'Hidden Gem Hunter', 'Instagrammer', 'Minimalist', 'Maximalist'
+  'Seasonal Explorer', 'Hidden Gem Hunter', 'Instagrammer', 'Minimalist', 'Maximalist',
+  
+  // Food & Dining
+  'Coffee Enthusiast', 'Wine Connoisseur', 'Craft Beer Lover', 'Vegan', 'Vegetarian',
+  'Dessert Lover', 'Street Food Fan', 'Fine Dining', 'Home Cooking', 'Baking',
+  'Cocktail Enthusiast', 'Tea Lover', 'Foodie Tours', 'Farmers Markets', 'Food Trucks',
+  
+  // Activities & Hobbies
+  'Hiking', 'Cycling', 'Running', 'Swimming', 'Yoga', 'Rock Climbing', 'Skiing',
+  'Surfing', 'Camping', 'Gardening', 'Cooking', 'Gaming', 'Board Games', 'Dancing',
+  'Singing', 'Painting', 'Drawing', 'Crafting', 'DIY Projects', 'Collecting',
+  
+  // Entertainment & Media
+  'Movie Buff', 'TV Series Fan', 'Podcast Listener', 'Live Music', 'Theater',
+  'Comedy Shows', 'Concerts', 'Festivals', 'Museums', 'Galleries', 'Libraries',
+  'Cinema', 'Animation', 'Documentary Fan', 'Indie Films', 'Horror Movies',
+  
+  // Social & Networking
+  'Social Butterfly', 'Introvert', 'Extrovert', 'Community Builder', 'Volunteer',
+  'Mentor', 'Student', 'Teacher', 'Public Speaker', 'Networker', 'Team Player',
+  'Leader', 'Collaborator', 'Host', 'Guest', 'Organizer',
+  
+  // Technology & Innovation
+  'Tech Enthusiast', 'App Developer', 'Web Designer', 'AI Curious', 'Gamer',
+  'Gadget Lover', 'Tech Reviewer', 'Programmer', 'Data Nerd', 'Crypto Curious',
+  'Digital Nomad', 'Remote Worker', 'Startup Enthusiast', 'Innovation Seeker',
+  
+  // Arts & Creativity
+  'Visual Artist', 'Musician', 'Writer', 'Poet', 'Designer', 'Sculptor',
+  'Ceramicist', 'Jewelry Maker', 'Fashion Designer', 'Interior Designer',
+  'Architect', 'Graphic Designer', 'Illustrator', 'Calligrapher', 'Street Artist',
+  
+  // Learning & Growth
+  'Language Learner', 'History Buff', 'Science Enthusiast', 'Philosophy Lover',
+  'Psychology Curious', 'Self-Improvement', 'Meditation', 'Mindfulness',
+  'Spiritual Seeker', 'Religious', 'Agnostic', 'Atheist',
+  
+  // Sports & Recreation
+  'Basketball', 'Football', 'Soccer', 'Tennis', 'Golf', 'Baseball', 'Hockey',
+  'Volleyball', 'Badminton', 'Table Tennis', 'Boxing', 'Martial Arts',
+  'Skateboarding', 'Snowboarding', 'Surfing', 'Sailing', 'Fishing',
+  
+  // Wellness & Health
+  'Health Conscious', 'Organic Eater', 'Gym Goer', 'Personal Trainer',
+  'Nutritionist', 'Mental Health Advocate', 'Therapist', 'Life Coach',
+  'Wellness Blogger', 'Spa Lover', 'Massage Enthusiast', 'Aromatherapy',
+  
+  // Career & Professional
+  'Entrepreneur', 'Freelancer', 'Corporate', 'Non-Profit', 'Healthcare Worker',
+  'Teacher', 'Student', 'Researcher', 'Consultant', 'Sales Professional',
+  'Marketing Expert', 'Finance Professional', 'Legal Professional', 'Engineer',
+  
+  // Travel & Adventure
+  'Backpacker', 'Luxury Traveler', 'Road Tripper', 'International Traveler',
+  'Domestic Explorer', 'Cultural Immersion', 'Adventure Seeker', 'Beach Lover',
+  'Mountain Climber', 'City Explorer', 'Rural Enthusiast', 'Island Hopper',
+  
+  // Shopping & Fashion
+  'Fashion Forward', 'Vintage Lover', 'Thrift Shopper', 'Designer Fan',
+  'Sustainable Fashion', 'Beauty Enthusiast', 'Skincare Lover', 'Makeup Artist',
+  'Personal Stylist', 'Shoe Collector', 'Accessory Lover', 'Minimalist Style',
+  
+  // Environment & Sustainability
+  'Eco Warrior', 'Sustainability Advocate', 'Zero Waste', 'Recycling Champion',
+  'Climate Action', 'Renewable Energy', 'Green Living', 'Organic Supporter',
+  'Fair Trade', 'Local Supporter', 'Environmental Activist', 'Nature Protector'
 ]
 
 export default function SignupModal({ isOpen, onClose, onSwitchToLogin, onStartTutorial }: SignupModalProps) {
@@ -84,6 +150,7 @@ export default function SignupModal({ isOpen, onClose, onSwitchToLogin, onStartT
   const [usernameAvailable, setUsernameAvailable] = useState<boolean | null>(null)
   const [checkingUsername, setCheckingUsername] = useState(false)
   const [uploadingPicture, setUploadingPicture] = useState(false)
+  const [tagSearch, setTagSearch] = useState('')
   const { signUp } = useAuth()
 
   const [signupData, setSignupData] = useState<SignupData>({
@@ -107,6 +174,13 @@ export default function SignupModal({ isOpen, onClose, onSwitchToLogin, onStartT
     profileBio: '',
     userTags: []
   })
+
+  // Filter tags based on search input
+  const filteredTags = tagSearch.length > 0 
+    ? USER_TAGS.filter(tag => 
+        tag.toLowerCase().includes(tagSearch.toLowerCase())
+      ).slice(0, 50) // Limit to 50 results for performance
+    : USER_TAGS.slice(0, 50) // Show first 50 tags by default
 
   const updateSignupData = (field: string, value: any) => {
     setSignupData(prev => ({ ...prev, [field]: value }))
@@ -140,12 +214,11 @@ export default function SignupModal({ isOpen, onClose, onSwitchToLogin, onStartT
   }
 
   const toggleUserTag = (tag: string) => {
-    setSignupData(prev => ({
-      ...prev,
-      userTags: prev.userTags.includes(tag)
-        ? prev.userTags.filter(t => t !== tag)
-        : [...prev.userTags, tag]
-    }))
+    updateSignupData('userTags', 
+      signupData.userTags.includes(tag)
+        ? signupData.userTags.filter(t => t !== tag)
+        : [...signupData.userTags, tag]
+    )
   }
 
   const updateSocialPreference = (type: keyof SignupData['socialPreferences'], value: number) => {
@@ -313,33 +386,44 @@ export default function SignupModal({ isOpen, onClose, onSwitchToLogin, onStartT
       const userCredential = await signUp(signupData.email, signupData.password, signupData.displayName)
       const userId = userCredential.user.uid
       
+      // Wait a moment to ensure authentication state is fully set
+      await new Promise(resolve => setTimeout(resolve, 1000))
+      
       // Upload profile picture if provided
       let profilePictureUrl = ''
       if (signupData.profilePicture) {
         try {
+          console.log('📸 Uploading profile picture...', signupData.profilePicture.name)
           profilePictureUrl = await firebaseStorageService.uploadProfilePicture(userId, signupData.profilePicture)
+          console.log('✅ Profile picture uploaded successfully:', profilePictureUrl)
         } catch (uploadError) {
-          console.error('Error uploading profile picture:', uploadError)
+          console.error('❌ Error uploading profile picture:', uploadError)
           // Continue with signup even if image upload fails
+          setError('Profile picture upload failed, but account was created successfully.')
         }
       }
       
       // Create user profile and preferences in Firestore
-      await firebaseDataService.setupNewUser(userId, {
-        displayName: signupData.displayName,
-        email: signupData.email,
-        location: signupData.location,
-        bio: signupData.profileBio,
-        ageRange: signupData.ageRange,
-        favoriteCategories: signupData.favoriteCategories,
-        activityPreferences: signupData.activityPreferences,
-        budgetPreferences: signupData.budgetPreferences,
-        socialPreferences: signupData.socialPreferences,
-        discoveryRadius: signupData.discoveryRadius,
-        username: signupData.username,
-        userTags: signupData.userTags,
-        profilePictureUrl
-      })
+      try {
+        await firebaseDataService.setupNewUser(userId, {
+          displayName: signupData.displayName,
+          email: signupData.email,
+          location: signupData.location,
+          bio: signupData.profileBio,
+          ageRange: signupData.ageRange,
+          favoriteCategories: signupData.favoriteCategories,
+          activityPreferences: signupData.activityPreferences,
+          budgetPreferences: signupData.budgetPreferences,
+          socialPreferences: signupData.socialPreferences,
+          discoveryRadius: signupData.discoveryRadius,
+          username: signupData.username,
+          userTags: signupData.userTags,
+          profilePictureUrl
+        })
+      } catch (profileError) {
+        console.error('Error creating user profile:', profileError)
+        setError('Account created but profile setup failed. Please try logging in and completing your profile.')
+      }
       
       onClose()
       
@@ -792,22 +876,82 @@ export default function SignupModal({ isOpen, onClose, onSwitchToLogin, onStartT
               <div>
                 <h4 className="text-sm font-medium text-brown-700 mb-3">Choose your profile tags</h4>
                 <p className="text-xs text-brown-500 mb-3">These help others understand your vibe</p>
-                <div className="grid grid-cols-3 gap-2 max-h-32 overflow-y-auto">
-                  {USER_TAGS.map(tag => (
-                    <button
-                      key={tag}
-                      type="button"
-                      onClick={() => toggleUserTag(tag)}
-                      className={`px-3 py-2 rounded-lg text-xs font-medium transition-all ${
-                        signupData.userTags.includes(tag)
-                          ? 'bg-[#E17373] text-white shadow-sm'
-                          : 'bg-warmGray-100 text-brown-600 hover:bg-warmGray-200'
-                      }`}
-                    >
-                      {tag}
-              </button>
-                  ))}
+                
+                {/* Tag Search Input */}
+                <div className="mb-4">
+                  <div className="relative">
+                    <input
+                      type="text"
+                      placeholder="Search for tags... (e.g., foodie, hiking, coffee)"
+                      value={tagSearch}
+                      onChange={(e) => setTagSearch(e.target.value)}
+                      className="w-full px-4 py-3 border border-warmGray-300 rounded-xl focus:ring-2 focus:ring-[#E17373] focus:border-transparent transition-all bg-white"
+                    />
+                    <svg className="w-5 h-5 text-warmGray-400 absolute right-3 top-1/2 transform -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
+                  </div>
                 </div>
+
+                {/* Selected Tags */}
+                {signupData.userTags.length > 0 && (
+                  <div className="mb-4">
+                    <p className="text-xs text-brown-600 mb-2">Selected tags ({signupData.userTags.length}/10):</p>
+                    <div className="flex flex-wrap gap-2">
+                      {signupData.userTags.map(tag => (
+                        <span
+                          key={tag}
+                          className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-[#E17373] text-white"
+                        >
+                          {tag}
+                          <button
+                            type="button"
+                            onClick={() => toggleUserTag(tag)}
+                            className="ml-2 hover:bg-white/20 rounded-full p-0.5 transition-colors"
+                          >
+                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Filtered Tag Grid */}
+                <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto border border-warmGray-200 rounded-xl p-3">
+                  {filteredTags.length > 0 ? (
+                    filteredTags.map(tag => (
+                      <button
+                        key={tag}
+                        type="button"
+                        onClick={() => toggleUserTag(tag)}
+                        disabled={signupData.userTags.length >= 10 && !signupData.userTags.includes(tag)}
+                        className={`px-3 py-2 rounded-lg text-xs font-medium transition-all text-left ${
+                          signupData.userTags.includes(tag)
+                            ? 'bg-[#E17373] text-white'
+                            : signupData.userTags.length >= 10
+                            ? 'bg-warmGray-100 text-warmGray-400 cursor-not-allowed'
+                            : 'bg-warmGray-100 text-warmGray-700 hover:bg-[#E17373]/10 hover:text-[#E17373]'
+                        }`}
+                      >
+                        {tag}
+                      </button>
+                    ))
+                  ) : (
+                    <div className="col-span-2 text-center py-8 text-warmGray-500">
+                      <p className="text-sm">No tags found matching "{tagSearch}"</p>
+                      <p className="text-xs mt-1">Try searching for interests like "food", "travel", or "music"</p>
+                    </div>
+                  )}
+                </div>
+                
+                {signupData.userTags.length >= 10 && (
+                  <p className="text-xs text-amber-600 mt-2">
+                    Maximum 10 tags selected. Remove some to add others.
+                  </p>
+                )}
               </div>
             </div>
           )}
