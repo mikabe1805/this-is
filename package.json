@@ -13,6 +13,7 @@
     "firebase:serve": "firebase serve",
     "db:setup": "cd scripts && npm install && node setup-firebase.js",
     "db:seed": "cd scripts && npm install && node seed-database.js",
+    "db:seed-emma-chen": "cd scripts && npm install && node seed-emma-chen.cjs",
     "db:seed-with-images": "cd scripts && npm install && node seed-with-images.js",
     "db:test": "cd scripts && npm install && node test-firebase.js",
     "db:seed-fixed": "cd scripts && npm install && node seed-fixed.js",
@@ -31,7 +32,9 @@
   },
   "dependencies": {
     "@heroicons/react": "^2.2.0",
+    "dotenv": "^17.2.1",
     "firebase": "^11.10.0",
+    "firebase-admin": "^13.4.0",
     "openai": "^5.11.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",

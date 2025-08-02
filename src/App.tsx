@@ -27,6 +27,7 @@ import EnhancedSearchDemo from './components/EnhancedSearchDemo.tsx'
 import DatabaseSeeder from './components/DatabaseSeeder.tsx'
 import Auth from './pages/Auth.tsx'
 import { setupViewportHandler } from './utils/viewportHandler.ts'
+import NavigationModals from './components/NavigationModals.tsx';
 
 function AppContent() {
   const [activeTab, setActiveTab] = useState('home')
@@ -235,6 +236,9 @@ function AppContent() {
 
         {/* Hub Modal */}
         <HubModalWrapper />
+        
+        {/* All navigation modals */}
+        <NavigationModals />
       </ModalProvider>
     </NavigationProvider>
   )

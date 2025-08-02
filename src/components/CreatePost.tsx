@@ -238,7 +238,7 @@ const CreatePost = ({ isOpen, onClose, preSelectedHub, preSelectedListIds }: Cre
 
   // Step 3: Details
   const handleAddTag = () => {
-    if (newTag.trim() && !tags.includes(newTag.trim())) {
+    if (newTag.trim() && !tags.includes(newTag.trim()) && tags.length < 3) {
       setTags(prev => [...prev, newTag.trim()])
       setNewTag('')
     }
@@ -646,13 +646,15 @@ const CreatePost = ({ isOpen, onClose, preSelectedHub, preSelectedListIds }: Cre
                     type="text"
                     value={newTag}
                     onChange={(e) => setNewTag(e.target.value)}
-                    placeholder="Add a tag..."
-                    className="flex-1 px-4 py-2 border border-linen-200 rounded-xl bg-linen-50 text-charcoal-600 focus:outline-none focus:ring-2 focus:ring-sage-200"
+                    placeholder={tags.length >= 3 ? "Maximum 3 tags" : "Add a tag..."}
+                    className="flex-1 px-4 py-2 border border-linen-200 rounded-xl bg-linen-50 text-charcoal-600 focus:outline-none focus:ring-2 focus:ring-sage-200 disabled:bg-gray-100"
                     onKeyPress={(e) => e.key === 'Enter' && handleAddTag()}
+                    disabled={tags.length >= 3}
                   />
                   <button
                     onClick={handleAddTag}
-                    className="px-4 py-2 bg-sage-400 text-white rounded-xl hover:bg-sage-500 transition"
+                    className="px-4 py-2 bg-sage-400 text-white rounded-xl hover:bg-sage-500 transition disabled:bg-gray-300"
+                    disabled={tags.length >= 3}
                   >
                     Add
                   </button>
@@ -663,11 +665,11 @@ const CreatePost = ({ isOpen, onClose, preSelectedHub, preSelectedListIds }: Cre
                     {availableTags.slice(0, 6).map((tag) => (
                       <button
                         key={tag}
-                        onClick={() => !tags.includes(tag) && setTags(prev => [...prev, tag])}
-                        disabled={tags.includes(tag)}
+                        onClick={() => !tags.includes(tag) && tags.length < 3 && setTags(prev => [...prev, tag])}
+                        disabled={tags.includes(tag) || tags.length >= 3}
                         className={`px-2 py-1 rounded-full text-xs transition ${
-                          tags.includes(tag)
-                            ? 'bg-sage-200 text-sage-600 cursor-not-allowed'
+                          tags.includes(tag) || tags.length >= 3
+                            ? 'bg-sage-200 text-sage-600 cursor-not-allowed opacity-50'
                             : 'bg-linen-100 text-charcoal-600 hover:bg-sage-100'
                         }`}
                       >

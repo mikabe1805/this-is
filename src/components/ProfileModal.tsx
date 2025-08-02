@@ -1,9 +1,13 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 import { XMarkIcon, MapPinIcon, UserIcon, CalendarIcon, HeartIcon, BookmarkIcon, EyeIcon, PlusIcon, ShareIcon, ArrowsPointingOutIcon, ArrowLeftIcon } from '@heroicons/react/24/outline'
-import { HeartIcon as HeartIconSolid, BookmarkIcon as BookmarkIconSolid, EyeIcon as EyeIconSolid } from '@heroicons/react/24/solid'
-import type { User, Post, List } from '../types/index.js'
+import { HeartIcon as SolidHeartIcon } from '@heroicons/react/20/solid'
+import type { User, Post, List, Hub, Activity } from '../types/index.js'
+import { firebaseDataService } from '../services/firebaseDataService'
+import { useNavigation } from '../contexts/NavigationContext.tsx'
+import { useAuth } from '../contexts/AuthContext.tsx'
+import { formatTimestamp } from '../utils/dateUtils.ts'
 
 interface ProfileModalProps {
   userId: string
@@ -16,443 +20,372 @@ interface ProfileModalProps {
   onBack?: () => void
 }
 
-import { firebaseDataService } from '../services/firebaseDataService';
-
 const ProfileModal = ({ userId, isOpen, onClose, onFollow, onShare, onOpenFullScreen, showBackButton, onBack }: ProfileModalProps) => {
+  const { currentUser } = useAuth();
   const [user, setUser] = useState<User | null>(null);
+  const [posts, setPosts] = useState<Post[]>([]);
+  const [lists, setLists] = useState<List[]>([]);
   const [loading, setLoading] = useState(true);
+  const navigate = useNavigate()
+  const { openPostModal, openListModal } = useNavigation();
+  const [isFollowing, setIsFollowing] = useState(false)
+  const [activeTab, setActiveTab] = useState<'posts' | 'lists'>('posts');
+  const [isVisible, setIsVisible] = useState(false)
+  const modalRef = useRef<HTMLDivElement>(null)
+  
+  const [likedPosts, setLikedPosts] = useState<Record<string, boolean>>({});
+  const [likeCounts, setLikeCounts] = useState<Record<string, number>>({});
 
   useEffect(() => {
+    if (posts.length > 0 && currentUser) {
+      const liked: Record<string, boolean> = {};
+      const counts: Record<string, number> = {};
+      posts.forEach(post => {
+        liked[post.id] = post.likedBy?.includes(currentUser.uid) || false;
+        counts[post.id] = post.likes || 0;
+      });
+      setLikedPosts(liked);
+      setLikeCounts(counts);
+    }
+  }, [posts, currentUser]);
+
+  useEffect(() => {
+    if (isOpen) {
+      setTimeout(() => setIsVisible(true), 10)
+    } else {
+      setIsVisible(false)
+    }
+  }, [isOpen])
+
+  useEffect(() => {
+    const fetchUserData = async () => {
     if (isOpen && userId) {
       setLoading(true);
-      firebaseDataService.getUser(userId)
-        .then(fetchedUser => {
+        setPosts([]); // Clear previous posts
+        setLists([]); // Clear previous lists
+        try {
+          const fetchedUser = await firebaseDataService.getCurrentUser(userId);
           setUser(fetchedUser);
+
+          if (fetchedUser) {
+            const activityItems = await firebaseDataService.getUserActivity(userId);
+            
+            // Batch fetch posts and lists
+            const { posts: fetchedPosts, lists: fetchedLists } = await firebaseDataService.getBatchPostAndListData(activityItems);
+
+            setPosts(fetchedPosts);
+            setLists(fetchedLists);
+          }
+        } catch (error) {
+          console.error("Error fetching user data:", error);
+        } finally {
           setLoading(false);
-        })
-        .catch(error => {
-          console.error("Error fetching user:", error);
-          setLoading(false);
-        });
-    }
+        }
+      }
+    };
+
+    fetchUserData();
   }, [isOpen, userId]);
 
-  if (!isOpen) return null;
-
-  if (loading) {
-    return createPortal(
-      <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white"></div>
-      </div>,
-      document.body
-    );
-  }
-
-  if (!user) {
-    return createPortal(
-      <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={onClose}>
-        <div className="bg-white/95 backdrop-blur-glass rounded-3xl p-8 shadow-crystal border border-white/30">
-          <h2 className="text-lg font-semibold text-charcoal-800">User not found</h2>
-          <p className="text-charcoal-600">The requested user could not be found.</p>
-        </div>
-      </div>,
-      document.body
-    );
-  }
-
-  const navigate = useNavigate()
-  const [isFollowing, setIsFollowing] = useState(user.isFollowing || false)
-  const [activeTab, setActiveTab] = useState<'posts' | 'lists'>('posts')
-
-  if (!isOpen) return null
-
-  // Mock data for the user
-  const mockPosts: Post[] = [
-    {
-      id: '1',
-      hubId: '1',
-      userId: user.id,
-      username: user.name,
-      userAvatar: user.avatar,
-      images: ['https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=400&h=300&fit=crop'],
-      description: 'Amazing coffee spot! ☕️',
-      postType: 'loved',
-      createdAt: '2024-01-15T10:30:00Z',
-      privacy: 'public',
-      likes: 45,
-      likedBy: ['1', '2'],
-      comments: []
-    },
-    {
-      id: '2',
-      hubId: '2',
-      userId: user.id,
-      username: user.name,
-      userAvatar: user.avatar,
-      images: ['https://images.unsplash.com/photo-1509440159596-0249088772ff?w=400&h=300&fit=crop'],
-      description: 'Perfect for working remotely 💻',
-      postType: 'tried',
-      triedRating: 'liked',
-      createdAt: '2024-01-14T15:20:00Z',
-      privacy: 'public',
-      likes: 32,
-      likedBy: ['1'],
-      comments: []
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (modalRef.current && !modalRef.current.contains(event.target as Node)) {
+        onClose()
+      }
     }
-  ]
-
-  const mockLists: List[] = [
-    {
-      id: '1',
-      name: 'Coffee Adventures',
-      description: 'Exploring the best coffee spots in the Bay Area',
-      userId: user.id,
-      isPublic: true,
-      isShared: false,
-      privacy: 'public',
-      tags: ['coffee', 'bay-area', 'adventures'],
-      hubs: [],
-      coverImage: 'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=300&h=200&fit=crop',
-      createdAt: '2024-01-10',
-      updatedAt: '2024-01-15',
-      likes: 24,
-      isLiked: false
-    },
-    {
-      id: '2',
-      name: 'Work-Friendly Spots',
-      description: 'Great places to work and be productive',
-      userId: user.id,
-      isPublic: true,
-      isShared: false,
-      privacy: 'public',
-      tags: ['work-friendly', 'productivity', 'cafes'],
-      hubs: [],
-      coverImage: 'https://images.unsplash.com/photo-1509440159596-0249088772ff?w=300&h=200&fit=crop',
-      createdAt: '2024-01-08',
-      updatedAt: '2024-01-12',
-      likes: 18,
-      isLiked: false
+    if (isOpen) {
+      document.addEventListener('mousedown', handleClickOutside)
     }
-  ]
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [isOpen, onClose])
+
 
   const handleFollow = (e: React.MouseEvent) => {
     e.stopPropagation()
     setIsFollowing(!isFollowing)
-    if (onFollow) {
+    if (onFollow && user) {
       onFollow(user.id)
     }
   }
 
   const handleShare = (e: React.MouseEvent) => {
     e.stopPropagation()
-    if (onShare) {
+    if (onShare && user) {
       onShare(user)
-    } else {
-      // Fallback share functionality
-      if (navigator.share) {
-        navigator.share({
-          title: `${user.name}'s Profile`,
-          text: `Check out ${user.name}'s profile on this.is`,
-          url: window.location.href
-        })
-      } else {
-        // Fallback: copy to clipboard
-        navigator.clipboard.writeText(window.location.href)
-        alert('Profile link copied to clipboard!')
-      }
     }
   }
 
   const handleOpenFullScreen = (e: React.MouseEvent) => {
     e.stopPropagation()
-    if (onOpenFullScreen) {
+    if (onOpenFullScreen && user) {
       onOpenFullScreen(user)
-    } else {
-      // Navigate to full-screen profile page
-      navigate(`/user/${user.id}`)
-      onClose() // Close the modal
     }
   }
 
+  const handlePostClick = (postId: string) => {
+    openPostModal(postId, 'profile-modal');
+  };
+
+  const handleListClick = (list: List) => {
+    openListModal(list, 'profile-modal');
+  };
+
+  const handleLikePost = async (e: React.MouseEvent, postId: string) => {
+    e.stopPropagation();
+    if (!currentUser) return;
+
+    const newLikedState = !likedPosts[postId];
+    const newLikeCount = newLikedState ? (likeCounts[postId] || 0) + 1 : (likeCounts[postId] || 0) - 1;
+
+    setLikedPosts(prev => ({ ...prev, [postId]: newLikedState }));
+    setLikeCounts(prev => ({ ...prev, [postId]: newLikeCount }));
+
+    await firebaseDataService.likePost(postId, currentUser.uid);
+  };
+
+  if (!isOpen) {
+    return null;
+  }
+
   const modalContent = (
-    <div 
-              className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
-      onClick={(e) => {
-        // Only close if clicking the backdrop, not the modal content
-        if (e.target === e.currentTarget) {
-          onClose()
-        }
-      }}
-    >
-      <div 
-        className="relative w-full max-w-md max-h-[85vh] bg-white/95 backdrop-blur-glass rounded-3xl shadow-crystal border border-white/30 overflow-hidden animate-in zoom-in-95 duration-300"
-        onClick={(e) => e.stopPropagation()}
+    <div className={`fixed inset-0 z-50 overflow-hidden`}>
+      <div
+        className={`absolute inset-0 bg-black/40 transition-opacity duration-300 ${isVisible ? 'opacity-100' : 'opacity-0'}`}
+        onClick={onClose}
+      ></div>
+      <div
+        ref={modalRef}
+        className={`absolute bottom-0 left-0 right-0 w-full max-w-md mx-auto h-[95vh] bg-gradient-to-br from-[#5a3e36] via-[#6f4e37] to-[#6d4934] rounded-t-3xl shadow-2xl transform transition-transform duration-300 ease-out flex flex-col ${isVisible ? 'translate-y-0' : 'translate-y-full'}`}
+        style={{
+          backgroundImage: `
+            radial-gradient(circle at 20% 80%, rgba(139, 115, 85, 0.25) 0%, transparent 50%), 
+            radial-gradient(circle at 80% 20%, rgba(111, 78, 55, 0.3) 0%, transparent 50%),
+            radial-gradient(circle at 50% 50%, rgba(109, 73, 52, 0.08) 0%, transparent 70%),
+            radial-gradient(circle at 10% 10%, rgba(139, 115, 85, 0.2) 0%, transparent 60%),
+            radial-gradient(circle at 90% 90%, rgba(111, 78, 55, 0.15) 0%, transparent 40%)
+          `
+        }}
       >
-        {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-linen-200/50 bg-gradient-to-r from-sage-50/50 to-linen-50/50">
-          <div className="flex items-center gap-3">
-            {showBackButton && onBack ? (
-              <button 
-                onClick={onBack} 
-                className="text-charcoal-500 hover:text-charcoal-700 transition-colors p-1 rounded-lg hover:bg-white/50"
-              >
-                <ArrowLeftIcon className="w-5 h-5" />
-              </button>
-            ) : null}
-            <h2 className="text-lg font-semibold text-charcoal-800">Profile</h2>
-          </div>
-          <div className="flex items-center gap-2">
-            {onOpenFullScreen && (
-              <button
-                onClick={handleOpenFullScreen}
-                className="text-charcoal-500 hover:text-charcoal-700 transition-colors p-1 rounded-lg hover:bg-white/50"
-              >
-                <ArrowsPointingOutIcon className="w-5 h-5" />
-              </button>
-            )}
-            <button 
-              onClick={handleShare}
-              className="text-charcoal-500 hover:text-charcoal-700 transition-colors p-1 rounded-lg hover:bg-white/50"
-            >
-              <ShareIcon className="w-5 h-5" />
-            </button>
-            <button 
-              onClick={onClose} 
-              className="text-charcoal-500 hover:text-charcoal-700 transition-colors p-1 rounded-lg hover:bg-white/50"
-            >
-              <XMarkIcon className="w-5 h-5" />
-            </button>
-          </div>
-        </div>
-        
-        {/* Profile Header */}
-        <div className="p-6 bg-gradient-to-br from-sage-50/30 to-linen-50/30">
-          <div className="flex items-center gap-4 mb-4">
-            <div className="relative">
-              <img
-                src={user.avatar}
-                alt={user.name}
-                className="w-20 h-20 rounded-full object-cover border-4 border-white/80 shadow-soft backdrop-blur-sm"
-              />
-              <div className="absolute inset-0 rounded-full border border-white/30"></div>
-            </div>
-            <div className="flex-1">
-              <h3 className="text-xl font-bold text-charcoal-800">{user.name}</h3>
-              <p className="text-charcoal-600">@{user.username}</p>
-              {user.location && (
-                <div className="flex items-center gap-1 text-charcoal-500 text-sm mt-1">
-                  <MapPinIcon className="w-4 h-4" />
-                  <span>{user.location}</span>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {user.bio && (
-            <p className="text-charcoal-700 mb-4 leading-relaxed">{user.bio}</p>
-          )}
-
-          {/* Tags */}
-          {user.tags && user.tags.length > 0 && (
-            <div className="flex flex-wrap gap-2 mb-4">
-              {user.tags.map((tag, index) => (
-                <span
-                  key={index}
-                  className="px-3 py-1 bg-sage-100/70 text-sage-700 text-sm rounded-full border border-sage-200/50 backdrop-blur-sm"
-                >
-                  #{tag}
-                </span>
-              ))}
-            </div>
-          )}
-
-          {/* Action Buttons */}
-          <div className="flex gap-3">
-            <button
-              onClick={handleFollow}
-              className={`flex-1 py-3 px-4 rounded-xl font-semibold transition-all duration-200 ${
-                isFollowing
-                  ? 'bg-sage-100/70 text-sage-700 hover:bg-sage-200/70 border border-sage-200/50'
-                  : 'bg-gradient-to-r from-sage-600 to-sage-700 text-white hover:from-sage-700 hover:to-sage-800 shadow-soft'
-              }`}
-            >
-              {isFollowing ? 'Following' : 'Follow'}
-            </button>
-          </div>
-        </div>
-        
-                  {/* Content */}
-        <div className="p-6 space-y-6 max-h-[calc(90vh-16rem)] overflow-y-auto">
-          {/* Bio and Tags */}
-          {user.bio && (
-            <div className="bg-linen-50 rounded-xl p-4 shadow-soft border border-linen-200">
-              <p className="text-charcoal-700 leading-relaxed">{user.bio}</p>
-            </div>
-          )}
+        {/* Enhanced Botanical Accents - Layered and Scrolling */}
+        <div className="absolute inset-0 pointer-events-none z-0 overflow-hidden">
+          {/* Refined background leaves - intentional and balanced */}
+          <img src="/assets/leaf.png" alt="" className="absolute top-12 left-[-1rem] w-16 opacity-6 blur-[1.3px]" style={{ transform: 'rotate(-15deg)' }} />
+          <img src="/assets/leaf2.png" alt="" className="absolute top-32 right-[-0.5rem] w-14 opacity-7 blur-[1.1px]" style={{ transform: 'rotate(18deg)' }} />
           
+          {/* Mid accent */}
+          <img src="/assets/leaf3.png" alt="" className="absolute top-1/2 right-[-1rem] w-18 opacity-5 blur-[1.5px]" style={{ transform: 'rotate(-10deg)' }} />
+          
+          {/* Bottom accent */}
+          <img src="/assets/leaf.png" alt="" className="absolute bottom-16 left-6 w-12 opacity-8 blur-[0.9px]" style={{ transform: 'rotate(20deg)' }} />
+        </div>
+
+        {/* Intentional Light Effects - Accentuating Key Areas */}
+        <div className="absolute inset-0 pointer-events-none">
+          {/* Header accent - highlighting the profile */}
+          <div className="absolute top-0 left-1/3 w-28 h-28 bg-gradient-to-br from-[rgba(255,255,240,0.25)] via-transparent to-transparent transform -rotate-15 animate-pulse" style={{ animationDuration: '6s' }} />
+          
+          {/* Action buttons accent */}
+          <div className="absolute top-[280px] right-1/4 w-20 h-20 bg-gradient-to-bl from-[rgba(255,255,240,0.2)] via-transparent to-transparent transform rotate-8 animate-pulse" style={{ animationDuration: '8s' }} />
+          
+          {/* Content area accent */}
+          <div className="absolute top-[320px] left-1/4 w-16 h-16 bg-gradient-to-r from-[rgba(255,255,240,0.15)] via-transparent to-transparent transform rotate-12 animate-pulse" style={{ animationDuration: '10s' }} />
+        </div>
+
+        {/* Grain texture for warmth */}
+        <div className="absolute inset-0 pointer-events-none opacity-25">
+          <div className="w-full h-full" style={{
+            backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.08'/%3E%3C/svg%3E")`,
+            backgroundSize: '150px 150px'
+          }} />
+        </div>
+        
+        {/* Header */}
+            <div className="relative">
+          <div className="h-48 bg-gradient-to-br from-[#D4A574] via-[#C17F59] to-[#A67C52] overflow-hidden">
+            <img 
+              src={user?.coverPhoto || '/assets/default-banner.jpg'} 
+              alt="Cover" 
+              className="w-full h-full object-cover opacity-80" 
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
+            <div 
+              className="absolute inset-0"
+              style={{
+                background: 'radial-gradient(circle at 50% 50%, rgba(255,250,240,0.15), transparent 60%)'
+              }}
+            />
+            
+            <div className="absolute top-4 left-4 right-4 flex items-center justify-between z-10">
+              {showBackButton ? (
+                <button onClick={onBack} className="p-2 rounded-full bg-black/50 backdrop-blur-sm hover:bg-white/10 transition-colors">
+                  <ArrowLeftIcon className="w-6 h-6 text-white" />
+                </button>
+              ) : (
+                <div />
+              )}
+              <div className="flex items-center gap-2">
+                <button onClick={handleOpenFullScreen} className="p-2 rounded-full bg-black/50 backdrop-blur-sm hover:bg-white/10 transition-colors">
+                  <ArrowsPointingOutIcon className="w-6 h-6 text-white" />
+                </button>
+                <button onClick={handleShare} className="p-2 rounded-full bg-black/50 backdrop-blur-sm hover:bg-white/10 transition-colors">
+                  <ShareIcon className="w-6 h-6 text-white" />
+                </button>
+                <button onClick={onClose} className="p-2 rounded-full bg-black/50 backdrop-blur-sm hover:bg-white/10 transition-colors">
+                  <XMarkIcon className="w-6 h-6 text-white" />
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div className="absolute top-28 left-1/2 -translate-x-1/2 z-20">
+             <img
+              src={user?.avatar || '/assets/default-avatar.png'}
+              alt={user?.name}
+              className="w-32 h-32 rounded-full border-4 border-[#F8F4EF] shadow-lg"
+            />
+          </div>
+        </div>
+        
+        {/* Scrolling Content with Refined Botanical Accents */}
+        <div className="overflow-y-auto flex-1 pt-16 relative bg-[rgba(255,255,255,0.05)] backdrop-blur-[10px]">
+          {/* Strategic scrolling leaf accents */}
+          <img src="/assets/leaf3.png" alt="" className="absolute top-16 right-[-1rem] w-16 opacity-8 pointer-events-none blur-[1px]" style={{ transform: 'rotate(-12deg)' }} />
+          <img src="/assets/leaf.png" alt="" className="absolute top-48 left-[-0.5rem] w-14 opacity-7 pointer-events-none blur-[1.2px]" style={{ transform: 'rotate(20deg)' }} />
+          <img src="/assets/leaf2.png" alt="" className="absolute top-96 right-2 w-12 opacity-6 pointer-events-none blur-[1.3px]" style={{ transform: 'rotate(-18deg)' }} />
+          <img src="/assets/leaf.png" alt="" className="absolute top-[140px] left-[-1rem] w-10 opacity-8 pointer-events-none blur-[0.9px]" style={{ transform: 'rotate(15deg)' }} />
+          
+          <div className="text-white">
+            {loading ? (
+              <div className="flex justify-center items-center h-64">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white/50"></div>
+              </div>
+            ) : !user ? (
+              <div className="text-center py-10 text-white/70">User not found.</div>
+            ) : (
+              <div className="p-6">
+                {/* User Info */}
+                <div className="text-center">
+                  <h3 className="text-3xl font-bold font-serif text-[#FAF3E3] drop-shadow-[1px_1px_2px_rgba(255,250,240,0.8)]">{user.name}</h3>
+                  <p className="text-sm text-[#FAF3E3]/80 mb-1">@{user.username}</p>
+                  {user.location && (
+                    <div className="flex items-center justify-center gap-1 text-sm text-[#FAF3E3]/80 mb-2">
+                      <MapPinIcon className="w-4 h-4" />
+                      <span>{user.location as any}</span>
+                    </div>
+                  )}
+                  {user.bio && <p className="leading-relaxed font-serif max-w-md mx-auto my-4 text-[#FAF3E3]/90">{user.bio}</p>}
           {user.tags && user.tags.length > 0 && (
-            <div className="bg-linen-50 rounded-xl p-4 shadow-soft border border-linen-200">
-              <h3 className="font-semibold text-charcoal-800 mb-3">Interests</h3>
-              <div className="flex flex-wrap gap-2">
+                    <div className="flex flex-wrap justify-center gap-2 mb-4">
                 {user.tags.map((tag) => (
-                  <span
-                    key={tag}
-                    className="px-3 py-1.5 bg-sage-100 text-sage-700 text-sm rounded-full border border-sage-200 font-medium"
-                  >
+                        <span key={tag} className="px-3 py-1.5 bg-[rgba(255,255,255,0.1)] backdrop-blur-sm rounded-xl text-sm font-medium border border-white/20 shadow-sm">
                     #{tag}
                   </span>
                 ))}
               </div>
+                  )}
             </div>
-          )}
 
-          {/* Follow Button */}
-          <div className="flex gap-3">
+                {/* Action Buttons */}
+                <div className="my-6 flex gap-3">
             <button
               onClick={handleFollow}
-              className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-semibold shadow-botanical hover:shadow-liquid hover:scale-102 transition-all duration-200 ${
+                    className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-semibold shadow-lg border transition-all duration-200 backdrop-blur-sm hover:shadow-xl hover:scale-[1.02] ${
                 isFollowing
-                  ? 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                  : 'bg-gradient-to-r from-sage-500 to-sage-600 text-white'
+                        ? 'bg-[rgba(255,255,255,0.15)] text-[#fdf6e3] border-white/30' 
+                        : 'bg-[#8B5E3C]/80 text-[#fdf6e3] border-[#8B5E3C]/50'
               }`}
             >
               {isFollowing ? 'Following' : 'Follow'}
             </button>
-            <button className="flex-1 flex items-center justify-center gap-2 bg-gradient-to-r from-gold-500 to-gold-600 text-white px-4 py-3 rounded-xl text-sm font-semibold shadow-botanical hover:shadow-liquid hover:scale-102 transition-all duration-200">
-              <PlusIcon className="w-5 h-5" />
+                  <button className="flex-1 flex items-center justify-center gap-2 bg-[rgba(255,255,255,0.15)] backdrop-blur-sm text-[#fdf6e3] px-4 py-3 rounded-xl text-sm font-semibold shadow-lg border border-white/20 hover:shadow-xl hover:scale-[1.02] transition-all duration-200">
+                    <PlusIcon className="w-4 h-4" />
               Message
             </button>
           </div>
 
           {/* Tabs */}
-          <div className="bg-white/80 backdrop-blur-md rounded-xl p-2 shadow-soft border border-white/40 mb-6">
-            <div className="flex gap-2">
+                <div className="bg-[rgba(255,255,255,0.15)] backdrop-blur-sm rounded-xl p-1 shadow-lg border border-white/10">
+                  <div className="flex gap-1">
               <button
                 onClick={() => setActiveTab('posts')}
-                className={`flex-1 py-3 px-4 rounded-lg font-semibold text-base transition-all duration-200 ${
+                      className={`flex-1 py-2 px-3 rounded-lg font-serif font-semibold text-sm transition-all duration-300 ${
                   activeTab === 'posts' 
-                    ? 'bg-gradient-to-r from-sage-500 to-gold-500 text-white shadow-liquid transform scale-102' 
-                    : 'text-sage-700 hover:text-sage-900 hover:bg-white/60'
+                          ? 'bg-[rgba(255,255,255,0.25)] text-[#fdf6e3] shadow-md' 
+                          : 'text-[#fdf6e3]/70'
                 }`}
               >
-                Posts ({mockPosts.length})
+                      Posts ({posts.length})
               </button>
               <button
                 onClick={() => setActiveTab('lists')}
-                className={`flex-1 py-3 px-4 rounded-lg font-semibold text-base transition-all duration-200 ${
+                      className={`flex-1 py-2 px-3 rounded-lg font-serif font-semibold text-sm transition-all duration-300 ${
                   activeTab === 'lists' 
-                    ? 'bg-gradient-to-r from-sage-500 to-gold-500 text-white shadow-liquid transform scale-102' 
-                    : 'text-sage-700 hover:text-sage-900 hover:bg-white/60'
+                          ? 'bg-[rgba(255,255,255,0.25)] text-[#fdf6e3] shadow-md' 
+                          : 'text-[#fdf6e3]/70'
                 }`}
               >
-                Lists ({mockLists.length})
+                      Lists ({lists.length})
               </button>
             </div>
           </div>
 
-          {/* Tab content */}
+                {/* Tab Content */}
+                <div className="pt-6 space-y-4">
           {activeTab === 'posts' && (
-            <div className="space-y-4">
-              {mockPosts.length > 0 ? (
-                mockPosts.map((post) => (
-                  <div
-                    key={post.id}
-                    className="bg-linen-50 rounded-xl p-4 shadow-soft border border-linen-200"
-                  >
-                    <div className="flex items-start space-x-3 mb-3">
-                      <div className="w-10 h-10 rounded-full border-2 border-white bg-white shadow-soft relative overflow-hidden">
-                        <img
-                          src={post.userAvatar}
-                          alt={post.username}
-                          className="w-full h-full object-cover"
-                        />
+                    posts.length === 0 ? (
+                      <div className="text-center py-10">
+                        <UserIcon className="w-16 h-16 text-white/20 mx-auto mb-2" />
+                        <p className="text-[#fdf6e3]/70">No posts yet.</p>
                       </div>
-                      <div className="flex-1">
-                        <div className="flex items-center space-x-2">
-                          <span className="font-semibold text-charcoal-700">{post.username}</span>
-                          <span className="text-xs text-charcoal-500">
-                            {new Date(post.createdAt).toLocaleDateString()}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                    
-                    {post.images.length > 0 && (
-                      <div className="mb-3 relative overflow-hidden rounded-lg">
-                        <img
-                          src={post.images[0]}
-                          alt="Post"
-                          className="w-full h-48 object-cover rounded-lg shadow-soft"
-                        />
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/5 via-transparent to-transparent"></div>
-                      </div>
-                    )}
-                    <p className="text-charcoal-700 mb-3">{post.description}</p>
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-4 text-sm text-charcoal-600">
-                        <button className="flex items-center hover:text-sage-600 transition-colors">
-                          <HeartIcon className="w-4 h-4 mr-1" />
-                          {post.likes}
+                    ) : (
+                      posts.map(post => (
+                        <div key={post.id} onClick={() => handlePostClick(post.id)} className="bg-[rgba(255,255,255,0.1)] backdrop-blur-md rounded-2xl p-4 shadow-md border border-white/10 cursor-pointer group relative overflow-hidden">
+                          {post.images && post.images.length > 0 && (
+                            <img src={post.images[0]} alt="Post" className="w-full h-48 object-cover rounded-xl shadow-inner mb-3 transition-transform duration-300 group-hover:scale-105" />
+                          )}
+                          <p className="mb-3 leading-relaxed text-sm font-serif text-[#fdf6e3]/90">{post.description}</p>
+                          <div className="flex items-center justify-between text-sm text-[#fdf6e3]/70">
+                            <button onClick={(e) => handleLikePost(e, post.id)} className="flex items-center z-20">
+                              {likedPosts[post.id] ? <SolidHeartIcon className="w-5 h-5 mr-1 text-red-500" /> : <HeartIcon className="w-5 h-5 mr-1 text-[#fdf6e3]/70" />}
+                              <span className="font-semibold">{likeCounts[post.id] || 0}</span>
                         </button>
-                      </div>
+                            <span className="font-serif">{formatTimestamp(post.createdAt)}</span>
                     </div>
                   </div>
                 ))
-              ) : (
-                <div className="bg-linen-50 rounded-xl p-8 text-center shadow-soft border border-linen-200">
-                  <UserIcon className="w-16 h-16 text-charcoal-300 mx-auto mb-4" />
-                  <p className="text-charcoal-500 mb-2">No posts yet</p>
-                  <p className="text-sm text-charcoal-400">This user hasn't shared any posts yet.</p>
-                </div>
-              )}
-            </div>
-          )}
-
+                    )
+                  )}
           {activeTab === 'lists' && (
-            <div className="space-y-4">
-              {mockLists.length > 0 ? (
-                mockLists.map((list) => (
-                  <div
-                    key={list.id}
-                    className="bg-linen-50 rounded-xl p-4 shadow-soft border border-linen-200"
-                  >
-                    <div className="flex items-center gap-3">
-                      {list.coverImage && (
-                        <img src={list.coverImage} alt={list.name} className="w-16 h-16 rounded-lg object-cover" />
-                      )}
-                      <div className="flex-1">
-                        <h4 className="font-semibold text-charcoal-700 mb-1">{list.name}</h4>
-                        <p className="text-sm text-charcoal-500 mb-2">{list.description}</p>
-                        <div className="flex items-center gap-2">
-                          {list.tags.slice(0, 2).map((tag) => (
-                            <span key={tag} className="text-xs px-2 py-1 bg-sage-100 text-sage-700 rounded-full">
-                              {tag}
-                            </span>
-                          ))}
-                        </div>
+                    lists.length === 0 ? (
+                      <div className="text-center py-10">
+                        <BookmarkIcon className="w-16 h-16 text-white/20 mx-auto mb-2" />
+                        <p className="text-[#fdf6e3]/70">No lists yet.</p>
                       </div>
-                      <button className="p-2 rounded-full bg-sage-50 text-sage-600 hover:bg-sage-100 transition">
-                        <BookmarkIcon className="w-4 h-4" />
-                      </button>
+                    ) : (
+                      lists.map(list => (
+                        <div key={list.id} onClick={() => handleListClick(list)} className="flex items-center gap-3 p-3 bg-[rgba(255,255,255,0.1)] backdrop-blur-md rounded-xl shadow-md border border-white/10 cursor-pointer hover:bg-[rgba(255,255,255,0.2)] transition-colors">
+                          <img src={list.coverImage} alt={list.name} className="w-14 h-14 rounded-lg object-cover border-2 border-white/10 shadow-sm" />
+                          <div className="flex-1 min-w-0">
+                            <h4 className="font-serif font-semibold truncate text-[#fdf6e3]">{list.name}</h4>
+                            <p className="text-sm text-[#fdf6e3]/70 truncate">{list.description}</p>
                     </div>
                   </div>
                 ))
-              ) : (
-                <div className="bg-linen-50 rounded-xl p-8 text-center shadow-soft border border-linen-200">
-                  <BookmarkIcon className="w-16 h-16 text-charcoal-300 mx-auto mb-4" />
-                  <p className="text-charcoal-500 mb-2">No lists yet</p>
-                  <p className="text-sm text-charcoal-400">This user hasn't created any lists yet.</p>
+                    )
+                  )}
+                </div>
                 </div>
               )}
             </div>
-          )}
         </div>
       </div>
     </div>
-  )
+  );
 
-  return createPortal(modalContent, document.body)
+  return createPortal(modalContent, document.body);
 }
+
 
 export default ProfileModal 

@@ -4,6 +4,9 @@ import {logger} from "firebase-functions";
 import cors from "cors";
 import fetch from "node-fetch";
 import * as cheerio from "cheerio";
+import * as admin from 'firebase-admin';
+
+admin.initializeApp();
 
 // For cost control, set maximum instances
 setGlobalOptions({ maxInstances: 10 });
@@ -399,3 +402,5 @@ export const extractEmbedCallable = onCall(async (request) => {
   
   return await extractEmbedData(url);
 });
+
+export * from './analytics-cleanup';

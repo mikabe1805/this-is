@@ -10,18 +10,6 @@ service cloud.firestore {
     function isOwner(userId) {
       return request.auth.uid == userId;
     }
-    
-    function isFriend(userId) {
-      return exists(/databases/$(database)/documents/users/$(userId)/friends/$(request.auth.uid));
-    }
-    
-    function isPublic(privacy) {
-      return privacy == 'public';
-    }
-    
-    function canReadBasedOnPrivacy(privacy, userId) {
-      return isPublic(privacy) || isOwner(userId) || (privacy == 'friends' && isFriend(userId));
-    }
 
     // Development mode helper - allows unrestricted access for development and seeding
     function isDevMode() {
@@ -48,6 +36,16 @@ service cloud.firestore {
         allow read: if true; // Allow all reads for demo
         allow write: if isDevMode() || (isAuthenticated() && isOwner(userId));
       }
+
+      match /followers/{followerId} {
+        allow read: if isAuthenticated();
+        allow write: if isDevMode() || (isAuthenticated() && isOwner(userId));
+      }
+
+      match /savedPlaces/{placeId} {
+        allow read: if isAuthenticated();
+        allow write: if isDevMode() || (isAuthenticated() && isOwner(userId));
+      }
     }
 
     // Places collection - Allow read for demo purposes
@@ -69,6 +67,13 @@ service cloud.firestore {
       allow read: if true; // Allow all reads for demo
       allow write: if isDevMode() || (isAuthenticated() && isOwner(resource.data.userId));
       allow delete: if isDevMode() || (isAuthenticated() && isOwner(resource.data.userId));
+
+      // Comments subcollection
+      match /comments/{commentId} {
+        allow read: if true; // Allow all reads for demo
+        allow create: if isAuthenticated();
+        allow update, delete: if isDevMode() || (isAuthenticated() && isOwner(resource.data.userId));
+      }
     }
 
     // User preferences collection - Allow read/write for demo purposes

@@ -249,13 +249,8 @@ export default function SignupModal({ isOpen, onClose, onSwitchToLogin, onStartT
 
     setCheckingUsername(true)
     try {
-      // TODO: Implement actual username availability check
-      // For now, simulate the check
-      await new Promise(resolve => setTimeout(resolve, 500))
-      
-      // Simple check - username with 'admin' or 'test' are taken
-      const isTaken = username.toLowerCase().includes('admin') || username.toLowerCase().includes('test')
-      setUsernameAvailable(!isTaken)
+      const isAvailable = await firebaseDataService.checkUsernameAvailability(username);
+      setUsernameAvailable(isAvailable);
     } catch (error) {
       console.error('Error checking username:', error)
       setUsernameAvailable(null)

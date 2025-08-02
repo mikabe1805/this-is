@@ -4,6 +4,7 @@ import { useNavigation } from '../contexts/NavigationContext.tsx'
 import HubModal from './HubModal'
 import ListModal from './ListModal'
 import ProfileModal from './ProfileModal'
+import PostModal from './PostModal'
 
 const NavigationModals = () => {
   const navigate = useNavigate()
@@ -12,25 +13,23 @@ const NavigationModals = () => {
     showListModal, 
     selectedHub, 
     selectedList, 
-    hubModalFromList,
+    hubModalFrom,
+    listModalFrom,
+    profileModalFrom,
     closeHubModal, 
     closeListModal,
     openHubModal,
-    goBackFromHubModal,
+    goBack,
     showProfileModal,
     selectedUserId,
-    closeProfileModal
+    closeProfileModal,
+    showPostModal,
+    selectedPostId,
+    closePostModal,
+    hubModalOptions,
+    postModalFrom,
+    openFullScreenUser
   } = useNavigation()
-
-  const handleHubModalBack = () => {
-    goBackFromHubModal()
-  }
-
-  const handleListModalBack = () => {
-    closeListModal()
-  }
-
-
 
   return (
     <>
@@ -40,64 +39,57 @@ const NavigationModals = () => {
           isOpen={showHubModal}
           onClose={closeHubModal}
           hub={selectedHub}
-          showBackButton={hubModalFromList}
-          onBack={handleHubModalBack}
+          initialTab={hubModalOptions?.initialTab}
+          initialPostId={hubModalOptions?.postId}
+          showPostOverlay={hubModalOptions?.showPostOverlay}
+          showBackButton={!!hubModalFrom}
+          onBack={goBack}
           onAddPost={(hub) => {
-            // Convert hub to the format expected by CreatePost
-            const createPostHub = {
-              id: hub.id,
-              name: hub.name,
-              address: hub.location.address,
-              description: hub.description,
-              lat: hub.location.lat,
-              lng: hub.location.lng,
-            }
-            // TODO: Open create post modal
             closeHubModal()
           }}
           onSave={(hub) => {
-            // TODO: Open save modal
             closeHubModal()
           }}
           onOpenFullScreen={(hub) => {
-            console.log('Opening hub full screen:', hub.name)
             closeHubModal()
-            // Navigate to the full hub page using React Router
             navigate(`/place/${hub.id}`)
           }}
         />
       )}
 
+      {/* Conditionally render PostModal as an overlay for the HubModal */}
+      {showHubModal && hubModalOptions?.showPostOverlay && hubModalOptions.postId && (
+        <PostModal
+          isOpen={true}
+          onClose={closeHubModal} // Close the whole stack
+          postId={hubModalOptions.postId}
+          from="hub-modal-overlay"
+          showBackButton={false}
+          onBack={goBack}
+        />
+      )}
+      
       {/* List Modal */}
       {selectedList && (
         <ListModal
           isOpen={showListModal}
           onClose={closeListModal}
           list={selectedList}
-          showBackButton={false}
-          onBack={handleListModalBack}
+          showBackButton={!!listModalFrom}
+          onBack={goBack}
           onSave={(list) => {
-            console.log('Saving list:', list.name)
             closeListModal()
           }}
           onShare={(list) => {
-            console.log('Sharing list:', list.name)
-            // TODO: Open share modal
           }}
           onAddPost={(list) => {
-            console.log('Adding post to list:', list.name)
             closeListModal()
-            // TODO: Open create post modal
           }}
           onOpenFullScreen={(list) => {
-            console.log('Opening list full screen:', list.name)
             closeListModal()
-            // Navigate to the full list page using React Router
             navigate(`/list/${list.id}`)
           }}
           onOpenHub={(place) => {
-            console.log('Opening hub from list:', place.name)
-            // Create a mock hub for the place
             const mockHub = {
               id: place.id,
               name: place.name,
@@ -114,7 +106,6 @@ const NavigationModals = () => {
               posts: [],
               lists: [],
             }
-            // Open the hub modal using the navigation context
             openHubModal(mockHub, 'list-modal')
           }}
         />
@@ -126,10 +117,25 @@ const NavigationModals = () => {
           isOpen={showProfileModal}
           onClose={closeProfileModal}
           userId={selectedUserId}
+          showBackButton={!!profileModalFrom}
+          onBack={goBack}
+          onOpenFullScreen={() => selectedUserId && openFullScreenUser(selectedUserId)}
+        />
+      )}
+
+      {/* Standalone Post Modal, rendered on top of other modals */}
+      {selectedPostId && showPostModal && (
+        <PostModal
+          isOpen={showPostModal}
+          onClose={closePostModal}
+          postId={selectedPostId}
+          from={postModalFrom || 'unknown'}
+          showBackButton={!!postModalFrom}
+          onBack={goBack}
         />
       )}
     </>
   )
 }
 
-export default NavigationModals 
+export default NavigationModals

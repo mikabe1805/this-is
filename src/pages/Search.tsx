@@ -1,6 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { MapIcon } from '@heroicons/react/24/outline';
-import { useSearchParams } from 'react-router-dom';
 import SearchAndFilter from '../components/SearchAndFilter';
 import type { Hub, Place, List, User } from '../types/index.js';
 import { useNavigation } from '../contexts/NavigationContext.tsx';
@@ -63,7 +62,7 @@ const Search = () => {
       <div className="absolute inset-0 z-0 pointer-events-none">
         <div className="absolute inset-0 bg-linen-texture opacity-80 mix-blend-multiply"></div>
       </div>
-      <div className="relative z-10 bg-white/90 backdrop-blur-glass border-b px-6 py-4">
+      <div className="relative z-10 bg-white/90 border-b px-6 py-4">
         <form onSubmit={handleSearchSubmit} className="flex items-center gap-3">
           <SearchAndFilter 
             placeholder="Search..." 
@@ -71,15 +70,12 @@ const Search = () => {
             onChange={handleSearchInputChange} 
             onFocus={() => !searchQuery && setShowSearchHistory(true)} 
             sortOptions={[
-              { key: 'relevant', label: 'Most Relevant' },
               { key: 'popular', label: 'Most Popular' },
-              { key: 'recent', label: 'Most Recent' },
+              { key: 'friends', label: 'Most Liked by Friends' },
+              { key: 'nearby', label: 'Closest to Location' },
             ]}
-            filterOptions={[
-              { key: 'deals', label: 'Deals' },
-              { key: 'new', label: 'New' },
-            ]}
-            availableTags={['coffee', 'food', 'bakery', 'brunch']}
+            filterOptions={[]}
+            availableTags={['cozy', 'trendy', 'quiet', 'local', 'charming', 'authentic', 'chill']}
             sortBy={'relevant'}
             setSortBy={() => {}}
             activeFilters={[]}
@@ -103,7 +99,7 @@ const Search = () => {
               </div>
             ) : (
               <div className="space-y-6">
-                <div className="flex justify-center bg-white/60 backdrop-blur-sm rounded-2xl p-1 shadow-soft border">
+                <div className="flex justify-center bg-white/60 rounded-2xl p-1 shadow-soft border">
                   {(['all', 'places', 'lists', 'users'] as const).map(filter => (
                     <button key={filter} onClick={() => setActiveFilter(filter)} className={`flex-1 py-2 px-3 text-sm font-medium rounded-xl ${activeFilter === filter ? 'bg-sage-500 text-white' : ''}`}>
                       {filter.charAt(0).toUpperCase() + filter.slice(1)}
@@ -113,38 +109,46 @@ const Search = () => {
                 {error && <p className="text-red-500 text-center">{error}</p>}
                 {displayResults.places.length === 0 && displayResults.lists.length === 0 && displayResults.users.length === 0 && !isSearching && <div>No results.</div>}
                 
-                {['all', 'places'].includes(activeFilter) && displayResults.places.map(result => {
-                  const place = result.item || result;
+                {['all', 'places'].includes(activeFilter) && displayResults.places.map((result) => {
+                  const place = 'item' in result ? result.item : result;
                   return (
                     <div key={place.id} onClick={() => handlePlaceClick(place)} className="p-4 bg-white/70 rounded-2xl shadow-soft cursor-pointer">
                       <h4 className="font-semibold">{place.name}</h4>
                       <p className="text-sm">{place.address}</p>
-                      {'score' in result && <p className="text-xs text-purple-600">Score: {Math.round(result.score)}</p>}
-                      {'reasons' in result && <p className="text-xs text-purple-600 mt-1">Why: {(result.reasons || []).join(', ')}</p>}
+                      {'score' in result && <p className="text-xs text-purple-600">Score: {Math.round(result.score as number)}</p>}
+                      {'reasons' in result && <p className="text-xs text-purple-600 mt-1">Why: {(result.reasons as string[] || []).join(', ')}</p>}
                     </div>
                   );
                 })}
 
-                {['all', 'lists'].includes(activeFilter) && displayResults.lists.map(result => {
-                  const list = result.item || result;
+                {['all', 'lists'].includes(activeFilter) && displayResults.lists.map((result) => {
+                  const list = 'item' in result ? result.item : result;
                   return (
                     <div key={list.id} onClick={() => handleListClick(list)} className="p-4 bg-white/70 rounded-2xl shadow-soft cursor-pointer">
                       <h4 className="font-semibold">{list.name}</h4>
                       <p className="text-sm">{list.description}</p>
-                      {'score' in result && <p className="text-xs text-purple-600">Score: {Math.round(result.score)}</p>}
-                      {'reasons' in result && <p className="text-xs text-purple-600 mt-1">Why: {(result.reasons || []).join(', ')}</p>}
+                      {'score' in result && <p className="text-xs text-purple-600">Score: {Math.round(result.score as number)}</p>}
+                      {'reasons' in result && <p className="text-xs text-purple-600 mt-1">Why: {(result.reasons as string[] || []).join(', ')}</p>}
                     </div>
                   );
                 })}
 
-                {['all', 'users'].includes(activeFilter) && displayResults.users.map(result => {
-                    const user = result.item || result;
+                {['all', 'users'].includes(activeFilter) && displayResults.users.map((result) => {
+                    const user = 'item' in result ? result.item : result;
                     return (
                         <div key={user.id} onClick={() => handleUserClick(user)} className="p-4 bg-white/70 rounded-2xl shadow-soft cursor-pointer flex items-center space-x-3">
                             <img src={user.avatar} alt={user.name} className="w-12 h-12 rounded-full" />
                             <div>
                                 <h4 className="font-semibold">{user.name}</h4>
-                                <p className="text-sm">@{user.username}</p>
+                                <p className="text-sm text-gray-500">@{user.username}</p>
+                                {user.bio && <p className="text-sm mt-1">{user.bio}</p>}
+                                {user.tags && user.tags.length > 0 && (
+                                    <div className="flex flex-wrap gap-1 mt-2">
+                                        {user.tags.map((tag: string) => (
+                                            <span key={tag} className="px-2 py-1 text-xs bg-gray-200 text-gray-700 rounded-full">{tag}</span>
+                                        ))}
+                                    </div>
+                                )}
                             </div>
                         </div>
                     );

@@ -34,6 +34,7 @@ export interface Post {
   userAvatar: string
   images: string[]
   description: string
+  tags: string[]
   postType: PostType
   triedRating?: TriedRating
   createdAt: string
@@ -41,10 +42,10 @@ export interface Post {
   listId?: string
   likes: number
   likedBy: string[]
-  comments: Comment[]
+  comments: PostComment[]
 }
 
-export interface Comment {
+export interface PostComment {
   id: string
   userId: string
   username: string
@@ -53,7 +54,7 @@ export interface Comment {
   createdAt: string
   likes: number
   likedBy: string[]
-  replies?: Comment[]
+  replies?: PostComment[]
 }
 
 export interface List {

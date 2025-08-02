@@ -1,6 +1,6 @@
 import { collection, doc, getDoc, getDocs, setDoc, updateDoc, query, where, orderBy, limit, startAfter, endBefore, onSnapshot, Timestamp, QueryConstraint } from 'firebase/firestore'
 import { db } from '../firebase/config'
-import type { User, Place, List, Post, Comment, Activity } from '../types'
+import type { User, Place, List, Post, PostComment, Activity } from '../types'
 import { auth } from '../firebase/config'
 
 
@@ -48,6 +48,8 @@ export interface FirebaseSearchData {
 class FirebaseDataService {
   private userPreferencesCache = new Map<string, UserPreferences>()
   private searchCache = new Map<string, { data: FirebaseSearchData; timestamp: number }>()
+  private userCache = new Map<string, { user: User; timestamp: number }>()
+  private userActivityCache = new Map<string, { activities: Activity[]; timestamp: number }>()
   private readonly CACHE_DURATION = 5 * 60 * 1000 // 5 minutes
 
   // ====================
@@ -55,10 +57,17 @@ class FirebaseDataService {
   // ====================
 
   async getCurrentUser(userId: string): Promise<User | null> {
+    const cached = this.userCache.get(userId)
+    if (cached && Date.now() - cached.timestamp < this.CACHE_DURATION) {
+      return cached.user
+    }
+
     try {
       const userDoc = await getDoc(doc(db, 'users', userId))
       if (userDoc.exists()) {
-        return { id: userDoc.id, ...userDoc.data() } as User
+        const user = { id: userDoc.id, ...userDoc.data() } as User
+        this.userCache.set(userId, { user, timestamp: Date.now() })
+        return user
       }
       return null
     } catch (error) {
@@ -107,6 +116,36 @@ class FirebaseDataService {
     } catch (error) {
       console.error('Error fetching user following:', error)
       return []
+    }
+  }
+
+  async getFollowers(userId: string): Promise<User[]> {
+    try {
+      const followersQuery = query(
+        collection(db, 'users', userId, 'followers'),
+        orderBy('followedAt', 'desc')
+      );
+      const followersSnapshot = await getDocs(followersQuery);
+      const followerPromises = followersSnapshot.docs.map(doc => this.getCurrentUser(doc.id));
+      return Promise.all(followerPromises.filter(p => p !== null)) as Promise<User[]>;
+    } catch (error) {
+      console.error('Error fetching user followers:', error);
+      return [];
+    }
+  }
+
+  async getSavedPlaces(userId: string): Promise<Place[]> {
+    try {
+      const savedPlacesQuery = query(
+        collection(db, 'users', userId, 'savedPlaces'),
+        orderBy('savedAt', 'desc')
+      );
+      const savedPlacesSnapshot = await getDocs(savedPlacesQuery);
+      const placePromises = savedPlacesSnapshot.docs.map(doc => this.getPlace(doc.data().placeId));
+      return Promise.all(placePromises.filter(p => p !== null)) as Promise<Place[]>;
+    } catch (error) {
+      console.error('Error fetching saved places:', error);
+      return [];
     }
   }
 
@@ -527,14 +566,14 @@ class FirebaseDataService {
       })
 
       // Generate and save baseline recommendations with enhanced data
-      await this.generateBaselineRecommendations(userId, {
+      /* await this.generateBaselineRecommendations(userId, {
         favoriteCategories: enhancedCategories,
         activityPreferences: enhancedPreferences,
         budgetPreferences: userData.budgetPreferences,
         socialPreferences: userData.socialPreferences,
         discoveryRadius: userData.discoveryRadius,
         location: userData.location
-      })
+      }); */
 
       console.log('✅ New user setup completed successfully with AI-enhanced preferences')
     } catch (error) {
@@ -593,6 +632,17 @@ class FirebaseDataService {
     } catch (error) {
       console.error('Error generating baseline recommendations:', error)
       // Don't throw - recommendations are nice to have but not essential for signup
+    }
+  }
+
+  async checkUsernameAvailability(username: string): Promise<boolean> {
+    try {
+      const q = query(collection(db, 'users'), where('username', '==', username));
+      const querySnapshot = await getDocs(q);
+      return querySnapshot.empty; // True if username is available
+    } catch (error) {
+      console.error('Error checking username availability:', error);
+      return false; // Fail safe
     }
   }
 
@@ -823,19 +873,311 @@ class FirebaseDataService {
     }
   }
 
-  async getUserActivity(userId: string, limit: number = 50): Promise<Activity[]> {
+  async getPostsForHub(hubId: string): Promise<Post[]> {
+    try {
+      const postsQuery = query(
+        collection(db, 'posts'),
+        where('hubId', '==', hubId),
+        orderBy('createdAt', 'desc')
+      );
+      const postsSnapshot = await getDocs(postsQuery);
+      return postsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Post[];
+    } catch (error) {
+      console.error('Error fetching posts for hub:', error);
+      return [];
+    }
+  }
+
+  async getPost(postId: string): Promise<Post | null> {
+    try {
+      const postDoc = await getDoc(doc(db, 'posts', postId))
+      if (postDoc.exists()) {
+        return { id: postDoc.id, ...postDoc.data() } as Post
+      }
+      return null
+    } catch (error) {
+      console.error('Error fetching post:', error)
+      return null
+    }
+  }
+
+  async getCommentsForPost(postId: string): Promise<PostComment[]> {
+    try {
+      const commentsQuery = query(
+        collection(db, 'posts', postId, 'comments'),
+        orderBy('createdAt', 'desc')
+      );
+      const commentsSnapshot = await getDocs(commentsQuery);
+      return commentsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as PostComment[];
+    } catch (error) {
+      console.error('Error fetching comments for post:', error);
+      return [];
+    }
+  }
+
+  async postComment(postId: string, userId: string, text: string): Promise<PostComment | null> {
+    try {
+      const currentUser = await this.getCurrentUser(userId);
+      if (!currentUser) {
+        throw new Error('User not found');
+      }
+
+      const newCommentRef = doc(collection(db, 'posts', postId, 'comments'));
+      const newComment: PostComment = {
+        id: newCommentRef.id,
+        userId,
+        username: currentUser.username,
+        userAvatar: currentUser.avatar || '',
+        text,
+        createdAt: new Date().toISOString(),
+        likes: 0,
+        likedBy: [],
+      };
+
+      await setDoc(newCommentRef, newComment);
+      return newComment;
+    } catch (error) {
+      console.error('Error posting comment:', error);
+      return null;
+    }
+  }
+
+  async postProfileComment(profileUserId: string, authorUserId: string, text: string): Promise<PostComment | null> {
+    try {
+      const author = await this.getCurrentUser(authorUserId);
+      if (!author) {
+        throw new Error('Author not found');
+      }
+
+      const newCommentRef = doc(collection(db, 'users', profileUserId, 'comments'));
+      const newComment: PostComment = {
+        id: newCommentRef.id,
+        userId: authorUserId,
+        username: author.username,
+        userAvatar: author.avatar || '',
+        text,
+        createdAt: new Date().toISOString(),
+        likes: 0,
+        likedBy: [],
+      };
+
+      await setDoc(newCommentRef, newComment);
+      return newComment;
+    } catch (error) {
+      console.error('Error posting profile comment:', error);
+      return null;
+    }
+  }
+
+  async likePost(postId: string, userId: string): Promise<void> {
+    const postRef = doc(db, 'posts', postId);
+    const postSnap = await getDoc(postRef);
+
+    if (postSnap.exists()) {
+      const post = postSnap.data() as Post;
+      const likedBy = post.likedBy || [];
+      let newLikes = post.likes || 0;
+
+      if (likedBy.includes(userId)) {
+        // User has already liked, so unlike
+        newLikes -= 1;
+        const index = likedBy.indexOf(userId);
+        likedBy.splice(index, 1);
+      } else {
+        // User has not liked, so like
+        newLikes += 1;
+        likedBy.push(userId);
+      }
+
+      await updateDoc(postRef, {
+        likes: newLikes,
+        likedBy: likedBy,
+      });
+    }
+  }
+
+  async likeList(listId: string, userId: string): Promise<void> {
+    const listRef = doc(db, 'lists', listId);
+    const listSnap = await getDoc(listRef);
+
+    if (listSnap.exists()) {
+      const list = listSnap.data() as List;
+      const likedBy = list.likedBy || [];
+      let newLikes = list.likes || 0;
+
+      if (likedBy.includes(userId)) {
+        // User has already liked, so unlike
+        newLikes -= 1;
+        const index = likedBy.indexOf(userId);
+        likedBy.splice(index, 1);
+      } else {
+        // User has not liked, so like
+        newLikes += 1;
+        likedBy.push(userId);
+      }
+
+      await updateDoc(listRef, {
+        likes: newLikes,
+        likedBy: likedBy,
+      });
+    }
+  }
+
+  async savePostToList(postId: string, listId: string): Promise<void> {
+    const listRef = doc(db, 'lists', listId);
+    const postRef = doc(db, 'posts', postId);
+
+    try {
+      const listDoc = await getDoc(listRef);
+      if (!listDoc.exists()) {
+        throw new Error(`List with id ${listId} does not exist.`);
+      }
+
+      // Add post to the list's posts subcollection or update a posts array
+      // This example assumes a 'posts' subcollection on a list
+      const listPostsRef = collection(listRef, 'posts');
+      await setDoc(doc(listPostsRef, postId), { 
+        postId: postId,
+        addedAt: Timestamp.now()
+      });
+
+      // Also update the post document to link back to the list
+      await updateDoc(postRef, {
+        listId: listId
+      });
+
+      console.log(`Post ${postId} successfully saved to list ${listId}`);
+    } catch (error) {
+      console.error('Error saving post to list:', error);
+    }
+  }
+
+  async createList(listData: { name: string; description: string; privacy: 'public' | 'private' | 'friends'; tags: string[], userId: string }): Promise<string | null> {
+    try {
+      const newListRef = doc(collection(db, 'lists'));
+      const list = {
+        id: newListRef.id,
+        ...listData,
+        createdAt: Timestamp.now(),
+        updatedAt: Timestamp.now(),
+        hubs: [],
+        likes: 0,
+        isLiked: false,
+      };
+      await setDoc(newListRef, list);
+      return newListRef.id;
+    } catch (error) {
+      console.error('Error creating list:', error);
+      return null;
+    }
+  }
+
+  async getUserLists(userId: string): Promise<List[]> {
+    try {
+      const listsQuery = query(
+        collection(db, 'lists'),
+        where('userId', '==', userId),
+        orderBy('createdAt', 'desc')
+      );
+      const listsSnapshot = await getDocs(listsQuery);
+      return listsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as List[];
+    } catch (error) {
+      console.error('Error fetching user lists:', error);
+      return [];
+    }
+  }
+
+  async getPostsForList(listId: string): Promise<Post[]> {
+    try {
+      const postsQuery = query(
+        collection(db, 'posts'),
+        where('listId', '==', listId),
+        orderBy('createdAt', 'desc')
+      );
+      const postsSnapshot = await getDocs(postsQuery);
+      return postsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Post[];
+    } catch (error) {
+      console.error('Error fetching posts for list:', error);
+      return [];
+    }
+  }
+
+  async getBatchPostAndListData(
+    activities: Activity[]
+  ): Promise<{ posts: Post[]; lists: List[] }> {
+    const postIds = activities
+      .filter((a) => a.type === 'post' && a.postId)
+      .map((a) => a.postId)
+    const listIds = activities
+      .filter((a) => (a.type === 'list' || a.type === 'create_list') && a.listId)
+      .map((a) => a.listId)
+
+    const posts: Post[] = []
+    const lists: List[] = []
+
+    try {
+      // Firestore 'in' queries are limited to 30 items. Batch if necessary.
+      const postPromises = []
+      for (let i = 0; i < postIds.length; i += 10) {
+        const batchIds = postIds.slice(i, i + 10)
+        if (batchIds.length > 0) {
+          const q = query(collection(db, 'posts'), where('__name__', 'in', batchIds))
+          postPromises.push(getDocs(q))
+        }
+      }
+
+      const listPromises = []
+      for (let i = 0; i < listIds.length; i += 10) {
+        const batchIds = listIds.slice(i, i + 10)
+        if (batchIds.length > 0) {
+          const q = query(collection(db, 'lists'), where('__name__', 'in', batchIds))
+          listPromises.push(getDocs(q))
+        }
+      }
+
+      const postSnapshots = await Promise.all(postPromises)
+      postSnapshots.forEach((snapshot) => {
+        snapshot.forEach((doc) => {
+          posts.push({ id: doc.id, ...doc.data() } as Post)
+        })
+      })
+
+      const listSnapshots = await Promise.all(listPromises)
+      listSnapshots.forEach((snapshot) => {
+        snapshot.forEach((doc) => {
+          lists.push({ id: doc.id, ...doc.data() } as List)
+        })
+      })
+
+      return { posts, lists }
+    } catch (error) {
+      console.error('Error fetching batch post and list data:', error)
+      return { posts: [], lists: [] }
+    }
+  }
+
+
+  async getUserActivity(userId: string, limitCount: number = 50): Promise<Activity[]> {
+    const cached = this.userActivityCache.get(userId)
+    if (cached && Date.now() - cached.timestamp < this.CACHE_DURATION) {
+      return cached.activities
+    }
+
     try {
       const activityQuery = query(
         collection(db, 'users', userId, 'activity'),
         orderBy('createdAt', 'desc'),
-        limit(limit)
+        limit(limitCount)
       )
       const activitySnapshot = await getDocs(activityQuery)
       
-      return activitySnapshot.docs.map(doc => ({
+      const activities = activitySnapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
       })) as Activity[]
+
+      this.userActivityCache.set(userId, { activities, timestamp: Date.now() })
+      return activities
     } catch (error) {
       console.error('Error fetching user activity:', error)
       return []
@@ -992,6 +1334,8 @@ class FirebaseDataService {
 
   clearUserCache(userId: string): void {
     this.userPreferencesCache.delete(userId)
+    this.userCache.delete(userId)
+    this.userActivityCache.delete(userId)
     // Clear search cache entries for this user (simplified)
     this.searchCache.clear()
   }

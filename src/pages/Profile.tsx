@@ -43,35 +43,48 @@ const Profile = () => {
   // Real user data state
   const [currentUser, setCurrentUser] = useState<User | null>(null)
   const [userLists, setUserLists] = useState<List[]>([])
+  const [listCount, setListCount] = useState(0);
+  const [placeCount, setPlaceCount] = useState(0);
+  const [followerCount, setFollowerCount] = useState(0);
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
   // Search and filter state
-  const [searchQuery, setSearchQuery] = useState('')
   const [sortBy, setSortBy] = useState('popular')
   const [activeFilters, setActiveFilters] = useState<string[]>([])
-  const [selectedTags, setSelectedTags] = useState<string[]>([])
-  const [isDropdownOpen, setIsDropdownOpen] = useState(false)
-  const [isFilterDropdownOpen, setIsFilterDropdownOpen] = useState(false)
-  const [showSaveModal, setShowSaveModal] = useState(false)
-  const [showLocationModal, setShowLocationModal] = useState(false)
-  const [showCreatePost, setShowCreatePost] = useState(false)
-  const [showUserMenu, setShowUserMenu] = useState(false)
-  const [showGoogleMapsImport, setShowGoogleMapsImport] = useState(false)
-  const [commentInput, setCommentInput] = useState('')
+  const [showSaveModal, setShowSaveModal] = useState(false);
+  const [showLocationModal, setShowLocationModal] = useState(false);
+  const [showCreatePost, setShowCreatePost] = useState(false);
+  const [showUserMenu, setShowUserMenu] = useState(false);
+  const [showGoogleMapsImport, setShowGoogleMapsImport] = useState(false);
+  const [commentInput, setCommentInput] = useState('');
+  const [newTag, setNewTag] = useState('');
+  const [comments] = useState<any[]>([]);
+  const [likedLists] = useState<Set<string>>(new Set());
+  const [selectedPlace, setSelectedPlace] = useState<Place | null>(null);
+  const [createPostListId, setCreatePostListId] = useState<string | null>(null);
+  const [activityItems, setActivityItems] = useState<Activity[]>([]);
+  const userMenuButtonRef = useRef<HTMLButtonElement>(null);
 
-  // Additional component state - using real user data
-  const [newTag, setNewTag] = useState('')
-  const [comments, setComments] = useState<any[]>([]) // Start with empty comments - no mock data
-  const [likedLists, setLikedLists] = useState<Set<string>>(new Set())
-  const [savedLists, setSavedLists] = useState<Set<string>>(new Set())
-  const [selectedPlace, setSelectedPlace] = useState<Place | null>(null)
-  const [selectedLocation, setSelectedLocation] = useState<{ id: string; name: string; address: string; coordinates: { lat: number; lng: number } } | null>(null)
-  const [createPostListId, setCreatePostListId] = useState<string | null>(null)
+  // Load user's real activity
+  useEffect(() => {
+    const loadUserActivity = async () => {
+      if (!authUser) return
+      
+      try {
+        const activity = await firebaseDataService.getUserActivity(authUser.uid, 20)
+        setActivityItems(activity)
+      } catch (error) {
+        console.error('Error loading user activity:', error)
+        setActivityItems([])
+      }
+    }
+    
+    if (currentUser) {
+      loadUserActivity()
+    }
+  }, [currentUser, authUser])
 
-  // Refs
-  const filterButtonRef = useRef<HTMLButtonElement>(null)
-  const userMenuButtonRef = useRef<HTMLButtonElement>(null)
 
   // Get user's profile tags (use their actual tags, not mock data)
   const profileTags = currentUser?.tags || []
@@ -103,113 +116,21 @@ const Profile = () => {
       try {
         setLoading(true)
         
-        // Get user profile from Firebase
-        const userProfile = await firebaseDataService.getCurrentUser(authUser.uid)
-        
-        if (userProfile) {
-          // Calculate real user stats
-          const userActivity = await firebaseDataService.getUserActivity(authUser.uid, 100)
-          const savedPlacesCount = userActivity.filter(a => a.type === 'save').length
-          const likedPostsCount = userActivity.filter(a => a.type === 'like').length
-          const createdListsCount = userActivity.filter(a => a.type === 'create_list').length
-          
-          // Calculate influence score based on activity
-          const influenceScore = (savedPlacesCount * 2) + (likedPostsCount * 1) + (createdListsCount * 5)
-          
-          setCurrentUser({
-            ...userProfile,
-            influences: Math.max(influenceScore, userProfile.influences || 0)
-          })
-          
-          // Update influence score in Firebase if it's higher
-          if (influenceScore > (userProfile.influences || 0)) {
-            try {
-              await firebaseDataService.updateUserTags(authUser.uid, userProfile.tags || [])
-              // Note: We'd need a separate method to update influences, for now just local update
-            } catch (error) {
-              console.error('Error updating user influences:', error)
-            }
-          }
-        } else {
-          // Fallback to auth user data if no profile exists yet
-          setCurrentUser({
-            id: authUser.uid,
-            name: authUser.displayName || 'User',
-            username: authUser.email?.split('@')[0] || 'user',
-            avatar: authUser.photoURL || '',
-            bio: 'Welcome to This Is!',
-            location: '',
-            influences: 0,
-            tags: []
-          })
-        }
+        const [userProfile, lists, savedPlaces, followers] = await Promise.all([
+          firebaseDataService.getCurrentUser(authUser.uid),
+          firebaseDataService.getUserLists(authUser.uid),
+          firebaseDataService.getSavedPlaces(authUser.uid),
+          firebaseDataService.getFollowers(authUser.uid)
+        ]);
 
-        // Load user's lists - use real data or create defaults
-        let userListsData: List[] = []
-        
-        try {
-          // Get user's actual lists from Firebase
-          const searchData = await firebaseDataService.performSearch('', {}, 50)
-          userListsData = searchData.lists.filter(list => list.userId === authUser.uid)
-          
-          // If no lists exist, create default structure
-          if (userListsData.length === 0) {
-            userListsData = [
-          {
-            id: 'all-loved',
-            name: 'All Loved',
-            description: 'All the places you\'ve loved and want to visit again',
-            userId: authUser.uid,
-            isPublic: false,
-            isShared: false,
-            privacy: 'private',
-            tags: ['loved', 'favorites', 'auto-generated'],
-            hubs: [],
-            coverImage: 'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=300&h=200&fit=crop',
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-            likes: 0,
-            isLiked: false
-          },
-          {
-            id: 'all-tried',
-            name: 'All Tried',
-            description: 'All the places you\'ve tried and experienced',
-            userId: authUser.uid,
-            isPublic: false,
-            isShared: false,
-            privacy: 'private',
-            tags: ['tried', 'visited', 'auto-generated'],
-            hubs: [],
-            coverImage: 'https://images.unsplash.com/photo-1501594907352-04cda38ebc29?w=300&h=200&fit=crop',
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-            likes: 0,
-            isLiked: false
-          },
-          {
-            id: 'all-want',
-            name: 'All Want',
-            description: 'All the places you want to visit someday',
-            userId: authUser.uid,
-            isPublic: false,
-            isShared: false,
-            privacy: 'private',
-            tags: ['want', 'wishlist', 'auto-generated'],
-            hubs: [],
-            coverImage: 'https://images.unsplash.com/photo-1442512595331-e89e73853f31?w=300&h=200&fit=crop',
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-            likes: 0,
-            isLiked: false
-          }
-            ]
-          }
-          
-          setUserLists(userListsData)
-        } catch (error) {
-          console.error('Error loading user lists:', error)
-          setUserLists([])
+        if (userProfile) {
+          setCurrentUser(userProfile);
+          setUserLists(lists);
+          setListCount(lists.length);
+          setPlaceCount(savedPlaces.length);
+          setFollowerCount(followers.length);
+        } else {
+          setError('User profile not found.');
         }
         
       } catch (error) {
@@ -253,26 +174,6 @@ const Profile = () => {
   }
 
   // Real user activity data (loaded async)
-  const [activityItems, setActivityItems] = useState<Activity[]>([])
-  
-  // Load user's real activity
-  useEffect(() => {
-    const loadUserActivity = async () => {
-      if (!authUser) return
-      
-      try {
-        const activity = await firebaseDataService.getUserActivity(authUser.uid, 20)
-        setActivityItems(activity)
-      } catch (error) {
-        console.error('Error loading user activity:', error)
-        setActivityItems([])
-      }
-    }
-    
-    if (currentUser) {
-      loadUserActivity()
-    }
-  }, [currentUser, authUser])
   
   let filteredLists = userLists.filter(list => {
     // Filter out auto-generated lists from popular lists section
@@ -285,27 +186,8 @@ const Profile = () => {
   if (sortBy === 'nearby') filteredLists = filteredLists
 
   const handleLikeList = (listId: string) => {
-    setLikedLists(prev => {
-      const newSet = new Set(prev)
-      if (newSet.has(listId)) {
-        newSet.delete(listId)
-      } else {
-        newSet.add(listId)
-      }
-      return newSet
-    })
-  }
-
-  const handleSaveList = (listId: string) => {
-    setSavedLists(prev => {
-      const newSet = new Set(prev)
-      if (newSet.has(listId)) {
-        newSet.delete(listId)
-      } else {
-        newSet.add(listId)
-      }
-      return newSet
-    })
+    if (!currentUser) return;
+    firebaseDataService.likeList(listId, currentUser.id);
   }
 
   const handleSaveToPlace = (place: Place) => {
@@ -331,14 +213,6 @@ const Profile = () => {
     // In a real app, this would create a new list and save the place to it
     console.log('Creating new list:', listData, 'and saving place:', selectedPlace)
     // You could also show a success toast here
-  }
-
-  const handleLocationSelect = (location: { id: string; name: string; address: string; coordinates: { lat: number; lng: number } }) => {
-    setSelectedLocation(location)
-    setSortBy('nearby') // Set the sort to nearby
-    setShowLocationModal(false)
-    // In a real app, you would filter/sort based on this location
-    console.log('Selected location for sorting:', location)
   }
 
   const handleSortByChange = (newSortBy: string) => {
@@ -392,12 +266,11 @@ const Profile = () => {
           setSortBy={handleSortByChange}
           activeFilters={activeFilters}
           setActiveFilters={setActiveFilters}
-          onLocationSelect={handleLocationSelect}
           dropdownPosition="top-right"
         />
       </div>
       {/* Profile Header with botanical accent */}
-      <div className="relative z-10 p-8 mt-8 rounded-3xl shadow-botanical border border-linen-200 bg-white/95 max-w-2xl mx-auto overflow-hidden flex flex-col gap-2">
+      <div className="relative z-10 p-8 mt-8 rounded-3xl shadow-botanical border border-linen-200 bg-white max-w-2xl mx-auto overflow-hidden flex flex-col gap-2">
         {/* Botanical SVG accent */}
         <BotanicalAccent />
         <div className="flex items-center gap-6">
@@ -418,14 +291,6 @@ const Profile = () => {
                 }
               }}
             />
-            {/* Small indicator if using uploaded photo */}
-            {currentUser.avatar && !currentUser.avatar.includes('unsplash') && !currentUser.avatar.includes('placeholder') && (
-              <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-green-500 rounded-full border-2 border-white flex items-center justify-center">
-                <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                </svg>
-              </div>
-            )}
           </div>
           <div className="flex-1">
             <div className="flex items-center justify-between mb-1">
@@ -507,16 +372,16 @@ const Profile = () => {
         </div>
         {/* Stats */}
         <div className="grid grid-cols-3 gap-4 mt-6 border-t border-linen-200 pt-4">
-          <div className="text-center">
-            <div className="text-2xl font-serif font-bold text-charcoal-700">12</div>
+          <div className="text-center cursor-pointer" onClick={() => navigate('/lists')}>
+            <div className="text-2xl font-serif font-bold text-charcoal-700">{listCount}</div>
             <div className="text-sm text-charcoal-400">Lists</div>
           </div>
-          <div className="text-center">
-            <div className="text-2xl font-serif font-bold text-charcoal-700">89</div>
+          <div className="text-center cursor-pointer" onClick={() => navigate('/places')}>
+            <div className="text-2xl font-serif font-bold text-charcoal-700">{placeCount}</div>
             <div className="text-sm text-charcoal-400">Places</div>
           </div>
-          <div className="text-center">
-            <div className="text-2xl font-serif font-bold text-charcoal-700">156</div>
+          <div className="text-center cursor-pointer" onClick={() => navigate('/followers')}>
+            <div className="text-2xl font-serif font-bold text-charcoal-700">{followerCount}</div>
             <div className="text-sm text-charcoal-400">Followers</div>
           </div>
         </div>
@@ -565,7 +430,7 @@ const Profile = () => {
             </button>
           </div>
           <div className="space-y-4">
-            {filteredLists.map((list, idx) => (
+            {filteredLists.map((list) => (
               <div
                 key={list.id}
                 role="button"
@@ -604,8 +469,8 @@ const Profile = () => {
                     </div>
                   </div>
                   <div className="flex items-center gap-2 mt-2">
-                    <img src={currentUser?.avatar || 'https://via.placeholder.com/150'} alt={currentUser?.name} className="w-6 h-6 rounded-full border-2 border-white shadow-soft object-cover" />
-                    <span className="text-xs text-charcoal-500 font-medium">{currentUser?.name}</span>
+                    <img src={currentUser?.avatar || 'https://via.placeholder.com/150'} alt={currentUser?.name || 'User'} className="w-6 h-6 rounded-full border-2 border-white shadow-soft object-cover" />
+                    <span className="text-xs text-charcoal-500 font-medium">{currentUser?.name || 'User'}</span>
                     <div className="ml-auto flex items-center gap-2">
                       <button 
                         onClick={e => { e.stopPropagation(); handleLikeList(list.id) }}
@@ -629,8 +494,8 @@ const Profile = () => {
                             address: 'Various locations',
                             tags: list.tags,
                             posts: [],
-                            savedCount: list.likes,
-                            createdAt: list.createdAt
+                            savedCount: list.likes || 0,
+                            createdAt: list.createdAt || new Date().toISOString()
                           }
                           handleSaveToPlace(mockPlace)
                         }}
@@ -662,7 +527,7 @@ const Profile = () => {
         <div>
           <h3 className="text-xl font-serif font-semibold text-charcoal-700 mb-4">Recent Activity</h3>
           <div className="space-y-4">
-            {activityItems.map((activity, idx) => (
+            {activityItems.map((activity) => (
               <div key={activity.id} className="rounded-2xl shadow-soft border border-linen-200 bg-white/98 flex items-center gap-4 p-4 transition hover:shadow-cozy hover:-translate-y-1">
                 <div className="w-12 h-12 rounded-xl bg-sage-100 flex items-center justify-center">
                   <BookmarkIcon className="w-6 h-6 text-sage-500" />
@@ -680,11 +545,11 @@ const Profile = () => {
           </div>
         </div>
         {/* Comment Wall */}
-        <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-soft border border-linen-200 p-6">
+        <div className="rounded-2xl shadow-soft border border-linen-200 p-6">
           <h3 className="text-xl font-serif font-semibold text-charcoal-700 mb-4">Comments</h3>
           <div className="space-y-4 mb-4">
             {comments.length > 0 ? (
-              comments.map((comment, idx) => (
+              comments.map((comment) => (
                 <div key={comment.id} className="flex items-start gap-3 p-3 bg-linen-50 rounded-xl">
                   <img src={comment.user.avatar} alt={comment.user.name} className="w-8 h-8 rounded-full object-cover border-2 border-white shadow-soft flex-shrink-0" />
                   <div className="flex-1">
@@ -711,16 +576,8 @@ const Profile = () => {
           <form
             onSubmit={e => {
               e.preventDefault()
-              if (!commentInput.trim()) return
-              setComments([
-                ...comments,
-                {
-                  id: Date.now(),
-                  user: { name: currentUser?.name, avatar: currentUser?.avatar || '' },
-                  text: commentInput,
-                  date: 'now'
-                }
-              ])
+              if (!commentInput.trim() || !currentUser || !authUser) return
+              firebaseDataService.postProfileComment(currentUser.id, authUser.uid, commentInput);
               setCommentInput('')
             }}
             className="flex items-center gap-3 p-4 bg-linen-50 rounded-xl border border-linen-200"
@@ -755,7 +612,7 @@ const Profile = () => {
       <LocationSelectModal
         isOpen={showLocationModal}
         onClose={() => setShowLocationModal(false)}
-        onLocationSelect={handleLocationSelect}
+        onLocationSelect={() => setShowLocationModal(false)}
       />
 
       <CreatePost

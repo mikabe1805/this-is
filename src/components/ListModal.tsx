@@ -1,4 +1,4 @@
-import type { List, Place } from '../types/index.js'
+import type { List, Place, Post } from '../types/index.js'
 import { MapPinIcon, HeartIcon, BookmarkIcon, PlusIcon, ShareIcon, XMarkIcon, UserIcon, CalendarIcon, ArrowsPointingOutIcon, ArrowLeftIcon } from '@heroicons/react/24/outline'
 import { HeartIcon as HeartIconSolid } from '@heroicons/react/24/solid'
 import { useState, useEffect } from 'react'
@@ -8,6 +8,7 @@ import { formatTimestamp } from '../utils/dateUtils.ts'
 import ImageCarousel from './ImageCarousel.tsx'
 import CommentsModal from './CommentsModal.tsx'
 import SaveToListModal from './SaveToListModal.tsx'
+import { firebaseDataService } from '../services/firebaseDataService.js'
 
 interface ListModalProps {
   list: List
@@ -23,13 +24,24 @@ interface ListModalProps {
 }
 
 const ListModal = ({ list, isOpen, onClose, onSave, onShare, onAddPost, onOpenFullScreen, onOpenHub, showBackButton, onBack }: ListModalProps) => {
-  const { listModalFromList, goBackFromListModal, openFullScreenList } = useNavigation()
+  const { openPostModal, openFullScreenList } = useNavigation()
   const [isLiked, setIsLiked] = useState(list.isLiked)
   const [likes, setLikes] = useState(list.likes)
   const [isVisible, setIsVisible] = useState(false)
   const [showCommentsModal, setShowCommentsModal] = useState(false)
   const [showSaveToListModal, setShowSaveToListModal] = useState(false)
   const [selectedListForSave, setSelectedListForSave] = useState<List | null>(null)
+  const [posts, setPosts] = useState<Post[]>([])
+
+  useEffect(() => {
+    if (isOpen) {
+      const fetchPosts = async () => {
+        const listPosts = await firebaseDataService.getPostsForList(list.id);
+        setPosts(listPosts);
+      };
+      fetchPosts();
+    }
+  }, [isOpen, list]);
   
   useEffect(() => {
     if (isOpen) {
@@ -92,23 +104,9 @@ const ListModal = ({ list, isOpen, onClose, onSave, onShare, onAddPost, onOpenFu
     }
   }
 
-  const handleBack = () => {
-    if (onBack) {
-      onBack()
-    } else if (listModalFromList) {
-      // Use navigation context for list-to-list back navigation
-      goBackFromListModal()
-    } else {
-      // Default back behavior
-      onClose()
-    }
-  }
-
-  const handleOpenHub = (place: Place) => {
-    if (onOpenHub) {
-      onOpenHub(place)
-    }
-  }
+  const handlePostClick = (post: Post) => {
+    openPostModal(post.id, 'list-modal');
+  };
 
   const handleCommentsClick = () => {
     setShowCommentsModal(true)
@@ -150,37 +148,6 @@ const ListModal = ({ list, isOpen, onClose, onSave, onShare, onAddPost, onOpenFu
     // Navigate to ViewAllLists page with appropriate filters
     window.location.href = `/lists?type=${listType}&hub=${list.id}`
   }
-
-  // Mock places for the list
-  const mockPlaces: Place[] = [
-    {
-      id: '1',
-      name: 'Blue Bottle Coffee',
-      address: '300 Webster St, Oakland, CA',
-      tags: ['coffee', 'cozy', 'work-friendly'],
-      posts: [],
-      savedCount: 45,
-      createdAt: '2024-01-15'
-    },
-    {
-      id: '2',
-      name: 'Ritual Coffee',
-      address: '1026 Valencia St, San Francisco, CA',
-      tags: ['coffee', 'artisan', 'local'],
-      posts: [],
-      savedCount: 32,
-      createdAt: '2024-01-14'
-    },
-    {
-      id: '3',
-      name: 'Four Barrel Coffee',
-      address: '375 Valencia St, San Francisco, CA',
-      tags: ['coffee', 'roaster', 'industrial'],
-      posts: [],
-      savedCount: 28,
-      createdAt: '2024-01-13'
-    }
-  ]
 
   // Mock user lists for save functionality
   const userLists: List[] = [
@@ -494,64 +461,64 @@ const ListModal = ({ list, isOpen, onClose, onSave, onShare, onAddPost, onOpenFu
           <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/30 to-transparent" />
           
           {/* Top action buttons */}
-          <div className="absolute top-3 left-3 right-3 flex items-center justify-between z-20">
-            <div className="flex items-center gap-2">
-              {(showBackButton || listModalFromList) && (
-                <button 
-                  onClick={handleBack}
-                  className="w-12 h-12 bg-[#FEF6E9]/95 backdrop-blur-md rounded-2xl flex items-center justify-center shadow-lg border border-[#E8D4C0]/50 active:scale-95 transition-all duration-200"
-                  title="Go back"
-                >
-                  <ArrowLeftIcon className="w-6 h-6 text-[#7A5D3F]" />
-                </button>
-              )}
+          <div className="absolute top-4 left-4 right-4 flex items-center justify-between z-20">
+            {showBackButton ? (
               <button 
-                onClick={handleOpenFullScreen}
-                className="w-12 h-12 bg-[#FEF6E9]/95 backdrop-blur-md rounded-2xl flex items-center justify-center shadow-lg border border-[#E8D4C0]/50 active:scale-95 transition-all duration-200"
-                title="Open full screen"
+                onClick={onBack}
+                className="w-10 h-10 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center shadow-lg border border-white/30 active:scale-95 transition-all duration-200"
+                title="Go back"
               >
-                <ArrowsPointingOutIcon className="w-6 h-6 text-[#B08968]" />
+                <ArrowLeftIcon className="w-5 h-5 text-white" />
               </button>
-            </div>
+            ) : <div></div>}
             <div className="flex items-center gap-2">
+              <button
+                onClick={handleOpenFullScreen}
+                className="w-10 h-10 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center shadow-lg border border-white/30 active:scale-95 transition-all duration-200"
+              >
+                <ArrowsPointingOutIcon className="w-5 h-5 text-white" />
+              </button>
               <button 
                 onClick={handleShare}
-                className="w-12 h-12 bg-[#FEF6E9]/95 backdrop-blur-md rounded-2xl flex items-center justify-center shadow-lg border border-[#E8D4C0]/50 active:scale-95 transition-all duration-200"
+                className="w-10 h-10 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center shadow-lg border border-white/30 active:scale-95 transition-all duration-200"
               >
-                <ShareIcon className="w-6 h-6 text-[#C17F59]" />
+                <ShareIcon className="w-5 h-5 text-white" />
               </button>
               <button
                 onClick={onClose}
-                className="w-12 h-12 bg-[#FEF6E9]/95 backdrop-blur-md rounded-2xl flex items-center justify-center shadow-lg border border-[#E8D4C0]/50 active:scale-95 transition-all duration-200"
+                className="w-10 h-10 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center shadow-lg border border-white/30 active:scale-95 transition-all duration-200"
               >
-                <XMarkIcon className="w-7 h-7 text-[#7A5D3F]" />
+                <XMarkIcon className="w-5 h-5 text-white" />
               </button>
             </div>
           </div>
           
           {/* Text overlay */}
           <div className="absolute bottom-0 left-0 right-0 p-4 z-10">
-            {/* Improved parchment-style background for better contrast */}
-            <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-[#f9f2e9]/85 via-[#f9f2e9]/50 to-transparent backdrop-blur-sm rounded-t-xl">
-              <h1 className="text-2xl sm:text-3xl font-serif font-bold text-[#3D2A1A] mb-2 leading-tight drop-shadow-lg" style={{ textShadow: '1px 1px 3px rgba(255,255,255,0.9)' }}>{list.name}</h1>
-              <div className="flex items-center text-[#5D4A2E] text-sm sm:text-base mb-3 drop-shadow-md">
-              <UserIcon className="w-5 h-5 mr-2" />
+            <h1 className="text-3xl font-serif font-bold text-white mb-2 leading-tight drop-shadow-lg" style={{ textShadow: '1px 1px 3px rgba(0,0,0,0.5)' }}>{list.name}</h1>
+            <div className="flex items-center text-white/90 text-sm mb-3 drop-shadow-md">
+              <UserIcon className="w-4 h-4 mr-1.5" />
               Created by {list.userId}
             </div>
-              <div className="flex items-center gap-2">
-                <span className="px-3 py-1.5 bg-[#9A7B5A]/25 backdrop-blur-sm rounded-xl text-[#5D4A2E] text-sm font-medium border border-[#9A7B5A]/35 shadow-sm">
-                {mockPlaces.length} places
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="px-3 py-1 bg-white/20 backdrop-blur-sm rounded-full text-white text-xs font-medium border border-white/30 shadow-sm">
+                {posts.length} {posts.length === 1 ? 'place' : 'places'}
               </span>
-                <span className="px-3 py-1.5 bg-[#9A7B5A]/25 backdrop-blur-sm rounded-xl text-[#5D4A2E] text-sm font-medium border border-[#9A7B5A]/35 shadow-sm">
-                {list.tags[0] || 'Popular'}
-              </span>
-              </div>
+              {list.tags.map((tag, index) => (
+                <span 
+                  key={tag} 
+                  className="px-3 py-1 bg-white/20 backdrop-blur-sm rounded-full text-white text-xs font-medium border border-white/30 shadow-sm"
+                  style={{ opacity: 1 - (index * 0.15) }}
+                >
+                  #{tag}
+                </span>
+              ))}
             </div>
           </div>
         </div>
         
         {/* Content - Mobile-optimized scroll container */}
-                    <div className="modal-content flex flex-col h-[calc(90vh-12rem)] sm:h-[calc(100vh-0.5rem-12rem)] overflow-y-auto pb-4" style={{ WebkitOverflowScrolling: 'touch' }}>
+        <div className="modal-content flex flex-col h-[calc(90vh-12rem)] sm:h-[calc(100vh-0.5rem-12rem)] overflow-y-auto pb-4" style={{ WebkitOverflowScrolling: 'touch' }}>
           <div className="p-4 space-y-5 flex-1 pb-6">
           {/* Description */}
             <div className="bg-[#E8D4C0]/20 backdrop-blur-sm rounded-3xl p-4 border border-[#E8D4C0]/40 shadow-[0_6px_30px_rgba(0,0,0,0.1)] relative overflow-hidden">
@@ -609,7 +576,7 @@ const ListModal = ({ list, isOpen, onClose, onSave, onShare, onAddPost, onOpenFu
             </button>
           </div>
 
-          {/* Places */}
+          {/* Posts */}
             <div className="bg-[#E8D4C0]/20 backdrop-blur-sm rounded-3xl p-4 border border-[#E8D4C0]/40 shadow-[0_6px_30px_rgba(0,0,0,0.1)] relative overflow-hidden">
               {/* Mobile-optimized floating leaf accent */}
               <img
@@ -625,28 +592,20 @@ const ListModal = ({ list, isOpen, onClose, onSave, onShare, onAddPost, onOpenFu
               <div className="absolute inset-0 bg-gradient-to-r from-[#F7E8CC]/15 via-transparent to-[#E8D4C0]/15 rounded-3xl pointer-events-none" />
               <h3 className="text-lg font-serif font-semibold text-[#5D4A2E] mb-4 relative z-10">Places in this list</h3>
               <div className="space-y-3 relative z-10">
-              {mockPlaces.map((place) => (
+              {posts.map((post) => (
                 <div
-                  key={place.id}
-                  onClick={() => handleOpenHub(place)}
-                    className="flex items-center gap-3 p-3 bg-[#FEF6E9]/85 backdrop-blur-sm rounded-2xl shadow-md border border-[#E8D4C0]/40 active:scale-98 transition-all duration-200"
+                  key={post.id}
+                  onClick={() => handlePostClick(post)}
+                    className="flex items-center gap-3 p-3 bg-[#FEF6E9]/85 backdrop-blur-sm rounded-2xl shadow-md border border-[#E8D4C0]/40 active:scale-98 transition-all duration-200 cursor-pointer"
                 >
                     <div className="w-12 h-12 bg-[#FEF6E9] rounded-lg flex-shrink-0 border border-[#E8D4C0] shadow-sm overflow-hidden">
-                      <img src="https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=48&h=48&fit=crop" alt={place.name} className="w-full h-full object-cover" />
+                      <img src={post.images[0]} alt={post.description} className="w-full h-full object-cover" />
                   </div>
                   <div className="flex-1 min-w-0">
-                      <h4 className="font-serif font-semibold text-[#5D4A2E] truncate">{place.name}</h4>
+                      <p className="font-serif font-semibold text-[#5D4A2E] truncate line-clamp-1">{post.description}</p>
                       <div className="flex items-center text-[#7A5D3F] text-sm">
-                      <MapPinIcon className="w-4 h-4 mr-1" />
-                      {place.address}
+                      by @{post.username}
                     </div>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    {place.tags.slice(0, 2).map((tag) => (
-                        <span key={tag} className="px-2 py-1 text-xs rounded-full bg-[#B08968]/25 text-[#B08968] border border-[#B08968]/35 font-medium">
-                        #{tag}
-                      </span>
-                    ))}
                   </div>
                 </div>
               ))}
@@ -666,13 +625,10 @@ const ListModal = ({ list, isOpen, onClose, onSave, onShare, onAddPost, onOpenFu
       <CommentsModal
         isOpen={showCommentsModal}
         onClose={() => setShowCommentsModal(false)}
-        postId={list.id}
-        postTitle={list.name}
         comments={[]}
         onAddComment={handleAddCommentToModal}
         onLikeComment={handleLikeComment}
         onReplyToComment={handleReplyToComment}
-        currentUserId="1"
       />
 
       {/* Save to List Modal */}
@@ -699,4 +655,4 @@ const ListModal = ({ list, isOpen, onClose, onSave, onShare, onAddPost, onOpenFu
   )
 }
 
-export default ListModal 
+export default ListModal
