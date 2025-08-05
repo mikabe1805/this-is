@@ -19,6 +19,7 @@ interface HubModalProps {
   onAddPost?: (hub: Hub) => void
   onSave?: (hub: Hub) => void
   onShare?: (hub: Hub) => void
+  onOpenFullScreen?: (hub: Hub) => void
   showBackButton?: boolean
   onBack?: () => void
   onOpenList?: (list: List) => void
@@ -27,9 +28,9 @@ interface HubModalProps {
   showPostOverlay?: boolean
 }
 
-const HubModal = ({ hub, isOpen, onClose, onAddPost, onSave, onShare, showBackButton, onBack, onOpenList, initialTab = 'overview', initialPostId }: HubModalProps) => {
+const HubModal = ({ hub, isOpen, onClose, onAddPost, onSave, onShare, onOpenFullScreen, showBackButton, onBack, onOpenList, initialTab = 'overview', initialPostId }: HubModalProps) => {
   const { currentUser } = useAuth();
-  const { openListModal, openPostModal } = useNavigation()
+  const { openListModal, openPostOverlay } = useNavigation()
   const [tab, setTab] = useState<'overview' | 'posts'>('overview')
   const [posts, setPosts] = useState<Post[]>([])
   const [isVisible, setIsVisible] = useState(false)
@@ -38,11 +39,29 @@ const HubModal = ({ hub, isOpen, onClose, onAddPost, onSave, onShare, showBackBu
   const [showSavePostToListModal, setShowSavePostToListModal] = useState(false)
   const [selectedPostForSave, setSelectedPostForSave] = useState<Post | null>(null)
   const [selectedListForSave, setSelectedListForSave] = useState<List | null>(null)
-  
+
   const [likedPosts, setLikedPosts] = useState<Record<string, boolean>>({});
   const [likeCounts, setLikeCounts] = useState<Record<string, number>>({});
-
   const [topTags, setTopTags] = useState<string[]>([]);
+  const [selectedPostForComments, setSelectedPostForComments] = useState<Post | null>(null);
+  const [postComments, setPostComments] = useState<PostComment[]>([]);
+  const [lists, setLists] = useState<List[]>([]);
+
+
+
+
+  useEffect(() => {
+    const fetchListsContainingHub = async () => {
+      if (hub) {
+        const fetchedLists = await firebaseDataService.getListsContainingHub(hub.id);
+        setLists(fetchedLists);
+      }
+    };
+    if (isOpen) {
+      fetchListsContainingHub();
+    }
+  }, [isOpen, hub]);
+
 
   useEffect(() => {
     if (posts.length > 0) {
@@ -62,7 +81,7 @@ const HubModal = ({ hub, isOpen, onClose, onAddPost, onSave, onShare, showBackBu
       const liked: Record<string, boolean> = {};
       const counts: Record<string, number> = {};
       posts.forEach(post => {
-        liked[post.id] = post.likedBy?.includes(currentUser.uid) || false;
+        liked[post.id] = post.likedBy?.includes(currentUser.id) || false;
         counts[post.id] = post.likes || 0;
       });
       setLikedPosts(liked);
@@ -105,131 +124,17 @@ const HubModal = ({ hub, isOpen, onClose, onAddPost, onSave, onShare, showBackBu
   }, [isOpen])
   
   // Create a real list for Rami if this is Tartine Bakery
-  const [lists] = useState<List[]>(() => {
-    if (hub.name === 'Tartine Bakery') {
-      return [
-        {
-          id: 'rami-coffee-tour',
-          name: 'SF Coffee Tour',
-          description: 'Exploring the best coffee spots in San Francisco',
-          userId: 'rami',
-          isPublic: true,
-          isShared: true,
-          privacy: 'public' as const,
-          tags: ['coffee', 'san francisco', 'cafes'],
-          hubs: [],
-          coverImage: 'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=400&h=300&fit=crop',
-          createdAt: '2024-01-15',
-          updatedAt: '2024-01-15',
-          likes: 24,
-          isLiked: false
-        },
-        {
-          id: 'emma-favorites',
-          name: 'Emma\'s Favorites',
-          description: 'My go-to spots for coffee and pastries',
-          userId: 'emma',
-          isPublic: true,
-          isShared: true,
-          privacy: 'public' as const,
-          tags: ['coffee', 'pastries', 'breakfast'],
-          hubs: [],
-          coverImage: 'https://images.unsplash.com/photo-1509440159596-0249088772ff?w=400&h=300&fit=crop',
-          createdAt: '2024-01-10',
-          updatedAt: '2024-01-10',
-          likes: 18,
-          isLiked: true
-        }
-      ]
-    }
-    return hub.lists || []
-  })
 
 
-  // Mock user lists for save functionality
-  const userLists: List[] = [
-    {
-      id: 'all-loved',
-      name: 'All Loved',
-      description: 'All the places you\'ve loved and want to visit again',
-      userId: '1',
-      isPublic: false,
-      isShared: false,
-      privacy: 'private',
-      tags: ['loved', 'favorites', 'auto-generated'],
-      hubs: [],
-      coverImage: 'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=300&h=200&fit=crop',
-      createdAt: '2024-01-01',
-      updatedAt: '2024-01-15',
-      likes: 0,
-      isLiked: false
-    },
-    {
-      id: 'cozy-coffee-spots',
-      name: 'Cozy Coffee Spots',
-      description: 'Perfect places to work and relax with great coffee and atmosphere',
-      userId: '1',
-      isPublic: true,
-      isShared: false,
-      privacy: 'public',
-      tags: ['coffee', 'work-friendly', 'cozy'],
-      hubs: [],
-      coverImage: 'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=300&h=200&fit=crop',
-      createdAt: '2024-01-10',
-      updatedAt: '2024-01-15',
-      likes: 56,
-      isLiked: false
-    }
-  ]
+
+
 
   if (!isOpen) {
     console.log('HubModal: Not rendering because isOpen is false')
     return null
   }
 
-  const handleAddPost = (e: React.MouseEvent) => {
-    console.log('Add Post button clicked!')
-    e.stopPropagation()
-    console.log('Event propagation stopped')
-    if (onAddPost) {
-      console.log('Calling onAddPost with hub:', hub.name)
-      onAddPost(hub)
-    } else {
-      console.log('onAddPost handler is not provided')
-    }
-  }
 
-  const handleSave = (e: React.MouseEvent) => {
-    console.log('Save button clicked!')
-    e.stopPropagation()
-    console.log('Event propagation stopped')
-    if (onSave) {
-      console.log('Calling onSave with hub:', hub.name)
-      onSave(hub)
-    } else {
-      console.log('onSave handler is not provided')
-    }
-  }
-
-  const handleShare = (e: React.MouseEvent) => {
-    e.stopPropagation()
-    if (onShare) {
-      onShare(hub)
-    } else {
-      // Fallback share functionality
-      if (navigator.share) {
-        navigator.share({
-          title: hub.name,
-          text: hub.description,
-          url: window.location.href
-        })
-      } else {
-        // Fallback: copy to clipboard
-        navigator.clipboard.writeText(window.location.href)
-        alert('Link copied to clipboard!')
-      }
-    }
-  }
 
   const handleListClick = (list: List) => {
     if (onOpenList) {
@@ -245,13 +150,11 @@ const HubModal = ({ hub, isOpen, onClose, onAddPost, onSave, onShare, showBackBu
     window.location.href = `/lists?type=${listType}&hub=${hub.id}`
   }
 
-  const handleCommentsClick = () => {
-    setShowCommentsModal(true)
-  }
+
 
   const handleAddCommentToModal = async (text: string) => {
     if (!currentUser || !selectedPostForComments) return;
-    const newComment = await firebaseDataService.postComment(selectedPostForComments.id, currentUser.uid, text);
+    const newComment = await firebaseDataService.postComment(selectedPostForComments.id, currentUser.id, text);
     if (newComment) {
       setPostComments(prevComments => [newComment, ...prevComments]);
     }
@@ -274,16 +177,19 @@ const HubModal = ({ hub, isOpen, onClose, onAddPost, onSave, onShare, showBackBu
     setShowSaveToListModal(true)
   }
 
-  const handleSaveToList = (listId: string, note?: string) => {
-    // Save list logic here
-    console.log('Saving list:', listId, note)
+  const handleSaveToList = async (listId: string, note?: string) => {
+    if (!currentUser) return;
+    await firebaseDataService.savePlaceToList(hub.id, listId, currentUser.id, note);
     setShowSaveToListModal(false)
     setSelectedListForSave(null)
   }
 
-  const handleCreateList = (listData: { name: string; description: string; privacy: 'public' | 'private' | 'friends'; tags: string[] }) => {
-    // Create list logic here
-    console.log('Creating list:', listData)
+  const handleCreateList = async (listData: { name: string; description: string; privacy: 'public' | 'private' | 'friends'; tags: string[] }) => {
+    if (!currentUser) return;
+    const newListId = await firebaseDataService.createList({ ...listData, userId: currentUser.id });
+    if (newListId) {
+      await handleSaveToList(newListId);
+    }
   }
 
   const handleLikePost = async (e: React.MouseEvent, postId: string) => {
@@ -296,11 +202,10 @@ const HubModal = ({ hub, isOpen, onClose, onAddPost, onSave, onShare, showBackBu
     setLikedPosts(prev => ({ ...prev, [postId]: newLikedState }));
     setLikeCounts(prev => ({ ...prev, [postId]: newLikeCount }));
 
-    await firebaseDataService.likePost(postId, currentUser.uid);
+    await firebaseDataService.likePost(postId, currentUser.id);
   };
 
-  const [selectedPostForComments, setSelectedPostForComments] = useState<Post | null>(null);
-  const [postComments, setPostComments] = useState<PostComment[]>([]);
+
 
   const handleOpenComments = async (post: Post) => {
     const fetchedComments = await firebaseDataService.getCommentsForPost(post.id);
@@ -319,7 +224,7 @@ const HubModal = ({ hub, isOpen, onClose, onAddPost, onSave, onShare, showBackBu
 
   const handleCreateListForPost = async (listData: { name: string; description: string; privacy: 'public' | 'private' | 'friends'; tags: string[] }) => {
     if (currentUser) {
-        const newListId = await firebaseDataService.createList({ ...listData, userId: currentUser.uid });
+        const newListId = await firebaseDataService.createList({ ...listData, userId: currentUser.id });
         if (newListId && selectedPostForSave) {
             await firebaseDataService.savePostToList(selectedPostForSave.id, newListId);
         }
@@ -329,7 +234,7 @@ const HubModal = ({ hub, isOpen, onClose, onAddPost, onSave, onShare, showBackBu
   };
 
   const handlePostClick = (post: Post) => {
-    openPostModal(post.id, 'hub-modal');
+    openPostOverlay(post.id);
   };
 
   const modalContent = (
@@ -433,16 +338,13 @@ const HubModal = ({ hub, isOpen, onClose, onAddPost, onSave, onShare, showBackBu
             ) : <div></div>}
             <div className="flex items-center gap-2">
               <button
-                onClick={() => {
-                  // Full screen logic here
-                  console.log("Fullscreen clicked");
-                }}
+                onClick={() => onOpenFullScreen?.(hub)}
                 className="w-10 h-10 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center shadow-lg border border-white/30 active:scale-95 hover:shadow-xl hover:scale-105 transition-all duration-200"
               >
                 <ArrowsPointingOutIcon className="w-5 h-5 text-white" />
               </button>
               <button 
-                onClick={handleShare}
+                onClick={(e) => { e.stopPropagation(); onShare?.(hub); }}
                 className="w-10 h-10 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center shadow-lg border border-white/30 active:scale-95 hover:shadow-xl hover:scale-105 transition-all duration-200"
               >
                 <ShareIcon className="w-5 h-5 text-white" />
@@ -500,7 +402,7 @@ const HubModal = ({ hub, isOpen, onClose, onAddPost, onSave, onShare, showBackBu
 
           <div className="p-4 space-y-5 flex-1">
             {/* Action Buttons - Clean sticky positioning without background box */}
-            <div className="flex gap-2 sticky top-0 z-10 pt-2 pb-3">
+            <div className="flex gap-2 sticky top-0 z-20 pt-2 pb-3">
               <a 
                 href={hub.googleMapsUrl} 
                 target="_blank" 
@@ -512,14 +414,14 @@ const HubModal = ({ hub, isOpen, onClose, onAddPost, onSave, onShare, showBackBu
                 <ArrowRightIcon className="w-3 h-3" />
               </a>
               <button 
-                onClick={handleAddPost}
+                onClick={(e) => { e.stopPropagation(); onAddPost?.(hub); }}
                 className="flex-1 flex items-center justify-center gap-2 bg-gradient-to-r from-[#D4A574] to-[#B08968] text-[#FEF6E9] px-3 py-3 rounded-xl text-sm font-semibold shadow-lg border border-[#B08968]/30 active:scale-95 transition-all duration-200 backdrop-blur-sm"
               >
                 <PlusIcon className="w-4 h-4" />
                 Add Post
               </button>
               <button 
-                onClick={handleSave}
+                onClick={(e) => { e.stopPropagation(); onSave?.(hub); }}
                 className="flex-1 flex items-center justify-center gap-2 bg-gradient-to-r from-[#C17F59] to-[#B08968] text-[#FEF6E9] px-3 py-3 rounded-xl text-sm font-semibold shadow-lg border border-[#B08968]/30 active:scale-95 transition-all duration-200 backdrop-blur-sm"
               >
                 <BookmarkIcon className="w-4 h-4" />
@@ -617,13 +519,7 @@ const HubModal = ({ hub, isOpen, onClose, onAddPost, onSave, onShare, showBackBu
                     style={{ transform: 'rotate(15deg)' }}
                   />
                   <h3 className="text-lg font-serif font-semibold text-[#5D4A2E] mb-3">Friends' Lists</h3>
-                  <div className="italic text-[#7A5D3F] font-serif text-sm">Emma's Favorites, Mika's Coffee Spots...</div>
-                  <button 
-                    className="mt-3 text-[#B08968] text-sm font-medium font-serif"
-                    onClick={() => handleSeeAllLists('friends')}
-                  >
-                    See All
-                  </button>
+                  <div className="italic text-[#7A5D3F] font-serif text-sm">This feature is coming soon!</div>
                 </div>
 
                 {/* Comments Section */}
@@ -652,7 +548,11 @@ const HubModal = ({ hub, isOpen, onClose, onAddPost, onSave, onShare, showBackBu
                   </div>
                   <button 
                     className="w-full p-3 bg-[#fdf6e3] backdrop-blur-sm rounded-xl border border-[#E8D4C0]/40 shadow-md text-[#5D4A2E] font-serif text-sm active:scale-98 transition-all duration-200"
-                    onClick={handleCommentsClick}
+                    onClick={() => {
+                      // TODO: This should open a view of all comments for the hub,
+                      // which is not currently implemented.
+                      console.log('View all comments clicked');
+                    }}
                   >
                     View all comments
                   </button>
@@ -678,18 +578,16 @@ const HubModal = ({ hub, isOpen, onClose, onAddPost, onSave, onShare, showBackBu
                       onClick={() => handlePostClick(post)}
                     >
                       <div className="flex items-start space-x-3 mb-3">
-                        <div className="w-10 h-10 rounded-lg border border-[#E4D5C7] bg-[#FDF8F0] shadow-sm relative overflow-hidden">
-                          <img
-                            src={post.userAvatar}
-                            alt={post.username}
-                            className="w-full h-full object-cover"
-                          />
-                        </div>
+                        <img
+                          src={post.userAvatar}
+                          alt={post.username}
+                          className="w-10 h-10 rounded-full object-cover border-2 border-white shadow-sm"
+                        />
                         <div className="flex-1">
                           <div className="flex items-center space-x-2">
-                            <span className="font-serif font-semibold text-[#6B5B47] text-sm">{post.username}</span>
+                            <span className="font-sans font-bold text-sm text-[#5D4A2E]">{post.username}</span>
                           </div>
-                          <p className="text-xs text-[#8B7355] font-serif">
+                          <p className="text-xs text-[#8B7355] font-sans">
                             {formatTimestamp(post.createdAt)}
                           </p>
                         </div>
@@ -700,24 +598,24 @@ const HubModal = ({ hub, isOpen, onClose, onAddPost, onSave, onShare, showBackBu
                           {post.images.length > 1 ? (
                             <ImageCarousel 
                               images={post.images} 
-                              className="h-48"
+                              className="h-64"
                             />
                           ) : (
                             <img
                               src={post.images[0]}
                               alt="Post"
-                              className="w-full h-48 object-cover rounded-lg shadow-md"
+                              className="w-full h-64 object-cover rounded-lg shadow-md"
                             />
                           )}
-                          <div className="absolute inset-0 bg-gradient-to-t from-black/5 via-transparent to-transparent pointer-events-none"></div>
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/10 via-transparent to-transparent pointer-events-none"></div>
                         </div>
                       )}
-                      <p className="text-[#6B5B47] mb-3 leading-relaxed font-serif text-sm">{post.description}</p>
+                      <p className="text-[#6B5B47] mb-3 leading-relaxed font-sans text-sm">{post.description}</p>
                       
                       {post.tags && post.tags.length > 0 && (
                         <div className="flex flex-wrap gap-2 mb-3">
                           {post.tags.map(tag => (
-                            <span key={tag} className="px-2 py-1 bg-[#E8D4C0]/50 text-[#7A5D3F] text-xs font-medium rounded-full">
+                            <span key={tag} className="px-3 py-1 bg-[#E8D4C0]/60 text-[#7A5D3F] text-xs font-semibold rounded-full font-sans">
                               #{tag}
                             </span>
                           ))}
@@ -726,24 +624,29 @@ const HubModal = ({ hub, isOpen, onClose, onAddPost, onSave, onShare, showBackBu
 
                       <div className="flex items-center justify-between">
                         <div className="flex items-center space-x-4 text-sm text-[#8B7355]">
-                          <button onClick={(e) => handleLikePost(e, post.id)} className="flex items-center active:scale-95 transition-transform duration-200 z-20">
-                            {likedPosts[post.id] ? <SolidHeartIcon className="w-5 h-5 mr-1 text-[#FF6B6B]" /> : <HeartIcon className="w-5 h-5 mr-1 text-[#FF6B6B]" />}
-                            <span className="font-semibold">{likeCounts[post.id] || 0}</span>
+                          <button onClick={(e) => handleLikePost(e, post.id)} className="flex items-center space-x-1.5 active:scale-95 transition-transform duration-200 z-20 group">
+                            {likedPosts[post.id] ? 
+                              <SolidHeartIcon className="w-5 h-5 text-[#FF6B6B]" /> : 
+                              <HeartIcon className="w-5 h-5 text-[#A67C52] group-hover:text-[#FF6B6B]" />
+                            }
+                            <span className="font-sans font-semibold text-sm text-[#A67C52] group-hover:text-[#FF6B6B]">{likeCounts[post.id] || 0}</span>
                           </button>
-                          <button onClick={(e) => { e.stopPropagation(); handleOpenComments(post); }} className="flex items-center active:scale-95 transition-transform duration-200 text-sm font-medium text-[#A67C52] bg-[#E8D4C0]/40 px-3 py-1 rounded-md hover:bg-[#E8D4C0]/70">
-                            <ChatBubbleLeftIcon className="w-4 h-4 mr-1.5" />
-                            Reply ({post.comments?.length || 0})
-                          </button>
-                        </div>
-                                                  <button onClick={(e) => {
-                            e.stopPropagation();
-                            setSelectedPostForSave(post);
-                            setShowSavePostToListModal(true);
-                          }} className="flex items-center text-[#A67C52] text-sm font-medium font-serif active:scale-95 transition-transform duration-200">
-                            <BookmarkIcon className="w-4 h-4 mr-1" />
-                            Save
+                          <button onClick={(e) => { e.stopPropagation(); handleOpenComments(post); }} className="flex items-center space-x-1.5 active:scale-95 transition-transform duration-200 text-sm font-medium text-[#A67C52] group">
+                            <ChatBubbleLeftIcon className="w-5 h-5 text-[#A67C52] group-hover:text-[#8B7355]" />
+                            <span className="font-sans font-semibold text-sm text-[#A67C52] group-hover:text-[#8B7355]">
+                              {post.comments?.length || 0}
+                            </span>
                           </button>
                         </div>
+                        <button onClick={(e) => {
+                           e.stopPropagation();
+                           setSelectedPostForSave(post);
+                           setShowSavePostToListModal(true);
+                         }} className="flex items-center space-x-1.5 text-[#A67C52] font-medium font-sans active:scale-95 transition-transform duration-200 group">
+                          <BookmarkIcon className="w-5 h-5 text-[#A67C52] group-hover:text-[#8B7355]" />
+                           <span className="font-sans font-semibold text-sm text-[#A67C52] group-hover:text-[#8B7355]">Save</span>
+                         </button>
+                       </div>
                     </div>
                   ))
                 ) : (
@@ -765,55 +668,7 @@ const HubModal = ({ hub, isOpen, onClose, onAddPost, onSave, onShare, showBackBu
     <>
       {createPortal(modalContent, document.body)}
       
-      {/* Comments Modal */}
-      {selectedPostForComments && (
-      <CommentsModal
-        isOpen={showCommentsModal}
-        onClose={() => setShowCommentsModal(false)}
-        comments={postComments}
-        onAddComment={handleAddCommentToModal}
-        onLikeComment={handleLikeComment}
-        onReplyToComment={handleReplyToComment}
-      />
-      )}
 
-      {/* Save to List Modal */}
-      {selectedListForSave && (
-        <SaveToListModal
-            isOpen={showSaveToListModal}
-            onClose={() => {
-            setShowSaveToListModal(false)
-            setSelectedListForSave(null)
-            }}
-            place={{
-                id: selectedListForSave.id,
-                name: selectedListForSave.name,
-                address: '',
-                tags: selectedListForSave.tags,
-                posts: [],
-                savedCount: 0,
-                createdAt: selectedListForSave.createdAt || '',
-                hubImage: selectedListForSave.coverImage || '',
-            }}
-            userLists={userLists}
-            onSave={handleSaveToList}
-            onCreateList={handleCreateList}
-        />
-      )}
-
-      {/* Save Post to List Modal */}
-      {selectedPostForSave && (
-        <SavePostToListModal
-          isOpen={showSavePostToListModal}
-          onClose={() => {
-            setShowSavePostToListModal(false);
-            setSelectedPostForSave(null);
-          }}
-          post={selectedPostForSave}
-          onSave={handleSavePostToList}
-          onCreateList={handleCreateListForPost}
-        />
-      )}
     </>
   )
 }

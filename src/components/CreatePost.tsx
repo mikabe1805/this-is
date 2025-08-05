@@ -1,92 +1,12 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { XMarkIcon, CameraIcon, MapPinIcon, TagIcon, EyeIcon, EyeSlashIcon, UsersIcon, PhotoIcon, MagnifyingGlassIcon, ArrowLeftIcon } from '@heroicons/react/24/outline'
 import { createPortal } from 'react-dom'
 import { firebaseDataService } from '../services/firebaseDataService'
+import { useAuth } from '../contexts/AuthContext'
+import type { List } from '../types'
 
-// Mock EXIF extraction (replace with real library if needed)
-async function extractLocationFromImage(file: File): Promise<{ lat: number, lng: number } | null> {
-  // In a real app, use exif-js or piexifjs to extract GPS
-  // Here, we mock: if filename contains 'oakland', return Oakland coords
-  if (file.name.toLowerCase().includes('oakland')) {
-    return { lat: 37.8044, lng: -122.2712 }
-  }
-  // Mock: if filename contains 'sf', return San Francisco coords
-  if (file.name.toLowerCase().includes('sf') || file.name.toLowerCase().includes('san francisco')) {
-    return { lat: 37.7749, lng: -122.4194 }
-  }
-  // Mock: if filename contains 'berkeley', return Berkeley coords
-  if (file.name.toLowerCase().includes('berkeley')) {
-    return { lat: 37.8715, lng: -122.2730 }
-  }
-  return null
-}
 
-// Enhanced location extraction that tries multiple images
-async function extractLocationFromImages(files: File[]): Promise<{ lat: number, lng: number } | null> {
-  for (const file of files) {
-    const location = await extractLocationFromImage(file)
-    if (location) {
-      return location
-    }
-  }
-  return null
-}
 
-// Detect if an image is likely a screenshot
-async function detectScreenshot(file: File): Promise<boolean> {
-  return new Promise((resolve) => {
-    const img = new Image()
-    const canvas = document.createElement('canvas')
-    const ctx = canvas.getContext('2d')
-    
-    img.onload = () => {
-      canvas.width = img.width
-      canvas.height = img.height
-      ctx?.drawImage(img, 0, 0)
-      
-      const imageData = ctx?.getImageData(0, 0, canvas.width, canvas.height)
-      if (!imageData) {
-        resolve(false)
-        return
-      }
-      
-      const data = imageData.data
-      let textPixels = 0
-      let totalPixels = data.length / 4
-      
-      // Check for high contrast pixels (likely text)
-      for (let i = 0; i < data.length; i += 4) {
-        const r = data[i]
-        const g = data[i + 1]
-        const b = data[i + 2]
-        
-        // Check if pixel is very dark or very light (text-like)
-        const brightness = (r + g + b) / 3
-        if (brightness < 50 || brightness > 200) {
-          textPixels++
-        }
-      }
-      
-      // If more than 30% of pixels are high contrast, likely a screenshot
-      const textRatio = textPixels / totalPixels
-      resolve(textRatio > 0.3)
-    }
-    
-    img.onerror = () => resolve(false)
-    img.src = URL.createObjectURL(file)
-  })
-}
-
-// Enhanced screenshot detection for multiple images
-async function detectScreenshots(files: File[]): Promise<boolean> {
-  for (const file of files) {
-    const isScreenshot = await detectScreenshot(file)
-    if (isScreenshot) {
-      return true
-    }
-  }
-  return false
-}
 
 interface CreatePostProps {
   isOpen: boolean
@@ -105,6 +25,7 @@ interface CreatePostHub {
 }
 
 const CreatePost = ({ isOpen, onClose, preSelectedHub, preSelectedListIds }: CreatePostProps) => {
+  const { currentUser } = useAuth()
   const [step, setStep] = useState<'photo' | 'location' | 'details'>('photo')
   const [photos, setPhotos] = useState<File[]>([])
   const [extractedLocation, setExtractedLocation] = useState<{ lat: number, lng: number } | null>(null)
@@ -127,31 +48,29 @@ const CreatePost = ({ isOpen, onClose, preSelectedHub, preSelectedListIds }: Cre
   const [privacy, setPrivacy] = useState<'public' | 'friends' | 'private'>('public')
   const [selectedListIds, setSelectedListIds] = useState<Set<string>>(new Set(preSelectedListIds || []))
   const [listSearchQuery, setListSearchQuery] = useState('')
+  const [userLists, setUserLists] = useState<List[]>([])
   const fileInputRef = useRef<HTMLInputElement>(null)
   const photoInputRef = useRef<HTMLInputElement>(null)
 
-  // Mock data
-  const availableTags = ['cozy', 'trendy', 'quiet', 'local', 'charming', 'authentic', 'chill', 'work-friendly', 'romantic', 'family-friendly']
-  const userLists = [
-    { id: '4', name: 'Coffee Spots' },
-    { id: '5', name: 'Book Nooks' },
-    { id: '6', name: 'Vegan Eats' },
-    { id: '7', name: 'Date Night Spots' },
-    { id: '8', name: 'Work Cafes' },
-    { id: '9', name: 'Quick Bites' },
-    { id: '10', name: 'Outdoor Dining' },
-    { id: '11', name: 'Hidden Gems' },
-  ]
+  useEffect(() => {
+    const fetchLists = async () => {
+      if (currentUser) {
+        const lists = await firebaseDataService.getUserLists(currentUser.id);
+        setUserLists(lists);
+      }
+    };
+    if (isOpen) {
+      fetchLists();
+    }
+  }, [isOpen, currentUser]);
 
+  const availableTags = ['cozy', 'trendy', 'quiet', 'local', 'charming', 'authentic', 'chill', 'work-friendly', 'romantic', 'family-friendly']
+  
   // Filter lists based on search query
   const filteredLists = userLists.filter(list =>
     list.name.toLowerCase().includes(listSearchQuery.toLowerCase())
   )
-  const mockSearchResults: CreatePostHub[] = [
-    { id: '1', name: 'Blue Bottle Coffee', address: '300 Webster St, Oakland, CA', lat: 37.8044, lng: -122.2712 },
-    { id: '2', name: 'Tacos El Gordo', address: '123 Mission St, San Francisco, CA', lat: 37.7749, lng: -122.4194 },
-    { id: '3', name: 'Golden Gate Park', address: 'San Francisco, CA', lat: 37.7694, lng: -122.4862 },
-  ]
+
 
   // Step 1: Photo upload/take
   const handlePhotoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -177,9 +96,8 @@ const CreatePost = ({ isOpen, onClose, preSelectedHub, preSelectedListIds }: Cre
         if (selectedHub) {
           setStep('details')
         } else if (loc) {
-          // Try to guess hub if location found
-          const guess = mockSearchResults.find(hub => Math.abs(hub.lat! - loc.lat) < 0.1 && Math.abs(hub.lng! - loc.lng) < 0.1)
-          if (guess) setHubGuess(guess)
+          // If location is found, move to location step for user confirmation/selection
+          setStep('location');
         }
       }
     }
@@ -202,17 +120,20 @@ const CreatePost = ({ isOpen, onClose, preSelectedHub, preSelectedListIds }: Cre
     setSelectedHub(null)
     setHubConfirmed(false)
   }
-  const handleLocationSearch = (query: string) => {
+  const handleLocationSearch = async (query: string) => {
     setLocationSearch(query)
     if (query.length > 2) {
       setIsSearching(true)
-      setTimeout(() => {
-        setSearchResults(mockSearchResults.filter(hub => 
-          hub.name.toLowerCase().includes(query.toLowerCase()) ||
-          hub.address.toLowerCase().includes(query.toLowerCase())
-        ))
-        setIsSearching(false)
-      }, 500)
+      const results = await firebaseDataService.performSearch(query, { category: 'hubs' }, 10);
+      setSearchResults(results.places.map(p => ({
+        id: p.id,
+        name: p.name,
+        address: p.address,
+        description: p.description,
+        lat: p.coordinates?.lat,
+        lng: p.coordinates?.lng,
+      })));
+      setIsSearching(false)
     } else {
       setSearchResults([])
     }
@@ -247,34 +168,30 @@ const CreatePost = ({ isOpen, onClose, preSelectedHub, preSelectedListIds }: Cre
     setTags(prev => prev.filter(tag => tag !== tagToRemove))
   }
   const handleSubmit = async () => {
+    if (!currentUser) return;
+
     try {
-      // Create post data
       const postData = {
-        userId: 'current-user', // In real app, get from auth context
+        userId: currentUser.id,
         hubId: selectedHub?.id || '',
         description,
-        images: photos.map(p => p.preview), // In real app, upload to Firebase Storage first
+        images: photos,
         tags,
         privacy,
-        howWasIt,
-        triedFeeling: howWasIt === 'tried' ? triedFeeling : undefined,
+        postType: howWasIt,
+        triedRating: howWasIt === 'tried' ? triedFeeling : undefined,
         listIds: Array.from(selectedListIds),
         location: extractedLocation
-      }
+      };
       
-      // Save post to database (placeholder - firebaseDataService would need a createPost method)
-      await firebaseDataService.trackUserInteraction(
-        'current-user',
-        'create_post',
-        postData
-      )
+      await firebaseDataService.createPost(postData);
       
-      console.log('✅ Post created successfully:', postData)
-      onClose()
+      console.log('✅ Post created successfully:', postData);
+      handleClose();
     } catch (error) {
-      console.error('❌ Error creating post:', error)
+      console.error('❌ Error creating post:', error);
       // Still close modal but show user an error
-      onClose()
+      handleClose();
     }
   }
   const resetForm = () => {

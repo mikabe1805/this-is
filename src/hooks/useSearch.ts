@@ -23,7 +23,7 @@ export const useSearch = () => {
       }
       try {
         setContextLoading(true);
-        const context = await firebaseDataService.buildSearchContext(authUser.uid);
+        const context = await firebaseDataService.buildSearchContext(authUser.id);
         setSearchContext(context);
       } catch (err) {
         console.error("Failed to build search context:", err);

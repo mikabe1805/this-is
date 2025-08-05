@@ -31,6 +31,7 @@ const BotanicalAccent = () => (
 interface FriendActivity {
   id: string
   user: {
+    id: string
     name: string
     avatar: string
   }
@@ -152,6 +153,7 @@ const Home = () => {
         const fallbackActivities: FriendActivity[] = searchData.posts.slice(0, 8).map(post => ({
           id: post.id,
           user: {
+            id: post.userId,
             name: post.username || 'User',
             avatar: post.userAvatar || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&h=150&fit=crop&crop=face'
           },
@@ -177,6 +179,7 @@ const Home = () => {
           const transformedActivities: FriendActivity[] = friendActivity.map(activity => ({
             id: activity.id,
             user: {
+              id: friend.id,
               name: friend.name,
               avatar: friend.avatar || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&h=150&fit=crop&crop=face'
             },
@@ -573,9 +576,8 @@ const Home = () => {
     openHubModal(hub, 'list-modal')
   }
 
-  const handleUserClick = (user: User) => {
-    setSelectedUser(user)
-    setShowProfileModal(true)
+  const handleUserClick = (userId: string) => {
+    openProfileModal(userId, 'home-activity-feed')
   }
 
   const handleHubModalOpenList = (list: List) => {
@@ -689,19 +691,7 @@ const Home = () => {
                         <span
                           onClick={(e) => {
                             e.stopPropagation()
-                            handleUserClick({
-                              id: activity.user.name.toLowerCase().replace(' ', '.'),
-                              name: activity.user.name,
-                              username: activity.user.name.toLowerCase().replace(' ', '.'),
-                              avatar: activity.user.avatar,
-                              bio: activity.user.name === 'Emma' ? 'Finding cozy spots and sharing them with friends ✨' : 
-                                   activity.user.name === 'Rami' ? 'Coffee enthusiast and food lover' :
-                                   activity.user.name === 'Sophie' ? 'Exploring hidden gems and local favorites' : '',
-                              location: 'San Francisco, CA',
-                              tags: activity.user.name === 'Emma' ? ['cozy', 'coffee', 'foodie', 'local'] :
-                                    activity.user.name === 'Rami' ? ['coffee', 'artisan', 'tacos', 'authentic'] :
-                                    activity.user.name === 'Sophie' ? ['hidden-gems', 'local', 'authentic', 'charming'] : []
-                            })
+                            handleUserClick(activity.user.id)
                           }}
                           className="font-semibold text-charcoal-800 hover:text-sage-600 transition-colors cursor-pointer"
                         >

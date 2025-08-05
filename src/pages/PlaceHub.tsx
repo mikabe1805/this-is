@@ -12,112 +12,10 @@ import { useNavigation } from '../contexts/NavigationContext.tsx'
 import { useAuth } from '../contexts/AuthContext.tsx'
 import { firebaseDataService } from '../services/firebaseDataService.js'
 
-const mockHub: Hub = {
-  id: '1',
-  name: 'Blue Bottle Coffee',
-  description: 'A cozy spot for coffee lovers and remote workers. Known for its oat milk lattes and minimalist decor.',
-  tags: ['coffee', 'cozy', 'work-friendly', 'artisan', 'oakland'],
-  images: [
-    'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=400&h=300&fit=crop',
-    'https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?w=400&h=300&fit=crop',
-  ],
-  location: {
-    address: '300 Webster St, Oakland, CA',
-    lat: 37.7749,
-    lng: -122.4194,
-  },
-  googleMapsUrl: 'https://www.google.com/maps/dir/?api=1&destination=300+Webster+St,+Oakland,+CA',
-  mainImage: 'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=400&h=300&fit=crop',
-  posts: [], // Will fill below
-  lists: [], // Will fill below
-}
-
-const mockPosts: Post[] = [
-  {
-    id: '1',
-    hubId: '1',
-    userId: '1',
-    username: 'Sara Chen',
-    userAvatar: 'https://images.unsplash.com/photo-1494790108755-2616b612b786?w=150&h=150&fit=crop&crop=face',
-    images: ['https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=300&h=200&fit=crop'],
-    description: 'Perfect spot for morning meetings! The oat milk latte is incredible and the atmosphere is so cozy.',
-    postType: 'loved',
-    createdAt: '2024-01-15T10:30:00Z',
-    privacy: 'public',
-    listId: '1',
-    likes: 12,
-    likedBy: ['2'],
-    comments: [
-      {
-        id: '1',
-        userId: '2',
-        username: 'Alex Rivera',
-        userAvatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=150&fit=crop&crop=face',
-        text: 'The oat milk latte is amazing! I love the atmosphere here too.',
-        createdAt: '2024-01-15T11:00:00Z',
-        likes: 3,
-        likedBy: ['1'],
-        replies: [
-          {
-            id: '1-1',
-            userId: '1',
-            username: 'Sara Chen',
-            userAvatar: 'https://images.unsplash.com/photo-1494790108755-2616b612b786?w=150&h=150&fit=crop&crop=face',
-            text: 'Right? It\'s my go-to spot now!',
-            createdAt: '2024-01-15T11:30:00Z',
-            likes: 1,
-            likedBy: ['2']
-          }
-        ]
-      },
-      {
-        id: '2',
-        userId: '3',
-        username: 'Emma Wilson',
-        userAvatar: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=150&h=150&fit=crop&crop=face',
-        text: 'I need to try this place! How\'s the wifi for working?',
-        createdAt: '2024-01-15T12:00:00Z',
-        likes: 2,
-        likedBy: ['1']
-      }
-    ],
-  },
-  {
-    id: '2',
-    hubId: '1',
-    userId: '2',
-    username: 'Alex Rivera',
-    userAvatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=150&fit=crop&crop=face',
-    images: ['https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?w=400&h=300&fit=crop'],
-    description: 'Love the pour-over coffee here. Great place to work remotely.',
-    postType: 'tried',
-    triedRating: 'liked',
-    createdAt: '2024-01-14T15:20:00Z',
-    privacy: 'public',
-    listId: '2',
-    likes: 8,
-    likedBy: ['1'],
-    comments: [
-      {
-        id: '3',
-        userId: '1',
-        username: 'Sara Chen',
-        userAvatar: 'https://images.unsplash.com/photo-1494790108755-2616b612b786?w=150&h=150&fit=crop&crop=face',
-        text: 'The pour-over is definitely worth the wait!',
-        createdAt: '2024-01-14T16:00:00Z',
-        likes: 4,
-        likedBy: ['2']
-      }
-    ],
-  },
-]
-
-mockHub.posts = mockPosts
-
 const PlaceHub = () => {
   const { goBack } = useNavigation()
   const { currentUser: authUser } = useAuth()
-  const { placeId } = useParams<{ placeId: string }>()
+  const { id } = useParams<{ id: string }>()
   const [tab, setTab] = useState<'overview' | 'posts'>('overview')
   const [showCreatePost, setShowCreatePost] = useState(false)
   const [showSaveModal, setShowSaveModal] = useState(false)
@@ -132,25 +30,26 @@ const PlaceHub = () => {
   // Real data state
   const [hub, setHub] = useState<Hub | null>(null)
   const [posts, setPosts] = useState<Post[]>([])
+  const [userLists, setUserLists] = useState<List[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const navigate = useNavigate()
 
   // Load real hub data from Firebase
   useEffect(() => {
-    const loadHubData = async () => {
-      if (!placeId) {
-        setError('No place ID provided')
-        setLoading(false)
-        return
-      }
+    if (!id) {
+      setError('No place ID provided');
+      setLoading(false);
+      return;
+    }
 
+    const loadHubData = async () => {
       try {
         setLoading(true)
         setError('')
         
         // Get place data from Firebase
-        const place = await firebaseDataService.getPlace(placeId)
+        const place = await firebaseDataService.getPlace(id)
         if (!place) {
           setError('Place not found')
           setLoading(false)
@@ -186,7 +85,17 @@ const PlaceHub = () => {
     }
 
     loadHubData()
-  }, [placeId])
+  }, [id])
+
+  useEffect(() => {
+    const fetchUserLists = async () => {
+      if (authUser) {
+        const lists = await firebaseDataService.getUserLists(authUser.id);
+        setUserLists(lists);
+      }
+    };
+    fetchUserLists();
+  }, [authUser]);
 
   const handleLikePost = (postId: string) => {
     setLikedPosts(prev => {
@@ -221,22 +130,47 @@ const PlaceHub = () => {
     setShowSaveModal(true)
   }
 
-  const handleSave = (status: 'loved' | 'tried' | 'want', rating?: 'liked' | 'neutral' | 'disliked', listIds?: string[], note?: string) => {
-    // In a real app, this would save the place with the selected status
+  const handleSave = async (status: 'loved' | 'tried' | 'want', rating?: 'liked' | 'neutral' | 'disliked', listIds?: string[], note?: string) => {
+    if (!selectedPlace || !authUser) return;
+
+    if (listIds && listIds.length > 0) {
+      await Promise.all(
+        listIds.map(listId => 
+          firebaseDataService.savePlaceToList(selectedPlace.id, listId, authUser.id, note)
+        )
+      );
+    }
+    
+    // Also handle top-level status saves (loved, tried, want) if necessary
+    // This part of the data model seems to be handled by lists, but if you have a separate
+    // 'user_saves' collection or similar, the logic would go here.
     console.log('Saving place:', { 
       place: selectedPlace, 
       status, 
       rating, 
       listIds, 
-      note
-    })
+      note 
+    });
+
     setShowSaveModal(false)
     setSelectedPlace(null)
   }
 
-  const handleCreateList = (listData: { name: string; description: string; privacy: 'public' | 'private' | 'friends'; tags?: string[]; coverImage?: string }) => {
-    // In a real app, this would create a new list and save the place to it
-    console.log('Creating new list:', listData, 'and saving place:', selectedPlace)
+  const handleCreateList = async (listData: { name: string; description: string; privacy: 'public' | 'private' | 'friends'; tags?: string[]; coverImage?: string }) => {
+    if (!selectedPlace || !authUser) return;
+    
+    const newListId = await firebaseDataService.createList({
+      ...listData,
+      userId: authUser.id,
+    });
+
+    if (newListId) {
+      await firebaseDataService.savePlaceToList(selectedPlace.id, newListId, authUser.id);
+      // Refresh user lists
+      const lists = await firebaseDataService.getUserLists(authUser.id);
+      setUserLists(lists);
+    }
+
     setShowSaveModal(false)
     setSelectedPlace(null)
   }
@@ -558,8 +492,16 @@ const PlaceHub = () => {
                   filter: 'brightness(0.9) contrast(0.8) saturate(1.1) hue-rotate(5deg)'
                 }}
               />
-              <h3 className="text-lg font-serif font-semibold text-[#5D4A2E] mb-3">Popular Lists</h3>
-              <div className="italic text-[#7A5D3F] font-serif text-sm">Book Nooks, All Loved, SF Coffee Tour...</div>
+              <h3 className="text-lg font-serif font-semibold text-[#5D4A2E] mb-3">Lists Featuring This Place</h3>
+              {hub.lists && hub.lists.length > 0 ? (
+                <div className="space-y-2">
+                  {hub.lists.slice(0, 3).map(list => (
+                    <div key={list.id} className="text-[#7A5D3F] font-serif text-sm">- {list.name}</div>
+                  ))}
+                </div>
+              ) : (
+                <div className="italic text-[#7A5D3F] font-serif text-sm">No public lists feature this place yet.</div>
+              )}
               <button 
                 onClick={handleViewAllLists}
                 className="mt-3 text-[#B08968] text-sm font-medium font-serif"
@@ -568,27 +510,7 @@ const PlaceHub = () => {
               </button>
             </div>
 
-            {/* Friends' Lists */}
-            <div className="bg-[#E8D4C0]/20 backdrop-blur-sm rounded-xl p-4 border border-[#E8D4C0]/40 shadow-lg relative">
-              {/* Mobile-optimized floating leaf accent */}
-              <img
-                src="/assets/leaf.png"
-                alt=""
-                className="absolute top-1 sm:top-2 left-2 sm:left-3 w-5 h-5 sm:w-6 sm:h-6 opacity-10 sm:opacity-12 md:opacity-15 pointer-events-none transition-transform duration-300"
-                style={{
-                  transform: 'rotate(-20deg) scale(0.6)',
-                  filter: 'brightness(0.9) contrast(0.8) saturate(1.1) hue-rotate(-3deg)'
-                }}
-              />
-              <h3 className="text-lg font-serif font-semibold text-[#5D4A2E] mb-3">Friends' Lists</h3>
-              <div className="italic text-[#7A5D3F] font-serif text-sm">Emma's Favorites, Mika's Coffee Spots...</div>
-              <button 
-                onClick={handleViewAllFriendsLists}
-                className="mt-3 text-[#B08968] text-sm font-medium font-serif"
-              >
-                See All
-              </button>
-            </div>
+
 
             {/* Comments Section */}
             <div className="bg-[#E8D4C0]/20 backdrop-blur-sm rounded-xl p-4 border border-[#E8D4C0]/40 shadow-lg relative">
@@ -730,7 +652,7 @@ const PlaceHub = () => {
             setSelectedPlace(null)
           }}
           place={selectedPlace}
-          userLists={[]} // TODO: Add real user lists
+          userLists={userLists}
           onSave={handleSave}
           onCreateList={handleCreateList}
         />
@@ -750,7 +672,7 @@ const PlaceHub = () => {
           onAddComment={handleAddComment}
           onLikeComment={handleLikeComment}
           onReplyToComment={handleReplyToComment}
-          currentUserId="1" // TODO: Get from auth context
+          currentUserId={authUser?.id}
         />
       )}
 

@@ -2,6 +2,8 @@ import { collection, doc, getDoc, getDocs, setDoc, updateDoc, query, where, orde
 import { db } from '../firebase/config'
 import type { User, Place, List, Post, PostComment, Activity } from '../types'
 import { auth } from '../firebase/config'
+import { firebaseStorageService } from './firebaseStorageService'
+
 
 
 export interface SearchContext {
@@ -73,6 +75,14 @@ class FirebaseDataService {
     } catch (error) {
       console.error('Error fetching current user:', error)
       return null
+    }
+  }
+
+  async createUser(user: User): Promise<void> {
+    try {
+      await setDoc(doc(db, 'users', user.id), user);
+    } catch (error) {
+      console.error('Error creating user:', error);
     }
   }
 
@@ -908,7 +918,19 @@ class FirebaseDataService {
         orderBy('createdAt', 'desc')
       );
       const commentsSnapshot = await getDocs(commentsQuery);
-      return commentsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as PostComment[];
+      
+      const comments = await Promise.all(commentsSnapshot.docs.map(async doc => {
+        const commentData = doc.data() as PostComment;
+        const user = await this.getCurrentUser(commentData.userId);
+        return {
+          id: doc.id,
+          ...commentData,
+          username: user?.username || 'Unknown User',
+          userAvatar: user?.avatar || ''
+        };
+      }));
+
+      return comments;
     } catch (error) {
       console.error('Error fetching comments for post:', error);
       return [];
@@ -996,6 +1018,40 @@ class FirebaseDataService {
     }
   }
 
+  async createPost(postData: Omit<Post, 'id' | 'createdAt' | 'images'> & { images: File[] }): Promise<string | null> {
+    try {
+      const newPostRef = doc(collection(db, 'posts'));
+      const postId = newPostRef.id;
+
+      const imageUrls = await firebaseStorageService.uploadPostImages(postId, postData.images);
+
+      const finalPostData: Post = {
+        ...postData,
+        id: postId,
+        images: imageUrls,
+        createdAt: new Date().toISOString(),
+        likes: 0,
+        likedBy: [],
+        commentCount: 0,
+      };
+
+      await setDoc(newPostRef, finalPostData);
+
+      // If the post is associated with lists, update those lists
+      if (postData.listIds && postData.listIds.length > 0) {
+        for (const listId of postData.listIds) {
+          await this.savePostToList(postId, listId);
+        }
+      }
+      
+      return postId;
+    } catch (error) {
+      console.error('Error creating post:', error);
+      return null;
+    }
+  }
+
+
   async likeList(listId: string, userId: string): Promise<void> {
     const listRef = doc(db, 'lists', listId);
     const listSnap = await getDoc(listRef);
@@ -1052,6 +1108,29 @@ class FirebaseDataService {
     }
   }
 
+  async savePlaceToList(placeId: string, listId: string, userId: string, note?: string): Promise<void> {
+    const listRef = doc(db, 'lists', listId);
+
+    try {
+      const listDoc = await getDoc(listRef);
+      if (!listDoc.exists()) {
+        throw new Error(`List with id ${listId} does not exist.`);
+      }
+
+      const listPlacesRef = collection(listRef, 'places');
+      await setDoc(doc(listPlacesRef, placeId), { 
+        placeId: placeId,
+        addedBy: userId,
+        note: note || '',
+        addedAt: Timestamp.now()
+      });
+
+      console.log(`Place ${placeId} successfully saved to list ${listId}`);
+    } catch (error) {
+      console.error('Error saving place to list:', error);
+    }
+  }
+
   async createList(listData: { name: string; description: string; privacy: 'public' | 'private' | 'friends'; tags: string[], userId: string }): Promise<string | null> {
     try {
       const newListRef = doc(collection(db, 'lists'));
@@ -1073,6 +1152,10 @@ class FirebaseDataService {
   }
 
   async getUserLists(userId: string): Promise<List[]> {
+    if (!userId) {
+      console.warn('getUserLists called with undefined userId');
+      return [];
+    }
     try {
       const listsQuery = query(
         collection(db, 'lists'),
@@ -1083,6 +1166,20 @@ class FirebaseDataService {
       return listsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as List[];
     } catch (error) {
       console.error('Error fetching user lists:', error);
+      return [];
+    }
+  }
+
+  async getListsContainingHub(hubId: string): Promise<List[]> {
+    try {
+      const listsQuery = query(
+        collection(db, 'lists'),
+        where('hubs', 'array-contains', hubId)
+      );
+      const listsSnapshot = await getDocs(listsQuery);
+      return listsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as List[];
+    } catch (error) {
+      console.error('Error fetching lists containing hub:', error);
       return [];
     }
   }

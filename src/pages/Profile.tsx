@@ -72,7 +72,7 @@ const Profile = () => {
       if (!authUser) return
       
       try {
-        const activity = await firebaseDataService.getUserActivity(authUser.uid, 20)
+        const activity = await firebaseDataService.getUserActivity(authUser.id, 20)
         setActivityItems(activity)
       } catch (error) {
         console.error('Error loading user activity:', error)
@@ -117,10 +117,10 @@ const Profile = () => {
         setLoading(true)
         
         const [userProfile, lists, savedPlaces, followers] = await Promise.all([
-          firebaseDataService.getCurrentUser(authUser.uid),
-          firebaseDataService.getUserLists(authUser.uid),
-          firebaseDataService.getSavedPlaces(authUser.uid),
-          firebaseDataService.getFollowers(authUser.uid)
+          firebaseDataService.getCurrentUser(authUser.id),
+          firebaseDataService.getUserLists(authUser.id),
+          firebaseDataService.getSavedPlaces(authUser.id),
+          firebaseDataService.getFollowers(authUser.id)
         ]);
 
         if (userProfile) {
@@ -577,7 +577,7 @@ const Profile = () => {
             onSubmit={e => {
               e.preventDefault()
               if (!commentInput.trim() || !currentUser || !authUser) return
-              firebaseDataService.postProfileComment(currentUser.id, authUser.uid, commentInput);
+              firebaseDataService.postProfileComment(currentUser.id, authUser.id, commentInput);
               setCommentInput('')
             }}
             className="flex items-center gap-3 p-4 bg-linen-50 rounded-xl border border-linen-200"

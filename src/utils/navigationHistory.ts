@@ -8,7 +8,7 @@ export interface NavigationState {
 }
 
 class NavigationHistory {
-  private history: NavigationState[] = []
+  public history: NavigationState[] = []
   private maxHistory = 10
 
   push(state: Omit<NavigationState, 'timestamp'>) {
@@ -43,6 +43,10 @@ class NavigationHistory {
   clear() {
     this.history = []
     localStorage.removeItem('navigationHistory')
+  }
+
+  getHistory(): NavigationState[] {
+    return this.history;
   }
 
   // Load history from localStorage on app start

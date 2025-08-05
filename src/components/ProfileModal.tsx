@@ -27,9 +27,9 @@ const ProfileModal = ({ userId, isOpen, onClose, onFollow, onShare, onOpenFullSc
   const [lists, setLists] = useState<List[]>([]);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate()
-  const { openPostModal, openListModal } = useNavigation();
+  const { openPostOverlay, openListModal, showPostOverlay } = useNavigation();
   const [isFollowing, setIsFollowing] = useState(false)
-  const [activeTab, setActiveTab] = useState<'posts' | 'lists'>('posts');
+  const [activeTab, setActiveTab] = useState<'posts' | 'lists'>('lists');
   const [isVisible, setIsVisible] = useState(false)
   const modalRef = useRef<HTMLDivElement>(null)
   
@@ -89,8 +89,10 @@ const ProfileModal = ({ userId, isOpen, onClose, onFollow, onShare, onOpenFullSc
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (modalRef.current && !modalRef.current.contains(event.target as Node)) {
-        onClose()
+      if (modalRef.current && !modalRef.current.contains(event.target as Node) && !showPostOverlay) {
+        if (typeof onClose === 'function') {
+          onClose()
+        }
       }
     }
     if (isOpen) {
@@ -99,7 +101,7 @@ const ProfileModal = ({ userId, isOpen, onClose, onFollow, onShare, onOpenFullSc
     return () => {
       document.removeEventListener('mousedown', handleClickOutside)
     }
-  }, [isOpen, onClose])
+  }, [isOpen, onClose, showPostOverlay])
 
 
   const handleFollow = (e: React.MouseEvent) => {
@@ -125,7 +127,7 @@ const ProfileModal = ({ userId, isOpen, onClose, onFollow, onShare, onOpenFullSc
   }
 
   const handlePostClick = (postId: string) => {
-    openPostModal(postId, 'profile-modal');
+    openPostOverlay(postId);
   };
 
   const handleListClick = (list: List) => {
@@ -249,7 +251,7 @@ const ProfileModal = ({ userId, isOpen, onClose, onFollow, onShare, onOpenFullSc
         </div>
         
         {/* Scrolling Content with Refined Botanical Accents */}
-        <div className="overflow-y-auto flex-1 pt-16 relative bg-[rgba(255,255,255,0.05)] backdrop-blur-[10px]">
+        <div className="overflow-y-auto flex-1 pt-16 pb-8 relative bg-[rgba(255,255,255,0.12)] backdrop-blur-[12px]">
           {/* Strategic scrolling leaf accents */}
           <img src="/assets/leaf3.png" alt="" className="absolute top-16 right-[-1rem] w-16 opacity-8 pointer-events-none blur-[1px]" style={{ transform: 'rotate(-12deg)' }} />
           <img src="/assets/leaf.png" alt="" className="absolute top-48 left-[-0.5rem] w-14 opacity-7 pointer-events-none blur-[1.2px]" style={{ transform: 'rotate(20deg)' }} />
@@ -267,19 +269,19 @@ const ProfileModal = ({ userId, isOpen, onClose, onFollow, onShare, onOpenFullSc
               <div className="p-6">
                 {/* User Info */}
                 <div className="text-center">
-                  <h3 className="text-3xl font-bold font-serif text-[#FAF3E3] drop-shadow-[1px_1px_2px_rgba(255,250,240,0.8)]">{user.name}</h3>
-                  <p className="text-sm text-[#FAF3E3]/80 mb-1">@{user.username}</p>
+                  <h3 className="text-3xl font-bold text-[#FDF6E3] drop-shadow-[1px_1px_2px_rgba(255,250,240,0.8)]" style={{ fontFamily: "'Inter', system-ui, sans-serif" }}>{user.name}</h3>
+                  <p className="text-sm text-[#FDF6E3] mb-1" style={{ fontFamily: "'Inter', system-ui, sans-serif" }}>@{user.username}</p>
                   {user.location && (
-                    <div className="flex items-center justify-center gap-1 text-sm text-[#FAF3E3]/80 mb-2">
+                    <div className="flex items-center justify-center gap-1 text-sm text-[#FDF6E3] mb-2">
                       <MapPinIcon className="w-4 h-4" />
                       <span>{user.location as any}</span>
                     </div>
                   )}
-                  {user.bio && <p className="leading-relaxed font-serif max-w-md mx-auto my-4 text-[#FAF3E3]/90">{user.bio}</p>}
+                  {user.bio && <p className="leading-relaxed max-w-md mx-auto my-4 text-[#FDF6E3]" style={{ fontFamily: "'Inter', system-ui, sans-serif" }}>{user.bio}</p>}
           {user.tags && user.tags.length > 0 && (
                     <div className="flex flex-wrap justify-center gap-2 mb-4">
                 {user.tags.map((tag) => (
-                        <span key={tag} className="px-3 py-1.5 bg-[rgba(255,255,255,0.1)] backdrop-blur-sm rounded-xl text-sm font-medium border border-white/20 shadow-sm">
+                        <span key={tag} className="px-3 py-1.5 bg-[rgba(255,255,255,0.15)] backdrop-blur-sm rounded-xl text-sm font-medium border border-white/25 shadow-sm text-[#FDF6E3]" style={{ fontFamily: "'Inter', system-ui, sans-serif" }}>
                     #{tag}
                   </span>
                 ))}
@@ -309,16 +311,6 @@ const ProfileModal = ({ userId, isOpen, onClose, onFollow, onShare, onOpenFullSc
                 <div className="bg-[rgba(255,255,255,0.15)] backdrop-blur-sm rounded-xl p-1 shadow-lg border border-white/10">
                   <div className="flex gap-1">
               <button
-                onClick={() => setActiveTab('posts')}
-                      className={`flex-1 py-2 px-3 rounded-lg font-serif font-semibold text-sm transition-all duration-300 ${
-                  activeTab === 'posts' 
-                          ? 'bg-[rgba(255,255,255,0.25)] text-[#fdf6e3] shadow-md' 
-                          : 'text-[#fdf6e3]/70'
-                }`}
-              >
-                      Posts ({posts.length})
-              </button>
-              <button
                 onClick={() => setActiveTab('lists')}
                       className={`flex-1 py-2 px-3 rounded-lg font-serif font-semibold text-sm transition-all duration-300 ${
                   activeTab === 'lists' 
@@ -327,6 +319,16 @@ const ProfileModal = ({ userId, isOpen, onClose, onFollow, onShare, onOpenFullSc
                 }`}
               >
                       Lists ({lists.length})
+              </button>
+              <button
+                onClick={() => setActiveTab('posts')}
+                      className={`flex-1 py-2 px-3 rounded-lg font-serif font-semibold text-sm transition-all duration-300 ${
+                  activeTab === 'posts' 
+                          ? 'bg-[rgba(255,255,255,0.25)] text-[#fdf6e3] shadow-md' 
+                          : 'text-[#fdf6e3]/70'
+                }`}
+              >
+                      Posts ({posts.length})
               </button>
             </div>
           </div>
@@ -337,23 +339,28 @@ const ProfileModal = ({ userId, isOpen, onClose, onFollow, onShare, onOpenFullSc
                     posts.length === 0 ? (
                       <div className="text-center py-10">
                         <UserIcon className="w-16 h-16 text-white/20 mx-auto mb-2" />
-                        <p className="text-[#fdf6e3]/70">No posts yet.</p>
+                        <p className="text-[#FDF6E3]">No posts yet.</p>
                       </div>
                     ) : (
                       posts.map(post => (
-                        <div key={post.id} onClick={() => handlePostClick(post.id)} className="bg-[rgba(255,255,255,0.1)] backdrop-blur-md rounded-2xl p-4 shadow-md border border-white/10 cursor-pointer group relative overflow-hidden">
+                        <div key={post.id} onClick={() => handlePostClick(post.id)} className="bg-[rgba(255,255,255,0.15)] backdrop-blur-md rounded-2xl p-4 shadow-md border border-white/15 cursor-pointer group relative overflow-hidden">
                           {post.images && post.images.length > 0 && (
-                            <img src={post.images[0]} alt="Post" className="w-full h-48 object-cover rounded-xl shadow-inner mb-3 transition-transform duration-300 group-hover:scale-105" />
+                            <img src={post.images[0]} alt="Post" className="w-full h-64 object-cover rounded-xl shadow-inner mb-3 transition-transform duration-300 group-hover:scale-105" />
                           )}
-                          <p className="mb-3 leading-relaxed text-sm font-serif text-[#fdf6e3]/90">{post.description}</p>
-                          <div className="flex items-center justify-between text-sm text-[#fdf6e3]/70">
-                            <button onClick={(e) => handleLikePost(e, post.id)} className="flex items-center z-20">
-                              {likedPosts[post.id] ? <SolidHeartIcon className="w-5 h-5 mr-1 text-red-500" /> : <HeartIcon className="w-5 h-5 mr-1 text-[#fdf6e3]/70" />}
-                              <span className="font-semibold">{likeCounts[post.id] || 0}</span>
-                        </button>
-                            <span className="font-serif">{formatTimestamp(post.createdAt)}</span>
-                    </div>
-                  </div>
+                          <p className="mb-3 leading-relaxed text-sm text-[#FDF6E3] font-sans">{post.description}</p>
+                          <div className="flex items-center justify-between text-sm text-[#FDF6E3]">
+                            <div className="flex items-center space-x-4">
+                              <button onClick={(e) => handleLikePost(e, post.id)} className="flex items-center space-x-1.5 active:scale-95 transition-transform duration-200 z-20 group">
+                                {likedPosts[post.id] ? 
+                                  <SolidHeartIcon className="w-5 h-5 text-[#FF6B6B]" /> : 
+                                  <HeartIcon className="w-5 h-5 text-[#FDF6E3] group-hover:text-[#FF6B6B]" />
+                                }
+                                <span className="font-sans font-semibold text-sm text-[#FDF6E3] group-hover:text-[#FF6B6B]">{likeCounts[post.id] || 0}</span>
+                              </button>
+                            </div>
+                            <span className="font-sans">{formatTimestamp(post.createdAt)}</span>
+                          </div>
+                        </div>
                 ))
                     )
                   )}
@@ -361,15 +368,15 @@ const ProfileModal = ({ userId, isOpen, onClose, onFollow, onShare, onOpenFullSc
                     lists.length === 0 ? (
                       <div className="text-center py-10">
                         <BookmarkIcon className="w-16 h-16 text-white/20 mx-auto mb-2" />
-                        <p className="text-[#fdf6e3]/70">No lists yet.</p>
+                        <p className="text-[#FDF6E3]">No lists yet.</p>
                       </div>
                     ) : (
                       lists.map(list => (
-                        <div key={list.id} onClick={() => handleListClick(list)} className="flex items-center gap-3 p-3 bg-[rgba(255,255,255,0.1)] backdrop-blur-md rounded-xl shadow-md border border-white/10 cursor-pointer hover:bg-[rgba(255,255,255,0.2)] transition-colors">
-                          <img src={list.coverImage} alt={list.name} className="w-14 h-14 rounded-lg object-cover border-2 border-white/10 shadow-sm" />
+                        <div key={list.id} onClick={() => handleListClick(list)} className="flex items-center gap-3 p-3 bg-[rgba(255,255,255,0.15)] backdrop-blur-md rounded-xl shadow-md border border-white/15 cursor-pointer hover:bg-[rgba(255,255,255,0.25)] transition-colors">
+                          <img src={list.coverImage} alt={list.name} className="w-14 h-14 rounded-lg object-cover border-2 border-white/15 shadow-sm" />
                           <div className="flex-1 min-w-0">
-                            <h4 className="font-serif font-semibold truncate text-[#fdf6e3]">{list.name}</h4>
-                            <p className="text-sm text-[#fdf6e3]/70 truncate">{list.description}</p>
+                            <h4 className="font-semibold truncate text-[#FDF6E3]" style={{ fontFamily: "'Inter', system-ui, sans-serif" }}>{list.name}</h4>
+                            <p className="text-sm text-[#FDF6E3] truncate" style={{ fontFamily: "'Inter', system-ui, sans-serif" }}>{list.description}</p>
                     </div>
                   </div>
                 ))

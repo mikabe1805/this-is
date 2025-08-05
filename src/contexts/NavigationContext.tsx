@@ -10,34 +10,21 @@ interface NavigationContextType {
   showHubModal: boolean
   showListModal: boolean
   showProfileModal: boolean
-  showPostModal: boolean
   selectedHub: Hub | null
   selectedList: List | null
   selectedUserId: string | null
   selectedPostId: string | null
-  hubModalOptions: { initialTab?: 'overview' | 'posts', postId?: string, showPostOverlay?: boolean } | null
-  
-  // Back navigation tracking
-  hubModalFrom: string | null
-  listModalFrom: string | null
-  profileModalFrom: string | null
-  previousList: List | null
-  previousUserId: string | null,
-  postModalFrom: string | null
+  hubModalOptions: { initialTab?: 'overview' | 'posts', postId?: string } | null
+  showPostOverlay: boolean
 
   // Navigation methods
-  openHubModal: (hub: Hub, from?: string, options?: { initialTab?: 'overview' | 'posts', postId?: string, showPostOverlay?: boolean }) => void
+  openHubModal: (hub: Hub, from?: string, options?: { initialTab?: 'overview' | 'posts' }) => void
   openListModal: (list: List, from?: string) => void
   openProfileModal: (userId: string, from?: string) => void
-  openPostModal: (postId: string, from?: string) => void
-  closeHubModal: () => void
-  closeListModal: () => void
-  closeProfileModal: () => void
-  closePostModal: () => void
+  openPostOverlay: (postId: string) => void
+  closePostOverlay: () => void
   goBack: () => void
-  openFullScreenHub: (hub: Hub) => void
-  openFullScreenList: (list: List) => void
-  openFullScreenUser: (userId: string) => void
+  exitModalFlow: () => void
 }
 
 const NavigationContext = createContext<NavigationContextType | undefined>(undefined)
@@ -72,25 +59,33 @@ export const NavigationProvider = ({ children }: NavigationProviderProps) => {
   const [postModalFrom, setPostModalFrom] = useState<string | null>(null)
   const [previousList, setPreviousList] = useState<List | null>(null)
   const [previousUserId, setPreviousUserId] = useState<string | null>(null)
-  const [hubModalOptions, setHubModalOptions] = useState<{ initialTab?: 'overview' | 'posts', postId?: string, showPostOverlay?: boolean } | null>(null)
+  const [hubModalOptions, setHubModalOptions] = useState<{ initialTab?: 'overview' | 'posts', postId?: string } | null>(null)
+  const [showPostOverlay, setShowPostOverlay] = useState(false);
+
+  const openPostOverlay = (postId: string) => {
+    setSelectedPostId(postId);
+    setShowPostOverlay(true);
+  };
+
+  const closePostOverlay = () => {
+    setShowPostOverlay(false);
+    setSelectedPostId(null);
+  };
+
 
   const openHubModal = (hub: Hub, from: string = 'unknown', options: { initialTab?: 'overview' | 'posts', postId?: string, showPostOverlay?: boolean } = {}) => {
     console.log('Opening hub modal from:', from, 'hub:', hub.name, 'options:', options)
-    navigationHistory.push({ type: 'hub', id: hub.id, from })
+    if (from !== 'back') {
+      navigationHistory.push({ type: 'hub', id: hub.id, from })
+    }
     
     if (showListModal) {
-      setPreviousList(selectedList)
       setShowListModal(false)
     } else if (showProfileModal) {
-      setPreviousUserId(selectedUserId)
       setShowProfileModal(false)
-    } else if (showPostModal) {
-      // Keep previous user id if we came from a post modal that was opened from a profile
-      if (postModalFrom === 'profile-modal') {
-        // Don't reset previousUserId
-      }
-      setShowPostModal(false)
     }
+    
+    closePostOverlay();
 
     setSelectedHub(hub)
     setHubModalOptions(options)
@@ -102,7 +97,9 @@ export const NavigationProvider = ({ children }: NavigationProviderProps) => {
 
   const openListModal = (list: List, from: string = 'unknown') => {
     console.log('Opening list modal from:', from, 'list:', list.name)
-    navigationHistory.push({ type: 'list', id: list.id, from })
+    if (from !== 'back') {
+      navigationHistory.push({ type: 'list', id: list.id, from })
+    }
 
     if (showHubModal) {
       setShowHubModal(false)
@@ -120,7 +117,9 @@ export const NavigationProvider = ({ children }: NavigationProviderProps) => {
 
   const openProfileModal = (userId: string, from: string = 'unknown') => {
     console.log('Opening profile modal from:', from, 'userId:', userId)
-    navigationHistory.push({ type: 'user', id: userId, from })
+    if (from !== 'back') {
+      navigationHistory.push({ type: 'user', id: userId, from })
+    }
 
     if (showHubModal) {
       setShowHubModal(false)
@@ -134,14 +133,7 @@ export const NavigationProvider = ({ children }: NavigationProviderProps) => {
     setProfileModalFrom(from)
   }
 
-  const openPostModal = async (postId: string, from: string = 'unknown') => {
-    console.log('Opening post modal from:', from, 'postId:', postId);
-    navigationHistory.push({ type: 'post', id: postId, from });
 
-    setSelectedPostId(postId);
-    setPostModalFrom(from);
-    setShowPostModal(true);
-  };
 
   const closeHubModal = () => {
     console.log('Closing hub modal, from was:', hubModalFrom)
@@ -177,37 +169,27 @@ export const NavigationProvider = ({ children }: NavigationProviderProps) => {
     setProfileModalFrom(null)
   }
 
-  const closePostModal = () => {
-    console.log('Closing post modal, from was:', postModalFrom)
-    if (postModalFrom === 'profile-modal' && previousUserId) {
-      openProfileModal(previousUserId, 'post-modal-back')
-    }
 
-    setShowPostModal(false)
-    setSelectedPostId(null)
-    setPostModalFrom(null)
-  }
   
-  const goBack = () => {
-    navigationHistory.pop() // Pop the current state
-    const lastState = navigationHistory.peek() // Peek at the new last state
-    console.log('Going back, last state is now:', lastState)
+  const goBack = async () => {
+    const lastState = navigationHistory.pop();
+    const currentState = navigationHistory.peek();
+    console.log('Going back from:', lastState, 'to:', currentState);
 
-    if (showHubModal) {
-      // Special case: Hub -> Post -> Profile
-      if (hubModalFrom === 'post-modal' && postModalFrom === 'profile-modal' && previousUserId) {
-        setShowHubModal(false)
-        setSelectedHub(null)
-        openProfileModal(previousUserId, 'hub-modal-back')
-        return
+    if (currentState) {
+      if (currentState.type === 'hub') {
+        const hub = await firebaseDataService.getPlace(currentState.id);
+        if (hub) openHubModal(hub, 'back');
+      } else if (currentState.type === 'list') {
+        const list = await firebaseDataService.getList(currentState.id);
+        if (list) openListModal(list, 'back');
+      } else if (currentState.type === 'user') {
+        openProfileModal(currentState.id, 'back');
       }
-      closeHubModal()
+    } else {
+      exitModalFlow();
     }
-    else if (showListModal) closeListModal()
-    else if (showPostModal) closePostModal()
-    else if (showProfileModal) closeProfileModal()
-    else navigate(-1)
-  }
+  };
 
   const openFullScreenHub = (hub: Hub) => {
     closeHubModal()
@@ -224,6 +206,14 @@ export const NavigationProvider = ({ children }: NavigationProviderProps) => {
     navigate(`/user/${userId}`)
   }
 
+  const exitModalFlow = () => {
+    setShowHubModal(false)
+    setShowListModal(false)
+    setShowProfileModal(false)
+    setShowPostModal(false)
+    navigationHistory.clear()
+  }
+
   const value: NavigationContextType = {
     showHubModal,
     showListModal,
@@ -233,25 +223,15 @@ export const NavigationProvider = ({ children }: NavigationProviderProps) => {
     selectedList,
     selectedUserId,
     selectedPostId,
-    hubModalFrom,
-    listModalFrom,
-    profileModalFrom,
-    postModalFrom,
     hubModalOptions,
-    previousList,
-    previousUserId,
+    showPostOverlay,
     openHubModal,
     openListModal,
     openProfileModal,
-    openPostModal,
-    closeHubModal,
-    closeListModal,
-    closeProfileModal,
-    closePostModal,
+    openPostOverlay,
+    closePostOverlay,
     goBack,
-    openFullScreenHub,
-    openFullScreenList,
-    openFullScreenUser,
+    exitModalFlow,
   }
 
   return (

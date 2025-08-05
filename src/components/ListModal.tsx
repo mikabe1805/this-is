@@ -4,6 +4,7 @@ import { HeartIcon as HeartIconSolid } from '@heroicons/react/24/solid'
 import { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { useNavigation } from '../contexts/NavigationContext.tsx'
+import { useAuth } from '../contexts/AuthContext.tsx'
 import { formatTimestamp } from '../utils/dateUtils.ts'
 import ImageCarousel from './ImageCarousel.tsx'
 import CommentsModal from './CommentsModal.tsx'
@@ -24,6 +25,7 @@ interface ListModalProps {
 }
 
 const ListModal = ({ list, isOpen, onClose, onSave, onShare, onAddPost, onOpenFullScreen, onOpenHub, showBackButton, onBack }: ListModalProps) => {
+  const { currentUser } = useAuth()
   const { openPostModal, openFullScreenList } = useNavigation()
   const [isLiked, setIsLiked] = useState(list.isLiked)
   const [likes, setLikes] = useState(list.likes)
@@ -560,13 +562,15 @@ const ListModal = ({ list, isOpen, onClose, onSave, onShare, onAddPost, onOpenFu
               )}
               {isLiked ? 'Liked' : 'Like'}
             </button>
-            <button 
-              onClick={handleAddPost}
+            {currentUser?.id === list.userId && (
+              <button 
+                onClick={handleAddPost}
                 className="flex-1 flex items-center justify-center gap-2 bg-gradient-to-r from-[#D4A574] to-[#B08968] text-[#FEF6E9] px-3 py-3 rounded-xl text-sm font-semibold shadow-lg border border-[#B08968]/30 active:scale-95 transition-all duration-200"
-            >
+              >
                 <PlusIcon className="w-4 h-4" />
-              Add Post
-            </button>
+                Add Post
+              </button>
+            )}
             <button 
               onClick={handleSave}
                 className="flex-1 flex items-center justify-center gap-2 bg-gradient-to-r from-[#C17F59] to-[#B08968] text-[#FEF6E9] px-3 py-3 rounded-xl text-sm font-semibold shadow-lg border border-[#B08968]/30 active:scale-95 transition-all duration-200"

@@ -31,7 +31,7 @@ const SavePostToListModal: React.FC<SavePostToListModalProps> = ({
   useEffect(() => {
     const fetchLists = async () => {
       if (currentUser) {
-        const lists = await firebaseDataService.getUserLists(currentUser.uid);
+        const lists = await firebaseDataService.getUserLists(currentUser.id);
         setUserLists(lists);
       }
     };

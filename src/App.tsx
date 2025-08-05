@@ -28,6 +28,7 @@ import DatabaseSeeder from './components/DatabaseSeeder.tsx'
 import Auth from './pages/Auth.tsx'
 import { setupViewportHandler } from './utils/viewportHandler.ts'
 import NavigationModals from './components/NavigationModals.tsx';
+import { firebaseDataService } from './services/firebaseDataService.js';
 
 function AppContent() {
   const [activeTab, setActiveTab] = useState('home')
@@ -134,16 +135,59 @@ function AppContent() {
   }
 
   return (
-    <NavigationProvider>
-      <ModalProvider>
-        {/* Render full-screen components outside the normal layout */}
-        {location.pathname === '/reels' ? (
-          <div className="relative h-screen w-screen">
-            <Routes>
-              <Route path="/reels" element={<Reels />} />
-            </Routes>
-            {/* Navbar for Reels - positioned absolutely to ensure visibility */}
-            <div className="absolute bottom-0 left-0 right-0 z-[1002]">
+    <>
+      {/* Render full-screen components outside the normal layout */}
+      {location.pathname === '/reels' ? (
+        <div className="relative h-screen w-screen">
+          <Routes>
+            <Route path="/reels" element={<Reels />} />
+          </Routes>
+          {/* Navbar for Reels - positioned absolutely to ensure visibility */}
+          <div className="absolute bottom-0 left-0 right-0 z-[1002]">
+            <Navbar 
+              activeTab={activeTab} 
+              setActiveTab={handleTabChange} 
+              onCreatePost={() => setShowCreatePost(true)}
+              onEmbedFrom={() => setShowEmbedFromModal(true)}
+            />
+          </div>
+        </div>
+      ) : location.pathname === '/search-demo' ? (
+        <div className="relative h-screen w-screen">
+          <Routes>
+            <Route path="/search-demo" element={<EnhancedSearchDemo />} />
+          </Routes>
+        </div>
+      ) : location.pathname === '/seed-database' ? (
+        <div className="relative h-screen w-screen">
+          <Routes>
+            <Route path="/seed-database" element={<DatabaseSeeder />} />
+          </Routes>
+        </div>
+      ) : (
+        <div className="h-dvh bg-botanical-overlay">
+          <div className="max-w-md mx-auto bg-white/90 backdrop-blur-glass h-full shadow-crystal border border-white/30">
+            <div className="flex flex-col h-full">
+              {/* Main Content Area */}
+              <main className="flex-1 overflow-y-auto pb-28 overflow-x-hidden">
+                <Routes>
+                  <Route path="/" element={<Home />} />
+                  <Route path="/home" element={<Home />} />
+                  <Route path="/profile" element={<Profile />} />
+                  <Route path="/profile/edit" element={<EditProfile />} />
+                  <Route path="/profile/following" element={<Following />} />
+                  <Route path="/settings" element={<Settings />} />
+                  <Route path="/search" element={<Search />} />
+                  <Route path="/list/:id" element={<ListView />} />
+                  <Route path="/lists" element={<ViewAllLists />} />
+                  <Route path="/favorites" element={<Favorites />} />
+                  <Route path="/place/:id" element={<PlaceHub />} />
+                  <Route path="/user/:userId" element={<UserProfile />} />
+                  <Route path="/demo" element={<Demo activeTab={activeTab} />} />
+                  <Route path="/search-demo-mobile" element={<EnhancedSearchDemo />} />
+                </Routes>
+              </main>
+              {/* Bottom Navigation */}
               <Navbar 
                 activeTab={activeTab} 
                 setActiveTab={handleTabChange} 
@@ -152,153 +196,65 @@ function AppContent() {
               />
             </div>
           </div>
-        ) : location.pathname === '/search-demo' ? (
-          <div className="relative h-screen w-screen">
-            <Routes>
-              <Route path="/search-demo" element={<EnhancedSearchDemo />} />
-            </Routes>
-          </div>
-        ) : location.pathname === '/seed-database' ? (
-          <div className="relative h-screen w-screen">
-            <Routes>
-              <Route path="/seed-database" element={<DatabaseSeeder />} />
-            </Routes>
-          </div>
-        ) : (
-          <div className="h-dvh bg-botanical-overlay">
-            <div className="max-w-md mx-auto bg-white/90 backdrop-blur-glass h-full shadow-crystal border border-white/30">
-              <div className="flex flex-col h-full">
-                {/* Main Content Area */}
-                <main className="flex-1 overflow-y-auto pb-28 overflow-x-hidden">
-                  <Routes>
-                    <Route path="/" element={<Home />} />
-                    <Route path="/home" element={<Home />} />
-                    <Route path="/profile" element={<Profile />} />
-                    <Route path="/profile/edit" element={<EditProfile />} />
-                    <Route path="/profile/following" element={<Following />} />
-                    <Route path="/settings" element={<Settings />} />
-                    <Route path="/search" element={<Search />} />
-                    <Route path="/list/:id" element={<ListView />} />
-                    <Route path="/lists" element={<ViewAllLists />} />
-                    <Route path="/favorites" element={<Favorites />} />
-                    <Route path="/place/:id" element={<PlaceHub />} />
-                    <Route path="/user/:userId" element={<UserProfile />} />
-                    <Route path="/demo" element={<Demo activeTab={activeTab} />} />
-                    <Route path="/search-demo-mobile" element={<EnhancedSearchDemo />} />
-                  </Routes>
-                </main>
-                {/* Bottom Navigation */}
-                <Navbar 
-                  activeTab={activeTab} 
-                  setActiveTab={handleTabChange} 
-                  onCreatePost={() => setShowCreatePost(true)}
-                  onEmbedFrom={() => setShowEmbedFromModal(true)}
-                />
-              </div>
-            </div>
-          </div>
-        )}
+        </div>
+      )}
 
-        {/* Create Post Modal */}
-        <CreatePost 
-          isOpen={showCreatePost} 
-          onClose={() => setShowCreatePost(false)} 
-        />
+      {/* Create Post Modal */}
+      <CreatePost 
+        isOpen={showCreatePost} 
+        onClose={() => setShowCreatePost(false)} 
+      />
 
-        {/* Embed From Modal */}
-        <EmbedFromModal
-          isOpen={showEmbedFromModal}
-          onClose={() => setShowEmbedFromModal(false)}
-          onEmbed={(embedData) => {
-            console.log('Creating embed post:', embedData)
-            // TODO: Implement embed post creation
-            setShowEmbedFromModal(false)
-          }}
-        />
+      {/* Embed From Modal */}
+      <EmbedFromModal
+        isOpen={showEmbedFromModal}
+        onClose={() => setShowEmbedFromModal(false)}
+        onEmbed={(embedData) => {
+          console.log('Creating embed post:', embedData)
+          // TODO: Implement embed post creation
+          setShowEmbedFromModal(false)
+        }}
+      />
 
-        {/* Create List Modal */}
-        <CreateListModal
-          isOpen={showCreateList}
-          onClose={() => setShowCreateList(false)}
-          onCreate={(listData) => {
-            console.log('Creating new list:', listData)
-            setShowCreateList(false)
-            // In a real app, you would create the list and then navigate to it
-            // navigate(`/list/${newListId}`)
-          }}
-        />
+      {/* Create List Modal */}
+      <CreateListModal
+        isOpen={showCreateList}
+        onClose={() => setShowCreateList(false)}
+        onCreate={(listData) => {
+          console.log('Creating new list:', listData)
+          setShowCreateList(false)
+          // In a real app, you would create the list and then navigate to it
+          // navigate(`/list/${newListId}`)
+        }}
+      />
 
-        {/* Global Modals */}
-        <GlobalModals />
+      {/* Global Modals */}
+      <GlobalModals />
 
-        {/* List Modal */}
-        <ListModalWrapper />
-
-        {/* Hub Modal */}
-        <HubModalWrapper />
-        
-        {/* All navigation modals */}
-        <NavigationModals />
-      </ModalProvider>
-    </NavigationProvider>
+      {/* All navigation modals */}
+      <NavigationModals />
+    </>
   )
 }
 
 // Global modals component
 const GlobalModals = () => {
   const { showSaveModal, showCreatePost, saveModalData, createPostData, closeSaveModal, closeCreatePostModal } = useModal()
+  const { currentUser } = useAuth()
+  const [userLists, setUserLists] = useState<List[]>([]);
 
-  // Mock user lists for SaveModal
-  const userLists = [
-    {
-      id: 'all-loved',
-      name: 'All Loved',
-      description: 'All the places you\'ve loved and want to visit again',
-      userId: '1',
-      isPublic: false,
-      isShared: false,
-      privacy: 'private' as const,
-      tags: ['loved', 'favorites', 'auto-generated'],
-      hubs: [],
-      coverImage: 'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=300&h=200&fit=crop',
-      createdAt: '2024-01-01',
-      updatedAt: '2024-01-15',
-      likes: 0,
-      isLiked: false
-    },
-    {
-      id: 'all-tried',
-      name: 'All Tried',
-      description: 'All the places you\'ve tried',
-      userId: '1',
-      isPublic: false,
-      isShared: false,
-      privacy: 'private' as const,
-      tags: ['tried', 'visited', 'auto-generated'],
-      hubs: [],
-      coverImage: 'https://images.unsplash.com/photo-1442512595331-e89e73853f31?w=300&h=200&fit=crop',
-      createdAt: '2024-01-01',
-      updatedAt: '2024-01-15',
-      likes: 0,
-      isLiked: false
-    },
-    {
-      id: '1',
-      name: 'Cozy Coffee Spots',
-      description: 'Perfect places to work and relax',
-      userId: '1',
-      isPublic: true,
-      isShared: false,
-      privacy: 'public' as const,
-      tags: ['coffee', 'work-friendly', 'cozy'],
-      hubs: [],
-      coverImage: 'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=300&h=200&fit=crop',
-      createdAt: '2024-01-10',
-      updatedAt: '2024-01-15',
-      likes: 56,
-      isLiked: false
+  useEffect(() => {
+    const fetchLists = async () => {
+      if (currentUser) {
+        const lists = await firebaseDataService.getUserLists(currentUser.id);
+        setUserLists(lists);
+      }
+    };
+    if (showSaveModal) {
+      fetchLists();
     }
-  ]
+  }, [showSaveModal, currentUser]);
+
 
   return (
     <>
@@ -325,11 +281,22 @@ const GlobalModals = () => {
             createdAt: saveModalData.list!.createdAt
           }}
           userLists={userLists}
-          onSave={(status, rating, listIds, note) => {
+          onSave={async (status, rating, listIds, note) => {
+            if (!currentUser) return;
+            const placeId = saveModalData.hub?.id || saveModalData.list!.id;
+            for (const listId of listIds) {
+              await firebaseDataService.savePlaceToList(placeId, listId, currentUser.id, note);
+            }
             console.log('Saving with status:', status, 'rating:', rating, 'listIds:', listIds, 'note:', note)
             closeSaveModal()
           }}
-          onCreateList={(listData) => {
+          onCreateList={async (listData) => {
+            if (!currentUser) return;
+            const placeId = saveModalData.hub?.id || saveModalData.list!.id;
+            const newListId = await firebaseDataService.createList({ ...listData, userId: currentUser.id });
+            if (newListId) {
+              await firebaseDataService.savePlaceToList(placeId, newListId, currentUser.id);
+            }
             console.log('Creating new list:', listData)
             closeSaveModal()
           }}
@@ -356,111 +323,10 @@ const GlobalModals = () => {
   )
 }
 
-// Wrapper component to use navigation context
-const ListModalWrapper = () => {
-  const { showListModal, selectedList, closeListModal, openFullScreenList, openHubModal } = useNavigation()
-  const { openSaveModal, openCreatePostModal } = useModal()
 
-  if (!selectedList) return null
-
-  return (
-    <ListModal
-      list={selectedList}
-      isOpen={showListModal}
-      onClose={closeListModal}
-      onOpenFullScreen={openFullScreenList}
-      onOpenHub={(place) => {
-        // Convert Place to Hub and open with proper back navigation
-        const hub = {
-          id: place.id,
-          name: place.name,
-          description: `${place.category || 'Place'} located at ${place.address}`,
-          tags: place.tags,
-          images: place.hubImage ? [place.hubImage] : [],
-          location: {
-            address: place.address,
-            lat: place.coordinates?.lat || 0,
-            lng: place.coordinates?.lng || 0
-          },
-          googleMapsUrl: `https://maps.google.com/?q=${encodeURIComponent(place.address)}`,
-          mainImage: place.hubImage,
-          posts: place.posts || [],
-          lists: [] // Places don't have associated lists in this context
-        }
-        openHubModal(hub, 'list-modal')
-      }}
-      onSave={(list) => {
-        openSaveModal(undefined, list)
-      }}
-      onShare={(list) => {
-        console.log('Sharing list:', list.name)
-        // In a real app, this would share the list
-        if (navigator.share) {
-          navigator.share({
-            title: list.name,
-            text: list.description,
-            url: window.location.href
-          })
-        } else {
-          navigator.clipboard.writeText(window.location.href)
-          alert('Link copied to clipboard!')
-        }
-      }}
-      onAddPost={(list) => {
-        openCreatePostModal(undefined, list)
-      }}
-    />
-  )
-}
-
-// Wrapper component to use navigation context for HubModal
-const HubModalWrapper = () => {
-  const { showHubModal, selectedHub, closeHubModal, openFullScreenHub, openListModal, hubModalFromList, goBackFromHubModal } = useNavigation()
-  const { openSaveModal, openCreatePostModal } = useModal()
-
-  if (!selectedHub) return null
-
-  return (
-    <HubModal
-      hub={selectedHub}
-      isOpen={showHubModal}
-      onClose={closeHubModal}
-      onOpenFullScreen={openFullScreenHub}
-      onOpenList={openListModal}
-      showBackButton={hubModalFromList}
-      onBack={goBackFromHubModal}
-      onSave={(hub) => {
-        openSaveModal(hub)
-      }}
-      onShare={(hub) => {
-        console.log('Sharing hub:', hub.name)
-        // In a real app, this would share the hub
-        if (navigator.share) {
-          navigator.share({
-            title: hub.name,
-            text: hub.description,
-            url: window.location.href
-          })
-        } else {
-          navigator.clipboard.writeText(window.location.href)
-          alert('Link copied to clipboard!')
-        }
-      }}
-            onAddPost={(hub) => {
-        // TODO: Implement create post modal/page
-        console.log('Add post for hub:', hub);
-        openCreatePostModal(hub);
-      }}
-    />
-  )
-}
 
 function App() {
-  return (
-    <AuthProvider>
-      <AppContent />
-    </AuthProvider>
-  )
+  return <AppContent />
 }
 
 export default App

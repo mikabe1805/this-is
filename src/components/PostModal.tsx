@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { XMarkIcon, ArrowLeftIcon, HeartIcon, EyeIcon, MapPinIcon, ChatBubbleLeftIcon } from '@heroicons/react/24/outline';
+import { XMarkIcon, HeartIcon, EyeIcon, MapPinIcon, ChatBubbleLeftIcon } from '@heroicons/react/24/outline';
 import { HeartIcon as SolidHeartIcon } from '@heroicons/react/20/solid';
 import type { Post, Hub, User, List, PostComment } from '../types/index.js';
 import { firebaseDataService } from '../services/firebaseDataService';
@@ -76,11 +76,9 @@ const PostModal = ({ postId, from, isOpen, onClose, showBackButton, onBack }: Po
     };
 
     const fetchUserLists = async () => {
-      if (currentUser) {
-        // This is a placeholder. You'll need to implement a function
-        // in your firebaseDataService to get a user's lists.
-        // const lists = await firebaseDataService.getUserLists(currentUser.uid);
-        // setUserLists(lists);
+      if (currentUser?.id) {
+        const lists = await firebaseDataService.getUserLists(currentUser.id);
+        setUserLists(lists);
       }
     };
 
@@ -90,7 +88,7 @@ const PostModal = ({ postId, from, isOpen, onClose, showBackButton, onBack }: Po
 
   useEffect(() => {
     if (post && currentUser) {
-      setIsLiked(post.likedBy?.includes(currentUser.uid) || false);
+      setIsLiked(post.likedBy?.includes(currentUser.id) || false);
       setLikeCount(post.likes || 0);
     }
   }, [post, currentUser]);
@@ -118,7 +116,7 @@ const PostModal = ({ postId, from, isOpen, onClose, showBackButton, onBack }: Po
     setIsLiked(newLikedState);
     setLikeCount(newLikeCount);
 
-    await firebaseDataService.likePost(post.id, currentUser.uid);
+    await firebaseDataService.likePost(post.id, currentUser.id);
   };
 
   const handleHubClick = () => {
@@ -142,7 +140,7 @@ const PostModal = ({ postId, from, isOpen, onClose, showBackButton, onBack }: Po
   const handlePostComment = async () => {
     if (!currentUser || !post || !newComment.trim()) return;
 
-    const postedComment = await firebaseDataService.postComment(post.id, currentUser.uid, newComment);
+    const postedComment = await firebaseDataService.postComment(post.id, currentUser.id, newComment);
     if (postedComment) {
       setComments(prevComments => [postedComment, ...prevComments]);
       setCommentCount(prevCount => prevCount + 1);
@@ -151,8 +149,18 @@ const PostModal = ({ postId, from, isOpen, onClose, showBackButton, onBack }: Po
   };
 
   const handleCreateList = async (listData: { name: string; description: string; privacy: 'public' | 'private' | 'friends'; tags: string[] }) => {
-    console.log('Creating list:', listData);
-    // You would typically create the list here and then perhaps save the post to it.
+    if (!currentUser || !post) return;
+
+    const newListData = { ...listData, userId: currentUser.id };
+    const newListId = await firebaseDataService.createList(newListData);
+
+    if (newListId) {
+      await handleSaveToList(newListId);
+      
+      // Refresh user lists to include the new one
+      const lists = await firebaseDataService.getUserLists(currentUser.id);
+      setUserLists(lists);
+    }
   };
 
   if (!isOpen) {
@@ -187,15 +195,11 @@ const PostModal = ({ postId, from, isOpen, onClose, showBackButton, onBack }: Po
         <div
           ref={modalRef}
           className={`relative bg-gradient-to-br from-[#FDFBF7] to-[#F3EBE2] rounded-2xl w-full max-w-2xl max-h-[90vh] flex flex-col shadow-2xl border border-white/20 transition-all duration-300 ${isVisible ? 'scale-100 opacity-100' : 'scale-95 opacity-0'}`}
-          style={{ fontFamily: "'Lora', serif" }}
+          style={{ fontFamily: "'Inter', sans-serif" }}
         >
           {/* Header */}
           <div className="p-4 flex items-center justify-between border-b border-[#E8D4C0]/50">
-            {showBackButton ? (
-              <button onClick={onBack} className="p-2 rounded-full hover:bg-[#E8D4C0]/30 transition-colors">
-                <ArrowLeftIcon className="w-6 h-6 text-[#7A5D3F]" />
-              </button>
-            ) : <div className="w-10"></div>}
+            <div className="w-10"></div>
             <h2 className="text-xl font-bold text-[#5D4A2E] font-serif truncate">{post?.description.substring(0, 30) || 'Post'}...</h2>
             <button onClick={onClose} className="p-2 rounded-full hover:bg-[#E8D4C0]/30 transition-colors">
               <XMarkIcon className="w-6 h-6 text-[#7A5D3F]" />
@@ -229,7 +233,7 @@ const PostModal = ({ postId, from, isOpen, onClose, showBackButton, onBack }: Po
                     {renderPostTypeIcon()}
                   </div>
 
-                  <p className="text-[#5D4A2E] leading-relaxed font-serif text-base mb-6">{post.description}</p>
+                  <p className="text-[#5D4A2E] leading-relaxed font-sans text-base mb-6">{post.description}</p>
 
                   {post.tags && post.tags.length > 0 && (
                     <div className="flex flex-wrap gap-2 mb-6">
@@ -263,7 +267,7 @@ const PostModal = ({ postId, from, isOpen, onClose, showBackButton, onBack }: Po
                     
                     {/* Comment Input Form */}
                     <div className="flex items-start gap-2 pb-4 border-b border-[#E8D4C0]/50">
-                      <img src={currentUser?.photoURL || '/assets/default-avatar.png'} alt="Your avatar" className="w-10 h-10 rounded-full border-2 border-white" />
+                      <img src={currentUser?.avatar || '/assets/default-avatar.png'} alt="Your avatar" className="w-10 h-10 rounded-full border-2 border-white" />
                       <div className="flex-1">
                         <textarea
                           value={newComment}

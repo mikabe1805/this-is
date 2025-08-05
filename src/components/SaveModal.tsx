@@ -59,47 +59,24 @@ const SaveModal: React.FC<SaveModalProps> = ({
     }
   }, [selectedListIdsProp])
 
-  const handleSave = () => {
-    if (selectedStatus) {
-      onSave(
-        selectedStatus,
-        selectedStatus === 'tried' ? triedRating || undefined : undefined,
-        selectedListIds.size > 0 ? Array.from(selectedListIds) : undefined,
-        note.trim() || undefined
-      )
-      onClose()
-      resetForm()
-    }
-  }
-
   const handleCreateList = () => {
     if (newListName.trim()) {
-      const newList = {
-        id: Date.now().toString(),
+      onCreateList({
         name: newListName.trim(),
         description: newListDescription.trim(),
-        userId: '1', // mock user
-        isPublic: newListPrivacy === 'public',
         privacy: newListPrivacy,
-        tags: [],
-        hubs: [],
-        createdAt: new Date().toISOString(),
-        likes: 0,
-        isLiked: false,
-      }
-      onCreateList(newList)
-      setShowCreateList(false)
-      setListSearch('')
-      setSelectedListIds(prev => new Set([...prev, newList.id]))
-      // Only reset the create-list form fields, not the main modal state
-      setNewListName('')
-      setNewListDescription('')
-      setNewListPrivacy(userPrivacyPreference)
-      setNewListTags([])
-      setNewTag('')
-      setNewListCoverImage('')
+        tags: newListTags,
+        coverImage: newListCoverImage || undefined
+      });
+      setShowCreateList(false);
+      setNewListName('');
+      setNewListDescription('');
+      setNewListPrivacy(userPrivacyPreference);
+      setNewListTags([]);
+      setNewTag('');
+      setNewListCoverImage('');
     }
-  }
+  };
 
   const resetForm = () => {
     setSelectedStatus(null)
@@ -387,7 +364,18 @@ const SaveModal: React.FC<SaveModalProps> = ({
         <div className="p-4 border-t border-linen-200 flex-shrink-0 bg-white">
           {!showCreateList ? (
             <button
-              onClick={handleSave}
+              onClick={() => {
+                if (selectedStatus) {
+                  onSave(
+                    selectedStatus,
+                    selectedStatus === 'tried' ? triedRating || undefined : undefined,
+                    selectedListIds.size > 0 ? Array.from(selectedListIds) : undefined,
+                    note.trim() || undefined
+                  )
+                  onClose()
+                  resetForm()
+                }
+              }}
               disabled={!selectedStatus || (selectedStatus === 'tried' && !triedRating)}
               className="w-full py-2 rounded-xl font-semibold bg-sage-400 text-white shadow-soft hover:bg-sage-500 transition disabled:opacity-50 disabled:cursor-not-allowed"
             >
