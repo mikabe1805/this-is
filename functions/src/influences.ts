@@ -1,11 +1,9 @@
-import * as functions from 'firebase-functions';
+import { onSchedule } from 'firebase-functions/v2/scheduler';
 import * as admin from 'firebase-admin';
-
-admin.initializeApp();
 
 const db = admin.firestore();
 
-export const calculateInfluenceScores = functions.pubsub.schedule('every 24 hours').onRun(async (context) => {
+export const calculateInfluenceScores = onSchedule('every 24 hours', async (event) => {
     console.log('Calculating influence scores...');
 
     const usersSnapshot = await db.collection('users').get();
