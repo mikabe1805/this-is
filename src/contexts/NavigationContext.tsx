@@ -23,6 +23,9 @@ interface NavigationContextType {
   openProfileModal: (userId: string, from?: string) => void
   openPostOverlay: (postId: string) => void
   closePostOverlay: () => void
+  closeHubModal: () => void
+  closeListModal: () => void
+  closeProfileModal: () => void
   goBack: () => void
   exitModalFlow: () => void
 }
@@ -73,8 +76,21 @@ export const NavigationProvider = ({ children }: NavigationProviderProps) => {
   };
 
 
-  const openHubModal = (hub: Hub, from: string = 'unknown', options: { initialTab?: 'overview' | 'posts', postId?: string, showPostOverlay?: boolean } = {}) => {
+  const openHubModal = async (hub: Hub, from: string = 'unknown', options: { initialTab?: 'overview' | 'posts', postId?: string, showPostOverlay?: boolean } = {}) => {
     console.log('Opening hub modal from:', from, 'hub:', hub.name, 'options:', options)
+    
+    // Refresh hub data from Firebase to ensure we have the latest banner and description
+    try {
+      console.log('NavigationContext: Refreshing hub data for:', hub.id)
+      const refreshedHub = await firebaseDataService.getPlace(hub.id)
+      if (refreshedHub) {
+        console.log('NavigationContext: Hub data refreshed:', refreshedHub)
+        hub = refreshedHub // Use the refreshed data
+      }
+    } catch (error) {
+      console.error('NavigationContext: Error refreshing hub data:', error)
+    }
+    
     if (from !== 'back') {
       navigationHistory.push({ type: 'hub', id: hub.id, from })
     }
@@ -107,6 +123,8 @@ export const NavigationProvider = ({ children }: NavigationProviderProps) => {
       setPreviousUserId(selectedUserId)
       setShowProfileModal(false)
     }
+    
+    closePostOverlay();
 
     setSelectedList(list)
     setShowListModal(true)
@@ -127,6 +145,8 @@ export const NavigationProvider = ({ children }: NavigationProviderProps) => {
     if (showPostModal) {
       setShowPostModal(false)
     }
+
+    closePostOverlay();
 
     setSelectedUserId(userId)
     setShowProfileModal(true)
@@ -218,7 +238,6 @@ export const NavigationProvider = ({ children }: NavigationProviderProps) => {
     showHubModal,
     showListModal,
     showProfileModal,
-    showPostModal,
     selectedHub,
     selectedList,
     selectedUserId,
@@ -230,6 +249,9 @@ export const NavigationProvider = ({ children }: NavigationProviderProps) => {
     openProfileModal,
     openPostOverlay,
     closePostOverlay,
+    closeHubModal,
+    closeListModal,
+    closeProfileModal,
     goBack,
     exitModalFlow,
   }

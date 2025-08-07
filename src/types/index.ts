@@ -7,6 +7,7 @@ export interface User {
   location?: string
   influences?: number // Number of items from their lists saved by others + favorited items
   tags?: string[] // User's tags/interests
+  createdAt: string
 }
 
 export interface Place {
@@ -33,6 +34,8 @@ export interface Post {
   username: string
   userAvatar: string
   images: string[]
+  video?: string
+  thumbnail?: string
   description: string
   tags: string[]
   postType: PostType
@@ -73,6 +76,9 @@ export interface List {
   createdAt?: string
   updatedAt?: string
   likes?: number
+  likedBy?: string[]
+  saves?: number
+  savesFrom?: number
   isLiked?: boolean
 }
 
@@ -80,6 +86,8 @@ export interface ListPlace {
   id: string
   placeId: string
   place: Place
+  status?: PostType // 'loved' | 'tried' | 'want'
+  triedRating?: TriedRating // 'liked' | 'neutral' | 'disliked' (only for tried status)
   note?: string
   voiceMemo?: string
   addedBy: string
@@ -162,4 +170,4 @@ export interface Story {
   caption?: string
   createdAt: string
   expiresAt: string
-} 
+}

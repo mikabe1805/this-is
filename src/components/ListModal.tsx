@@ -4,11 +4,11 @@ import { HeartIcon as HeartIconSolid } from '@heroicons/react/24/solid'
 import { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { useNavigation } from '../contexts/NavigationContext.tsx'
+import { firebaseListService } from '../services/firebaseListService';
 import { useAuth } from '../contexts/AuthContext.tsx'
 import { formatTimestamp } from '../utils/dateUtils.ts'
 import ImageCarousel from './ImageCarousel.tsx'
 import CommentsModal from './CommentsModal.tsx'
-import SaveToListModal from './SaveToListModal.tsx'
 import { firebaseDataService } from '../services/firebaseDataService.js'
 
 interface ListModalProps {
@@ -22,28 +22,79 @@ interface ListModalProps {
   onOpenHub?: (place: Place) => void
   showBackButton?: boolean
   onBack?: () => void
+  onLikeChange?: (listId: string, isLiked: boolean, newLikes: number) => void
 }
 
-const ListModal = ({ list, isOpen, onClose, onSave, onShare, onAddPost, onOpenFullScreen, onOpenHub, showBackButton, onBack }: ListModalProps) => {
+const ListModal = ({ list, isOpen, onClose, onSave, onShare, onAddPost, onOpenFullScreen, onOpenHub, showBackButton, onBack, onLikeChange }: ListModalProps) => {
   const { currentUser } = useAuth()
-  const { openPostModal, openFullScreenList } = useNavigation()
-  const [isLiked, setIsLiked] = useState(list.isLiked)
+  const { openPostOverlay, openFullScreenList } = useNavigation()
+  const [isLiked, setIsLiked] = useState(false)
   const [likes, setLikes] = useState(list.likes)
   const [isVisible, setIsVisible] = useState(false)
   const [showCommentsModal, setShowCommentsModal] = useState(false)
-  const [showSaveToListModal, setShowSaveToListModal] = useState(false)
-  const [selectedListForSave, setSelectedListForSave] = useState<List | null>(null)
   const [posts, setPosts] = useState<Post[]>([])
+  const [places, setPlaces] = useState<any[]>([])
+  const [creatorName, setCreatorName] = useState<string>('');
 
   useEffect(() => {
-    if (isOpen) {
-      const fetchPosts = async () => {
-        const listPosts = await firebaseDataService.getPostsForList(list.id);
-        setPosts(listPosts);
+    if (currentUser && list) {
+      const checkIfSaved = async () => {
+        const isSaved = await firebaseDataService.isListSavedByUser(list.id, currentUser.id);
+        setIsLiked(isSaved);
       };
-      fetchPosts();
+      checkIfSaved();
     }
-  }, [isOpen, list]);
+    setLikes(list.likes);
+  }, [currentUser, list]);
+
+  useEffect(() => {
+    if (isOpen && currentUser) {
+      const fetchPostsAndCreator = async () => {
+        try {
+          const listPosts = await firebaseDataService.getPostsForList(list.id);
+          setPosts(listPosts);
+          
+          // Also fetch places saved to this list
+          try {
+            const listPlaces = await firebaseListService.getPlacesForList(list.id);
+            setPlaces(listPlaces);
+          } catch (error) {
+            console.error('Error fetching places for list:', error);
+            setPlaces([]); // Set empty array on error
+          }
+          
+          if (list.userId) {
+            const name = await firebaseDataService.getUserDisplayName(list.userId);
+            setCreatorName(name);
+          }
+        } catch (error) {
+          console.error('Error fetching list data:', error);
+          setPosts([]);
+          setPlaces([]);
+        }
+      };
+      fetchPostsAndCreator();
+    } else if (isOpen && !currentUser) {
+      // If modal is open but user is not authenticated, just fetch posts
+      const fetchPostsOnly = async () => {
+        try {
+          const listPosts = await firebaseDataService.getPostsForList(list.id);
+          setPosts(listPosts);
+          setPlaces([]); // No places for unauthenticated users
+          
+          if (list.userId) {
+            const name = await firebaseDataService.getUserDisplayName(list.userId);
+            setCreatorName(name);
+          }
+        } catch (error) {
+          console.error('Error fetching list data:', error);
+          setPosts([]);
+          setPlaces([]);
+        }
+      };
+      fetchPostsOnly();
+    }
+  }, [isOpen, list, currentUser]);
   
   useEffect(() => {
     if (isOpen) {
@@ -56,16 +107,47 @@ const ListModal = ({ list, isOpen, onClose, onSave, onShare, onAddPost, onOpenFu
 
   if (!isOpen) return null
 
-  const handleLike = (e: React.MouseEvent) => {
-    e.stopPropagation()
-    setIsLiked(!isLiked)
-    setLikes(isLiked ? likes - 1 : likes + 1)
-  }
+  const handleLike = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!currentUser) return;
+
+    const newIsLiked = !isLiked;
+    const newLikes = newIsLiked ? (likes || 0) + 1 : (likes || 1) - 1;
+
+    // Optimistic update
+    setIsLiked(newIsLiked);
+    setLikes(newLikes);
+
+    // Update database in the background
+    try {
+      await firebaseDataService.saveList(list.id, currentUser.id);
+      
+      // Notify parent component of the change
+      if (onLikeChange) {
+        onLikeChange(list.id, newIsLiked, newLikes);
+      }
+    } catch (error) {
+      console.error("Failed to like list:", error);
+      // Revert UI on failure
+      setIsLiked(!newIsLiked);
+      setLikes(likes);
+    }
+  };
 
   const handleSave = (e: React.MouseEvent) => {
     e.stopPropagation()
-    if (onSave) {
-      onSave(list)
+    if (currentUser) {
+      // Save the list to user's saved lists
+      firebaseDataService.saveList(list.id, currentUser.id)
+        .then(() => {
+          console.log('List saved successfully')
+          // Update the like state
+          setIsLiked(true)
+          setLikes((prev) => (prev || 0) + 1)
+        })
+        .catch((error) => {
+          console.error('Failed to save list:', error)
+        })
     }
   }
 
@@ -107,7 +189,7 @@ const ListModal = ({ list, isOpen, onClose, onSave, onShare, onAddPost, onOpenFu
   }
 
   const handlePostClick = (post: Post) => {
-    openPostModal(post.id, 'list-modal');
+    openPostOverlay(post.id);
   };
 
   const handleCommentsClick = () => {
@@ -129,63 +211,10 @@ const ListModal = ({ list, isOpen, onClose, onSave, onShare, onAddPost, onOpenFu
     console.log('Replied to comment:', commentId, text)
   }
 
-  const handleSaveList = (listToSave: List) => {
-    setSelectedListForSave(listToSave)
-    setShowSaveToListModal(true)
-  }
-
-  const handleSaveToList = (listId: string, note?: string) => {
-    // Save list logic here
-    console.log('Saving list:', listId, note)
-    setShowSaveToListModal(false)
-    setSelectedListForSave(null)
-  }
-
-  const handleCreateList = (listData: { name: string; description: string; privacy: 'public' | 'private' | 'friends'; tags: string[] }) => {
-    // Create list logic here
-    console.log('Creating list:', listData)
-  }
-
   const handleSeeAllLists = (listType: 'popular' | 'friends') => {
     // Navigate to ViewAllLists page with appropriate filters
     window.location.href = `/lists?type=${listType}&hub=${list.id}`
   }
-
-  // Mock user lists for save functionality
-  const userLists: List[] = [
-    {
-      id: 'all-loved',
-      name: 'All Loved',
-      description: 'All the places you\'ve loved and want to visit again',
-      userId: '1',
-      isPublic: false,
-      isShared: false,
-      privacy: 'private',
-      tags: ['loved', 'favorites', 'auto-generated'],
-      hubs: [],
-      coverImage: 'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=300&h=200&fit=crop',
-      createdAt: '2024-01-01',
-      updatedAt: '2024-01-15',
-      likes: 0,
-      isLiked: false
-    },
-    {
-      id: 'cozy-coffee-spots',
-      name: 'Cozy Coffee Spots',
-      description: 'Perfect places to work and relax with great coffee and atmosphere',
-      userId: '1',
-      isPublic: true,
-      isShared: false,
-      privacy: 'public',
-      tags: ['coffee', 'work-friendly', 'cozy'],
-      hubs: [],
-      coverImage: 'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=300&h=200&fit=crop',
-      createdAt: '2024-01-10',
-      updatedAt: '2024-01-15',
-      likes: 56,
-      isLiked: false
-    }
-  ]
 
   const modalContent = (
     <div 
@@ -500,11 +529,11 @@ const ListModal = ({ list, isOpen, onClose, onSave, onShare, onAddPost, onOpenFu
             <h1 className="text-3xl font-serif font-bold text-white mb-2 leading-tight drop-shadow-lg" style={{ textShadow: '1px 1px 3px rgba(0,0,0,0.5)' }}>{list.name}</h1>
             <div className="flex items-center text-white/90 text-sm mb-3 drop-shadow-md">
               <UserIcon className="w-4 h-4 mr-1.5" />
-              Created by {list.userId}
+              Created by {creatorName}
             </div>
             <div className="flex flex-wrap items-center gap-2">
               <span className="px-3 py-1 bg-white/20 backdrop-blur-sm rounded-full text-white text-xs font-medium border border-white/30 shadow-sm">
-                {posts.length} {posts.length === 1 ? 'place' : 'places'}
+                {posts.length + places.length} {posts.length + places.length === 1 ? 'place' : 'places'}
               </span>
               {list.tags.map((tag, index) => (
                 <span 
@@ -580,7 +609,7 @@ const ListModal = ({ list, isOpen, onClose, onSave, onShare, onAddPost, onOpenFu
             </button>
           </div>
 
-          {/* Posts */}
+            {/* Combined Places and Posts */}
             <div className="bg-[#E8D4C0]/20 backdrop-blur-sm rounded-3xl p-4 border border-[#E8D4C0]/40 shadow-[0_6px_30px_rgba(0,0,0,0.1)] relative overflow-hidden">
               {/* Mobile-optimized floating leaf accent */}
               <img
@@ -596,30 +625,126 @@ const ListModal = ({ list, isOpen, onClose, onSave, onShare, onAddPost, onOpenFu
               <div className="absolute inset-0 bg-gradient-to-r from-[#F7E8CC]/15 via-transparent to-[#E8D4C0]/15 rounded-3xl pointer-events-none" />
               <h3 className="text-lg font-serif font-semibold text-[#5D4A2E] mb-4 relative z-10">Places in this list</h3>
               <div className="space-y-3 relative z-10">
-              {posts.map((post) => (
-                <div
-                  key={post.id}
-                  onClick={() => handlePostClick(post)}
+                {/* Display saved places first */}
+                {places.map((place) => (
+                  <div
+                    key={`place-${place.id}`}
+                    onClick={() => onOpenHub?.(place.place)}
                     className="flex items-center gap-3 p-3 bg-[#FEF6E9]/85 backdrop-blur-sm rounded-2xl shadow-md border border-[#E8D4C0]/40 active:scale-98 transition-all duration-200 cursor-pointer"
-                >
+                  >
                     <div className="w-12 h-12 bg-[#FEF6E9] rounded-lg flex-shrink-0 border border-[#E8D4C0] shadow-sm overflow-hidden">
-                      <img src={post.images[0]} alt={post.description} className="w-full h-full object-cover" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                      <p className="font-serif font-semibold text-[#5D4A2E] truncate line-clamp-1">{post.description}</p>
-                      <div className="flex items-center text-[#7A5D3F] text-sm">
-                      by @{post.username}
+                      <img 
+                        src={place.place?.hubImage || '/assets/leaf.png'} 
+                        alt={place.place?.name || 'Place'} 
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          e.currentTarget.src = '/assets/leaf.png';
+                        }}
+                      />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-serif font-semibold text-[#5D4A2E] truncate line-clamp-1">{place.place?.name || 'Unknown Place'}</p>
+                      <p className="text-[#7A5D3F] text-sm truncate">{place.place?.address || 'No address'}</p>
+                      {place.note && (
+                        <p className="text-[#7A5D3F] text-sm italic mt-1">"{place.note}"</p>
+                      )}
+                      {/* Status tag for saved places */}
+                      <div className="flex items-center gap-2 mt-1">
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium border shadow-sm ${
+                          place.status === 'loved' 
+                            ? 'bg-[#FF6B6B]/20 text-[#FF6B6B] border-[#FF6B6B]/30' 
+                            : place.status === 'tried' 
+                            ? 'bg-[#4ECDC4]/20 text-[#4ECDC4] border-[#4ECDC4]/30' 
+                            : 'bg-[#45B7D1]/20 text-[#45B7D1] border-[#45B7D1]/30'
+                        }`}>
+                          {place.status === 'loved' ? '❤️ Loved' : 
+                           place.status === 'tried' ? '🍽️ Tried' : '💭 Want'}
+                        </span>
+                        
+                        {/* Rating for Tried Places */}
+                        {place.status === 'tried' && place.triedRating && (
+                          <span className={`px-2 py-1 rounded-full text-xs font-medium border shadow-sm ${
+                            place.triedRating === 'liked' 
+                              ? 'bg-[#4CAF50]/20 text-[#4CAF50] border-[#4CAF50]/30' 
+                              : place.triedRating === 'disliked' 
+                              ? 'bg-[#F44336]/20 text-[#F44336] border-[#F44336]/30' 
+                              : 'bg-[#FF9800]/20 text-[#FF9800] border-[#FF9800]/30'
+                          }`}>
+                            {place.triedRating === 'liked' ? '👍 Liked' : 
+                             place.triedRating === 'disliked' ? '👎 Disliked' : '😐 Neutral'}
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                ))}
+                
+                {/* Display posts */}
+                {posts.map((post) => (
+                  <div
+                    key={`post-${post.id}`}
+                    onClick={() => handlePostClick(post)}
+                    className="flex items-center gap-3 p-3 bg-[#FEF6E9]/85 backdrop-blur-sm rounded-2xl shadow-md border border-[#E8D4C0]/40 active:scale-98 transition-all duration-200 cursor-pointer"
+                  >
+                    <div className="w-12 h-12 bg-[#FEF6E9] rounded-lg flex-shrink-0 border border-[#E8D4C0] shadow-sm overflow-hidden">
+                      <img 
+                        src={post.images && post.images.length > 0 ? post.images[0] : '/assets/leaf.png'} 
+                        alt={post.description} 
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          e.currentTarget.src = '/assets/leaf.png';
+                        }}
+                      />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-serif font-semibold text-[#5D4A2E] truncate line-clamp-1">{post.description}</p>
+                      <div className="flex items-center gap-2 text-[#7A5D3F] text-sm">
+                        <span>by @{post.username || 'Unknown User'}</span>
+                      </div>
+                      <div className="flex items-center gap-2 mt-1">
+                        {/* Post Type Tag */}
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium border shadow-sm ${
+                          post.postType === 'loved' 
+                            ? 'bg-[#FF6B6B]/20 text-[#FF6B6B] border-[#FF6B6B]/30' 
+                            : post.postType === 'tried' 
+                            ? 'bg-[#4ECDC4]/20 text-[#4ECDC4] border-[#4ECDC4]/30' 
+                            : 'bg-[#45B7D1]/20 text-[#45B7D1] border-[#45B7D1]/30'
+                        }`}>
+                          {post.postType === 'loved' ? '❤️ Loved' : 
+                           post.postType === 'tried' ? '🍽️ Tried' : '💭 Want'}
+                        </span>
+                        
+                        {/* Rating for Tried Posts */}
+                        {post.postType === 'tried' && post.triedRating && (
+                          <span className={`px-2 py-1 rounded-full text-xs font-medium border shadow-sm ${
+                            post.triedRating === 'liked' 
+                              ? 'bg-[#4CAF50]/20 text-[#4CAF50] border-[#4CAF50]/30' 
+                              : post.triedRating === 'disliked' 
+                              ? 'bg-[#F44336]/20 text-[#F44336] border-[#F44336]/30' 
+                              : 'bg-[#FF9800]/20 text-[#FF9800] border-[#FF9800]/30'
+                          }`}>
+                            {post.triedRating === 'liked' ? '👍 Liked' : 
+                             post.triedRating === 'disliked' ? '👎 Disliked' : '😐 Neutral'}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+                
+                {/* Show empty state if no places or posts */}
+                {places.length === 0 && posts.length === 0 && (
+                  <div className="text-center py-8 text-[#7A5D3F]">
+                    <p className="text-sm">No places or posts in this list yet</p>
+                  </div>
+                )}
               </div>
             </div>
           </div>
         </div>
       </div>
     </div>
-  )
+  );
 
   return (
     <>
@@ -633,27 +758,6 @@ const ListModal = ({ list, isOpen, onClose, onSave, onShare, onAddPost, onOpenFu
         onAddComment={handleAddCommentToModal}
         onLikeComment={handleLikeComment}
         onReplyToComment={handleReplyToComment}
-      />
-
-      {/* Save to List Modal */}
-      <SaveToListModal
-        isOpen={showSaveToListModal}
-        onClose={() => {
-          setShowSaveToListModal(false)
-          setSelectedListForSave(null)
-        }}
-        place={{
-          id: selectedListForSave?.id || '',
-          name: selectedListForSave?.name || '',
-          address: '',
-          tags: selectedListForSave?.tags || [],
-          posts: [],
-          savedCount: 0,
-          createdAt: selectedListForSave?.createdAt || ''
-        }}
-        userLists={userLists}
-        onSave={handleSaveToList}
-        onCreateList={handleCreateList}
       />
     </>
   )

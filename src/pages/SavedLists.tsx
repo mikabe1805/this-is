@@ -1,19 +1,21 @@
-import type { List, User } from '../types/index.js'
-import { HeartIcon, BookmarkIcon, PlusIcon, MapPinIcon, CalendarIcon, ArrowLeftIcon, EyeIcon, UserIcon } from '@heroicons/react/24/outline'
-import { useState } from 'react'
+import type { List, User, Place } from '../types/index.js'
+import { HeartIcon, BookmarkIcon, PlusIcon, MapPinIcon, CalendarIcon, ArrowLeftIcon, EyeIcon } from '@heroicons/react/24/outline'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import SearchAndFilter from '../components/SearchAndFilter'
 import SaveModal from '../components/SaveModal'
 import CreatePost from '../components/CreatePost'
 import { useNavigation } from '../contexts/NavigationContext.tsx'
+import { useAuth } from '../contexts/AuthContext.js'
+import { firebaseDataService } from '../services/firebaseDataService.js'
 
 // SVG botanical accent
 const BotanicalAccent = () => (
   <svg width="60" height="60" viewBox="0 0 60 60" fill="none" xmlns="http://www.w3.org/2000/svg" className="absolute -top-6 -left-6 opacity-30 select-none pointer-events-none">
-    <path d="M10 50 Q30 10 50 50" stroke="#A3B3A3" strokeWidth="3" fill="none"/>
-    <ellipse cx="18" cy="38" rx="4" ry="8" fill="#C7D0C7"/>
-    <ellipse cx="30" cy="28" rx="4" ry="8" fill="#A3B3A3"/>
-    <ellipse cx="42" cy="38" rx="4" ry="8" fill="#7A927A"/>
+    <path d="M10 50 Q30 10 50 50" stroke="#A3B3A3" strokeWidth="3" fill="none" />
+    <ellipse cx="18" cy="38" rx="4" ry="8" fill="#C7D0C7" />
+    <ellipse cx="30" cy="28" rx="4" ry="8" fill="#A3B3A3" />
+    <ellipse cx="42" cy="38" rx="4" ry="8" fill="#7A927A" />
   </svg>
 )
 
@@ -35,198 +37,58 @@ const availableTags = ['coffee', 'food', 'outdoors', 'work', 'study', 'cozy', 't
 const Favorites = () => {
   const navigate = useNavigate()
   const { openListModal } = useNavigation()
+  const { currentUser: authUser } = useAuth()
+
+  const [savedLists, setSavedLists] = useState<List[]>([])
+  const [loading, setLoading] = useState(true)
   const [sortBy, setSortBy] = useState('recent')
   const [activeFilters, setActiveFilters] = useState<string[]>([])
   const [selectedTags, setSelectedTags] = useState<string[]>([])
-  const [favoritedLists, setFavoritedLists] = useState<Set<string>>(new Set(['1', '3', '4', '5']))
   const [showSaveModal, setShowSaveModal] = useState(false)
   const [showCreatePost, setShowCreatePost] = useState(false)
-  const [selectedPlace, setSelectedPlace] = useState<any>(null)
+  const [selectedPlace, setSelectedPlace] = useState<Place | null>(null)
   const [createPostListId, setCreatePostListId] = useState<string | null>(null)
 
-  // Mock current user
-  const currentUser: User = {
-    id: '1',
-    name: 'Mika Chen',
-    username: 'mika.chen',
-    avatar: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=150&h=150&fit=crop&crop=face',
-    bio: 'Finding cozy spots and sharing them with friends ✨',
-    location: 'San Francisco, CA',
-    influences: 234
-  }
-
-  // Mock user's own lists that they've favorited
-  const userLists: List[] = [
-    {
-      id: 'all-loved',
-      name: 'All Loved',
-      description: 'All the places you\'ve loved and want to visit again',
-      userId: '1',
-      isPublic: false,
-      isShared: false,
-      privacy: 'private',
-      tags: ['loved', 'favorites', 'auto-generated'],
-      hubs: [],
-      coverImage: 'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=300&h=200&fit=crop',
-      createdAt: '2024-01-01',
-      updatedAt: '2024-01-15',
-      likes: 0,
-      isLiked: false
-    },
-    {
-      id: 'all-tried',
-      name: 'All Tried',
-      description: 'All the places you\'ve tried and experienced',
-      userId: '1',
-      isPublic: false,
-      isShared: false,
-      privacy: 'private',
-      tags: ['tried', 'visited', 'auto-generated'],
-      hubs: [],
-      coverImage: 'https://images.unsplash.com/photo-1501594907352-04cda38ebc29?w=300&h=200&fit=crop',
-      createdAt: '2024-01-01',
-      updatedAt: '2024-01-15',
-      likes: 0,
-      isLiked: false
-    },
-    {
-      id: 'all-want',
-      name: 'All Want',
-      description: 'All the places you want to visit someday',
-      userId: '1',
-      isPublic: false,
-      isShared: false,
-      privacy: 'private',
-      tags: ['want', 'wishlist', 'auto-generated'],
-      hubs: [],
-      coverImage: 'https://images.unsplash.com/photo-1442512595331-e89e73853f31?w=300&h=200&fit=crop',
-      createdAt: '2024-01-01',
-      updatedAt: '2024-01-15',
-      likes: 0,
-      isLiked: false
-    },
-    {
-      id: '1',
-      name: 'Cozy Coffee Spots',
-      description: 'Perfect places to work and relax with great coffee and atmosphere',
-      userId: '1',
-      isPublic: true,
-      isShared: false,
-      privacy: 'public',
-      tags: ['coffee', 'work-friendly', 'cozy'],
-      hubs: [],
-      coverImage: 'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=300&h=200&fit=crop',
-      createdAt: '2024-01-10',
-      updatedAt: '2024-01-15',
-      likes: 56,
-      isLiked: false
-    },
-    {
-      id: '2',
-      name: 'Hidden Gems',
-      description: 'Local favorites that tourists don\'t know about',
-      userId: '1',
-      isPublic: true,
-      isShared: false,
-      privacy: 'public',
-      tags: ['local', 'hidden-gems', 'authentic'],
-      hubs: [],
-      coverImage: 'https://images.unsplash.com/photo-1501594907352-04cda38ebc29?w=300&h=200&fit=crop',
-      createdAt: '2024-01-12',
-      updatedAt: '2024-01-14',
-      likes: 42,
-      isLiked: false
-    },
-    {
-      id: '3',
-      name: 'Book Nooks',
-      description: 'Quiet places to read and study',
-      userId: '1',
-      isPublic: false,
-      isShared: false,
-      privacy: 'private',
-      tags: ['books', 'quiet', 'study'],
-      hubs: [],
-      coverImage: 'https://images.unsplash.com/photo-1481627834876-b7833e8f5570?w=300&h=200&fit=crop',
-      createdAt: '2024-01-08',
-      updatedAt: '2024-01-13',
-      likes: 23,
-      isLiked: false
-    },
-    {
-      id: '4',
-      name: 'Weekend Brunch Spots',
-      description: 'The best places for weekend brunch with friends',
-      userId: '1',
-      isPublic: true,
-      isShared: false,
-      privacy: 'friends',
-      tags: ['brunch', 'weekend', 'social'],
-      hubs: [],
-      coverImage: 'https://images.unsplash.com/photo-1509440159596-0249088772ff?w=300&h=200&fit=crop',
-      createdAt: '2024-01-05',
-      updatedAt: '2024-01-12',
-      likes: 34,
-      isLiked: false
-    },
-    {
-      id: '5',
-      name: 'Outdoor Adventures',
-      description: 'Places to explore nature and get some fresh air',
-      userId: '1',
-      isPublic: true,
-      isShared: false,
-      privacy: 'public',
-      tags: ['outdoors', 'nature', 'adventure'],
-      hubs: [],
-      coverImage: 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=300&h=200&fit=crop',
-      createdAt: '2024-01-03',
-      updatedAt: '2024-01-10',
-      likes: 28,
-      isLiked: false
-    },
-    {
-      id: '6',
-      name: 'Date Night Ideas',
-      description: 'Romantic spots for special evenings',
-      userId: '1',
-      isPublic: false,
-      isShared: false,
-      privacy: 'private',
-      tags: ['romantic', 'date-night', 'special'],
-      hubs: [],
-      coverImage: 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=300&h=200&fit=crop',
-      createdAt: '2024-01-01',
-      updatedAt: '2024-01-08',
-      likes: 19,
-      isLiked: false
+  useEffect(() => {
+    const fetchSavedLists = async () => {
+      if (authUser) {
+        setLoading(true)
+        const lists = await firebaseDataService.getSavedLists(authUser.id)
+        setSavedLists(lists)
+        setLoading(false)
+      }
     }
-  ]
+    fetchSavedLists()
+  }, [authUser])
+
+  const handleUnfavoriteList = async (listId: string) => {
+    if (authUser) {
+      await firebaseDataService.saveList(listId, authUser.id);
+      setSavedLists(prev => prev.filter(list => list.id !== listId));
+    }
+  };
 
   // Filter and sort lists
-  let filteredLists = userLists.filter(list => {
-    // Only show lists that are favorited
-    if (!favoritedLists.has(list.id)) return false
-    
+  let filteredLists = savedLists.filter(list => {
     // Filter by privacy
     if (activeFilters.length > 0) {
       const hasPrivacyFilter = activeFilters.some(f => list.privacy === f)
       if (!hasPrivacyFilter) return false
     }
-    
+
     // Filter by tags
     if (selectedTags.length > 0) {
       const hasTagFilter = selectedTags.some(tag => list.tags.includes(tag))
       if (!hasTagFilter) return false
     }
-    
+
     return true
   })
 
   // Sort lists
   switch (sortBy) {
     case 'recent':
-      filteredLists = [...filteredLists].sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
+      filteredLists = [...filteredLists].sort((a, b) => new Date(b.updatedAt || 0).getTime() - new Date(a.updatedAt || 0).getTime())
       break
     case 'popular':
       filteredLists = [...filteredLists].sort((a, b) => (b.likes || 0) - (a.likes || 0))
@@ -239,36 +101,7 @@ const Favorites = () => {
       break
   }
 
-  // Always show auto-generated lists first
-  filteredLists.sort((a, b) => {
-    const aIsAuto = a.tags.includes('auto-generated')
-    const bIsAuto = b.tags.includes('auto-generated')
-    if (aIsAuto && !bIsAuto) return -1
-    if (!aIsAuto && bIsAuto) return 1
-    return 0
-  })
-
-  const handleFavoriteList = (listId: string) => {
-    setFavoritedLists(prev => {
-      const newSet = new Set(prev)
-      if (newSet.has(listId)) {
-        newSet.delete(listId)
-      } else {
-        newSet.add(listId)
-      }
-      return newSet
-    })
-  }
-
-  const handleUnfavoriteList = (listId: string) => {
-    setFavoritedLists(prev => {
-      const newSet = new Set(prev)
-      newSet.delete(listId)
-      return newSet
-    })
-  }
-
-  const handleSaveToPlace = (place: any) => {
+  const handleSaveToPlace = (place: Place) => {
     setSelectedPlace(place)
     setShowSaveModal(true)
   }
@@ -291,10 +124,21 @@ const Favorites = () => {
   }
 
   const toggleTag = (tag: string) => {
-    setSelectedTags(prev => 
-      prev.includes(tag) 
+    setSelectedTags(prev =>
+      prev.includes(tag)
         ? prev.filter(t => t !== tag)
         : [...prev, tag]
+    )
+  }
+
+  if (loading) {
+    return (
+      <div className="relative min-h-full overflow-x-hidden bg-linen-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-sage-500 mx-auto mb-4"></div>
+          <p className="text-sage-600">Loading your favorites...</p>
+        </div>
+      </div>
     )
   }
 
@@ -375,13 +219,13 @@ const Favorites = () => {
               >
                 {/* Botanical accent */}
                 <BotanicalAccent />
-                
+
                 <div className="flex flex-col md:flex-row gap-0">
                   {/* Cover Image */}
                   <div className="w-full md:w-40 h-32 md:h-auto flex-shrink-0 bg-linen-100 relative">
-                    <img 
-                      src={list.coverImage} 
-                      alt={list.name} 
+                    <img
+                      src={list.coverImage}
+                      alt={list.name}
                       className="w-full h-full object-cover"
                     />
                     {/* Privacy indicator */}
@@ -411,35 +255,22 @@ const Favorites = () => {
                             </span>
                           )}
                         </div>
-                        <div className="flex items-center gap-1">
-                          <button
-                            onClick={() => handleFavoriteList(list.id)}
-                            className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium transition ${
-                              favoritedLists.has(list.id) 
-                                ? 'bg-gold-100 text-gold-700 border border-gold-200' 
-                                : 'bg-gold-50 text-gold-600 hover:bg-gold-100'
-                            }`}
-                          >
-                            <HeartIcon className={`w-3 h-3 ${favoritedLists.has(list.id) ? 'fill-current' : ''}`} />
-                            {list.likes || 0}
-                          </button>
-                        </div>
                       </div>
-                      
+
                       <p className="text-sm text-charcoal-500 mb-3 leading-relaxed">{list.description}</p>
-                      
+
                       {/* List info */}
                       <div className="flex items-center gap-4 text-xs text-charcoal-400 mb-3">
                         <div className="flex items-center gap-1">
                           <CalendarIcon className="w-3 h-3" />
-                          {new Date(list.updatedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                          {new Date(list.updatedAt || 0).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                         </div>
                         <div className="flex items-center gap-1">
                           <MapPinIcon className="w-3 h-3" />
                           {list.hubs?.length || 0} places
                         </div>
                       </div>
-                      
+
                       <div className="flex flex-wrap gap-2 mb-3">
                         {list.tags.filter(tag => tag !== 'auto-generated').map(tag => (
                           <button
@@ -449,22 +280,11 @@ const Favorites = () => {
                               selectedTags.includes(tag)
                                 ? 'bg-sage-200 text-sage-800 border border-sage-300'
                                 : 'bg-sage-50 text-sage-700 border border-sage-100 hover:bg-sage-100'
-                            }`}
+                              }`}
                           >
                             #{tag}
                           </button>
                         ))}
-                      </div>
-
-                      <div className="flex items-center gap-4 text-xs text-charcoal-400">
-                        <div className="flex items-center gap-1">
-                          <CalendarIcon className="w-3 h-3" />
-                          {new Date(list.updatedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <MapPinIcon className="w-3 h-3" />
-                          {list.hubs?.length || 0} places
-                        </div>
                       </div>
                     </div>
 
@@ -476,7 +296,7 @@ const Favorites = () => {
                       >
                         View List
                       </button>
-                      
+
                       <button
                         onClick={() => handleCreatePost(list.id)}
                         className="p-2 rounded-lg bg-gold-50 text-gold-600 hover:bg-gold-100 transition"
@@ -484,7 +304,7 @@ const Favorites = () => {
                       >
                         <PlusIcon className="w-4 h-4" />
                       </button>
-                      
+
                       <button
                         onClick={() => handleSaveToPlace({
                           id: list.id,
@@ -492,15 +312,15 @@ const Favorites = () => {
                           address: 'Various locations',
                           tags: list.tags,
                           posts: [],
-                          savedCount: list.likes,
-                          createdAt: list.createdAt
+                          savedCount: list.likes || 0,
+                          createdAt: list.createdAt || new Date().toISOString()
                         })}
                         className="p-2 rounded-lg bg-gold-50 text-gold-600 hover:bg-gold-100 transition"
                         title="Save to list"
                       >
                         <BookmarkIcon className="w-4 h-4" />
                       </button>
-                      
+
                       <button
                         onClick={() => handleUnfavoriteList(list.id)}
                         className="p-2 rounded-lg bg-charcoal-50 text-charcoal-600 hover:bg-charcoal-100 transition"
@@ -560,4 +380,4 @@ const Favorites = () => {
   )
 }
 
-export default Favorites 
+export default Favorites

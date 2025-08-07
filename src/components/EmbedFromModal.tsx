@@ -1,7 +1,11 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { XMarkIcon, PhotoIcon, HeartIcon, BookmarkIcon, EyeIcon, EyeSlashIcon, UsersIcon, TagIcon, PlusIcon } from '@heroicons/react/24/outline'
 import { createPortal } from 'react-dom'
 import { extractEmbedData, createEmbedPreview, parseSocialMediaUrl, validateUrl, getPlatformPlaceholder, getPlatformDisplayName, type EmbedData, type EmbedPreview } from '../utils/embedUtils'
+import { firebasePostService } from '../services/firebasePostService'
+import { firebaseListService } from '../services/firebaseListService'
+import { useAuth } from '../contexts/AuthContext'
+import type { List } from '../types'
 
 interface EmbedFromModalProps {
   isOpen: boolean
@@ -23,6 +27,7 @@ interface EmbedPostData {
 }
 
 const EmbedFromModal = ({ isOpen, onClose, onEmbed }: EmbedFromModalProps) => {
+  const { currentUser } = useAuth()
   const [step, setStep] = useState<'url' | 'details'>('url')
   const [url, setUrl] = useState('')
   const [platform, setPlatform] = useState<'instagram' | 'tiktok' | 'youtube' | 'twitter' | 'other'>('instagram')
@@ -39,26 +44,25 @@ const EmbedFromModal = ({ isOpen, onClose, onEmbed }: EmbedFromModalProps) => {
   const [privacy, setPrivacy] = useState<'public' | 'friends' | 'private'>('private') // Always private for embeds
   const [selectedListIds, setSelectedListIds] = useState<Set<string>>(new Set())
   const [listSearchQuery, setListSearchQuery] = useState('')
+  const [userLists, setUserLists] = useState<List[]>([])
 
-  // Mock data
+  useEffect(() => {
+    const fetchLists = async () => {
+      if (currentUser) {
+        const lists = await firebaseListService.getUserLists(currentUser.id);
+        setUserLists(lists);
+      }
+    };
+    if (isOpen) {
+      fetchLists();
+    }
+  }, [isOpen, currentUser]);
+
   const availableTags = ['cozy', 'trendy', 'quiet', 'local', 'charming', 'authentic', 'chill', 'work-friendly', 'romantic', 'family-friendly']
-  const userLists = [
-    { id: '1', name: 'All Loved', isAutomatic: true },
-    { id: '2', name: 'All Tried', isAutomatic: true },
-    { id: '3', name: 'All Want', isAutomatic: true },
-    { id: '4', name: 'Coffee Spots', isAutomatic: false },
-    { id: '5', name: 'Book Nooks', isAutomatic: false },
-    { id: '6', name: 'Vegan Eats', isAutomatic: false },
-    { id: '7', name: 'Date Night Spots', isAutomatic: false },
-    { id: '8', name: 'Work Cafes', isAutomatic: false },
-    { id: '9', name: 'Quick Bites', isAutomatic: false },
-    { id: '10', name: 'Outdoor Dining', isAutomatic: false },
-    { id: '11', name: 'Hidden Gems', isAutomatic: false },
-  ]
 
   // Filter lists based on search query (exclude automatic lists)
   const filteredLists = userLists.filter(list =>
-    !list.isAutomatic && list.name.toLowerCase().includes(listSearchQuery.toLowerCase())
+    list.name.toLowerCase().includes(listSearchQuery.toLowerCase())
   )
 
   const handleUrlSubmit = async (e: React.FormEvent) => {
@@ -123,13 +127,8 @@ const EmbedFromModal = ({ isOpen, onClose, onEmbed }: EmbedFromModalProps) => {
     })
   }
 
-  const handleSubmit = () => {
-    if (!embedPreview) return
-
-    // Automatically add the appropriate "All" list based on status
-    const automaticListId = status === 'loved' ? '1' : status === 'tried' ? '2' : '3'
-    const allListIds = new Set(selectedListIds)
-    allListIds.add(automaticListId)
+  const handleSubmit = async () => {
+    if (!embedPreview || !currentUser) return
 
     const embedData: EmbedPostData = {
       platform,
@@ -141,12 +140,11 @@ const EmbedFromModal = ({ isOpen, onClose, onEmbed }: EmbedFromModalProps) => {
       description,
       tags,
       privacy: 'private', // Always private for embeds to avoid copyright issues
-      listIds: Array.from(allListIds)
+      listIds: Array.from(selectedListIds)
     }
+    
+    await firebasePostService.createEmbedPost(embedData, currentUser.id);
 
-    if (onEmbed) {
-      onEmbed(embedData)
-    }
     onClose()
   }
 
@@ -476,4 +474,4 @@ const EmbedFromModal = ({ isOpen, onClose, onEmbed }: EmbedFromModalProps) => {
   )
 }
 
-export default EmbedFromModal 
+export default EmbedFromModal

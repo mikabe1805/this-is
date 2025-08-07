@@ -39,6 +39,7 @@ interface SearchAndFilterProps {
   onLocationSelect?: (location: Location) => void
   filterCount?: number
   hubFilter?: string | null
+  onApplyFilters?: () => void
   // Positioning
   dropdownPosition?: 'top-right' | 'bottom-right' | 'center'
 }

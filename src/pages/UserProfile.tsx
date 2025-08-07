@@ -1,152 +1,83 @@
-import { useState, useEffect } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
-import { MapPinIcon, UserIcon, CalendarIcon, HeartIcon, BookmarkIcon, EyeIcon, PlusIcon, ShareIcon, ArrowLeftIcon } from '@heroicons/react/24/outline'
-import { HeartIcon as HeartIconSolid, BookmarkIcon as BookmarkIconSolid, EyeIcon as EyeIconSolid } from '@heroicons/react/24/solid'
-import type { User, Post, List } from '../types/index.js'
-
-// Mock user data - in real app this would come from API
-const mockUser: User = {
-  id: '1',
-  name: 'Sarah Chen',
-  username: 'sarah.chen',
-  avatar: 'https://images.unsplash.com/photo-1494790108755-2616b612b786?w=150&h=150&fit=crop&crop=face',
-  bio: 'Finding cozy spots and sharing them with friends ✨',
-  location: 'San Francisco, CA',
-  tags: ['cozy', 'coffee', 'foodie', 'local'],
-  isFollowing: false
-}
-
-const mockPosts: Post[] = [
-  {
-    id: '1',
-    hubId: '1',
-    userId: '1',
-    username: 'Sarah Chen',
-    userAvatar: 'https://images.unsplash.com/photo-1494790108755-2616b612b786?w=150&h=150&fit=crop&crop=face',
-    images: ['https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=400&h=300&fit=crop'],
-    description: 'Amazing coffee spot! ☕️ The atmosphere is perfect for working remotely.',
-    postType: 'loved',
-    createdAt: '2024-01-15T10:30:00Z',
-    privacy: 'public',
-    likes: 45,
-    likedBy: ['1', '2'],
-    comments: []
-  },
-  {
-    id: '2',
-    hubId: '2',
-    userId: '1',
-    username: 'Sarah Chen',
-    userAvatar: 'https://images.unsplash.com/photo-1494790108755-2616b612b786?w=150&h=150&fit=crop&crop=face',
-    images: ['https://images.unsplash.com/photo-1509440159596-0249088772ff?w=400&h=300&fit=crop'],
-    description: 'Perfect for working remotely 💻 Great wifi and coffee!',
-    postType: 'tried',
-    triedRating: 'liked',
-    createdAt: '2024-01-14T15:20:00Z',
-    privacy: 'public',
-    likes: 32,
-    likedBy: ['1'],
-    comments: []
-  },
-  {
-    id: '3',
-    hubId: '3',
-    userId: '1',
-    username: 'Sarah Chen',
-    userAvatar: 'https://images.unsplash.com/photo-1494790108755-2616b612b786?w=150&h=150&fit=crop&crop=face',
-    images: ['https://images.unsplash.com/photo-1565299624946-b28f40a0ca4b?w=400&h=300&fit=crop'],
-    description: 'Best tacos in the city! 🌮 Authentic flavors and great service.',
-    postType: 'loved',
-    createdAt: '2024-01-13T12:00:00Z',
-    privacy: 'public',
-    likes: 67,
-    likedBy: ['1', '2', '3'],
-    comments: []
-  }
-]
-
-const mockLists: List[] = [
-  {
-    id: '1',
-    name: 'Coffee Adventures',
-    description: 'Exploring the best coffee spots in the Bay Area',
-    userId: '1',
-    isPublic: true,
-    isShared: false,
-    privacy: 'public',
-    tags: ['coffee', 'bay-area', 'adventures'],
-    hubs: [],
-    coverImage: 'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=300&h=200&fit=crop',
-    createdAt: '2024-01-10',
-    updatedAt: '2024-01-15',
-    likes: 24,
-    isLiked: false
-  },
-  {
-    id: '2',
-    name: 'Work-Friendly Spots',
-    description: 'Great places to work and be productive',
-    userId: '1',
-    isPublic: true,
-    isShared: false,
-    privacy: 'public',
-    tags: ['work-friendly', 'productivity', 'cafes'],
-    hubs: [],
-    coverImage: 'https://images.unsplash.com/photo-1509440159596-0249088772ff?w=300&h=200&fit=crop',
-    createdAt: '2024-01-08',
-    updatedAt: '2024-01-12',
-    likes: 18,
-    isLiked: false
-  },
-  {
-    id: '3',
-    name: 'Hidden Gems',
-    description: 'Local favorites that tourists don\'t know about',
-    userId: '1',
-    isPublic: true,
-    isShared: false,
-    privacy: 'public',
-    tags: ['local', 'hidden-gems', 'authentic'],
-    hubs: [],
-    coverImage: 'https://images.unsplash.com/photo-1565299624946-b28f40a0ca4b?w=300&h=200&fit=crop',
-    createdAt: '2024-01-05',
-    updatedAt: '2024-01-10',
-    likes: 31,
-    isLiked: false
-  }
-]
+import { useState, useEffect } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { MapPinIcon, UserIcon, CalendarIcon, HeartIcon, BookmarkIcon, EyeIcon, PlusIcon, ShareIcon, ArrowLeftIcon } from '@heroicons/react/24/outline';
+import { HeartIcon as HeartIconSolid, BookmarkIcon as BookmarkIconSolid, EyeIcon as EyeIconSolid } from '@heroicons/react/24/solid';
+import type { User, Post, List } from '../types/index.js';
+import { firebaseListService } from '../services/firebaseListService.js';
+import { useAuth } from '../contexts/AuthContext.js';
+import firebaseDataService from '../services/firebaseDataService.js';
 
 const UserProfile = () => {
-  const { userId } = useParams<{ userId: string }>()
-  const navigate = useNavigate()
-  const [activeTab, setActiveTab] = useState<'posts' | 'lists'>('posts')
-  const [isFollowing, setIsFollowing] = useState(mockUser.isFollowing || false)
-  const [likedPosts, setLikedPosts] = useState<Set<string>>(new Set())
-  const [savedPosts, setSavedPosts] = useState<Set<string>>(new Set())
-  const [likedLists, setLikedLists] = useState<Set<string>>(new Set())
+  const { userId } = useParams<{ userId: string }>();
+  const navigate = useNavigate();
+  const { currentUser } = useAuth();
+  const [user, setUser] = useState<User | null>(null);
+  const [posts, setPosts] = useState<Post[]>([]);
+  const [lists, setLists] = useState<List[]>([]);
+  const [activeTab, setActiveTab] = useState<'posts' | 'lists'>('posts');
+  const [isFollowing, setIsFollowing] = useState(false);
+  const [likedPosts, setLikedPosts] = useState<Set<string>>(new Set());
+  const [savedPosts, setSavedPosts] = useState<Set<string>>(new Set());
+  const [likedLists, setLikedLists] = useState<Set<string>>(new Set());
 
-  // In real app, fetch user data based on userId
-  const user = mockUser
-  const posts = mockPosts
-  const lists = mockLists
-
-  const handleFollow = () => {
-    setIsFollowing(!isFollowing)
-    // In real app, this would make an API call
-    console.log(isFollowing ? 'Unfollowed' : 'Followed', user.name)
-  }
-
-  const handleLikePost = (postId: string) => {
-    setLikedPosts(prev => {
-      const newSet = new Set(prev)
-      if (newSet.has(postId)) {
-        newSet.delete(postId)
-      } else {
-        newSet.add(postId)
+  useEffect(() => {
+    const fetchData = async () => {
+      if (userId) {
+        const userData = await firebaseDataService.getCurrentUser(userId);
+        setUser(userData);
+        const userPosts = await firebaseDataService.getUserPosts(userId);
+        setPosts(userPosts);
+        const userLists = await firebaseDataService.getUserLists(userId);
+        setLists(userLists);
+        if (currentUser) {
+          const following = await firebaseDataService.getUserFollowing(currentUser.id);
+          setIsFollowing(following.some(u => u.id === userId));
+          const liked = await firebaseDataService.getSavedPosts(currentUser.id);
+          setLikedPosts(new Set(liked.map(p => p.id)));
+          const likedL = await firebaseDataService.getSavedLists(currentUser.id);
+          setLikedLists(new Set(likedL.map(l => l.id)));
+        }
       }
-      return newSet
-    })
-  }
+    };
+    fetchData();
+  }, [userId, currentUser]);
+
+  const handleFollow = async () => {
+    if (currentUser && userId) {
+      try {
+        if (isFollowing) {
+          await firebaseDataService.unfollowUser(currentUser.id, userId);
+        } else {
+          await firebaseDataService.followUser(currentUser.id, userId);
+        }
+        
+        // Refetch the following status from Firebase to confirm the change
+        const following = await firebaseDataService.getUserFollowing(currentUser.id);
+        const isUserFollowing = following.some(user => user.id === userId);
+        setIsFollowing(isUserFollowing);
+        
+        console.log(`Follow status updated: ${isUserFollowing ? 'following' : 'not following'}`);
+      } catch (error) {
+        console.error('Error updating follow status:', error);
+        // Don't update local state if the operation failed
+      }
+    }
+  };
+
+  const handleLikePost = async (postId: string) => {
+    if (currentUser) {
+      await firebaseDataService.likePost(postId, currentUser.id);
+      setLikedPosts(prev => {
+        const newSet = new Set(prev);
+        if (newSet.has(postId)) {
+          newSet.delete(postId);
+        } else {
+          newSet.add(postId);
+        }
+        return newSet;
+      });
+    }
+  };
 
   const handleSavePost = (postId: string) => {
     setSavedPosts(prev => {
@@ -160,17 +91,22 @@ const UserProfile = () => {
     })
   }
 
-  const handleLikeList = (listId: string) => {
-    setLikedLists(prev => {
-      const newSet = new Set(prev)
-      if (newSet.has(listId)) {
-        newSet.delete(listId)
-      } else {
-        newSet.add(listId)
-      }
-      return newSet
-    })
-  }
+  const handleLikeList = async (listId: string) => {
+    if (!currentUser) return;
+
+    try {
+      // First, update Firebase directly
+      await firebaseListService.likeList(listId, currentUser.id);
+      await firebaseDataService.saveList(listId, currentUser.id);
+      
+      // Then refetch the lists to get the true state from Firebase
+      const updatedLists = await firebaseDataService.getUserLists(userId || '');
+      setLists(updatedLists);
+      
+    } catch (error) {
+      console.error("Failed to like list:", error);
+    }
+  };
 
   const handleShare = () => {
     if (navigator.share) {
@@ -183,6 +119,10 @@ const UserProfile = () => {
       navigator.clipboard.writeText(window.location.href)
       alert('Profile link copied to clipboard!')
     }
+  }
+
+  if (!user) {
+    return <div>Loading...</div>;
   }
 
   return (
@@ -252,7 +192,7 @@ const UserProfile = () => {
               <div className="flex items-center gap-4 text-sm text-charcoal-500">
                 <div className="flex items-center gap-1">
                   <CalendarIcon className="w-4 h-4" />
-                  <span>Joined {new Date('2024-01-01').toLocaleDateString()}</span>
+                  <span>Joined {new Date(user.createdAt.seconds ? user.createdAt.toDate() : user.createdAt).toLocaleDateString()}</span>
                 </div>
               </div>
             </div>
@@ -287,11 +227,11 @@ const UserProfile = () => {
               <div className="text-sm text-charcoal-600">Lists</div>
             </div>
             <div className="text-center">
-              <div className="text-2xl font-bold text-charcoal-800">1.2k</div>
+              <div className="text-2xl font-bold text-charcoal-800">{user.followersCount || 0}</div>
               <div className="text-sm text-charcoal-600">Followers</div>
             </div>
             <div className="text-center">
-              <div className="text-2xl font-bold text-charcoal-800">890</div>
+              <div className="text-2xl font-bold text-charcoal-800">{user.followingCount || 0}</div>
               <div className="text-sm text-charcoal-600">Following</div>
             </div>
           </div>
@@ -344,7 +284,7 @@ const UserProfile = () => {
                         <div className="flex items-center gap-2">
                           <span className="font-semibold text-charcoal-700">{post.username}</span>
                           <span className="text-xs text-charcoal-500">
-                            {new Date(post.createdAt).toLocaleDateString()}
+                            {new Date(post.createdAt.seconds ? post.createdAt.toDate() : post.createdAt).toLocaleDateString()}
                           </span>
                         </div>
                         <div className="flex items-center gap-2 text-xs text-charcoal-500">
@@ -399,7 +339,7 @@ const UserProfile = () => {
                           ) : (
                             <HeartIcon className="w-5 h-5" />
                           )}
-                          {post.likes + (likedPosts.has(post.id) ? 1 : 0)}
+                          {post.likes + (likedPosts.has(post.id) ? 1 : 0) - (post.likedBy.includes(currentUser.id) && !likedPosts.has(post.id) ? 1 : 0)}
                         </button>
                         <span className="flex items-center gap-1">
                           <BookmarkIcon className="w-5 h-5" />
@@ -463,18 +403,18 @@ const UserProfile = () => {
                         </div>
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-4 text-sm text-charcoal-500">
-                            <span>{list.likes} likes</span>
-                            <span>Created {new Date(list.createdAt).toLocaleDateString()}</span>
+                            <span>{list.likes || 0} likes</span>
+                            <span>Created {new Date(list.createdAt.seconds ? list.createdAt.toDate() : list.createdAt).toLocaleDateString()}</span>
                           </div>
                           <button 
                             onClick={() => handleLikeList(list.id)}
                             className={`p-2 rounded-full transition-colors ${
-                              likedLists.has(list.id)
-                                ? 'bg-gold-100 text-gold-700'
+                              list.likedBy?.includes(currentUser?.id || '')
+                                ? 'bg-red-100 text-red-600'
                                 : 'bg-gold-50 text-gold-600 hover:bg-gold-100'
                             }`}
                           >
-                            {likedLists.has(list.id) ? (
+                            {list.likedBy?.includes(currentUser?.id || '') ? (
                               <HeartIconSolid className="w-4 h-4" />
                             ) : (
                               <HeartIcon className="w-4 h-4" />

@@ -1,6 +1,7 @@
 import { HomeIcon, MagnifyingGlassIcon, PhotoIcon, UserIcon } from '@heroicons/react/24/outline'
 import { HomeIcon as HomeIconSolid, MagnifyingGlassIcon as MagnifyingGlassIconSolid, PhotoIcon as PhotoIconSolid, UserIcon as UserIconSolid } from '@heroicons/react/24/solid'
 import PlusDropdown from './PlusDropdown'
+import { useEffect, useRef } from 'react'
 
 interface NavbarProps {
   activeTab: string
@@ -10,6 +11,7 @@ interface NavbarProps {
 }
 
 const Navbar = ({ activeTab, setActiveTab, onCreatePost, onEmbedFrom }: NavbarProps) => {
+  const navRef = useRef<HTMLElement>(null);
   const tabs = [
     { id: 'home', label: 'Home', icon: HomeIcon, activeIcon: HomeIconSolid },
     { id: 'search', label: 'Search', icon: MagnifyingGlassIcon, activeIcon: MagnifyingGlassIconSolid },
@@ -17,16 +19,26 @@ const Navbar = ({ activeTab, setActiveTab, onCreatePost, onEmbedFrom }: NavbarPr
     { id: 'profile', label: 'Profile', icon: UserIcon, activeIcon: UserIconSolid },
   ]
 
-  const handleCreatePost = () => {
-    onCreatePost()
-  }
+  useEffect(() => {
+    const nav = navRef.current;
+    if (!nav) return;
+
+    const handleWheel = (e: WheelEvent) => {
+      e.preventDefault();
+    };
+
+    nav.addEventListener('wheel', handleWheel, { passive: false });
+
+    return () => {
+      nav.removeEventListener('wheel', handleWheel);
+    };
+  }, []);
 
   return (
     <nav 
+      ref={navRef}
       className="fixed bottom-0 left-1/2 transform -translate-x-1/2 w-full max-w-md bg-white/90 backdrop-blur-glass border-t border-linen-200/50 shadow-crystal z-[1001]" 
       style={{ bottom: 'env(safe-area-inset-bottom, 0px)' }}
-      onTouchMove={(e) => e.preventDefault()}
-      onWheel={(e) => e.preventDefault()}
     >
       <div className="flex items-center py-1.5 px-4">
         {/* Left side tabs */}
@@ -108,4 +120,4 @@ const Navbar = ({ activeTab, setActiveTab, onCreatePost, onEmbedFrom }: NavbarPr
   )
 }
 
-export default Navbar 
+export default Navbar

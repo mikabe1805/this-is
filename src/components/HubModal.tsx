@@ -7,17 +7,14 @@ import { useNavigation } from '../contexts/NavigationContext.tsx'
 import { useAuth } from '../contexts/AuthContext.tsx'
 import { formatTimestamp } from '../utils/dateUtils.ts'
 import ImageCarousel from './ImageCarousel.tsx'
-import CommentsModal from './CommentsModal.tsx'
-import SaveToListModal from './SaveToListModal.tsx'
-import SavePostToListModal from './SavePostToListModal.tsx'
-import firebaseDataService from '../services/firebaseDataService.ts'
+import { firebaseDataService } from '../services/firebaseDataService.ts'
 
 interface HubModalProps {
   hub: Hub
   isOpen: boolean
   onClose: () => void
   onAddPost?: (hub: Hub) => void
-  onSave?: (hub: Hub) => void
+  onSave?: (hub: Hub, savedFromListId?: string) => void
   onShare?: (hub: Hub) => void
   onOpenFullScreen?: (hub: Hub) => void
   showBackButton?: boolean
@@ -26,42 +23,39 @@ interface HubModalProps {
   initialTab?: 'overview' | 'posts'
   initialPostId?: string
   showPostOverlay?: boolean
+  savedFromListId?: string
 }
 
-const HubModal = ({ hub, isOpen, onClose, onAddPost, onSave, onShare, onOpenFullScreen, showBackButton, onBack, onOpenList, initialTab = 'overview', initialPostId }: HubModalProps) => {
+const HubModal = ({ hub, isOpen, onClose, onAddPost, onSave, onShare, onOpenFullScreen, showBackButton, onBack, onOpenList, initialTab = 'overview', initialPostId, savedFromListId }: HubModalProps) => {
   const { currentUser } = useAuth();
   const { openListModal, openPostOverlay } = useNavigation()
   const [tab, setTab] = useState<'overview' | 'posts'>('overview')
   const [posts, setPosts] = useState<Post[]>([])
   const [isVisible, setIsVisible] = useState(false)
-  const [showCommentsModal, setShowCommentsModal] = useState(false)
-  const [showSaveToListModal, setShowSaveToListModal] = useState(false)
-  const [showSavePostToListModal, setShowSavePostToListModal] = useState(false)
-  const [selectedPostForSave, setSelectedPostForSave] = useState<Post | null>(null)
-  const [selectedListForSave, setSelectedListForSave] = useState<List | null>(null)
-
   const [likedPosts, setLikedPosts] = useState<Record<string, boolean>>({});
   const [likeCounts, setLikeCounts] = useState<Record<string, number>>({});
   const [topTags, setTopTags] = useState<string[]>([]);
-  const [selectedPostForComments, setSelectedPostForComments] = useState<Post | null>(null);
-  const [postComments, setPostComments] = useState<PostComment[]>([]);
   const [lists, setLists] = useState<List[]>([]);
-
-
-
+  const [friendsLists, setFriendsLists] = useState<List[]>([]);
+  const [sortBy, setSortBy] = useState<'likes' | 'recent'>('likes');
 
   useEffect(() => {
     const fetchListsContainingHub = async () => {
-      if (hub) {
+      if (hub?.id) {
         const fetchedLists = await firebaseDataService.getListsContainingHub(hub.id);
         setLists(fetchedLists);
+        
+        // Also fetch friends' lists if user is logged in
+        if (currentUser) {
+          const fetchedFriendsLists = await firebaseDataService.getFriendsListsContainingHub(hub.id, currentUser.id);
+          setFriendsLists(fetchedFriendsLists);
+        }
       }
     };
     if (isOpen) {
       fetchListsContainingHub();
     }
-  }, [isOpen, hub]);
-
+  }, [isOpen, hub, currentUser]);
 
   useEffect(() => {
     if (posts.length > 0) {
@@ -90,7 +84,7 @@ const HubModal = ({ hub, isOpen, onClose, onAddPost, onSave, onShare, onOpenFull
   }, [posts, currentUser]);
 
   useEffect(() => {
-    if (isOpen && hub) {
+    if (isOpen && hub?.id) {
       const fetchPosts = async () => {
         const hubPosts = await firebaseDataService.getPostsForHub(hub.id);
         setPosts(hubPosts);
@@ -123,18 +117,16 @@ const HubModal = ({ hub, isOpen, onClose, onAddPost, onSave, onShare, onOpenFull
     }
   }, [isOpen])
   
-  // Create a real list for Rami if this is Tartine Bakery
-
-
-
-
-
   if (!isOpen) {
     console.log('HubModal: Not rendering because isOpen is false')
     return null
   }
 
-
+  // Safety check for hub data
+  if (!hub) {
+    console.log('HubModal: Not rendering because hub is undefined')
+    return null
+  }
 
   const handleListClick = (list: List) => {
     if (onOpenList) {
@@ -147,49 +139,7 @@ const HubModal = ({ hub, isOpen, onClose, onAddPost, onSave, onShare, onOpenFull
 
   const handleSeeAllLists = (listType: 'popular' | 'friends') => {
     // Navigate to ViewAllLists page with appropriate filters
-    window.location.href = `/lists?type=${listType}&hub=${hub.id}`
-  }
-
-
-
-  const handleAddCommentToModal = async (text: string) => {
-    if (!currentUser || !selectedPostForComments) return;
-    const newComment = await firebaseDataService.postComment(selectedPostForComments.id, currentUser.id, text);
-    if (newComment) {
-      setPostComments(prevComments => [newComment, ...prevComments]);
-    }
-  };
-
-  const handleLikeComment = async (commentId: string) => {
-    if (!currentUser) return;
-    // Implement comment like functionality
-    console.log('Liking comment:', commentId);
-  };
-
-  const handleReplyToComment = async (commentId: string, text: string) => {
-    if (!currentUser) return;
-    // Implement reply functionality
-    console.log('Replying to comment:', commentId, text);
-  };
-
-  const handleSaveList = (list: List) => {
-    setSelectedListForSave(list)
-    setShowSaveToListModal(true)
-  }
-
-  const handleSaveToList = async (listId: string, note?: string) => {
-    if (!currentUser) return;
-    await firebaseDataService.savePlaceToList(hub.id, listId, currentUser.id, note);
-    setShowSaveToListModal(false)
-    setSelectedListForSave(null)
-  }
-
-  const handleCreateList = async (listData: { name: string; description: string; privacy: 'public' | 'private' | 'friends'; tags: string[] }) => {
-    if (!currentUser) return;
-    const newListId = await firebaseDataService.createList({ ...listData, userId: currentUser.id });
-    if (newListId) {
-      await handleSaveToList(newListId);
-    }
+    window.location.href = `/lists?type=${listType}&hub=${hub?.id || ''}`
   }
 
   const handleLikePost = async (e: React.MouseEvent, postId: string) => {
@@ -205,37 +155,40 @@ const HubModal = ({ hub, isOpen, onClose, onAddPost, onSave, onShare, onOpenFull
     await firebaseDataService.likePost(postId, currentUser.id);
   };
 
-
-
-  const handleOpenComments = async (post: Post) => {
-    const fetchedComments = await firebaseDataService.getCommentsForPost(post.id);
-    setPostComments(fetchedComments);
-    setSelectedPostForComments(post);
-    setShowCommentsModal(true);
-  };
-
-  const handleSavePostToList = async (listId: string) => {
-    if (selectedPostForSave) {
-      await firebaseDataService.savePostToList(selectedPostForSave.id, listId);
-    }
-    setShowSavePostToListModal(false);
-    setSelectedPostForSave(null);
-  };
-
-  const handleCreateListForPost = async (listData: { name: string; description: string; privacy: 'public' | 'private' | 'friends'; tags: string[] }) => {
-    if (currentUser) {
-        const newListId = await firebaseDataService.createList({ ...listData, userId: currentUser.id });
-        if (newListId && selectedPostForSave) {
-            await firebaseDataService.savePostToList(selectedPostForSave.id, newListId);
-        }
-    }
-    setShowSavePostToListModal(false);
-    setSelectedPostForSave(null);
-  };
-
   const handlePostClick = (post: Post) => {
-    openPostOverlay(post.id);
+    if (post?.id) {
+      openPostOverlay(post.id);
+    }
   };
+
+  const handleSavePost = (e: React.MouseEvent, post: Post) => {
+    e.stopPropagation();
+    if (onSave) {
+      // Convert post to hub format for saving
+      const hubToSave: Hub = {
+        id: post.hubId,
+        name: hub?.name || 'Unknown Hub',
+        description: hub?.description || '',
+        tags: hub?.tags || [],
+        images: hub?.images || [],
+        location: hub?.location || { address: '', lat: 0, lng: 0 },
+        googleMapsUrl: hub?.googleMapsUrl || '',
+        mainImage: hub?.mainImage,
+        posts: [],
+        lists: []
+      };
+      onSave(hubToSave);
+    }
+  };
+
+  // Sort posts based on current sort criteria
+  const sortedPosts = posts.sort((a, b) => {
+    if (sortBy === 'likes') {
+      return (b.likes || 0) - (a.likes || 0);
+    } else {
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+    }
+  });
 
   const modalContent = (
     <div 
@@ -280,10 +233,6 @@ const HubModal = ({ hub, isOpen, onClose, onAddPost, onSave, onShare, onOpenFull
           <img src="/assets/leaf.png" alt="" className="absolute bottom-16 left-6 w-11 opacity-8 blur-[1px]" style={{ transform: 'rotate(18deg)' }} />
         </div>
 
-
-
-
-
         {/* Intentional Ambient Lighting - Accentuating Key Areas */}
         <div className="absolute inset-0 pointer-events-none">
           {/* Header accent - highlighting the main title */}
@@ -315,10 +264,10 @@ const HubModal = ({ hub, isOpen, onClose, onAddPost, onSave, onShare, onOpenFull
         
           {/* Header with image */}
         <div className="relative h-64 bg-gradient-to-br from-[#D4A574] via-[#C17F59] to-[#A67C52] overflow-hidden">
-          {hub.mainImage && (
+          {hub?.mainImage && (
             <img
               src={hub.mainImage}
-              alt={hub.name}
+              alt={hub?.name || 'Hub'}
               className="w-full h-full object-cover"
             />
           )}
@@ -360,10 +309,10 @@ const HubModal = ({ hub, isOpen, onClose, onAddPost, onSave, onShare, onOpenFull
           
           {/* Text overlay */}
           <div className="absolute bottom-0 left-0 right-0 p-4 z-10">
-            <h1 className="text-3xl font-serif font-bold text-[#FAF3E3] drop-shadow-[1px_1px_2px_rgba(255,250,240,0.8)]">{hub.name}</h1>
+            <h1 className="text-3xl font-serif font-bold text-[#FAF3E3] drop-shadow-[1px_1px_2px_rgba(255,250,240,0.8)]">{hub?.name || 'Unknown Hub'}</h1>
             <div className="flex items-center text-white/90 text-sm mb-3 drop-shadow-md">
               <MapPinIcon className="w-4 h-4 mr-1.5" />
-              {hub.location.address}
+              {hub?.location?.address || 'No address available'}
             </div>
             <div className="flex flex-wrap items-center gap-2">
               <span className="text-[#FAF3E3]/90 text-xs font-medium bg-[rgba(255,255,255,0.15)] backdrop-blur-sm px-2 py-1 rounded-lg border border-white/20">
@@ -404,7 +353,7 @@ const HubModal = ({ hub, isOpen, onClose, onAddPost, onSave, onShare, onOpenFull
             {/* Action Buttons - Clean sticky positioning without background box */}
             <div className="flex gap-2 sticky top-0 z-20 pt-2 pb-3">
               <a 
-                href={hub.googleMapsUrl} 
+                href={hub?.googleMapsUrl || '#'} 
                 target="_blank" 
                 rel="noopener noreferrer" 
                 className="flex-1 flex items-center justify-center gap-2 bg-gradient-to-r from-[#B08968] to-[#9A7B5A] text-[#FEF6E9] px-3 py-3 rounded-xl text-sm font-semibold shadow-lg border border-[#9A7B5A]/30 active:scale-95 transition-all duration-200 backdrop-blur-sm"
@@ -421,13 +370,30 @@ const HubModal = ({ hub, isOpen, onClose, onAddPost, onSave, onShare, onOpenFull
                 Add Post
               </button>
               <button 
-                onClick={(e) => { e.stopPropagation(); onSave?.(hub); }}
+                onClick={(e) => { e.stopPropagation(); onSave?.(hub, savedFromListId); }}
                 className="flex-1 flex items-center justify-center gap-2 bg-gradient-to-r from-[#C17F59] to-[#B08968] text-[#FEF6E9] px-3 py-3 rounded-xl text-sm font-semibold shadow-lg border border-[#B08968]/30 active:scale-95 transition-all duration-200 backdrop-blur-sm"
               >
                 <BookmarkIcon className="w-4 h-4" />
                 Save
               </button>
             </div>
+            
+            {/* Hub Description */}
+            {hub?.description && (
+              <div className="bg-[#fdf6e3]/50 backdrop-blur-sm rounded-xl p-4 border border-[#E8D4C0]/40 shadow-lg relative">
+                {/* Subtle background leaf accent */}
+                <img
+                  src="/assets/leaf2.png"
+                  alt=""
+                  className="absolute top-[-0.5rem] right-[-0.5rem] w-12 opacity-6 blur-[1.4px] pointer-events-none z-0"
+                  style={{ transform: 'rotate(15deg)' }}
+                />
+                <h3 className="text-lg font-serif font-semibold text-[#5D4A2E] mb-3">About this place</h3>
+                <p className="text-[#7A5D3F] leading-relaxed font-serif text-sm">
+                  {hub.description}
+                </p>
+              </div>
+            )}
             
             {/* Tabs */}
             <div className="bg-[#E8D4C0]/25 backdrop-blur-sm rounded-xl p-2 shadow-lg border border-[#E8D4C0]/50">
@@ -483,15 +449,6 @@ const HubModal = ({ hub, isOpen, onClose, onAddPost, onSave, onShare, onOpenFull
                             <h4 className="font-serif font-semibold text-[#5D4A2E] truncate">{list.name}</h4>
                             <p className="text-sm text-[#7A5D3F] truncate">{list.description}</p>
                           </div>
-                          <button 
-                            className="p-2 rounded-lg bg-[#B08968]/25 text-[#B08968] active:scale-95 transition-all duration-200"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              handleSaveList(list)
-                            }}
-                          >
-                            <BookmarkIcon className="w-4 h-4" />
-                          </button>
                         </div>
                       ))}
                     </div>
@@ -519,7 +476,36 @@ const HubModal = ({ hub, isOpen, onClose, onAddPost, onSave, onShare, onOpenFull
                     style={{ transform: 'rotate(15deg)' }}
                   />
                   <h3 className="text-lg font-serif font-semibold text-[#5D4A2E] mb-3">Friends' Lists</h3>
-                  <div className="italic text-[#7A5D3F] font-serif text-sm">This feature is coming soon!</div>
+                  {friendsLists.length > 0 ? (
+                    <div className="space-y-3">
+                      {friendsLists.slice(0, 3).map((list) => (
+                        <div 
+                          key={list.id} 
+                          className="flex items-center gap-3 p-3 bg-[#fdf6e3] backdrop-blur-sm rounded-xl shadow-md border border-[#E8D4C0]/40 active:scale-98 transition-all duration-200"
+                          onClick={() => handleListClick(list)}
+                        >
+                          {list.coverImage && (
+                            <img src={list.coverImage} alt={list.name} className="w-12 h-12 rounded-lg object-cover border border-[#E8D4C0]/50 shadow-sm" />
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <h4 className="font-serif font-semibold text-[#5D4A2E] truncate">{list.name}</h4>
+                            <p className="text-sm text-[#7A5D3F] truncate">{list.description}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-6 text-[#7A5D3F]">
+                      <BookmarkIcon className="w-12 h-12 mx-auto mb-2 text-[#E8D4C0]" />
+                      <p className="font-serif">No friends' lists yet</p>
+                    </div>
+                  )}
+                  <button 
+                    className="mt-3 text-[#B08968] text-sm font-medium font-serif"
+                    onClick={() => handleSeeAllLists('friends')}
+                  >
+                    See All
+                  </button>
                 </div>
 
                 {/* Comments Section */}
@@ -533,15 +519,22 @@ const HubModal = ({ hub, isOpen, onClose, onAddPost, onSave, onShare, onOpenFull
                   />
                   <h3 className="text-lg font-serif font-semibold text-[#5D4A2E] mb-4">Comments</h3>
                   <div className="space-y-3 mb-4">
-                    {posts.flatMap(post => post.comments).slice(0, 2).map((comment) => (
+                    {posts.flatMap(post => post?.comments || []).filter(comment => comment).slice(0, 2).map((comment) => (
                       <div key={comment.id} className="flex items-start gap-3 p-3 bg-[#fdf6e3] backdrop-blur-sm rounded-xl shadow-md border border-[#E8D4C0]/40">
-                        <img src={comment.userAvatar} alt={comment.username} className="w-10 h-10 rounded-lg object-cover border border-[#E8D4C0] shadow-sm flex-shrink-0" />
+                        <img 
+                          src={comment?.userAvatar || '/assets/default-avatar.svg'} 
+                          alt={comment?.username || 'User'} 
+                          className="w-10 h-10 rounded-lg object-cover border border-[#E8D4C0] shadow-sm flex-shrink-0" 
+                          onError={(e) => {
+                            e.currentTarget.src = '/assets/default-avatar.svg';
+                          }}
+                        />
                         <div className="flex-1">
                           <div className="flex items-center gap-2 mb-1">
-                            <span className="font-serif font-semibold text-[#5D4A2E] text-sm">{comment.username}</span>
-                            <span className="text-xs px-2 py-1 rounded-full bg-[#B08968]/25 text-[#B08968] border border-[#B08968]/35 font-medium">{formatTimestamp(comment.createdAt)}</span>
+                            <span className="font-serif font-semibold text-[#5D4A2E] text-sm">{comment?.username || 'Anonymous'}</span>
+                            <span className="text-xs px-2 py-1 rounded-full bg-[#B08968]/25 text-[#B08968] border border-[#B08968]/35 font-medium">{formatTimestamp(comment?.createdAt)}</span>
                           </div>
-                          <p className="text-sm text-[#7A5D3F] leading-relaxed">{comment.text}</p>
+                          <p className="text-sm text-[#7A5D3F] leading-relaxed">{comment?.text || ''}</p>
                         </div>
                       </div>
                     ))}
@@ -549,12 +542,19 @@ const HubModal = ({ hub, isOpen, onClose, onAddPost, onSave, onShare, onOpenFull
                   <button 
                     className="w-full p-3 bg-[#fdf6e3] backdrop-blur-sm rounded-xl border border-[#E8D4C0]/40 shadow-md text-[#5D4A2E] font-serif text-sm active:scale-98 transition-all duration-200"
                     onClick={() => {
-                      // TODO: This should open a view of all comments for the hub,
-                      // which is not currently implemented.
-                      console.log('View all comments clicked');
+                      // Show all comments in a simple alert for now
+                      const allComments = posts.flatMap(post => post?.comments || []).filter(comment => comment);
+                      if (allComments.length === 0) {
+                        alert('No comments yet for this hub.');
+                      } else {
+                        const commentsText = allComments.map(comment => 
+                          `${comment.username || 'Anonymous'}: ${comment.text}`
+                        ).join('\n\n');
+                        alert(`All Comments for ${hub?.name || 'this hub'}:\n\n${commentsText}`);
+                      }
                     }}
                   >
-                    View all comments
+                    View all comments ({posts.flatMap(post => post?.comments || []).filter(comment => comment).length})
                   </button>
                 </div>
               </div>
@@ -564,13 +564,17 @@ const HubModal = ({ hub, isOpen, onClose, onAddPost, onSave, onShare, onOpenFull
               <div className="space-y-4 pb-6">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="text-lg font-serif font-semibold text-[#6B5B47]">Posts</h3>
-                  <select className="text-sm font-serif bg-transparent text-[#6B5B47]">
-                    <option>Sort by Most Liked</option>
-                    <option>Sort by Most Recent</option>
+                  <select 
+                    className="text-sm font-serif bg-transparent text-[#6B5B47] border border-[#E8D4C0] rounded-lg px-2 py-1"
+                    value={sortBy}
+                    onChange={(e) => setSortBy(e.target.value as 'likes' | 'recent')}
+                  >
+                    <option value="likes">Sort by Most Liked</option>
+                    <option value="recent">Sort by Most Recent</option>
                   </select>
                 </div>
-                {posts.length > 0 ? (
-                  posts.map((post) => (
+                {posts && posts.length > 0 ? (
+                  sortedPosts.filter(post => post).map((post) => (
                     <div
                       key={post.id}
                       id={`post-${post.id}`}
@@ -579,21 +583,24 @@ const HubModal = ({ hub, isOpen, onClose, onAddPost, onSave, onShare, onOpenFull
                     >
                       <div className="flex items-start space-x-3 mb-3">
                         <img
-                          src={post.userAvatar}
-                          alt={post.username}
+                          src={post?.userAvatar || '/assets/default-avatar.svg'}
+                          alt={post?.username || 'User'}
                           className="w-10 h-10 rounded-full object-cover border-2 border-white shadow-sm"
+                          onError={(e) => {
+                            e.currentTarget.src = '/assets/default-avatar.svg';
+                          }}
                         />
                         <div className="flex-1">
                           <div className="flex items-center space-x-2">
-                            <span className="font-sans font-bold text-sm text-[#5D4A2E]">{post.username}</span>
+                            <span className="font-sans font-bold text-sm text-[#5D4A2E]">{post?.username || 'Anonymous'}</span>
                           </div>
                           <p className="text-xs text-[#8B7355] font-sans">
-                            {formatTimestamp(post.createdAt)}
+                            {formatTimestamp(post?.createdAt)}
                           </p>
                         </div>
                       </div>
                       
-                      {post.images.length > 0 && (
+                      {post?.images && post.images.length > 0 && (
                         <div className="mb-3 relative overflow-hidden rounded-lg">
                           {post.images.length > 1 ? (
                             <ImageCarousel 
@@ -610,9 +617,9 @@ const HubModal = ({ hub, isOpen, onClose, onAddPost, onSave, onShare, onOpenFull
                           <div className="absolute inset-0 bg-gradient-to-t from-black/10 via-transparent to-transparent pointer-events-none"></div>
                         </div>
                       )}
-                      <p className="text-[#6B5B47] mb-3 leading-relaxed font-sans text-sm">{post.description}</p>
+                      <p className="text-[#6B5B47] mb-3 leading-relaxed font-sans text-sm">{post?.description || ''}</p>
                       
-                      {post.tags && post.tags.length > 0 && (
+                      {post?.tags && post.tags.length > 0 && (
                         <div className="flex flex-wrap gap-2 mb-3">
                           {post.tags.map(tag => (
                             <span key={tag} className="px-3 py-1 bg-[#E8D4C0]/60 text-[#7A5D3F] text-xs font-semibold rounded-full font-sans">
@@ -631,18 +638,8 @@ const HubModal = ({ hub, isOpen, onClose, onAddPost, onSave, onShare, onOpenFull
                             }
                             <span className="font-sans font-semibold text-sm text-[#A67C52] group-hover:text-[#FF6B6B]">{likeCounts[post.id] || 0}</span>
                           </button>
-                          <button onClick={(e) => { e.stopPropagation(); handleOpenComments(post); }} className="flex items-center space-x-1.5 active:scale-95 transition-transform duration-200 text-sm font-medium text-[#A67C52] group">
-                            <ChatBubbleLeftIcon className="w-5 h-5 text-[#A67C52] group-hover:text-[#8B7355]" />
-                            <span className="font-sans font-semibold text-sm text-[#A67C52] group-hover:text-[#8B7355]">
-                              {post.comments?.length || 0}
-                            </span>
-                          </button>
                         </div>
-                        <button onClick={(e) => {
-                           e.stopPropagation();
-                           setSelectedPostForSave(post);
-                           setShowSavePostToListModal(true);
-                         }} className="flex items-center space-x-1.5 text-[#A67C52] font-medium font-sans active:scale-95 transition-transform duration-200 group">
+                        <button onClick={(e) => handleSavePost(e, post)} className="flex items-center space-x-1.5 text-[#A67C52] font-medium font-sans active:scale-95 transition-transform duration-200 group">
                           <BookmarkIcon className="w-5 h-5 text-[#A67C52] group-hover:text-[#8B7355]" />
                            <span className="font-sans font-semibold text-sm text-[#A67C52] group-hover:text-[#8B7355]">Save</span>
                          </button>
@@ -667,8 +664,6 @@ const HubModal = ({ hub, isOpen, onClose, onAddPost, onSave, onShare, onOpenFull
   return (
     <>
       {createPortal(modalContent, document.body)}
-      
-
     </>
   )
 }

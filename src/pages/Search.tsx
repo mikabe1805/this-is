@@ -1,12 +1,18 @@
-import { useState } from 'react';
-import { MapIcon } from '@heroicons/react/24/outline';
+import { useState, useEffect } from 'react';
+import { MapIcon, BookmarkIcon, UserIcon } from '@heroicons/react/24/outline';
+import { useLocation, useNavigate } from 'react-router-dom';
 import SearchAndFilter from '../components/SearchAndFilter';
 import type { Hub, Place, List, User } from '../types/index.js';
 import { useNavigation } from '../contexts/NavigationContext.tsx';
-import { useSearch } from '../hooks/useSearch'; // Import the new hook
+import { useSearch } from '../hooks/useSearch';
+import { useAuth } from '../contexts/AuthContext';
+import { firebaseDataService } from '../services/firebaseDataService';
 
 const Search = () => {
   const { openHubModal, openListModal, openProfileModal } = useNavigation();
+  const { currentUser } = useAuth();
+  const location = useLocation();
+  const navigate = useNavigate();
   const {
     searchQuery,
     setSearchQuery,
@@ -19,9 +25,45 @@ const Search = () => {
 
   const [activeFilter, setActiveFilter] = useState<'all' | 'places' | 'lists' | 'users'>('all');
   const [showSearchHistory, setShowSearchHistory] = useState(true);
-  const useIntelligentSearch = true; // Always use intelligent search
-  const [searchHistory, setSearchHistory] = useState(['Coffee', 'Tacos', 'Parks']);
+  const [searchHistory, setSearchHistory] = useState<string[]>([]);
   const [searchTimeoutId, setSearchTimeoutId] = useState<NodeJS.Timeout | null>(null);
+  const [sortBy, setSortBy] = useState('relevant');
+  const [activeFilters, setActiveFiltersState] = useState<string[]>([]);
+  const [recentFinds, setRecentFinds] = useState<{ type: 'place' | 'list' | 'user', item: any, timestamp: Date }[]>([]);
+
+  // Load recent searches from user preferences
+  useEffect(() => {
+    const loadRecentSearches = async () => {
+      if (currentUser) {
+        try {
+          const preferences = await firebaseDataService.getUserPreferences(currentUser.id);
+          setSearchHistory(preferences.interactionHistory.searchHistory || []);
+        } catch (error) {
+          console.error('Error loading recent searches:', error);
+        }
+      }
+    };
+    loadRecentSearches();
+  }, [currentUser]);
+
+  // Handle URL parameters for tag filtering
+  useEffect(() => {
+    const urlParams = new URLSearchParams(location.search);
+    const tagParam = urlParams.get('tag');
+    if (tagParam) {
+      setActiveFiltersState([tagParam]);
+      // Perform an empty search with the tag filter
+      performSearch('', { sortBy, tags: [tagParam] });
+    }
+  }, [location.search, performSearch, sortBy]);
+
+
+  useEffect(() => {
+    if (searchTimeoutId) clearTimeout(searchTimeoutId);
+    if (searchQuery.trim()) {
+      setSearchTimeoutId(setTimeout(() => performSearch(searchQuery, { sortBy, tags: activeFilters }), 500));
+    }
+  }, [activeFilters, sortBy]);
 
   const handleSearchInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
@@ -31,7 +73,7 @@ const Search = () => {
       setShowSearchHistory(true);
     } else {
       setShowSearchHistory(false);
-      setSearchTimeoutId(setTimeout(() => performSearch(value, useIntelligentSearch), 500));
+      setSearchTimeoutId(setTimeout(() => performSearch(value, { sortBy, tags: activeFilters }), 500));
     }
   };
 
@@ -39,20 +81,121 @@ const Search = () => {
     e.preventDefault();
     if (searchTimeoutId) clearTimeout(searchTimeoutId);
     if (searchQuery.trim()) {
+      // Update local search history
       if (!searchHistory.includes(searchQuery)) {
-        setSearchHistory([searchQuery, ...searchHistory.slice(0, 9)]);
+        const newHistory = [searchQuery, ...searchHistory.slice(0, 9)];
+        setSearchHistory(newHistory);
       }
-      performSearch(searchQuery, useIntelligentSearch);
+      
+      performSearch(searchQuery, { sortBy, tags: activeFilters });
     }
   };
   
   const handlePlaceClick = (place: Place) => {
+    // Track the interaction
+    if (currentUser) {
+      firebaseDataService.trackUserInteraction(currentUser.id, 'visit', { placeId: place.id });
+    }
+    
+    // Add to recent finds (prevent duplicates)
+    const newFind = { type: 'place' as const, item: place, timestamp: new Date() };
+    setRecentFinds(prev => {
+      // Remove existing item if it exists
+      const filtered = prev.filter(find => !(find.type === 'place' && find.item.id === place.id));
+      // Add new item at the beginning
+      return [newFind, ...filtered.slice(0, 9)];
+    });
+    
+    // Save to search history
+    if (currentUser && searchQuery.trim()) {
+      const newHistory = [searchQuery, ...searchHistory.filter(q => q !== searchQuery)].slice(0, 10);
+      setSearchHistory(newHistory);
+      // Save to Firebase
+      firebaseDataService.getUserPreferences(currentUser.id).then(preferences => {
+        const updatedPreferences = {
+          ...preferences,
+          interactionHistory: {
+            ...preferences.interactionHistory,
+            searchHistory: newHistory
+          }
+        };
+        firebaseDataService.saveUserPreferences(currentUser.id, updatedPreferences);
+      });
+    }
+    
     const hub: Hub = { id: place.id, name: place.name, description: ``, tags: place.tags, images: [], location: { address: place.address, lat: 0, lng: 0 }, googleMapsUrl: '', mainImage: '', posts: [], lists: [] };
     openHubModal(hub, 'search');
   };
 
-  const handleListClick = (list: List) => openListModal(list, 'search');
-  const handleUserClick = (user: User) => openProfileModal(user.id, 'search');
+  const handleListClick = (list: List) => {
+    // Track the interaction
+    if (currentUser) {
+      firebaseDataService.trackUserInteraction(currentUser.id, 'visit', { listId: list.id });
+    }
+    
+    // Add to recent finds (prevent duplicates)
+    const newFind = { type: 'list' as const, item: list, timestamp: new Date() };
+    setRecentFinds(prev => {
+      // Remove existing item if it exists
+      const filtered = prev.filter(find => !(find.type === 'list' && find.item.id === list.id));
+      // Add new item at the beginning
+      return [newFind, ...filtered.slice(0, 9)];
+    });
+    
+    // Save to search history
+    if (currentUser && searchQuery.trim()) {
+      const newHistory = [searchQuery, ...searchHistory.filter(q => q !== searchQuery)].slice(0, 10);
+      setSearchHistory(newHistory);
+      // Save to Firebase
+      firebaseDataService.getUserPreferences(currentUser.id).then(preferences => {
+        const updatedPreferences = {
+          ...preferences,
+          interactionHistory: {
+            ...preferences.interactionHistory,
+            searchHistory: newHistory
+          }
+        };
+        firebaseDataService.saveUserPreferences(currentUser.id, updatedPreferences);
+      });
+    }
+    
+    openListModal(list, 'search');
+  };
+  
+  const handleUserClick = (user: User) => {
+    // Track the interaction
+    if (currentUser) {
+      firebaseDataService.trackUserInteraction(currentUser.id, 'visit', { userId: user.id });
+    }
+    
+    // Add to recent finds (prevent duplicates)
+    const newFind = { type: 'user' as const, item: user, timestamp: new Date() };
+    setRecentFinds(prev => {
+      // Remove existing item if it exists
+      const filtered = prev.filter(find => !(find.type === 'user' && find.item.id === user.id));
+      // Add new item at the beginning
+      return [newFind, ...filtered.slice(0, 9)];
+    });
+    
+    // Save to search history
+    if (currentUser && searchQuery.trim()) {
+      const newHistory = [searchQuery, ...searchHistory.filter(q => q !== searchQuery)].slice(0, 10);
+      setSearchHistory(newHistory);
+      // Save to Firebase
+      firebaseDataService.getUserPreferences(currentUser.id).then(preferences => {
+        const updatedPreferences = {
+          ...preferences,
+          interactionHistory: {
+            ...preferences.interactionHistory,
+            searchHistory: newHistory
+          }
+        };
+        firebaseDataService.saveUserPreferences(currentUser.id, updatedPreferences);
+      });
+    }
+    
+    openProfileModal(user.id, 'search');
+  };
 
 
   if (contextLoading) return <div className="p-6 text-center">Loading...</div>;
@@ -70,16 +213,19 @@ const Search = () => {
             onChange={handleSearchInputChange} 
             onFocus={() => !searchQuery && setShowSearchHistory(true)} 
             sortOptions={[
+              { key: 'relevant', label: 'Most Relevant' },
               { key: 'popular', label: 'Most Popular' },
               { key: 'friends', label: 'Most Liked by Friends' },
               { key: 'nearby', label: 'Closest to Location' },
             ]}
             filterOptions={[]}
             availableTags={['cozy', 'trendy', 'quiet', 'local', 'charming', 'authentic', 'chill']}
-            sortBy={'relevant'}
-            setSortBy={() => {}}
-            activeFilters={[]}
-            setActiveFilters={() => {}}
+            sortBy={sortBy}
+            setSortBy={setSortBy}
+            activeFilters={activeFilters}
+            setActiveFilters={setActiveFiltersState}
+            filterCount={activeFilters.length}
+            onApplyFilters={() => performSearch(searchQuery, { sortBy, tags: activeFilters })}
           />
           <button type="button" onClick={() => console.log('Map view - coming soon!')} className="px-4 py-2 rounded-full font-semibold shadow-botanical flex items-center gap-2 bg-sage-500 text-white hover:bg-sage-600 transition-colors">
             <MapIcon className="w-4 h-4" /><span>Map</span>
@@ -95,7 +241,7 @@ const Search = () => {
             {showSearchHistory ? (
               <div>
                 <h3 className="font-semibold mb-2">Recent Searches</h3>
-                {searchHistory.map(q => <button key={q} onClick={() => { setSearchQuery(q); performSearch(q, useIntelligentSearch); setShowSearchHistory(false); }} className="block w-full text-left p-2 rounded-lg hover:bg-linen-100">{q}</button>)}
+                {searchHistory.map(q => <button key={q} onClick={() => { setSearchQuery(q); performSearch(q); setShowSearchHistory(false); }} className="block w-full text-left p-2 rounded-lg hover:bg-linen-100">{q}</button>)}
               </div>
             ) : (
               <div className="space-y-6">
@@ -153,6 +299,49 @@ const Search = () => {
                         </div>
                     );
                 })}
+              </div>
+            )}
+            
+            {/* Recent Finds Section */}
+            {recentFinds.length > 0 && (
+              <div className="mt-8">
+                <h3 className="font-semibold mb-4 text-lg">Recent Finds</h3>
+                <div className="space-y-3">
+                  {recentFinds.slice(0, 5).map((find, index) => (
+                    <div key={`${find.type}-${find.item.id}-${index}`} className="p-3 bg-white/60 rounded-xl shadow-soft cursor-pointer hover:bg-white/80 transition-colors">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-lg bg-sage-100 flex items-center justify-center">
+                          {find.type === 'place' && <MapIcon className="w-5 h-5 text-sage-600" />}
+                          {find.type === 'list' && <BookmarkIcon className="w-5 h-5 text-sage-600" />}
+                          {find.type === 'user' && <UserIcon className="w-5 h-5 text-sage-600" />}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <h4 className="font-medium truncate">
+                            {find.type === 'place' && find.item.name}
+                            {find.type === 'list' && find.item.name}
+                            {find.type === 'user' && find.item.name}
+                          </h4>
+                          <p className="text-sm text-gray-600 truncate">
+                            {find.type === 'place' && find.item.address}
+                            {find.type === 'list' && find.item.description}
+                            {find.type === 'user' && `@${find.item.username}`}
+                          </p>
+                        </div>
+                        <button 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (find.type === 'place') handlePlaceClick(find.item);
+                            if (find.type === 'list') handleListClick(find.item);
+                            if (find.type === 'user') handleUserClick(find.item);
+                          }}
+                          className="px-3 py-1 text-xs bg-sage-500 text-white rounded-full hover:bg-sage-600 transition-colors"
+                        >
+                          View
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
           </>

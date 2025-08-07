@@ -1,6 +1,9 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { ArrowLeftIcon, CameraIcon, MapPinIcon, CalendarIcon, PencilIcon } from '@heroicons/react/24/outline'
 import { useNavigate } from 'react-router-dom'
+import { useAuth } from '../contexts/AuthContext.js'
+import { firebaseDataService } from '../services/firebaseDataService.js'
+import type { User } from '../types/index.js'
 
 // SVG botanical accent
 const BotanicalAccent = () => (
@@ -14,26 +17,34 @@ const BotanicalAccent = () => (
 
 const EditProfile = () => {
   const navigate = useNavigate()
-  const [formData, setFormData] = useState({
-    name: 'Mika Chen',
-    username: 'mika.chen',
-    bio: 'Finding cozy spots and sharing them with friends ✨',
-    location: 'San Francisco, CA',
-    avatar: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=150&h=150&fit=crop&crop=face',
-    tags: ['cozy', 'trendy', 'quiet']
-  })
+  const { currentUser: authUser } = useAuth()
+  const [formData, setFormData] = useState<Partial<User>>({})
   const [newTag, setNewTag] = useState('')
   const [isSaving, setIsSaving] = useState(false)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    const fetchUserData = async () => {
+      if (authUser) {
+        const user = await firebaseDataService.getCurrentUser(authUser.id)
+        if (user) {
+          setFormData(user)
+        }
+      }
+      setLoading(false)
+    }
+    fetchUserData()
+  }, [authUser])
 
   const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }))
   }
 
   const handleAddTag = () => {
-    if (newTag.trim() && !formData.tags.includes(newTag.trim())) {
+    if (newTag.trim() && !(formData.tags || []).includes(newTag.trim())) {
       setFormData(prev => ({
         ...prev,
-        tags: [...prev.tags, newTag.trim()]
+        tags: [...(prev.tags || []), newTag.trim()]
       }))
       setNewTag('')
     }
@@ -47,11 +58,21 @@ const EditProfile = () => {
   }
 
   const handleSave = async () => {
+    if (!authUser) return;
     setIsSaving(true)
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000))
-    setIsSaving(false)
-    navigate('/profile')
+    try {
+      await firebaseDataService.updateUserProfile(authUser.id, formData);
+      navigate('/profile')
+    } catch (error) {
+      console.error("Error updating profile: ", error);
+      // Optionally, show an error message to the user
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  if (loading) {
+    return <div>Loading...</div>; // Or a proper loading spinner
   }
 
   return (
@@ -120,7 +141,7 @@ const EditProfile = () => {
               <div className="relative">
                 <input
                   type="text"
-                  value={formData.name}
+                  value={formData.name || ''}
                   onChange={(e) => handleInputChange('name', e.target.value)}
                   className="w-full px-4 py-3 rounded-xl border border-linen-200 bg-linen-50 text-charcoal-700 focus:outline-none focus:ring-2 focus:ring-sage-200 focus:border-sage-300 transition-colors"
                   placeholder="Enter your full name"
@@ -134,7 +155,7 @@ const EditProfile = () => {
               <div className="relative">
                 <input
                   type="text"
-                  value={formData.username}
+                  value={formData.username || ''}
                   onChange={(e) => handleInputChange('username', e.target.value)}
                   className="w-full px-4 py-3 rounded-xl border border-linen-200 bg-linen-50 text-charcoal-700 focus:outline-none focus:ring-2 focus:ring-sage-200 focus:border-sage-300 transition-colors"
                   placeholder="Enter your username"
@@ -148,7 +169,7 @@ const EditProfile = () => {
               <label className="block text-sm font-medium text-charcoal-700 mb-2">Bio</label>
               <div className="relative">
                 <textarea
-                  value={formData.bio}
+                  value={formData.bio || ''}
                   onChange={(e) => handleInputChange('bio', e.target.value)}
                   rows={3}
                   className="w-full px-4 py-3 rounded-xl border border-linen-200 bg-linen-50 text-charcoal-700 focus:outline-none focus:ring-2 focus:ring-sage-200 focus:border-sage-300 transition-colors resize-none"
@@ -156,7 +177,7 @@ const EditProfile = () => {
                 />
                 <PencilIcon className="absolute right-3 top-3 w-4 h-4 text-charcoal-400" />
               </div>
-              <p className="text-xs text-charcoal-400 mt-1">{formData.bio.length}/150 characters</p>
+              <p className="text-xs text-charcoal-400 mt-1">{(formData.bio || '').length}/150 characters</p>
             </div>
 
             <div>
@@ -165,7 +186,7 @@ const EditProfile = () => {
                 <MapPinIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-sage-400" />
                 <input
                   type="text"
-                  value={formData.location}
+                  value={formData.location || ''}
                   onChange={(e) => handleInputChange('location', e.target.value)}
                   className="w-full pl-10 pr-4 py-3 rounded-xl border border-linen-200 bg-linen-50 text-charcoal-700 focus:outline-none focus:ring-2 focus:ring-sage-200 focus:border-sage-300 transition-colors"
                   placeholder="Enter your location"
@@ -181,7 +202,7 @@ const EditProfile = () => {
           <p className="text-sm text-charcoal-500 mb-4">Add tags that describe your interests and preferences</p>
           
           <div className="flex flex-wrap gap-2 mb-4">
-            {formData.tags.map(tag => (
+            {(formData.tags || []).map(tag => (
               <span 
                 key={tag} 
                 className="px-4 py-2 rounded-full text-sm font-medium bg-sage-50 border border-sage-100 text-sage-700 shadow-soft flex items-center gap-2 group hover:bg-sage-100 transition-colors"
@@ -230,7 +251,7 @@ const EditProfile = () => {
                 <CalendarIcon className="w-5 h-5 text-gold-500" />
                 <div>
                   <p className="font-medium text-charcoal-700">Member Since</p>
-                  <p className="text-sm text-charcoal-500">January 2024</p>
+                  <p className="text-sm text-charcoal-500">{formData.createdAt ? new Date(formData.createdAt).toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) : 'N/A'}</p>
                 </div>
               </div>
             </div>
@@ -242,7 +263,7 @@ const EditProfile = () => {
                 </div>
                 <div>
                   <p className="font-medium text-charcoal-700">Influence Score</p>
-                  <p className="text-sm text-charcoal-500">234 influences</p>
+                  <p className="text-sm text-charcoal-500">{formData.influences || 0} influences</p>
                 </div>
               </div>
             </div>
@@ -253,4 +274,4 @@ const EditProfile = () => {
   )
 }
 
-export default EditProfile 
+export default EditProfile

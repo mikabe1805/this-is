@@ -136,7 +136,7 @@ const PlaceHub = () => {
     if (listIds && listIds.length > 0) {
       await Promise.all(
         listIds.map(listId => 
-          firebaseDataService.savePlaceToList(selectedPlace.id, listId, authUser.id, note)
+          firebaseDataService.savePlaceToList(selectedPlace.id, listId, authUser.id, note, undefined, status, rating)
         )
       );
     }
@@ -165,7 +165,7 @@ const PlaceHub = () => {
     });
 
     if (newListId) {
-      await firebaseDataService.savePlaceToList(selectedPlace.id, newListId, authUser.id);
+      await firebaseDataService.savePlaceToList(selectedPlace.id, newListId, authUser.id, undefined, undefined, 'loved'); // Default to loved status
       // Refresh user lists
       const lists = await firebaseDataService.getUserLists(authUser.id);
       setUserLists(lists);
@@ -377,34 +377,35 @@ const PlaceHub = () => {
       <div className="relative z-10 p-4 space-y-4 max-w-2xl mx-auto">
         {/* Main Images */}
         <div className="bg-white/98 backdrop-blur-md rounded-2xl overflow-hidden shadow-botanical border border-linen-200 transition-all duration-300 hover:shadow-cozy hover:-translate-y-1">
-                      {hub.mainImage && (
-              <div className="h-96 bg-gradient-to-br from-linen-200 to-sage-200 relative overflow-hidden">
-                <img
-                  src={hub.mainImage}
-                  alt={hub.name}
-                  className="w-full h-full object-cover"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-black/10 to-transparent backdrop-blur-[1px]" />
-                <div className="absolute inset-0 border border-white/20" />
-                
-                {/* Text overlay with enhanced background for better readability */}
-                <div className="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-black/90 via-black/70 to-transparent">
-                  <h2 className="text-4xl font-bold text-white mb-4 drop-shadow-lg font-serif">{hub.name}</h2>
-                  <div className="flex items-center text-white text-lg mb-4">
-                    <MapPinIcon className="w-6 h-6 mr-3" />
-                    {hub.location.address}
-                  </div>
-                  <div className="flex items-center gap-4">
-                    <span className="px-4 py-2 bg-white/30 backdrop-blur-sm rounded-full text-white text-sm font-semibold border border-white/20">
-                      {posts.length} posts
-                    </span>
-                    <span className="px-4 py-2 bg-white/30 backdrop-blur-sm rounded-full text-white text-sm font-semibold border border-white/20">
-                      {hub.tags[0] || 'Popular'}
-                    </span>
-                  </div>
-                </div>
+          <div className="h-96 bg-gradient-to-br from-linen-200 to-sage-200 relative overflow-hidden">
+            <img
+              src={hub.mainImage || '/assets/leaf.png'}
+              alt={hub.name}
+              className="w-full h-full object-cover"
+              onError={(e) => {
+                e.currentTarget.src = '/assets/leaf.png';
+              }}
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-black/10 to-transparent backdrop-blur-[1px]" />
+            <div className="absolute inset-0 border border-white/20" />
+            
+            {/* Text overlay with enhanced background for better readability */}
+            <div className="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-black/90 via-black/70 to-transparent">
+              <h2 className="text-4xl font-bold text-white mb-4 drop-shadow-lg font-serif">{hub.name}</h2>
+              <div className="flex items-center text-white text-lg mb-4">
+                <MapPinIcon className="w-6 h-6 mr-3" />
+                {hub.location.address}
               </div>
-            )}
+              <div className="flex items-center gap-4">
+                <span className="px-4 py-2 bg-white/30 backdrop-blur-sm rounded-full text-white text-sm font-semibold border border-white/20">
+                  {posts.length} posts
+                </span>
+                <span className="px-4 py-2 bg-white/30 backdrop-blur-sm rounded-full text-white text-sm font-semibold border border-white/20">
+                  {hub.tags[0] || 'Popular'}
+                </span>
+              </div>
+            </div>
+          </div>
           <div className="p-6">
             <p className="text-charcoal-600 text-sm mb-4 leading-relaxed">{hub.description}</p>
             <div className="flex flex-wrap gap-2 mb-4">

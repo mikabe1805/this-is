@@ -2,6 +2,8 @@ import { useState } from 'react'
 import { createPortal } from 'react-dom'
 import { XMarkIcon, PlusIcon, LockClosedIcon, UserGroupIcon, GlobeAltIcon, BookmarkIcon } from '@heroicons/react/24/outline'
 import type { List, Place } from '../types/index.js'
+import { useAuth } from '../contexts/AuthContext'
+import { firebaseListService } from '../services/firebaseListService'
 
 interface SaveToListModalProps {
   isOpen: boolean
@@ -20,6 +22,7 @@ const SaveToListModal: React.FC<SaveToListModalProps> = ({
   onSave,
   onCreateList
 }) => {
+  const { currentUser } = useAuth()
   const [selectedListId, setSelectedListId] = useState<string>('')
   const [note, setNote] = useState('')
   const [showCreateList, setShowCreateList] = useState(false)
@@ -29,24 +32,29 @@ const SaveToListModal: React.FC<SaveToListModalProps> = ({
   const [newListTags, setNewListTags] = useState<string[]>([])
   const [newTag, setNewTag] = useState('')
 
-  const handleSave = () => {
-    if (selectedListId) {
-      onSave(selectedListId, note.trim() || undefined)
+  const handleSave = async () => {
+    if (selectedListId && currentUser) {
+      await firebaseListService.savePlaceToList(place.id, selectedListId, currentUser.id, note.trim() || undefined)
       onClose()
       resetForm()
     }
   }
 
-  const handleCreateList = () => {
-    if (newListName.trim()) {
-      onCreateList({
+  const handleCreateList = async () => {
+    if (newListName.trim() && currentUser) {
+      const newListId = await firebaseListService.createList({
         name: newListName.trim(),
         description: newListDescription.trim(),
         privacy: newListPrivacy,
-        tags: newListTags
+        tags: newListTags,
+        userId: currentUser.id
       })
+      if (newListId) {
+        await firebaseListService.savePlaceToList(place.id, newListId, currentUser.id, note.trim() || undefined)
+      }
       setShowCreateList(false)
       resetForm()
+      onClose()
     }
   }
 
@@ -307,4 +315,4 @@ const SaveToListModal: React.FC<SaveToListModalProps> = ({
   return createPortal(modalContent, document.body)
 }
 
-export default SaveToListModal 
+export default SaveToListModal

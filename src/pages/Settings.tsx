@@ -1,6 +1,10 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { ArrowLeftIcon, BellIcon, EyeIcon, EyeSlashIcon, ShieldCheckIcon, GlobeAltIcon, UserIcon, Cog6ToothIcon, MoonIcon, SunIcon, DevicePhoneMobileIcon } from '@heroicons/react/24/outline'
 import { useNavigate } from 'react-router-dom'
+import { useAuth } from '../contexts/AuthContext.js'
+import { firebaseDataService } from '../services/firebaseDataService.js'
+import type { UserPreferences } from '../services/firebaseDataService.js'
+import ConfirmModal from '../components/ConfirmModal.js'
 
 // SVG botanical accent
 const BotanicalAccent = () => (
@@ -25,24 +29,65 @@ interface SettingItem {
 
 const Settings = () => {
   const navigate = useNavigate()
-  const [settings, setSettings] = useState({
-    notifications: true,
-    locationSharing: true,
-    darkMode: false,
-    privacyLevel: 'friends',
-    autoSave: true,
-    emailUpdates: false,
-    pushNotifications: true,
-    soundEffects: true,
-    hapticFeedback: true
+  const { currentUser: authUser, logout } = useAuth()
+  const [settings, setSettings] = useState<Partial<UserPreferences>>({})
+  const [loading, setLoading] = useState(true)
+  const [showConfirmModal, setShowConfirmModal] = useState(false)
+  const [confirmModalConfig, setConfirmModalConfig] = useState({
+    title: '',
+    message: '',
+    onConfirm: () => {}
   })
 
+  useEffect(() => {
+    const fetchSettings = async () => {
+      if (authUser) {
+        setLoading(true)
+        const prefs = await firebaseDataService.getUserPreferences(authUser.id);
+        setSettings(prefs);
+        setLoading(false)
+      }
+    }
+    fetchSettings()
+  }, [authUser])
+
+  const handleSettingChange = async (key: string, value: any) => {
+    if (!authUser) return;
+
+    const newSettings = { ...settings, [key]: value };
+    setSettings(newSettings);
+    
+    // This assumes your UserPreferences type can be partially updated.
+    // You might need a more specific update function in firebaseDataService
+    // if you only want to update nested properties.
+    await firebaseDataService.saveUserPreferences(authUser.id, newSettings as UserPreferences);
+  }
+
   const handleToggle = (key: string) => {
-    setSettings(prev => ({ ...prev, [key]: !prev[key as keyof typeof prev] }))
+    handleSettingChange(key, !settings[key as keyof typeof settings]);
   }
 
   const handleSelect = (key: string, value: string) => {
-    setSettings(prev => ({ ...prev, [key]: value }))
+    handleSettingChange(key, value);
+  }
+
+  const handleDeleteAccount = () => {
+    setConfirmModalConfig({
+      title: 'Delete Account',
+      message: 'Are you sure you want to delete your account? This action cannot be undone.',
+      onConfirm: async () => {
+        if (authUser) {
+          await firebaseDataService.deleteUser(authUser.id);
+          logout();
+          navigate('/');
+        }
+      }
+    });
+    setShowConfirmModal(true);
+  }
+
+  if (loading) {
+    return <div>Loading...</div>
   }
 
   const notificationSettings: SettingItem[] = [
@@ -52,7 +97,7 @@ const Settings = () => {
       description: 'Receive notifications about new activity',
       icon: BellIcon,
       type: 'toggle',
-      value: settings.pushNotifications
+      value: settings.notifications?.push
     },
     {
       id: 'emailUpdates',
@@ -60,7 +105,7 @@ const Settings = () => {
       description: 'Get weekly summaries in your email',
       icon: BellIcon,
       type: 'toggle',
-      value: settings.emailUpdates
+      value: settings.notifications?.email
     },
     {
       id: 'soundEffects',
@@ -68,7 +113,7 @@ const Settings = () => {
       description: 'Play sounds for interactions',
       icon: BellIcon,
       type: 'toggle',
-      value: settings.soundEffects
+      value: settings.app?.soundEffects
     },
     {
       id: 'hapticFeedback',
@@ -76,7 +121,7 @@ const Settings = () => {
       description: 'Vibrate on interactions',
       icon: BellIcon,
       type: 'toggle',
-      value: settings.hapticFeedback
+      value: settings.app?.hapticFeedback
     }
   ]
 
@@ -87,7 +132,7 @@ const Settings = () => {
       description: 'Who can see your posts and lists',
       icon: EyeIcon,
       type: 'select',
-      value: settings.privacyLevel,
+      value: settings.privacy?.defaultPrivacy,
       options: [
         { label: 'Public', value: 'public' },
         { label: 'Friends Only', value: 'friends' },
@@ -100,7 +145,7 @@ const Settings = () => {
       description: 'Share your location with friends',
       icon: GlobeAltIcon,
       type: 'toggle',
-      value: settings.locationSharing
+      value: settings.privacy?.locationSharing
     },
     {
       id: 'autoSave',
@@ -108,7 +153,7 @@ const Settings = () => {
       description: 'Automatically save places to appropriate lists',
       icon: ShieldCheckIcon,
       type: 'toggle',
-      value: settings.autoSave
+      value: settings.privacy?.autoSaveToLists
     }
   ]
 
@@ -147,10 +192,17 @@ const Settings = () => {
       icon: Cog6ToothIcon,
       type: 'button',
       action: () => {
-        // In a real app, this would handle logout
-        console.log('Logging out...')
-        navigate('/')
+        logout();
+        navigate('/');
       }
+    },
+    {
+      id: 'deleteAccount',
+      title: 'Delete Account',
+      description: 'Permanently delete your account and all of your data',
+      icon: UserIcon,
+      type: 'button',
+      action: handleDeleteAccount
     }
   ]
 
@@ -204,9 +256,13 @@ const Settings = () => {
           {item.type === 'button' && (
             <button
               onClick={item.action}
-              className="px-4 py-2 rounded-xl bg-sage-500 text-white text-sm font-medium hover:bg-sage-600 transition-colors shadow-soft"
+              className={`px-4 py-2 rounded-xl text-sm font-medium transition-colors shadow-soft ${
+                item.id === 'deleteAccount'
+                  ? 'bg-red-500 text-white hover:bg-red-600'
+                  : 'bg-sage-500 text-white hover:bg-sage-600'
+              }`}
             >
-              {item.id === 'logout' ? 'Sign Out' : 'Edit'}
+              {item.id === 'logout' ? 'Sign Out' : item.id === 'deleteAccount' ? 'Delete' : 'Edit'}
             </button>
           )}
         </div>
@@ -215,86 +271,95 @@ const Settings = () => {
   )
 
   return (
-    <div className="relative min-h-full overflow-x-hidden bg-linen-50">
-      {/* Enhanced background */}
-      <div className="absolute inset-0 z-0 pointer-events-none">
-        <div className="absolute inset-0 bg-linen-texture opacity-80 mix-blend-multiply"></div>
-        <div className="absolute inset-0 bg-gradient-to-br from-gold-50/60 via-linen-100/80 to-sage-100/70 opacity-80"></div>
-        <div className="absolute inset-0 bg-gradient-radial from-transparent via-transparent to-charcoal-900/10"></div>
+    <>
+      <div className="relative min-h-full overflow-x-hidden bg-linen-50">
+        {/* Enhanced background */}
+        <div className="absolute inset-0 z-0 pointer-events-none">
+          <div className="absolute inset-0 bg-linen-texture opacity-80 mix-blend-multiply"></div>
+          <div className="absolute inset-0 bg-gradient-to-br from-gold-50/60 via-linen-100/80 to-sage-100/70 opacity-80"></div>
+          <div className="absolute inset-0 bg-gradient-radial from-transparent via-transparent to-charcoal-900/10"></div>
+        </div>
+
+        {/* Header */}
+        <div className="relative z-10 p-4 border-b border-linen-200 bg-white/95 backdrop-blur-glass">
+          <div className="flex items-center justify-between">
+            <button
+              onClick={() => navigate('/profile')}
+              className="p-2 rounded-xl bg-linen-100 text-charcoal-600 hover:bg-linen-200 transition-colors"
+            >
+              <ArrowLeftIcon className="w-5 h-5" />
+            </button>
+            <h1 className="text-lg font-serif font-semibold text-charcoal-800">Settings</h1>
+            <div className="w-10"></div> {/* Spacer for centering */}
+          </div>
+        </div>
+
+        {/* Main Content */}
+        <div className="relative z-10 p-4 space-y-6 max-w-2xl mx-auto">
+          {/* Notifications Section */}
+          <div>
+            <h2 className="text-lg font-serif font-semibold text-charcoal-800 mb-4 flex items-center gap-2">
+              <BellIcon className="w-5 h-5 text-sage-600" />
+              Notifications
+            </h2>
+            <div className="space-y-3">
+              {notificationSettings.map(renderSettingItem)}
+            </div>
+          </div>
+
+          {/* Privacy Section */}
+          <div>
+            <h2 className="text-lg font-serif font-semibold text-charcoal-800 mb-4 flex items-center gap-2">
+              <ShieldCheckIcon className="w-5 h-5 text-sage-600" />
+              Privacy & Security
+            </h2>
+            <div className="space-y-3">
+              {privacySettings.map(renderSettingItem)}
+            </div>
+          </div>
+
+          {/* Appearance Section */}
+          <div>
+            <h2 className="text-lg font-serif font-semibold text-charcoal-800 mb-4 flex items-center gap-2">
+              <DevicePhoneMobileIcon className="w-5 h-5 text-sage-600" />
+              Appearance
+            </h2>
+            <div className="space-y-3">
+              {appearanceSettings.map(renderSettingItem)}
+            </div>
+          </div>
+
+          {/* Account Section */}
+          <div>
+            <h2 className="text-lg font-serif font-semibold text-charcoal-800 mb-4 flex items-center gap-2">
+              <UserIcon className="w-5 h-5 text-sage-600" />
+              Account
+            </h2>
+            <div className="space-y-3">
+              {accountSettings.map(renderSettingItem)}
+            </div>
+          </div>
+
+          {/* App Info */}
+          <div className="rounded-3xl shadow-botanical border border-linen-200 bg-white/95 p-6 text-center">
+            <h3 className="text-lg font-serif font-semibold text-charcoal-800 mb-2">this.is</h3>
+            <p className="text-sm text-charcoal-500 mb-4">Version 1.0.0</p>
+            <div className="flex justify-center gap-4 text-xs text-charcoal-400">
+              <button className="hover:text-charcoal-600 transition-colors">Privacy Policy</button>
+              <button className="hover:text-charcoal-600 transition-colors">Terms of Service</button>
+              <button className="hover:text-charcoal-600 transition-colors">Help & Support</button>
+            </div>
+          </div>
+        </div>
       </div>
-
-      {/* Header */}
-      <div className="relative z-10 p-4 border-b border-linen-200 bg-white/95 backdrop-blur-glass">
-        <div className="flex items-center justify-between">
-          <button
-            onClick={() => navigate('/profile')}
-            className="p-2 rounded-xl bg-linen-100 text-charcoal-600 hover:bg-linen-200 transition-colors"
-          >
-            <ArrowLeftIcon className="w-5 h-5" />
-          </button>
-          <h1 className="text-lg font-serif font-semibold text-charcoal-800">Settings</h1>
-          <div className="w-10"></div> {/* Spacer for centering */}
-        </div>
-      </div>
-
-      {/* Main Content */}
-      <div className="relative z-10 p-4 space-y-6 max-w-2xl mx-auto">
-        {/* Notifications Section */}
-        <div>
-          <h2 className="text-lg font-serif font-semibold text-charcoal-800 mb-4 flex items-center gap-2">
-            <BellIcon className="w-5 h-5 text-sage-600" />
-            Notifications
-          </h2>
-          <div className="space-y-3">
-            {notificationSettings.map(renderSettingItem)}
-          </div>
-        </div>
-
-        {/* Privacy Section */}
-        <div>
-          <h2 className="text-lg font-serif font-semibold text-charcoal-800 mb-4 flex items-center gap-2">
-            <ShieldCheckIcon className="w-5 h-5 text-sage-600" />
-            Privacy & Security
-          </h2>
-          <div className="space-y-3">
-            {privacySettings.map(renderSettingItem)}
-          </div>
-        </div>
-
-        {/* Appearance Section */}
-        <div>
-          <h2 className="text-lg font-serif font-semibold text-charcoal-800 mb-4 flex items-center gap-2">
-            <DevicePhoneMobileIcon className="w-5 h-5 text-sage-600" />
-            Appearance
-          </h2>
-          <div className="space-y-3">
-            {appearanceSettings.map(renderSettingItem)}
-          </div>
-        </div>
-
-        {/* Account Section */}
-        <div>
-          <h2 className="text-lg font-serif font-semibold text-charcoal-800 mb-4 flex items-center gap-2">
-            <UserIcon className="w-5 h-5 text-sage-600" />
-            Account
-          </h2>
-          <div className="space-y-3">
-            {accountSettings.map(renderSettingItem)}
-          </div>
-        </div>
-
-        {/* App Info */}
-        <div className="rounded-3xl shadow-botanical border border-linen-200 bg-white/95 p-6 text-center">
-          <h3 className="text-lg font-serif font-semibold text-charcoal-800 mb-2">this.is</h3>
-          <p className="text-sm text-charcoal-500 mb-4">Version 1.0.0</p>
-          <div className="flex justify-center gap-4 text-xs text-charcoal-400">
-            <button className="hover:text-charcoal-600 transition-colors">Privacy Policy</button>
-            <button className="hover:text-charcoal-600 transition-colors">Terms of Service</button>
-            <button className="hover:text-charcoal-600 transition-colors">Help & Support</button>
-          </div>
-        </div>
-      </div>
-    </div>
+      <ConfirmModal
+        isOpen={showConfirmModal}
+        onClose={() => setShowConfirmModal(false)}
+        onConfirm={confirmModalConfig.onConfirm}
+        title={confirmModalConfig.title}
+        message={confirmModalConfig.message}
+      />
+    </>
   )
 }
 

@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 import { NavigationProvider, useNavigation } from './contexts/NavigationContext.tsx'
 import { ModalProvider, useModal } from './contexts/ModalContext.tsx'
 import { AuthProvider, useAuth } from './contexts/AuthContext.tsx'
+import type { List, Post } from './types/index.js'
 import Navbar from './components/Navbar.tsx'
 import CreatePost from './components/CreatePost.tsx'
 import CreateListModal from './components/CreateListModal.tsx'
@@ -166,7 +167,7 @@ function AppContent() {
         </div>
       ) : (
         <div className="h-dvh bg-botanical-overlay">
-          <div className="max-w-md mx-auto bg-white/90 backdrop-blur-glass h-full shadow-crystal border border-white/30">
+          <div className="max-w-md mx-auto bg-white/90 h-full shadow-crystal border border-white/30">
             <div className="flex flex-col h-full">
               {/* Main Content Area */}
               <main className="flex-1 overflow-y-auto pb-28 overflow-x-hidden">
@@ -266,7 +267,7 @@ const GlobalModals = () => {
           place={saveModalData.hub ? {
             id: saveModalData.hub.id,
             name: saveModalData.hub.name,
-            address: saveModalData.hub.location.address,
+            address: saveModalData.hub.location?.address || 'No address available',
             tags: saveModalData.hub.tags,
             posts: saveModalData.hub.posts,
             savedCount: 0,
@@ -278,24 +279,42 @@ const GlobalModals = () => {
             tags: saveModalData.list!.tags,
             posts: [],
             savedCount: 0,
-            createdAt: saveModalData.list!.createdAt
+            createdAt: saveModalData.list!.createdAt || '2024-01-15'
           }}
           userLists={userLists}
           onSave={async (status, rating, listIds, note) => {
+            console.log('SaveModal onSave called with:', { status, rating, listIds, note });
             if (!currentUser) return;
             const placeId = saveModalData.hub?.id || saveModalData.list!.id;
-            for (const listId of listIds) {
-              await firebaseDataService.savePlaceToList(placeId, listId, currentUser.id, note);
+            console.log('Saving placeId:', placeId, 'to lists:', listIds);
+            if (listIds) {
+              for (const listId of listIds) {
+                console.log('Saving to list:', listId);
+                await firebaseDataService.savePlaceToList(placeId, listId, currentUser.id, note, undefined, status, rating);
+              }
             }
+            
+            // Track the save interaction
+            if (saveModalData.hub) {
+              await firebaseDataService.trackUserInteraction(currentUser.id, 'save', { 
+                placeId: saveModalData.hub.id,
+                query: saveModalData.hub.name 
+              });
+            }
+            
             console.log('Saving with status:', status, 'rating:', rating, 'listIds:', listIds, 'note:', note)
             closeSaveModal()
           }}
           onCreateList={async (listData) => {
             if (!currentUser) return;
             const placeId = saveModalData.hub?.id || saveModalData.list!.id;
-            const newListId = await firebaseDataService.createList({ ...listData, userId: currentUser.id });
+            const newListId = await firebaseDataService.createList({ 
+              ...listData, 
+              userId: currentUser.id,
+              tags: listData.tags || []
+            });
             if (newListId) {
-              await firebaseDataService.savePlaceToList(placeId, newListId, currentUser.id);
+              await firebaseDataService.savePlaceToList(placeId, newListId, currentUser.id, undefined, undefined, 'loved'); // Default to loved status
             }
             console.log('Creating new list:', listData)
             closeSaveModal()

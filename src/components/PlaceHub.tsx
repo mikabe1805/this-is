@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { HeartIcon, BookmarkIcon, EyeIcon, PlusIcon, UserIcon, MapPinIcon, StarIcon } from '@heroicons/react/24/outline'
 import { HeartIcon as HeartIconSolid } from '@heroicons/react/24/solid'
 import TagCloud from './TagCloud'
+import { useNavigate } from 'react-router-dom'
 
 interface ListReference {
   id: string
@@ -33,6 +34,7 @@ const PlaceHub = ({ place, lists, onSaveToList, onCreateList }: PlaceHubProps) =
   const [selectedList, setSelectedList] = useState<string | null>(null)
   const [note, setNote] = useState('')
   const [status, setStatus] = useState<'loved' | 'tried' | 'want'>('tried')
+  const navigate = useNavigate()
 
   const myLists = lists.filter(list => list.owner.name === 'You')
   const friendsLists = lists.filter(list => list.owner.name !== 'You')
@@ -139,6 +141,7 @@ const PlaceHub = ({ place, lists, onSaveToList, onCreateList }: PlaceHubProps) =
                   variant="default"
                   maxTags={6}
                   showCounts={true}
+                  onTagClick={(tag) => navigate(`/search?tag=${tag}`)}
                 />
               </div>
             )}

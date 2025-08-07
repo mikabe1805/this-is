@@ -14,12 +14,18 @@ import EditPlaceModal from '../components/EditPlaceModal'
 import ConfirmModal from '../components/ConfirmModal'
 import PrivacyModal from '../components/PrivacyModal'
 import SearchAndFilter from '../components/SearchAndFilter'
+import { firebaseListService } from '../services/firebaseListService';
+import { firebaseDataService } from '../services/firebaseDataService';
+import { useAuth } from '../contexts/AuthContext'
 
 const ListView = () => {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const { openHubModal, goBack } = useNavigation()
-  // TODO: Fetch real list data by id
+  const { currentUser } = useAuth()
+  const [list, setList] = useState<List | null>(null)
+  const [creatorName, setCreatorName] = useState<string>('')
+  const [listPlaces, setListPlaces] = useState<(ListPlace & { status: 'want' | 'tried' | 'loved', feeling?: 'amazing' | 'good' | 'okay' | 'disappointing' })[]>([])
   const [isLiked, setIsLiked] = useState(false)
   const [isSaved, setIsSaved] = useState(false)
   const [showMapModal, setShowMapModal] = useState(false)
@@ -49,6 +55,32 @@ const ListView = () => {
   const [sortBy, setSortBy] = useState('popular')
   const [activeFilters, setActiveFilters] = useState<string[]>([])
   const [selectedTags, setSelectedTags] = useState<string[]>([])
+
+  useEffect(() => {
+    const fetchList = async () => {
+      if (id) {
+        const fetchedList = await firebaseListService.getList(id)
+        setList(fetchedList)
+        if (fetchedList) {
+          const places = await firebaseListService.getPlacesForList(id)
+          setListPlaces(places.map(p => ({ ...p, status: 'loved' }))) // Mock status for now
+          if (fetchedList.userId) {
+            const name = await firebaseDataService.getUserDisplayName(fetchedList.userId);
+            setCreatorName(name);
+          }
+        }
+      }
+    }
+    fetchList()
+  }, [id])
+
+  useEffect(() => {
+    if (list && currentUser) {
+      setIsLiked(list.likedBy?.includes(currentUser.id) || false)
+      // Check if user has saved this list
+      firebaseListService.isListSaved(list.id, currentUser.id).then(setIsSaved)
+    }
+  }, [list, currentUser])
 
   // Search and filter options - using standard options from other pages
   const sortOptions = [
@@ -96,166 +128,6 @@ const ListView = () => {
     return () => clearTimeout(timer)
   }, [id])
   
-  // Mock user lists for save modal
-  const userLists: List[] = [
-    {
-      id: 'all-loved',
-      name: 'All Loved',
-      description: 'All the places you\'ve loved and want to visit again',
-      userId: '1',
-      isPublic: false,
-      isShared: false,
-      privacy: 'private',
-      tags: ['loved', 'favorites', 'auto-generated'],
-      hubs: [],
-      coverImage: 'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=300&h=200&fit=crop',
-      createdAt: '2024-01-01',
-      updatedAt: '2024-01-15',
-      likes: 0,
-      isLiked: false
-    },
-    {
-      id: 'all-tried',
-      name: 'All Tried',
-      description: 'All the places you\'ve tried and experienced',
-      userId: '1',
-      isPublic: false,
-      isShared: false,
-      privacy: 'private',
-      tags: ['tried', 'visited', 'auto-generated'],
-      hubs: [],
-      coverImage: 'https://images.unsplash.com/photo-1501594907352-04cda38ebc29?w=300&h=200&fit=crop',
-      createdAt: '2024-01-01',
-      updatedAt: '2024-01-15',
-      likes: 0,
-      isLiked: false
-    },
-    {
-      id: 'all-want',
-      name: 'All Want',
-      description: 'All the places you want to visit someday',
-      userId: '1',
-      isPublic: false,
-      isShared: false,
-      privacy: 'private',
-      tags: ['want', 'wishlist', 'auto-generated'],
-      hubs: [],
-      coverImage: 'https://images.unsplash.com/photo-1442512595331-e89e73853f31?w=300&h=200&fit=crop',
-      createdAt: '2024-01-01',
-      updatedAt: '2024-01-15',
-      likes: 0,
-      isLiked: false
-    },
-    {
-      id: '1',
-      name: 'Cozy Coffee Spots',
-      description: 'Perfect places to work and relax',
-      userId: '1',
-      isPublic: true,
-      isShared: false,
-      privacy: 'public',
-      tags: ['coffee', 'work-friendly', 'cozy'],
-      hubs: [],
-      coverImage: 'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=300&h=200&fit=crop',
-      createdAt: '2024-01-10',
-      updatedAt: '2024-01-15',
-      likes: 56,
-      isLiked: false
-    },
-    {
-      id: '2',
-      name: 'Book Nooks',
-      description: 'Quiet places to read and study',
-      userId: '1',
-      isPublic: true,
-      isShared: false,
-      privacy: 'public',
-      tags: ['books', 'quiet', 'study'],
-      hubs: [],
-      coverImage: 'https://images.unsplash.com/photo-1481627834876-b7833e8f5570?w=300&h=200&fit=crop',
-      createdAt: '2024-01-12',
-      updatedAt: '2024-01-14',
-      likes: 34,
-      isLiked: false
-    }
-  ]
-
-  // Mock list data
-  const list: List = {
-    id: '1',
-    name: 'Cozy Coffee Spots',
-    description: 'Perfect places to work and relax with great coffee and atmosphere',
-    userId: '1',
-    isPublic: true,
-    isShared: false,
-    tags: ['coffee', 'work-friendly', 'cozy', 'oakland'],
-    coverImage: 'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=400&h=200&fit=crop',
-    places: [],
-    createdAt: '2024-01-10',
-    updatedAt: '2024-01-15',
-    likes: 67,
-    isLiked: false
-  }
-
-  const listPlaces: (ListPlace & { status: 'want' | 'tried' | 'loved', feeling?: 'amazing' | 'good' | 'okay' | 'disappointing' })[] = [
-    {
-      id: '1',
-      placeId: '1',
-      place: {
-        id: '1',
-        name: 'Blue Bottle Coffee',
-        address: '300 Webster St, Oakland, CA',
-        tags: ['coffee', 'cozy', 'work-friendly'],
-        posts: [],
-        savedCount: 45,
-        createdAt: '2024-01-15',
-        hubImage: 'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=300&h=200&fit=crop'
-      },
-      note: 'Perfect spot for morning meetings. Great oat milk lattes!',
-      addedBy: '1',
-      addedAt: '2024-01-15T10:30:00Z',
-      status: 'loved',
-      feeling: 'amazing'
-    },
-    {
-      id: '2',
-      placeId: '2',
-      place: {
-        id: '2',
-        name: 'Souvenir Coffee',
-        address: '1500 Webster St, Oakland, CA',
-        tags: ['coffee', 'artisan', 'quiet'],
-        posts: [],
-        savedCount: 32,
-        createdAt: '2024-01-14',
-        hubImage: 'https://images.unsplash.com/photo-1501594907352-04cda38ebc29?w=300&h=200&fit=crop'
-      },
-      note: 'Hidden gem with amazing pour-over coffee. Very peaceful.',
-      addedBy: '1',
-      addedAt: '2024-01-14T15:20:00Z',
-      status: 'tried',
-      feeling: 'good'
-    },
-    {
-      id: '3',
-      placeId: '3',
-      place: {
-        id: '3',
-        name: 'Philz Coffee',
-        address: '789 Castro St, San Francisco, CA',
-        tags: ['coffee', 'artisan', 'cozy'],
-        posts: [],
-        savedCount: 34,
-        createdAt: '2024-01-12',
-        hubImage: 'https://images.unsplash.com/photo-1442512595331-e89e73853f31?w=300&h=200&fit=crop'
-      },
-      note: 'Want to try their famous mint mojito coffee!',
-      addedBy: '1',
-      addedAt: '2024-01-12T10:00:00Z',
-      status: 'want'
-    }
-  ]
-
   // Get all unique tags from places for filtering
   const allTags = Array.from(new Set(
     listPlaces.flatMap(place => place.place.tags)
@@ -382,7 +254,7 @@ const ListView = () => {
   }
 
   // Check if current user owns this list
-  const isOwner = list.userId === '1' // Mock current user ID
+  const isOwner = list?.userId === currentUser?.id
 
   const handleCreatePost = () => {
     setShowCreatePost(true)
@@ -413,22 +285,21 @@ const ListView = () => {
     setShowSaveModal(true)
   }
 
-  const handleSave = (status: 'loved' | 'tried' | 'want', rating?: 'liked' | 'neutral' | 'disliked', listIds?: string[], note?: string) => {
-    console.log('Saving hub:', { 
-      hub: hubToSave, 
-      status, 
-      rating, 
-      listIds, 
-      note,
-      // Auto-save to appropriate "All" list
-      autoSaveToList: `All ${status.charAt(0).toUpperCase() + status.slice(1)}`
-    })
+  const handleSave = async (status: 'loved' | 'tried' | 'want', rating?: 'liked' | 'neutral' | 'disliked', listIds?: string[], note?: string) => {
+    if (hubToSave && currentUser) {
+      await firebaseListService.savePlaceToList(hubToSave.id, listIds![0], currentUser.id, note, status, rating)
+    }
     setShowSaveModal(false)
     setHubToSave(null)
   }
 
-  const handleCreateList = (listData: { name: string; description: string; privacy: 'public' | 'private' | 'friends'; tags?: string[]; coverImage?: string }) => {
-    console.log('Creating new list:', listData, 'and saving hub:', hubToSave)
+  const handleCreateList = async (listData: { name: string; description: string; privacy: 'public' | 'private' | 'friends'; tags?: string[]; coverImage?: File }) => {
+    if (currentUser) {
+      const newListId = await firebaseListService.createList({ ...listData, userId: currentUser.id })
+      if (newListId && hubToSave) {
+        await firebaseListService.savePlaceToList(hubToSave.id, newListId, currentUser.id, undefined, 'loved') // Default to loved status
+      }
+    }
   }
 
   const handleEditPlace = (listPlace: ListPlace) => {
@@ -442,10 +313,11 @@ const ListView = () => {
     setConfirmModalConfig({
       title: 'Remove Place',
       message: `Are you sure you want to remove "${listPlace.place.name}" from this list? This action cannot be undone.`,
-      onConfirm: () => {
-        // In a real app, this would make an API call to remove the place
-        console.log('Removing place:', listPlace)
-        // You could also update the local state here
+      onConfirm: async () => {
+        if (list) {
+          await firebaseListService.removePlaceFromList(list.id, listPlace.place.id)
+          setListPlaces(prev => prev.filter(p => p.place.id !== listPlace.place.id))
+        }
       }
     })
     setShowConfirmModal(true)
@@ -468,10 +340,10 @@ const ListView = () => {
   }
 
   const handlePrivacyChange = async (newPrivacy: 'public' | 'private' | 'friends') => {
-    // In a real app, this would make an API call to update the list privacy
-    console.log('Updating list privacy to:', newPrivacy)
-    // Update the local list state
-    // setList({ ...list, privacy: newPrivacy })
+    if (list) {
+      await firebaseListService.updateList(list.id, { privacy: newPrivacy })
+      setList(prev => prev ? { ...prev, privacy: newPrivacy } : null)
+    }
   }
 
   const handleBack = () => {
@@ -479,17 +351,41 @@ const ListView = () => {
   }
 
   const handleDeleteList = () => {
-    setConfirmModalConfig({
-      title: 'Delete List',
-      message: `Are you sure you want to delete "${list.name}"? This action cannot be undone and will remove all places from this list.`,
-      onConfirm: () => {
-        // In a real app, this would make an API call to delete the list
-        console.log('Deleting list:', list)
-        navigate('/profile')
-      }
-    })
-    setShowConfirmModal(true)
-    setShowListMenu(false)
+    if (list) {
+      setConfirmModalConfig({
+        title: 'Delete List',
+        message: `Are you sure you want to delete "${list.name}"? This action cannot be undone and will remove all places from this list.`,
+        onConfirm: async () => {
+          await firebaseListService.deleteList(list.id)
+          navigate('/profile')
+        }
+      })
+      setShowConfirmModal(true)
+      setShowListMenu(false)
+    }
+  }
+  
+  const handleLike = async () => {
+    if (list && currentUser) {
+      await firebaseListService.likeList(list.id, currentUser.id)
+      setIsLiked(prev => !prev)
+      setList(prev => prev ? { ...prev, likes: isLiked ? (prev.likes || 1) - 1 : (prev.likes || 0) + 1 } : null)
+    }
+  }
+
+  const handleSaveList = async () => {
+    if (list && currentUser) {
+      await firebaseListService.saveList(list.id, currentUser.id)
+      setIsSaved(prev => !prev)
+    }
+  }
+
+  if (!list) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div>Loading...</div>
+      </div>
+    )
   }
 
   return (
@@ -511,7 +407,7 @@ const ListView = () => {
             <ArrowLeftIcon className="w-6 h-6" />
           </button>
           <div className="flex-1 flex items-center justify-center">
-            <h1 className="text-lg font-serif font-semibold text-charcoal-800 text-center w-full truncate">{list.name}</h1>
+            <h1 className="text-lg font-serif font-semibold text-charcoal-800 text-center w-full truncate">{list.name} by {creatorName}</h1>
           </div>
           {isOwner && (
             <button
@@ -549,7 +445,7 @@ const ListView = () => {
             <ShareIcon className="w-5 h-5 text-sage-600" />
           </button>
           <button 
-            onClick={() => setIsLiked(!isLiked)}
+            onClick={handleLike}
             className={`w-10 h-10 rounded-full flex items-center justify-center shadow-soft transition ${
               isLiked 
                 ? 'bg-gold-100' 
@@ -567,7 +463,7 @@ const ListView = () => {
         />
           ) : (
             <button 
-              onClick={() => setIsSaved(!isSaved)}
+              onClick={handleSaveList}
               className={`w-10 h-10 rounded-full flex items-center justify-center shadow-soft transition ${
                 isSaved 
                   ? 'bg-sage-100' 
@@ -804,7 +700,7 @@ const ListView = () => {
             createdAt: new Date().toISOString(),
             hubImage: hubToSave.mainImage
           }}
-          userLists={userLists}
+          userLists={[]}
           selectedListIds={[list.id]} // Pre-select the current list
           onSave={handleSave}
           onCreateList={handleCreateList}
@@ -834,7 +730,7 @@ const ListView = () => {
             setSelectedPlace(null)
           }}
           place={selectedPlace}
-          userLists={userLists}
+          userLists={[]}
           onSave={handleSave}
           onCreateList={handleCreateList}
         />
@@ -903,4 +799,4 @@ const ListView = () => {
   )
 }
 
-export default ListView 
+export default ListView

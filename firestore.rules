@@ -46,6 +46,16 @@ service cloud.firestore {
         allow read: if isAuthenticated();
         allow write: if isDevMode() || (isAuthenticated() && isOwner(userId));
       }
+
+      match /savedLists/{listId} {
+        allow read, write: if isDevMode() || (isAuthenticated() && isOwner(userId));
+      }
+
+      match /comments/{commentId} {
+        allow read: if true; // Allow all reads for demo
+        allow create: if isAuthenticated();
+        allow update, delete: if isDevMode() || (isAuthenticated() && isOwner(resource.data.userId));
+      }
     }
 
     // Places collection - Allow read for demo purposes
@@ -55,11 +65,28 @@ service cloud.firestore {
       allow delete: if isDevMode(); // Allow deletion in dev mode for cleanup
     }
 
+    // Hubs collection
+    match /hubs/{hubId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated(); // Or more restrictive rules
+    }
+
     // Lists collection - Allow read for demo purposes
     match /lists/{listId} {
       allow read: if true; // Allow all reads for demo
       allow write: if isDevMode() || (isAuthenticated() && isOwner(resource.data.userId));
       allow delete: if isDevMode() || (isAuthenticated() && isOwner(resource.data.userId));
+      
+      // Allow authenticated users to add places to lists
+      match /places/{placeId} {
+        allow read: if isAuthenticated();
+        allow write: if isAuthenticated();
+      }
+      
+      // Allow authenticated users to add posts to lists
+      match /posts/{postId} {
+        allow write: if isAuthenticated();
+      }
     }
 
     // Posts collection - Allow read for demo purposes
@@ -74,6 +101,12 @@ service cloud.firestore {
         allow create: if isAuthenticated();
         allow update, delete: if isDevMode() || (isAuthenticated() && isOwner(resource.data.userId));
       }
+    }
+
+    // Tags collection - Allow read for all users, write for authenticated users
+    match /tags/{tagId} {
+      allow read: if true; // Allow all reads so users can see available tags
+      allow write: if isAuthenticated(); // Allow authenticated users to create/update tags
     }
 
     // User preferences collection - Allow read/write for demo purposes
@@ -97,10 +130,5 @@ service cloud.firestore {
     match /seed-data/{document=**} {
       allow read, write: if isDevMode(); // Only allow in dev mode
     }
-
-    // Default deny all other paths
-    match /{document=**} {
-      allow read, write: if false;
-    }
   }
-} 
+}

@@ -67,7 +67,11 @@
       ],
       "predeploy": [
         "npm --prefix \"$RESOURCE_DIR\" run build"
-      ]
+      ],
+      "postdeploy": [
+        "echo 'Deployed functions!'"
+      ],
+      "name": "calculateInfluenceScores"
     }
   ],
   "storage": {

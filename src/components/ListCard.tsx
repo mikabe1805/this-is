@@ -3,6 +3,7 @@ import { HeartIcon, BookmarkIcon, EyeIcon, UserIcon, StarIcon, EllipsisHorizonta
 import { HeartIcon as HeartIconSolid } from '@heroicons/react/24/solid'
 import TagCloud from './TagCloud'
 import ListMenuDropdown from './ListMenuDropdown'
+import { useNavigate } from 'react-router-dom'
 
 interface Place {
   id: string
@@ -54,6 +55,7 @@ const ListCard = ({
 }: ListCardProps) => {
   const [isExpanded, setIsExpanded] = useState(false)
   const [showListMenu, setShowListMenu] = useState(false)
+  const navigate = useNavigate()
 
   // Check if this is a default "All" list
   const isDefaultList = title === 'All Loved' || title === 'All Tried' || title === 'All Want'
@@ -135,6 +137,7 @@ const ListCard = ({
                   variant="compact"
                   maxTags={5}
                   showCounts={false}
+                  onTagClick={(tag) => navigate(`/search?tag=${tag}`)}
                 />
               </div>
             )}

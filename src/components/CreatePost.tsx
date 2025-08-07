@@ -1,12 +1,14 @@
-import { useState, useRef, useEffect } from 'react'
-import { XMarkIcon, CameraIcon, MapPinIcon, TagIcon, EyeIcon, EyeSlashIcon, UsersIcon, PhotoIcon, MagnifyingGlassIcon, ArrowLeftIcon } from '@heroicons/react/24/outline'
-import { createPortal } from 'react-dom'
-import { firebaseDataService } from '../services/firebaseDataService'
-import { useAuth } from '../contexts/AuthContext'
-import type { List } from '../types'
-
-
-
+import { useState, useRef, useEffect } from 'react';
+import { XMarkIcon, CameraIcon, MapPinIcon, TagIcon, EyeIcon, EyeSlashIcon, UsersIcon, PhotoIcon, MagnifyingGlassIcon, ArrowLeftIcon } from '@heroicons/react/24/outline';
+import { createPortal } from 'react-dom';
+import { firebaseDataService } from '../services/firebaseDataService';
+import { firebasePostService } from '../services/firebasePostService';
+import { useAuth } from '../contexts/AuthContext';
+import type { List, User } from '../types';
+import EXIF from 'exif-js';
+import GooglePlacesAutocomplete from './GooglePlacesAutocomplete';
+import AddressAutocomplete from './AddressAutocomplete';
+import TagAutocomplete from './TagAutocomplete';
 
 interface CreatePostProps {
   isOpen: boolean
@@ -36,6 +38,7 @@ const CreatePost = ({ isOpen, onClose, preSelectedHub, preSelectedListIds }: Cre
   const [newHubName, setNewHubName] = useState('')
   const [newHubAddress, setNewHubAddress] = useState('')
   const [newHubDescription, setNewHubDescription] = useState('')
+  const [newHubCoordinates, setNewHubCoordinates] = useState<{ lat: number, lng: number } | null>(null)
   const [locationSearch, setLocationSearch] = useState('')
   const [searchResults, setSearchResults] = useState<CreatePostHub[]>([])
   const [isSearching, setIsSearching] = useState(false)
@@ -49,59 +52,142 @@ const CreatePost = ({ isOpen, onClose, preSelectedHub, preSelectedListIds }: Cre
   const [selectedListIds, setSelectedListIds] = useState<Set<string>>(new Set(preSelectedListIds || []))
   const [listSearchQuery, setListSearchQuery] = useState('')
   const [userLists, setUserLists] = useState<List[]>([])
+  const [availableTags, setAvailableTags] = useState<string[]>([])
   const fileInputRef = useRef<HTMLInputElement>(null)
   const photoInputRef = useRef<HTMLInputElement>(null)
 
-  useEffect(() => {
-    const fetchLists = async () => {
-      if (currentUser) {
-        const lists = await firebaseDataService.getUserLists(currentUser.id);
-        setUserLists(lists);
-      }
-    };
-    if (isOpen) {
-      fetchLists();
-    }
-  }, [isOpen, currentUser]);
+  // Helper function to convert GPS coordinates from DMS to decimal degrees
+  const convertDMSToDD = (dms: number[]): number => {
+    const degrees = dms[0];
+    const minutes = dms[1];
+    const seconds = dms[2];
+    return degrees + (minutes / 60) + (seconds / 3600);
+  };
 
-  const availableTags = ['cozy', 'trendy', 'quiet', 'local', 'charming', 'authentic', 'chill', 'work-friendly', 'romantic', 'family-friendly']
-  
   // Filter lists based on search query
   const filteredLists = userLists.filter(list =>
-    list.name.toLowerCase().includes(listSearchQuery.toLowerCase())
+    list.name.toLowerCase().includes(listSearchQuery.toLowerCase()) ||
+    list.description.toLowerCase().includes(listSearchQuery.toLowerCase()) ||
+    list.tags.some(tag => tag.toLowerCase().includes(listSearchQuery.toLowerCase()))
   )
 
+  useEffect(() => {
+    if (isOpen) {
+      const fetchLists = async () => {
+        if (currentUser) {
+          const lists = await firebaseDataService.getUserLists(currentUser.id);
+          setUserLists(lists);
+        }
+      };
+      const fetchTags = async () => {
+        try {
+          const tags = await firebaseDataService.getAllTags();
+          setAvailableTags(tags);
+        } catch (error) {
+          console.error('Error fetching tags:', error);
+          // Fallback to default tags if Firebase fails
+          setAvailableTags(['cozy', 'trendy', 'quiet', 'local', 'charming', 'authentic', 'chill', 'work-friendly', 'romantic', 'family-friendly']);
+        }
+      };
+      
+      fetchLists();
+      fetchTags();
+      setSelectedListIds(new Set(preSelectedListIds || []));
+    }
+  }, [isOpen, currentUser, preSelectedListIds]);
 
   // Step 1: Photo upload/take
   const handlePhotoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(event.target.files || [])
+    const files = Array.from(event.target.files || []);
     if (files.length > 0) {
-      // Add new photos to existing ones (for multiple uploads)
-      setPhotos(prev => [...prev, ...files])
-      
-      // Detect if any of the new photos are screenshots
-      const screenshotDetected = await detectScreenshots(files)
-      if (screenshotDetected) {
-        setIsScreenshot(true)
-        // For screenshots, default to 'want' status
-        setHowWasIt('want')
-      }
-      
-      // Only extract location if we don't have one yet
-      if (!extractedLocation) {
-        const loc = await extractLocationFromImages(files)
-        setExtractedLocation(loc)
-        
-        // If hub is pre-selected, skip to details
-        if (selectedHub) {
-          setStep('details')
-        } else if (loc) {
-          // If location is found, move to location step for user confirmation/selection
-          setStep('location');
+      setPhotos(prev => [...prev, ...files]);
+
+      // Try to extract location from the first new photo with proper error handling
+      const firstFile = files[0];
+      try {
+        // Use a more robust approach to EXIF extraction
+        if (typeof EXIF !== 'undefined' && EXIF.getData) {
+          // Create a new promise-based approach to avoid callback issues
+          const extractLocation = (): Promise<{ lat: number, lng: number } | null> => {
+            return new Promise((resolve) => {
+              try {
+                EXIF.getData(firstFile as any, function(this: any) {
+                  try {
+                    // Check if EXIF is properly loaded and has the required methods
+                    if (typeof EXIF.getTag !== 'function') {
+                      console.log('EXIF.getTag is not available');
+                      resolve(null);
+                      return;
+                    }
+
+                    const lat = EXIF.getTag(this, "GPSLatitude");
+                    const lng = EXIF.getTag(this, "GPSLongitude");
+                    
+                    // Validate that we have valid GPS data
+                    if (lat && lng && Array.isArray(lat) && Array.isArray(lng) && lat.length === 3 && lng.length === 3) {
+                      // Convert GPS coordinates to decimal format
+                      const latDecimal = convertDMSToDD(lat);
+                      const lngDecimal = convertDMSToDD(lng);
+                      
+                      // Validate the converted coordinates
+                      if (!isNaN(latDecimal) && !isNaN(lngDecimal) && 
+                          latDecimal >= -90 && latDecimal <= 90 && 
+                          lngDecimal >= -180 && lngDecimal <= 180) {
+                        
+                        resolve({ lat: latDecimal, lng: lngDecimal });
+                      } else {
+                        console.log('Invalid GPS coordinates extracted:', { latDecimal, lngDecimal });
+                        resolve(null);
+                      }
+                    } else {
+                      console.log('No valid GPS data found in image');
+                      resolve(null);
+                    }
+                  } catch (error) {
+                    console.log('Error extracting EXIF data:', error);
+                    resolve(null);
+                  }
+                });
+              } catch (error) {
+                console.log('Error in EXIF.getData:', error);
+                resolve(null);
+              }
+            });
+          };
+
+          // Extract location and handle the result
+          const location = await extractLocation();
+          if (location) {
+            setExtractedLocation(location);
+            // Find potential hubs near this location
+            findPotentialHubs(location);
+          }
+        } else {
+          console.log('EXIF library not properly loaded');
         }
+      } catch (error) {
+        console.log('Error processing EXIF data:', error);
+        // Continue without location extraction
       }
     }
-  }
+  };
+
+  const findPotentialHubs = async (location: { lat: number, lng: number }) => {
+    // Search for hubs within a certain radius of the photo's location
+    const potentialHubs = await firebaseDataService.findHubsNear(location.lat, location.lng, 1000); // 1km radius
+    if (potentialHubs.length > 0) {
+      // For now, just guess the first one. A better implementation would let the user choose.
+      const bestGuess = potentialHubs[0];
+      setHubGuess({
+        id: bestGuess.id,
+        name: bestGuess.name,
+        address: bestGuess.address,
+        description: bestGuess.description,
+        lat: bestGuess.location?.lat,
+        lng: bestGuess.location?.lng,
+      });
+    }
+  };
   const handleTakePhoto = () => {
     photoInputRef.current?.click()
   }
@@ -124,14 +210,15 @@ const CreatePost = ({ isOpen, onClose, preSelectedHub, preSelectedListIds }: Cre
     setLocationSearch(query)
     if (query.length > 2) {
       setIsSearching(true)
-      const results = await firebaseDataService.performSearch(query, { category: 'hubs' }, 10);
-      setSearchResults(results.places.map(p => ({
+      
+      const results = await firebaseDataService.searchHubs(query, 10);
+      setSearchResults(results.map(p => ({
         id: p.id,
         name: p.name,
-        address: p.address,
+        address: p.location?.address || p.address || 'No address available',
         description: p.description,
-        lat: p.coordinates?.lat,
-        lng: p.coordinates?.lng,
+        lat: p.location?.lat,
+        lng: p.location?.lng,
       })));
       setIsSearching(false)
     } else {
@@ -139,18 +226,38 @@ const CreatePost = ({ isOpen, onClose, preSelectedHub, preSelectedListIds }: Cre
     }
   }
   const handleSelectHub = (hub: CreatePostHub) => {
+    // Track the final selected hub
+    if (currentUser) {
+      firebaseDataService.trackUserInteraction(currentUser.id, 'search', { query: `hub: ${hub.name}` });
+    }
+    
     setSelectedHub(hub)
     setHubConfirmed(true)
     setStep('details')
   }
-  const handleCreateNewHub = () => {
+  const handleCreateNewHub = async () => {
     if (newHubName && newHubAddress) {
-      const newHub: CreatePostHub = {
-        id: 'new',
+      const newHubData = {
         name: newHubName,
         address: newHubAddress,
-        description: newHubDescription
+        description: newHubDescription,
+        coordinates: newHubCoordinates || undefined,
+      };
+      const newHubId = await firebaseDataService.createHub(newHubData);
+      const newHub: CreatePostHub = {
+        id: newHubId,
+        name: newHubName,
+        address: newHubAddress,
+        description: newHubDescription,
+        lat: newHubCoordinates?.lat,
+        lng: newHubCoordinates?.lng
       }
+      
+      // Track the newly created hub
+      if (currentUser) {
+        firebaseDataService.trackUserInteraction(currentUser.id, 'search', { query: `hub: ${newHubName}` });
+      }
+      
       setSelectedHub(newHub)
       setHubConfirmed(true)
       setStep('details')
@@ -158,33 +265,48 @@ const CreatePost = ({ isOpen, onClose, preSelectedHub, preSelectedListIds }: Cre
   }
 
   // Step 3: Details
-  const handleAddTag = () => {
+  const handleAddTag = async () => {
     if (newTag.trim() && !tags.includes(newTag.trim()) && tags.length < 3) {
-      setTags(prev => [...prev, newTag.trim()])
+      const tagToAdd = newTag.trim()
+      setTags(prev => [...prev, tagToAdd])
       setNewTag('')
+      
+      // TagAutocomplete component will handle saving to Firebase
     }
   }
   const handleRemoveTag = (tagToRemove: string) => {
     setTags(prev => prev.filter(tag => tag !== tagToRemove))
   }
+  
+  const handlePlaceSelect = (place: string, details?: google.maps.places.PlaceResult) => {
+    setNewHubAddress(place);
+    if (details?.geometry?.location) {
+      setNewHubCoordinates({
+        lat: details.geometry.location.lat(),
+        lng: details.geometry.location.lng()
+      });
+    }
+  }
   const handleSubmit = async () => {
-    if (!currentUser) return;
+    if (!currentUser || !selectedHub) return;
 
     try {
+      // 1. Create post data object
       const postData = {
         userId: currentUser.id,
-        hubId: selectedHub?.id || '',
+        hubId: selectedHub.id,
         description,
         images: photos,
         tags,
         privacy,
         postType: howWasIt,
-        triedRating: howWasIt === 'tried' ? triedFeeling : undefined,
+        triedRating: howWasIt === 'tried' ? triedFeeling : null,
         listIds: Array.from(selectedListIds),
         location: extractedLocation
       };
       
-      await firebaseDataService.createPost(postData);
+      // 2. Save post to Firestore
+      await firebasePostService.createPost(postData);
       
       console.log('✅ Post created successfully:', postData);
       handleClose();
@@ -205,6 +327,7 @@ const CreatePost = ({ isOpen, onClose, preSelectedHub, preSelectedListIds }: Cre
     setNewHubName('')
     setNewHubAddress('')
     setNewHubDescription('')
+    setNewHubCoordinates(null)
     setLocationSearch('')
     setSearchResults([])
     setHowWasIt('loved')
@@ -448,12 +571,11 @@ const CreatePost = ({ isOpen, onClose, preSelectedHub, preSelectedListIds }: Cre
                     placeholder="Place name"
                     className="w-full px-4 py-3 border border-linen-200 rounded-xl bg-white text-charcoal-600 focus:outline-none focus:ring-2 focus:ring-sage-200"
                   />
-                  <input
-                    type="text"
+                  <AddressAutocomplete
+                    onPlaceSelect={handlePlaceSelect}
+                    placeholder="Enter address..."
                     value={newHubAddress}
-                    onChange={(e) => setNewHubAddress(e.target.value)}
-                    placeholder="Address"
-                    className="w-full px-4 py-3 border border-linen-200 rounded-xl bg-white text-charcoal-600 focus:outline-none focus:ring-2 focus:ring-sage-200"
+                    className=""
                   />
                   <textarea
                     value={newHubDescription}
@@ -558,43 +680,15 @@ const CreatePost = ({ isOpen, onClose, preSelectedHub, preSelectedListIds }: Cre
                     </span>
                   ))}
                 </div>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={newTag}
-                    onChange={(e) => setNewTag(e.target.value)}
-                    placeholder={tags.length >= 3 ? "Maximum 3 tags" : "Add a tag..."}
-                    className="flex-1 px-4 py-2 border border-linen-200 rounded-xl bg-linen-50 text-charcoal-600 focus:outline-none focus:ring-2 focus:ring-sage-200 disabled:bg-gray-100"
-                    onKeyPress={(e) => e.key === 'Enter' && handleAddTag()}
-                    disabled={tags.length >= 3}
-                  />
-                  <button
-                    onClick={handleAddTag}
-                    className="px-4 py-2 bg-sage-400 text-white rounded-xl hover:bg-sage-500 transition disabled:bg-gray-300"
-                    disabled={tags.length >= 3}
-                  >
-                    Add
-                  </button>
-                </div>
-                <div className="mt-2">
-                  <p className="text-xs text-charcoal-500 mb-2">Popular tags:</p>
-                  <div className="flex flex-wrap gap-1">
-                    {availableTags.slice(0, 6).map((tag) => (
-                      <button
-                        key={tag}
-                        onClick={() => !tags.includes(tag) && tags.length < 3 && setTags(prev => [...prev, tag])}
-                        disabled={tags.includes(tag) || tags.length >= 3}
-                        className={`px-2 py-1 rounded-full text-xs transition ${
-                          tags.includes(tag) || tags.length >= 3
-                            ? 'bg-sage-200 text-sage-600 cursor-not-allowed opacity-50'
-                            : 'bg-linen-100 text-charcoal-600 hover:bg-sage-100'
-                        }`}
-                      >
-                        #{tag}
-                      </button>
-                    ))}
-                  </div>
-                </div>
+                <TagAutocomplete
+                  value={newTag}
+                  onChange={setNewTag}
+                  onAdd={handleAddTag}
+                  placeholder="Add a tag..."
+                  maxTags={3}
+                  currentTags={tags}
+                  availableTags={availableTags}
+                />
               </div>
               {/* List Selection (exclude All Loved/All Tried) */}
               <div>
@@ -707,4 +801,4 @@ const CreatePost = ({ isOpen, onClose, preSelectedHub, preSelectedListIds }: Cre
   return createPortal(modalContent, document.body)
 }
 
-export default CreatePost 
+export default CreatePost

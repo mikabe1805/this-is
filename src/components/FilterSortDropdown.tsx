@@ -33,6 +33,7 @@ interface FilterSortDropdownProps {
   anchorRect?: DOMRect | null
   onLocationSelect?: (location: Location) => void
   hubFilter?: string | null
+  onApplyFilters?: () => void
 }
 
 const PANEL_WIDTH = 320
@@ -51,7 +52,8 @@ const FilterSortDropdown: React.FC<FilterSortDropdownProps> = ({
   onClose,
   anchorRect,
   onLocationSelect,
-  hubFilter
+  hubFilter,
+  onApplyFilters
 }) => {
   const [showTagSearch, setShowTagSearch] = useState(false)
 
@@ -67,19 +69,7 @@ const FilterSortDropdown: React.FC<FilterSortDropdownProps> = ({
     zIndex: 99999
   }
 
-  const handleTagSearch = () => {
-    setShowTagSearch(true)
-  }
 
-  const handleTagsChange = (newTags: string[]) => {
-    // Remove any tags that are no longer selected
-    const remainingFilters = activeFilters.filter(filter => 
-      !availableTags.includes(filter) || newTags.includes(filter)
-    )
-    // Add any newly selected tags
-    const finalFilters = [...new Set([...remainingFilters, ...newTags])]
-    setActiveFilters(finalFilters)
-  }
 
   return createPortal(
     <>
@@ -95,9 +85,7 @@ const FilterSortDropdown: React.FC<FilterSortDropdownProps> = ({
                   name="sortBy"
                   value={opt.key}
                   checked={sortBy === opt.key}
-                  onChange={() => {
-                    setSortBy(opt.key)
-                  }}
+                  onChange={() => setSortBy(opt.key)}
                   className="w-5 h-5 text-sage-500 focus:ring-sage-400"
                 />
                 <span className="font-medium text-charcoal-600">{opt.label}</span>
@@ -122,7 +110,12 @@ const FilterSortDropdown: React.FC<FilterSortDropdownProps> = ({
                 <input
                   type="checkbox"
                   checked={activeFilters.includes(opt.key)}
-                  onChange={() => setActiveFilters(activeFilters.includes(opt.key) ? activeFilters.filter(x => x !== opt.key) : [...activeFilters, opt.key])}
+                  onChange={() => {
+                    const newFilters = activeFilters.includes(opt.key)
+                      ? activeFilters.filter(f => f !== opt.key)
+                      : [...activeFilters, opt.key];
+                    setActiveFilters(newFilters);
+                  }}
                   className="w-4 h-4 text-sage-500 focus:ring-sage-400"
                 />
                 {opt.label}
@@ -135,7 +128,12 @@ const FilterSortDropdown: React.FC<FilterSortDropdownProps> = ({
                 <input
                   type="checkbox"
                   checked={activeFilters.includes(tag)}
-                  onChange={() => setActiveFilters(activeFilters.includes(tag) ? activeFilters.filter(x => x !== tag) : [...activeFilters, tag])}
+                  onChange={() => {
+                    const newFilters = activeFilters.includes(tag)
+                      ? activeFilters.filter(f => f !== tag)
+                      : [...activeFilters, tag];
+                    setActiveFilters(newFilters);
+                  }}
                   className="w-4 h-4 text-sage-500 focus:ring-sage-400"
                 />
                 {tag}
@@ -143,7 +141,7 @@ const FilterSortDropdown: React.FC<FilterSortDropdownProps> = ({
             ))}
             {availableTags.length > 6 && (
               <button
-                onClick={handleTagSearch}
+                onClick={() => setShowTagSearch(true)}
                 className="flex items-center gap-2 px-3 py-2 rounded-full text-sm font-medium bg-linen-100 border border-linen-200 text-charcoal-500 hover:bg-linen-200 cursor-pointer transition"
               >
                 <EllipsisHorizontalIcon className="w-4 h-4" />
@@ -153,7 +151,12 @@ const FilterSortDropdown: React.FC<FilterSortDropdownProps> = ({
         </div>
         <button
           className="mt-6 w-full py-3 rounded-full font-semibold bg-sage-400 text-white shadow-soft hover:bg-sage-500 transition"
-          onClick={onClose}
+          onClick={() => {
+            if (onApplyFilters) {
+              onApplyFilters()
+            }
+            onClose()
+          }}
         >
           Apply Filters
         </button>
@@ -164,7 +167,10 @@ const FilterSortDropdown: React.FC<FilterSortDropdownProps> = ({
         onClose={() => setShowTagSearch(false)}
         availableTags={availableTags}
         selectedTags={activeFilters.filter(filter => availableTags.includes(filter))}
-        onTagsChange={handleTagsChange}
+                onTagsChange={(newTags) => {
+          const nonTagFilters = activeFilters.filter(f => !availableTags.includes(f));
+          setActiveFilters([...nonTagFilters, ...newTags]);
+        }}
       />
     </>,
     document.body

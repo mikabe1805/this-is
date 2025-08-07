@@ -325,3 +325,15 @@ body {
     }
   }
 }
+
+/* Google Maps Autocomplete z-index fix */
+.pac-container {
+  z-index: 9999 !important;
+}
+
+/* Ensure autocomplete dropdowns appear above modals */
+.pac-container,
+.gm-style-moc,
+.gm-style-mtc {
+  z-index: 9999 !important;
+}

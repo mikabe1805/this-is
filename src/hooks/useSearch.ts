@@ -35,7 +35,7 @@ export const useSearch = () => {
     loadSearchContext();
   }, [authUser]);
 
-  const performSearch = useCallback(async (query: string, useAI: boolean) => {
+  const performSearch = useCallback(async (query: string, options: { sortBy?: string, tags?: string[] } = {}) => {
     if (!query.trim()) {
       setDisplayResults({ places: [], lists: [], users: [], posts: [], totalResults: { places: 0, lists: 0, users: 0, posts: 0 } });
       return;
@@ -45,10 +45,10 @@ export const useSearch = () => {
 
     try {
       let results;
-      if (useAI && aiSearchService.isAISearchEnabled() && searchContext) {
-        results = await searchIntelligently(query, searchContext);
+      if (aiSearchService.isAISearchEnabled() && searchContext) {
+        results = await searchIntelligently(query, searchContext, options);
       } else {
-        results = await firebaseDataService.performSearch(query);
+        results = await firebaseDataService.performSearch(query, options);
       }
       setDisplayResults(results);
     } catch (err) {

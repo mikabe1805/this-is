@@ -6,8 +6,8 @@ import type { Post, Hub, User, List, PostComment } from '../types/index.js';
 import { firebaseDataService } from '../services/firebaseDataService';
 import { useNavigation } from '../contexts/NavigationContext.tsx';
 import { useAuth } from '../contexts/AuthContext.tsx';
+import { useModal } from '../contexts/ModalContext.tsx';
 import { formatTimestamp } from '../utils/dateUtils.ts';
-import SavePostToListModal from './SavePostToListModal.tsx';
 
 interface PostModalProps {
   postId: string;
@@ -20,6 +20,7 @@ interface PostModalProps {
 
 const PostModal = ({ postId, from, isOpen, onClose, showBackButton, onBack }: PostModalProps) => {
   const { currentUser } = useAuth();
+  const { openSaveModal } = useModal();
   const [post, setPost] = useState<Post | null>(null);
   const [hub, setHub] = useState<Hub | null>(null);
   const [author, setAuthor] = useState<User | null>(null);
@@ -29,8 +30,6 @@ const PostModal = ({ postId, from, isOpen, onClose, showBackButton, onBack }: Po
   const { openHubModal, openProfileModal } = useNavigation();
   const [isVisible, setIsVisible] = useState(false);
   const modalRef = useRef<HTMLDivElement>(null);
-  const [showSaveToListModal, setShowSaveToListModal] = useState(false);
-  const [userLists, setUserLists] = useState<List[]>([]);
 
   const [comments, setComments] = useState<PostComment[]>([]);
   const [commentCount, setCommentCount] = useState(0);
@@ -50,11 +49,14 @@ const PostModal = ({ postId, from, isOpen, onClose, showBackButton, onBack }: Po
       if (isOpen && postId) {
         setLoading(true);
         try {
+          console.log('PostModal: Fetching post data for postId:', postId);
           const fetchedPost = await firebaseDataService.getPost(postId);
           setPost(fetchedPost);
 
           if (fetchedPost) {
+            console.log('PostModal: Post fetched successfully, fetching comments...');
             const fetchedComments = await firebaseDataService.getCommentsForPost(fetchedPost.id);
+            console.log('PostModal: Comments fetched:', fetchedComments.length, 'comments');
             setComments(fetchedComments);
             setCommentCount(fetchedComments.length);
 
@@ -66,24 +68,18 @@ const PostModal = ({ postId, from, isOpen, onClose, showBackButton, onBack }: Po
               const fetchedAuthor = await firebaseDataService.getCurrentUser(fetchedPost.userId);
               setAuthor(fetchedAuthor);
             }
+          } else {
+            console.error('PostModal: Post not found for postId:', postId);
           }
         } catch (error) {
-          console.error("Error fetching post data:", error);
+          console.error("PostModal: Error fetching post data:", error);
         } finally {
           setLoading(false);
         }
       }
     };
 
-    const fetchUserLists = async () => {
-      if (currentUser?.id) {
-        const lists = await firebaseDataService.getUserLists(currentUser.id);
-        setUserLists(lists);
-      }
-    };
-
     fetchPostData();
-    fetchUserLists();
   }, [isOpen, postId, currentUser]);
 
   useEffect(() => {
@@ -125,10 +121,10 @@ const PostModal = ({ postId, from, isOpen, onClose, showBackButton, onBack }: Po
     }
   };
 
-  const handleSaveToList = async (listId: string, note?: string) => {
-    if (!post) return;
-    await firebaseDataService.savePostToList(post.id, listId);
-    setShowSaveToListModal(false);
+  const handleSaveHub = () => {
+    if (hub) {
+      openSaveModal({ hub });
+    }
   };
 
   const handleAuthorClick = () => {
@@ -140,26 +136,17 @@ const PostModal = ({ postId, from, isOpen, onClose, showBackButton, onBack }: Po
   const handlePostComment = async () => {
     if (!currentUser || !post || !newComment.trim()) return;
 
+    console.log('PostModal: Posting comment:', { postId: post.id, userId: currentUser.id, text: newComment });
+
     const postedComment = await firebaseDataService.postComment(post.id, currentUser.id, newComment);
     if (postedComment) {
+      console.log('PostModal: Comment posted successfully:', postedComment);
       setComments(prevComments => [postedComment, ...prevComments]);
       setCommentCount(prevCount => prevCount + 1);
       setNewComment('');
-    }
-  };
-
-  const handleCreateList = async (listData: { name: string; description: string; privacy: 'public' | 'private' | 'friends'; tags: string[] }) => {
-    if (!currentUser || !post) return;
-
-    const newListData = { ...listData, userId: currentUser.id };
-    const newListId = await firebaseDataService.createList(newListData);
-
-    if (newListId) {
-      await handleSaveToList(newListId);
-      
-      // Refresh user lists to include the new one
-      const lists = await firebaseDataService.getUserLists(currentUser.id);
-      setUserLists(lists);
+    } else {
+      console.error('PostModal: Failed to post comment');
+      // You could add a toast notification here
     }
   };
 
@@ -256,7 +243,7 @@ const PostModal = ({ postId, from, isOpen, onClose, showBackButton, onBack }: Po
                         <span className="font-semibold">{commentCount}</span>
                       </div>
                     </div>
-                    <button onClick={() => setShowSaveToListModal(true)} className="text-[#A67C52] text-sm font-medium font-serif active:scale-95 transition-transform duration-200 bg-[#E8D4C0]/40 px-4 py-2 rounded-lg border border-transparent hover:border-[#A67C52]/50">
+                    <button onClick={handleSaveHub} className="text-[#A67C52] text-sm font-medium font-serif active:scale-95 transition-transform duration-200 bg-[#E8D4C0]/40 px-4 py-2 rounded-lg border border-transparent hover:border-[#A67C52]/50">
                       Save to List
                     </button>
                   </div>
@@ -312,16 +299,6 @@ const PostModal = ({ postId, from, isOpen, onClose, showBackButton, onBack }: Po
           </div>
         </div>
       </div>
-      {post && (
-        <SavePostToListModal
-          isOpen={showSaveToListModal}
-          onClose={() => setShowSaveToListModal(false)}
-          post={post}
-          userLists={userLists}
-          onSave={handleSaveToList}
-          onCreateList={handleCreateList}
-        />
-      )}
     </>
   );
 

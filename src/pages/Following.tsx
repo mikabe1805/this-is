@@ -1,6 +1,9 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { ArrowLeftIcon, MagnifyingGlassIcon, UserIcon, MapPinIcon, HeartIcon } from '@heroicons/react/24/outline'
 import { useNavigate } from 'react-router-dom'
+import { useAuth } from '../contexts/AuthContext.js'
+import { firebaseDataService } from '../services/firebaseDataService.js'
+import type { User } from '../types/index.js'
 
 // SVG botanical accent
 const BotanicalAccent = () => (
@@ -30,101 +33,65 @@ const Following = () => {
   const [searchQuery, setSearchQuery] = useState('')
   const [activeTab, setActiveTab] = useState<'following' | 'friends' | 'followers'>('following')
 
-  // Mock following data
-  const [followingUsers, setFollowingUsers] = useState<FollowingUser[]>([
-    {
-      id: '1',
-      name: 'Sara Chen',
-      username: 'sara.chen',
-      avatar: 'https://images.unsplash.com/photo-1494790108755-2616b612b786?w=150&h=150&fit=crop&crop=face',
-      bio: 'Coffee enthusiast and urban explorer ☕️',
-      location: 'San Francisco, CA',
-      tags: ['coffee', 'urban-explorer', 'foodie'],
-      isFollowing: true,
-      mutualFriends: 12,
-      lastActive: '2h ago'
-    },
-    {
-      id: '2',
-      name: 'Alex Rivera',
-      username: 'alex.rivera',
-      avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=150&fit=crop&crop=face',
-      bio: 'Finding the best tacos in the Bay Area 🌮',
-      location: 'Oakland, CA',
-      tags: ['tacos', 'bay-area', 'authentic'],
-      isFollowing: true,
-      mutualFriends: 8,
-      lastActive: '1d ago'
-    },
-    {
-      id: '3',
-      name: 'Emma Thompson',
-      username: 'emma.thompson',
-      avatar: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=150&h=150&fit=crop&crop=face',
-      bio: 'Book lover and cozy cafe hunter 📚',
-      location: 'Berkeley, CA',
-      tags: ['books', 'cozy', 'cafes'],
-      isFollowing: true,
-      mutualFriends: 15,
-      lastActive: '3h ago'
-    },
-    {
-      id: '4',
-      name: 'Marcus Johnson',
-      username: 'marcus.johnson',
-      avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face',
-      bio: 'Adventure seeker and outdoor enthusiast 🏔️',
-      location: 'Marin County, CA',
-      tags: ['outdoors', 'adventure', 'hiking'],
-      isFollowing: true,
-      mutualFriends: 5,
-      lastActive: '5h ago'
-    },
-    {
-      id: '5',
-      name: 'Lily Zhang',
-      username: 'lily.zhang',
-      avatar: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=150&h=150&fit=crop&crop=face',
-      bio: 'Plant-based foodie and sustainability advocate 🌱',
-      location: 'San Francisco, CA',
-      tags: ['vegan', 'sustainable', 'healthy'],
-      isFollowing: true,
-      mutualFriends: 20,
-      lastActive: '1h ago'
-    }
-  ])
+  const { currentUser: authUser } = useAuth()
+  const [followingUsers, setFollowingUsers] = useState<User[]>([])
+  const [followersUsers, setFollowersUsers] = useState<User[]>([])
+  const [loading, setLoading] = useState(true)
 
-  const [followersUsers, setFollowersUsers] = useState<FollowingUser[]>([
-    {
-      id: '6',
-      name: 'David Kim',
-      username: 'david.kim',
-      avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&h=150&fit=crop&crop=face',
-      bio: 'Tech enthusiast and coffee lover ☕',
-      location: 'San Jose, CA',
-      tags: ['tech', 'coffee', 'startups'],
-      isFollowing: false,
-      mutualFriends: 3,
-      lastActive: '30m ago'
-    },
-    {
-      id: '7',
-      name: 'Sophia Rodriguez',
-      username: 'sophia.rodriguez',
-      avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&h=150&fit=crop&crop=face',
-      bio: 'Art lover and museum enthusiast 🎨',
-      location: 'San Francisco, CA',
-      tags: ['art', 'museums', 'culture'],
-      isFollowing: false,
-      mutualFriends: 7,
-      lastActive: '4h ago'
+  useEffect(() => {
+    const fetchData = async () => {
+      if (authUser) {
+        setLoading(true)
+        const [following, followers] = await Promise.all([
+          firebaseDataService.getUserFollowing(authUser.id),
+          firebaseDataService.getFollowers(authUser.id)
+        ]);
+        setFollowingUsers(following);
+        setFollowersUsers(followers);
+        setLoading(false)
+      }
     }
-  ])
+    fetchData()
+  }, [authUser])
 
+  const handleUnfollow = async (userId: string) => {
+    if (!authUser) return;
+    try {
+      await firebaseDataService.unfollowUser(authUser.id, userId);
+      // Refetch data to confirm the change
+      const following = await firebaseDataService.getUserFollowing(authUser.id);
+      setFollowingUsers(following);
+      console.log(`Unfollowed user ${userId}`);
+    } catch (error) {
+      console.error('Error unfollowing user:', error);
+    }
+  }
+
+  const handleFollow = async (userId: string) => {
+    if (!authUser) return;
+    try {
+      await firebaseDataService.followUser(authUser.id, userId);
+      // Refetch data to confirm the change
+      const following = await firebaseDataService.getUserFollowing(authUser.id);
+      setFollowingUsers(following);
+      console.log(`Followed user ${userId}`);
+    } catch (error) {
+      console.error('Error following user:', error);
+    }
+  }
+
+  if (loading) {
+    return <div>Loading...</div>; // Or a proper loading spinner
+  }
+  
   // Determine mutual followers (friends)
   const followerIdSet = new Set(followersUsers.map(user => user.id))
   const friendsUsers = followingUsers.filter(user => followerIdSet.has(user.id))
   const followingOnlyUsers = followingUsers.filter(user => !followerIdSet.has(user.id))
+
+  const isFollowing = (userId: string) => {
+    return followingUsers.some(u => u.id === userId);
+  }
 
   const currentUsers =
     activeTab === 'following'
@@ -132,29 +99,14 @@ const Following = () => {
       : activeTab === 'friends'
       ? friendsUsers
       : followersUsers
-
+  
   const filteredUsers = currentUsers.filter(user =>
     user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     user.username.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    user.bio.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    user.tags.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()))
+    (user.bio && user.bio.toLowerCase().includes(searchQuery.toLowerCase())) ||
+    (user.tags && user.tags.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase())))
   )
 
-  const handleUnfollow = (userId: string) => {
-    // In a real app, this would make an API call
-    console.log('Unfollowing user:', userId)
-    // Update local state for immediate feedback
-    setFollowingUsers(prev => prev.filter(user => user.id !== userId))
-  }
-
-  const handleFollow = (userId: string) => {
-    // In a real app, this would make an API call
-    console.log('Following user:', userId)
-    // Update local state for immediate feedback
-    setFollowersUsers(prev => prev.map(user => 
-      user.id === userId ? { ...user, isFollowing: true } : user
-    ))
-  }
 
   return (
     <div className="relative min-h-full overflow-x-hidden bg-linen-50">
@@ -271,32 +223,21 @@ const Following = () => {
                       <p className="text-sm text-charcoal-500">@{user.username}</p>
                     </div>
                     <button
-                      onClick={() => user.isFollowing ? handleUnfollow(user.id) : handleFollow(user.id)}
+                      onClick={() => isFollowing(user.id) ? handleUnfollow(user.id) : handleFollow(user.id)}
                       className={`px-4 py-2 rounded-xl text-sm font-medium transition-colors ${
-                        user.isFollowing
+                        isFollowing(user.id)
                           ? 'bg-linen-100 text-charcoal-600 hover:bg-linen-200'
                           : 'bg-sage-500 text-white hover:bg-sage-600 shadow-soft'
                       }`}
                     >
-                      {user.isFollowing ? 'Following' : 'Follow'}
+                      {isFollowing(user.id) ? 'Following' : 'Follow'}
                     </button>
                   </div>
 
                   <p className="text-sm text-charcoal-600 mb-2 line-clamp-2">{user.bio}</p>
 
                   {/* Location and Activity */}
-                  <div className="flex items-center gap-4 text-xs text-charcoal-500 mb-3">
-                    <div className="flex items-center gap-1">
-                      <MapPinIcon className="w-3 h-3" />
-                      {user.location}
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <HeartIcon className="w-3 h-3" />
-                      {user.mutualFriends} mutual friends
-                    </div>
-                    <span>•</span>
-                    <span>{user.lastActive}</span>
-                  </div>
+
 
                   {/* Tags */}
                   <div className="flex flex-wrap gap-1">

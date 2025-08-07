@@ -68,13 +68,28 @@ const ProfileModal = ({ userId, isOpen, onClose, onFollow, onShare, onOpenFullSc
           setUser(fetchedUser);
 
           if (fetchedUser) {
-            const activityItems = await firebaseDataService.getUserActivity(userId);
-            
-            // Batch fetch posts and lists
-            const { posts: fetchedPosts, lists: fetchedLists } = await firebaseDataService.getBatchPostAndListData(activityItems);
+            // Fetch posts directly
+            const userPosts = await firebaseDataService.getUserPosts(userId);
+            setPosts(userPosts);
 
-            setPosts(fetchedPosts);
-            setLists(fetchedLists);
+            // Fetch lists directly
+            const userLists = await firebaseDataService.getUserLists(userId);
+            setLists(userLists);
+
+            // Check if current user is following this user
+            if (currentUser && currentUser.id !== userId) {
+              try {
+                const following = await firebaseDataService.getUserFollowing(currentUser.id);
+                const isUserFollowing = following.some(user => user.id === userId);
+                setIsFollowing(isUserFollowing);
+                console.log(`ProfileModal: Following status for ${userId}: ${isUserFollowing}`);
+              } catch (error) {
+                console.error('Error checking following status:', error);
+                setIsFollowing(false);
+              }
+            } else {
+              setIsFollowing(false); // Can't follow yourself
+            }
           }
         } catch (error) {
           console.error("Error fetching user data:", error);
@@ -85,7 +100,7 @@ const ProfileModal = ({ userId, isOpen, onClose, onFollow, onShare, onOpenFullSc
     };
 
     fetchUserData();
-  }, [isOpen, userId]);
+  }, [isOpen, userId, currentUser]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -104,11 +119,26 @@ const ProfileModal = ({ userId, isOpen, onClose, onFollow, onShare, onOpenFullSc
   }, [isOpen, onClose, showPostOverlay])
 
 
-  const handleFollow = (e: React.MouseEvent) => {
+  const handleFollow = async (e: React.MouseEvent) => {
     e.stopPropagation()
-    setIsFollowing(!isFollowing)
-    if (onFollow && user) {
-      onFollow(user.id)
+    if (onFollow && user && currentUser) {
+      try {
+        // Optimistically update UI
+        setIsFollowing(!isFollowing);
+        
+        // Call the follow function
+        await onFollow(user.id);
+        
+        // Refresh the actual following status from Firebase
+        const following = await firebaseDataService.getUserFollowing(currentUser.id);
+        const isUserFollowing = following.some(user => user.id === userId);
+        setIsFollowing(isUserFollowing);
+        console.log(`ProfileModal: Following status updated for ${userId}: ${isUserFollowing}`);
+      } catch (error) {
+        console.error('Error in follow operation:', error);
+        // Revert optimistic update on error
+        setIsFollowing(!isFollowing);
+      }
     }
   }
 
@@ -152,7 +182,7 @@ const ProfileModal = ({ userId, isOpen, onClose, onFollow, onShare, onOpenFullSc
   }
 
   const modalContent = (
-    <div className={`fixed inset-0 z-50 overflow-hidden`}>
+    <div className={`fixed inset-0 z-[1002] overflow-hidden`}>
       <div
         className={`absolute inset-0 bg-black/40 transition-opacity duration-300 ${isVisible ? 'opacity-100' : 'opacity-0'}`}
         onClick={onClose}

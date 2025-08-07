@@ -9,6 +9,9 @@ import EditListModal from '../components/EditListModal'
 import ConfirmModal from '../components/ConfirmModal'
 import SaveToListModal from '../components/SaveToListModal'
 import { useNavigation } from '../contexts/NavigationContext.tsx'
+import { useAuth } from '../contexts/AuthContext.js'
+import { firebaseDataService } from '../services/firebaseDataService.js'
+import { firebaseListService } from '../services/firebaseListService.js'
 
 // SVG botanical accent
 const BotanicalAccent = () => (
@@ -76,203 +79,40 @@ const ViewAllLists = () => {
     }
   }, [searchParams])
 
-  // Mock current user
-  const currentUser: User = {
-    id: '1',
-    name: 'Mika Chen',
-    username: 'mika.chen',
-    avatar: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=150&h=150&fit=crop&crop=face',
-    bio: 'Finding cozy spots and sharing them with friends ✨',
-    location: 'San Francisco, CA',
-    influences: 234
-  }
+  const { currentUser: authUser } = useAuth()
+  const [allLists, setAllLists] = useState<List[]>([])
+  const [listCreators, setListCreators] = useState<Record<string, string>>({});
+  const [loading, setLoading] = useState(true)
 
-  // Mock user lists
-  const userLists: List[] = [
-    {
-      id: 'all-loved',
-      name: 'All Loved',
-      description: 'All the places you\'ve loved and want to visit again',
-      userId: '1',
-      isPublic: false,
-      isShared: false,
-      privacy: 'private',
-      tags: ['loved', 'favorites', 'auto-generated'],
-      hubs: [],
-      coverImage: 'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=300&h=200&fit=crop',
-      createdAt: '2024-01-01',
-      updatedAt: '2024-01-15',
-      likes: 0,
-      isLiked: false
-    },
-    {
-      id: 'all-tried',
-      name: 'All Tried',
-      description: 'All the places you\'ve tried and experienced',
-      userId: '1',
-      isPublic: false,
-      isShared: false,
-      privacy: 'private',
-      tags: ['tried', 'visited', 'auto-generated'],
-      hubs: [],
-      coverImage: 'https://images.unsplash.com/photo-1501594907352-04cda38ebc29?w=300&h=200&fit=crop',
-      createdAt: '2024-01-01',
-      updatedAt: '2024-01-15',
-      likes: 0,
-      isLiked: false
-    },
-    {
-      id: 'all-want',
-      name: 'All Want',
-      description: 'All the places you want to visit someday',
-      userId: '1',
-      isPublic: false,
-      isShared: false,
-      privacy: 'private',
-      tags: ['want', 'wishlist', 'auto-generated'],
-      hubs: [],
-      coverImage: 'https://images.unsplash.com/photo-1442512595331-e89e73853f31?w=300&h=200&fit=crop',
-      createdAt: '2024-01-01',
-      updatedAt: '2024-01-15',
-      likes: 0,
-      isLiked: false
-    },
-    {
-      id: '1',
-      name: 'Cozy Coffee Spots',
-      description: 'Perfect places to work and relax with great coffee and atmosphere',
-      userId: '1',
-      isPublic: true,
-      isShared: false,
-      privacy: 'public',
-      tags: ['coffee', 'work-friendly', 'cozy'],
-      hubs: [],
-      coverImage: 'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=300&h=200&fit=crop',
-      createdAt: '2024-01-10',
-      updatedAt: '2024-01-15',
-      likes: 56,
-      isLiked: false
-    },
-    {
-      id: '2',
-      name: 'Hidden Gems',
-      description: 'Local favorites that tourists don\'t know about',
-      userId: '1',
-      isPublic: true,
-      isShared: false,
-      privacy: 'public',
-      tags: ['local', 'hidden-gems', 'authentic'],
-      hubs: [],
-      coverImage: 'https://images.unsplash.com/photo-1501594907352-04cda38ebc29?w=300&h=200&fit=crop',
-      createdAt: '2024-01-12',
-      updatedAt: '2024-01-14',
-      likes: 42,
-      isLiked: false
-    },
-    {
-      id: '3',
-      name: 'Book Nooks',
-      description: 'Quiet places to read and study',
-      userId: '1',
-      isPublic: false,
-      isShared: false,
-      privacy: 'private',
-      tags: ['books', 'quiet', 'study'],
-      hubs: [],
-      coverImage: 'https://images.unsplash.com/photo-1481627834876-b7833e8f5570?w=300&h=200&fit=crop',
-      createdAt: '2024-01-08',
-      updatedAt: '2024-01-13',
-      likes: 23,
-      isLiked: false
-    },
-    {
-      id: '4',
-      name: 'Weekend Brunch Spots',
-      description: 'The best places for weekend brunch with friends',
-      userId: '1',
-      isPublic: true,
-      isShared: false,
-      privacy: 'friends',
-      tags: ['brunch', 'weekend', 'social'],
-      hubs: [],
-      coverImage: 'https://images.unsplash.com/photo-1509440159596-0249088772ff?w=300&h=200&fit=crop',
-      createdAt: '2024-01-05',
-      updatedAt: '2024-01-12',
-      likes: 34,
-      isLiked: false
-    },
-    {
-      id: '5',
-      name: 'Outdoor Adventures',
-      description: 'Places to explore nature and get some fresh air',
-      userId: '1',
-      isPublic: true,
-      isShared: false,
-      privacy: 'public',
-      tags: ['outdoors', 'nature', 'adventure'],
-      hubs: [],
-      coverImage: 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=300&h=200&fit=crop',
-      createdAt: '2024-01-03',
-      updatedAt: '2024-01-10',
-      likes: 28,
-      isLiked: false
-    },
-    {
-      id: '6',
-      name: 'Date Night Places',
-      description: 'Romantic spots perfect for date nights',
-      userId: '1',
-      isPublic: false,
-      isShared: false,
-      privacy: 'private',
-      tags: ['romantic', 'date-night', 'intimate'],
-      hubs: [],
-      coverImage: 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=300&h=200&fit=crop',
-      createdAt: '2024-01-02',
-      updatedAt: '2024-01-09',
-      likes: 19,
-      isLiked: false
+  useEffect(() => {
+    const fetchListsAndCreators = async () => {
+      if (authUser) {
+        setLoading(true);
+        const userLists = await firebaseDataService.getUserLists(authUser.id);
+        const following = await firebaseDataService.getUserFollowing(authUser.id);
+        const friendsPublicListsPromises = following.map(friend => 
+          firebaseDataService.getUserLists(friend.id).then(lists => 
+            lists.filter(list => list.privacy === 'public')
+          )
+        );
+        const friendsPublicListsArrays = await Promise.all(friendsPublicListsPromises);
+        const friendsLists = friendsPublicListsArrays.flat();
+
+        const allFetchedLists = [...userLists, ...friendsLists];
+        setAllLists(allFetchedLists);
+
+        // Fetch creator names
+        const creatorIds = [...new Set(allFetchedLists.map(list => list.userId))];
+        const creatorNames: Record<string, string> = {};
+        for (const id of creatorIds) {
+          creatorNames[id] = await firebaseDataService.getUserDisplayName(id);
+        }
+        setListCreators(creatorNames);
+        setLoading(false);
+      }
     }
-  ]
-
-  // Mock friends' lists
-  const friendsLists: List[] = [
-    {
-      id: 'emma-favorites',
-      name: 'Emma\'s Favorites',
-      description: 'My go-to spots for coffee and pastries',
-      userId: 'emma',
-      isPublic: true,
-      isShared: true,
-      privacy: 'public',
-      tags: ['coffee', 'pastries', 'breakfast'],
-      hubs: [],
-      coverImage: 'https://images.unsplash.com/photo-1509440159596-0249088772ff?w=300&h=200&fit=crop',
-      createdAt: '2024-01-10',
-      updatedAt: '2024-01-10',
-      likes: 18,
-      isLiked: true
-    },
-    {
-      id: 'mika-coffee-spots',
-      name: 'Mika\'s Coffee Spots',
-      description: 'The best coffee shops in the city',
-      userId: 'mika',
-      isPublic: true,
-      isShared: true,
-      privacy: 'public',
-      tags: ['coffee', 'local', 'artisan'],
-      hubs: [],
-      coverImage: 'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=300&h=200&fit=crop',
-      createdAt: '2024-01-08',
-      updatedAt: '2024-01-08',
-      likes: 32,
-      isLiked: false
-    }
-  ]
-
-  // Combine user lists and friends' lists
-  const allLists = [...userLists, ...friendsLists]
+    fetchListsAndCreators()
+  }, [authUser])
 
   // Filter and sort lists based on current state
   const filteredLists = allLists.filter(list => {
@@ -315,28 +155,38 @@ const ViewAllLists = () => {
     }
   })
 
-  const handleLikeList = (listId: string) => {
-    setLikedLists(prev => {
-      const newSet = new Set(prev)
-      if (newSet.has(listId)) {
-        newSet.delete(listId)
-      } else {
-        newSet.add(listId)
-      }
-      return newSet
-    })
+  const handleLikeList = async (listId: string) => {
+    if (authUser) {
+      await firebaseListService.likeList(listId, authUser.id);
+      setLikedLists(prev => {
+        const newSet = new Set(prev)
+        if (newSet.has(listId)) {
+          newSet.delete(listId)
+        } else {
+          newSet.add(listId)
+        }
+        return newSet
+      })
+    }
   }
 
-  const handleSaveList = (listId: string) => {
-    setSavedLists(prev => {
-      const newSet = new Set(prev)
-      if (newSet.has(listId)) {
-        newSet.delete(listId)
-      } else {
-        newSet.add(listId)
-      }
-      return newSet
-    })
+  const handleSaveList = async (listId: string) => {
+    if (authUser) {
+      await firebaseListService.saveList(listId, authUser.id);
+      setSavedLists(prev => {
+        const newSet = new Set(prev)
+        if (newSet.has(listId)) {
+          newSet.delete(listId)
+        } else {
+          newSet.add(listId)
+        }
+        return newSet
+      })
+    }
+  }
+  
+  const handleViewList = (list: List) => {
+    openListModal(list, 'view-all-lists');
   }
 
   const handleQuickSaveList = (list: List) => {
@@ -354,8 +204,10 @@ const ViewAllLists = () => {
     setShowSaveModal(false)
   }
 
-  const handleCreateList = (listData: { name: string; description: string; privacy: 'public' | 'private' | 'friends'; tags?: string[]; coverImage?: string }) => {
-    console.log('Creating list:', listData)
+  const handleCreateList = (listData: { name: string; description: string; privacy: 'public' | 'private' | 'friends'; tags?: string[]; coverImage?: File }) => {
+    if (authUser) {
+      firebaseListService.createList({ ...listData, userId: authUser.id })
+    }
     setShowSaveToListModal(false)
   }
 
@@ -374,7 +226,7 @@ const ViewAllLists = () => {
       title: 'Delete List',
       message: `Are you sure you want to delete "${list.name}"? This action cannot be undone.`,
       onConfirm: () => {
-        console.log('Deleting list:', list.id)
+        firebaseListService.deleteList(list.id)
         setShowConfirmModal(false)
       }
     })
@@ -382,7 +234,7 @@ const ViewAllLists = () => {
   }
 
   const handlePrivacyChange = (listId: string, newPrivacy: 'public' | 'private' | 'friends') => {
-    console.log('Changing privacy for list:', listId, 'to:', newPrivacy)
+    firebaseListService.updateList(listId, { privacy: newPrivacy })
   }
 
   const toggleTag = (tag: string) => {
@@ -397,9 +249,15 @@ const ViewAllLists = () => {
 
   const handleSaveToList = (listId: string, note?: string) => {
     // Save list logic here
-    console.log('Saving list:', listId, note)
+    if (selectedListForSave && authUser) {
+      firebaseListService.savePlaceToList(selectedListForSave.id, listId, authUser.id, note);
+    }
     setShowSaveToListModal(false)
     setSelectedListForSave(null)
+  }
+
+  if (loading) {
+    return <div>Loading...</div>; // Or a proper loading spinner
   }
 
   return (
@@ -460,6 +318,7 @@ const ViewAllLists = () => {
             <div
               key={list.id}
               className="relative bg-white rounded-2xl shadow-botanical border border-linen-200 overflow-hidden hover:shadow-liquid transition-all duration-300 group"
+              onClick={() => handleViewList(list)}
             >
               <BotanicalAccent />
               
@@ -476,7 +335,10 @@ const ViewAllLists = () => {
                 
                 {/* Quick Save Button */}
                 <button
-                  onClick={() => handleQuickSaveList(list)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleQuickSaveList(list);
+                  }}
                   className="absolute top-3 right-3 p-2 bg-white/90 backdrop-blur-sm rounded-full shadow-botanical hover:shadow-liquid hover:scale-105 transition-all duration-200"
                 >
                   <BookmarkIcon className="w-4 h-4 text-charcoal-600" />
@@ -491,6 +353,7 @@ const ViewAllLists = () => {
                       {list.name}
                     </h3>
                     <p className="text-sm text-charcoal-500 line-clamp-2">{list.description}</p>
+                    <p className="text-sm text-charcoal-500 line-clamp-2">Created by {listCreators[list.userId] || '...'}</p>
                   </div>
                 </div>
 
@@ -516,7 +379,7 @@ const ViewAllLists = () => {
                   <div className="flex items-center gap-4">
                     <div className="flex items-center gap-1">
                       <CalendarIcon className="w-4 h-4" />
-                      {new Date(list.updatedAt).toLocaleDateString()}
+                      {new Date(list.updatedAt.seconds ? list.updatedAt.toDate() : list.updatedAt).toLocaleDateString()}
                     </div>
                     <div className="flex items-center gap-1">
                       <EyeIcon className="w-4 h-4" />
@@ -532,7 +395,10 @@ const ViewAllLists = () => {
                 {/* Action Buttons */}
                 <div className="flex items-center gap-2">
                   <button
-                    onClick={() => handleLikeList(list.id)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleLikeList(list.id);
+                    }}
                     className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-xl text-sm font-medium transition-colors ${
                       likedLists.has(list.id)
                         ? 'bg-gold-50 text-gold-700 border border-gold-200'
@@ -543,7 +409,10 @@ const ViewAllLists = () => {
                     {likedLists.has(list.id) ? 'Liked' : 'Like'}
                   </button>
                   <button
-                    onClick={() => handleSaveList(list.id)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleSaveList(list.id);
+                    }}
                     className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-xl text-sm font-medium transition-colors ${
                       savedLists.has(list.id)
                         ? 'bg-sage-50 text-sage-700 border border-sage-200'
@@ -575,7 +444,7 @@ const ViewAllLists = () => {
         isOpen={showSaveModal}
         onClose={() => setShowSaveModal(false)}
         place={selectedPlace}
-        userLists={userLists}
+        userLists={allLists.filter(list => list.userId === authUser?.id)}
         onSave={handleSave}
         onCreateList={handleCreateList}
       />
@@ -583,14 +452,18 @@ const ViewAllLists = () => {
       <CreatePost
         isOpen={showCreatePost}
         onClose={() => setShowCreatePost(false)}
-        listId={createPostListId}
+        preSelectedListIds={createPostListId ? [createPostListId] : undefined}
       />
 
       <EditListModal
         isOpen={showEditListModal}
         onClose={() => setShowEditListModal(false)}
         list={selectedList}
-        onSave={handleEditList}
+        onSave={(listData) => {
+          if (selectedList) {
+            firebaseListService.updateList(selectedList.id, listData);
+          }
+        }}
         onDelete={handleDeleteList}
         onPrivacyChange={handlePrivacyChange}
       />
@@ -618,7 +491,7 @@ const ViewAllLists = () => {
           savedCount: 0,
           createdAt: selectedListForSave?.createdAt || ''
         }}
-        userLists={userLists}
+        userLists={allLists.filter(list => list.userId === authUser?.id)}
         onSave={handleSaveToList}
         onCreateList={handleCreateList}
       />
@@ -626,4 +499,4 @@ const ViewAllLists = () => {
   )
 }
 
-export default ViewAllLists 
+export default ViewAllLists

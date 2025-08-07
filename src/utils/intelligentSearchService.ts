@@ -1,4 +1,4 @@
-import type { User, Place, List, Post, Hub } from '../types/index.js'
+import type { User, Place, List, Post } from '../types/index.js'
 import { 
   parseSearchQuery, 
   rankSearchResults, 
@@ -14,11 +14,7 @@ import {
   type DiscoveryRecommendation 
 } from './discoveryAlgorithm.js'
 import { aiSearchService } from '../services/aiSearchService';
-import { firebaseDataService, type FirebaseSearchData } from '../services/firebaseDataService.js'
-
-
-
-
+import { firebaseDataService } from '../services/firebaseDataService.js'
 
 // ========================================
 // UNIFIED SEARCH INTERFACE
@@ -98,7 +94,6 @@ export interface IntelligentSearchResult {
 
 export class IntelligentSearchService {
   private userPreferences: Map<string, UserPreferences> = new Map()
-  private searchHistory: Map<string, string[]> = new Map()
   
   constructor() {
     // Constructor is now empty, can be removed if not needed.
@@ -107,7 +102,7 @@ export class IntelligentSearchService {
   /**
    * Main search method that handles both direct search and discovery
    */
-  private async getRankedResults<T extends { id: string; name: string }>(
+  private async getRankedResults<T extends { id: string; name?: string }>(
     items: T[],
     parsedQuery: ParsedQuery,
     context: SearchContext,
@@ -180,13 +175,13 @@ export class IntelligentSearchService {
     }
 
     const [places, lists, users, posts] = await Promise.all([
-      this.getRankedResults(finalResults.places, parsedQuery, context, item => ({ name: item.name, description: item.address, tags: item.tags })),
-      this.getRankedResults(finalResults.lists, parsedQuery, context, item => ({ name: item.name, description: item.description, tags: item.tags })),
-      this.getRankedResults(finalResults.users, parsedQuery, context, item => ({ name: item.name, description: item.bio, tags: item.tags })),
+      this.getRankedResults(finalResults.places, parsedQuery, context, item => ({ name: item.name, description: item.address, tags: item.tags || [] })),
+      this.getRankedResults(finalResults.lists, parsedQuery, context, item => ({ name: item.name, description: item.description, tags: item.tags || [] })),
+      this.getRankedResults(finalResults.users, parsedQuery, context, item => ({ name: item.name, description: item.bio || '', tags: item.tags || [] })),
       this.getRankedResults(finalResults.posts, parsedQuery, context, item => ({ name: 'Post', description: item.description, tags: [] })),
     ]);
 
-    finalResults = { places, lists, users, posts };
+    finalResults = { places: places as any, lists: lists as any, users: users as any, posts: posts as any };
 
     return {
       ...finalResults,
@@ -200,9 +195,13 @@ export class IntelligentSearchService {
       suggestions: {
         queryCorrections: [], 
         relatedSearches: [],
+        expandedQueries: [],
       },
       analytics: {
+        totalResults: 0,
         searchLatency: Date.now() - startTime,
+        algorithmsUsed: [],
+        userBehaviorHints: [],
       },
     };
   }
@@ -232,7 +231,7 @@ export class IntelligentSearchService {
         friendsList: context.friends.map(f => f.id),
         following: context.following.map(f => f.id)
       },
-      currentLocation: context.currentUser.location || { lat: 37.7749, lng: -122.4194 },
+      currentLocation: context.currentUser.location,
       timeContext: {
         currentTime: new Date(),
         season: this.getCurrentSeason(),
@@ -319,67 +318,18 @@ export class IntelligentSearchService {
     }
   }
 
-
-
-  private createBasicParsedQuery(query: string): ParsedQuery {
-    const searchTerms = query.toLowerCase().split(/\s+/).filter(term => term.length > 0)
-    
-    // Determine intent based on query content
-    let intent: ParsedQuery['intent'] = 'mixed'
-    const queryLower = query.toLowerCase()
-    
-    // Look for list-related keywords
-    if (queryLower.includes('list') || queryLower.includes('collection') || queryLower.includes('spots')) {
-      intent = 'find_lists'
-    }
-    // Look for place-related keywords  
-    else if (queryLower.match(/\b(cafe|coffee|restaurant|bar|shop|place|location)\b/)) {
-      intent = 'find_places'
-    }
-    // For short queries like "coffee", include both places and lists
-    else if (searchTerms.length === 1 && searchTerms[0].length > 2) {
-      intent = 'mixed'
-    }
-    
-    return {
-      originalQuery: query,
-      searchTerms,
-      userMentions: [],
-      possessiveContext: {},
-      tags: [],
-      queryType: 'general',
-      intent
-    }
+  private getCurrentSeason(): 'spring' | 'summer' | 'fall' | 'winter' {
+    const month = new Date().getMonth();
+    if (month >= 2 && month <= 4) return 'spring';
+    if (month >= 5 && month <= 7) return 'summer';
+    if (month >= 8 && month <= 10) return 'fall';
+    return 'winter';
   }
 
-  private interpretIntent(parsedQuery: ParsedQuery): string {
-    const intentMap = {
-      'find_places': 'Looking for places to visit',
-      'find_lists': 'Searching for curated lists',
-      'find_users': 'Finding people',
-      'find_posts': 'Looking for posts and experiences',
-      'mixed': 'General search across all content'
-    }
-    return intentMap[parsedQuery.intent] || 'Unknown intent'
+  private isWeekend(): boolean {
+    const day = new Date().getDay();
+    return day === 0 || day === 6;
   }
-
-  private calculateQueryConfidence(parsedQuery: ParsedQuery): number {
-    let confidence = 0.5
-    
-    if (parsedQuery.searchTerms.length > 0) confidence += 0.2
-    if (parsedQuery.possessiveContext.username) confidence += 0.2
-    if (parsedQuery.tags.length > 0) confidence += 0.1
-    if (parsedQuery.queryType !== 'general') confidence += 0.1
-    
-    return Math.min(confidence, 1.0)
-  }
-
-  /**
-   * Enhance search results with AI-powered semantic search
-   */
-
-
-
 }
 
 // ========================================
@@ -395,10 +345,9 @@ export const intelligentSearch = new IntelligentSearchService()
 export async function searchIntelligently(
   query: string,
   context: SearchContext,
-  filters?: Partial<SearchFilters>,
-  config?: Partial<SearchConfig>
+  options?: { sortBy?: string, tags?: string[] }
 ): Promise<IntelligentSearchResult> {
-  return intelligentSearch.performSearch(query, context, filters, config)
+  return intelligentSearch.performSearch(query, context, options)
 }
 
 export async function getPersonalizedRecommendations(
@@ -406,4 +355,4 @@ export async function getPersonalizedRecommendations(
   maxRecommendations?: number
 ): Promise<DiscoveryRecommendation[]> {
   return intelligentSearch.getDiscoveryRecommendations(context, maxRecommendations)
-} 
+}

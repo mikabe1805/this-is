@@ -2,6 +2,8 @@ import React from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useNavigation } from '../contexts/NavigationContext.tsx'
 import { useModal } from '../contexts/ModalContext.tsx'
+import { useAuth } from '../contexts/AuthContext.tsx'
+import { firebaseDataService } from '../services/firebaseDataService'
 import { navigationHistory } from '../utils/navigationHistory.js'
 import HubModal from './HubModal'
 import ListModal from './ListModal'
@@ -10,14 +12,12 @@ import PostModal from './PostModal'
 
 const NavigationModals = () => {
   const navigate = useNavigate()
+  const { currentUser: authUser } = useAuth()
   const { 
     showHubModal, 
     showListModal, 
     selectedHub, 
     selectedList, 
-    hubModalFrom,
-    listModalFrom,
-    profileModalFrom,
     closeHubModal, 
     closeListModal,
     openHubModal,
@@ -25,11 +25,8 @@ const NavigationModals = () => {
     showProfileModal,
     selectedUserId,
     closeProfileModal,
-    showPostModal,
     selectedPostId,
-    closePostModal,
     hubModalOptions,
-    postModalFrom,
     openFullScreenUser,
     showPostOverlay,
     closePostOverlay,
@@ -106,6 +103,18 @@ const NavigationModals = () => {
           userId={selectedUserId}
           showBackButton={navigationHistory.history.length > 1}
           onBack={goBack}
+          onFollow={async (userId) => {
+            try {
+              const currentUser = await firebaseDataService.getCurrentUser(authUser?.id || '');
+              if (currentUser) {
+                await firebaseDataService.followUser(currentUser.id, userId);
+                console.log(`Followed user ${userId}`);
+                // The ProfileModal will refresh its state when it re-renders
+              }
+            } catch (error) {
+              console.error('Error following user:', error);
+            }
+          }}
           onOpenFullScreen={() => selectedUserId && openFullScreenUser(selectedUserId)}
         />
       )}

@@ -404,3 +404,4 @@ export const extractEmbedCallable = onCall(async (request) => {
 });
 
 export * from './analytics-cleanup';
+export * from './influences';

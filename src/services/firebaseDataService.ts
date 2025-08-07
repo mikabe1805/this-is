@@ -1,6 +1,6 @@
-import { collection, doc, getDoc, getDocs, setDoc, updateDoc, query, where, orderBy, limit, startAfter, endBefore, onSnapshot, Timestamp, QueryConstraint } from 'firebase/firestore'
+import { collection, doc, getDoc, getDocs, setDoc, updateDoc, query, where, orderBy, limit, startAfter, endBefore, onSnapshot, Timestamp, QueryConstraint, addDoc, deleteDoc, increment } from 'firebase/firestore'
 import { db } from '../firebase/config'
-import type { User, Place, List, Post, PostComment, Activity } from '../types'
+import type { User, Place, List, Post, PostComment, Activity, Hub } from '../types'
 import { auth } from '../firebase/config'
 import { firebaseStorageService } from './firebaseStorageService'
 
@@ -86,49 +86,6 @@ class FirebaseDataService {
     }
   }
 
-  async getUserFriends(userId: string): Promise<User[]> {
-    try {
-      const friendsQuery = query(
-        collection(db, 'users', userId, 'friends'),
-        orderBy('addedAt', 'desc')
-      )
-      const friendsSnapshot = await getDocs(friendsQuery)
-      
-      // Get full user details for each friend
-      const friendPromises = friendsSnapshot.docs.map(async (friendDoc) => {
-        const friendId = friendDoc.data().friendId
-        return this.getCurrentUser(friendId)
-      })
-      
-      const friends = await Promise.all(friendPromises)
-      return friends.filter(friend => friend !== null) as User[]
-    } catch (error) {
-      console.error('Error fetching user friends:', error)
-      return []
-    }
-  }
-
-  async getUserFollowing(userId: string): Promise<User[]> {
-    try {
-      const followingQuery = query(
-        collection(db, 'users', userId, 'following'),
-        orderBy('followedAt', 'desc')
-      )
-      const followingSnapshot = await getDocs(followingQuery)
-      
-      const followingPromises = followingSnapshot.docs.map(async (followDoc) => {
-        const followedId = followDoc.data().userId
-        return this.getCurrentUser(followedId)
-      })
-      
-      const following = await Promise.all(followingPromises)
-      return following.filter(user => user !== null) as User[]
-    } catch (error) {
-      console.error('Error fetching user following:', error)
-      return []
-    }
-  }
-
   async getFollowers(userId: string): Promise<User[]> {
     try {
       const followersQuery = query(
@@ -136,10 +93,234 @@ class FirebaseDataService {
         orderBy('followedAt', 'desc')
       );
       const followersSnapshot = await getDocs(followersQuery);
-      const followerPromises = followersSnapshot.docs.map(doc => this.getCurrentUser(doc.id));
-      return Promise.all(followerPromises.filter(p => p !== null)) as Promise<User[]>;
+      
+      const followerPromises = followersSnapshot.docs.map(async (followerDoc) => {
+        const followerId = followerDoc.data().userId;
+        return this.getCurrentUser(followerId);
+      });
+      
+      const followers = await Promise.all(followerPromises);
+      return followers.filter(user => user !== null) as User[];
     } catch (error) {
       console.error('Error fetching user followers:', error);
+      return [];
+    }
+  }
+
+  async getUserFriends(userId: string): Promise<User[]> {
+    try {
+      // For simplicity, we'll consider "friends" to be users who both follow each other.
+      // A more optimized approach might involve storing a "friends" subcollection.
+      const following = await this.getUserFollowing(userId);
+      const followers = await this.getFollowers(userId);
+
+      const followingIds = new Set(following.map(u => u.id));
+      const friends = followers.filter(follower => followingIds.has(follower.id));
+      
+      return friends;
+    } catch (error) {
+      console.error('Error fetching user friends:', error);
+      return [];
+    }
+  }
+
+  async getUserFollowing(userId: string): Promise<User[]> {
+    try {
+      console.log(`Fetching following for user: ${userId}`);
+      const followingQuery = query(
+        collection(db, 'users', userId, 'following'),
+        orderBy('followedAt', 'desc')
+      )
+      const followingSnapshot = await getDocs(followingQuery)
+      console.log(`Found ${followingSnapshot.docs.length} following documents`);
+      
+      const followingPromises = followingSnapshot.docs.map(async (followDoc) => {
+        const followedId = followDoc.data().userId
+        console.log(`Fetching user data for: ${followedId}`);
+        return this.getCurrentUser(followedId)
+      })
+      
+      const following = await Promise.all(followingPromises)
+      const filteredFollowing = following.filter(user => user !== null) as User[]
+      console.log(`Returning ${filteredFollowing.length} following users`);
+      return filteredFollowing
+    } catch (error) {
+      console.error('Error fetching user following:', error)
+      return []
+    }
+  }
+
+  async updateUserProfile(userId: string, profileData: Partial<User>): Promise<void> {
+    try {
+      const userRef = doc(db, 'users', userId);
+      await updateDoc(userRef, {
+        ...profileData,
+        updatedAt: Timestamp.now()
+      });
+      this.clearUserCache(userId); // Invalidate cache
+    } catch (error) {
+      console.error('Error updating user profile:', error);
+      throw error;
+    }
+  }
+
+  async followUser(currentUserId: string, targetUserId: string): Promise<void> {
+    // Prevent self-following
+    if (currentUserId === targetUserId) {
+      console.log('Cannot follow yourself');
+      return;
+    }
+
+    console.log(`Attempting to follow: ${currentUserId} -> ${targetUserId}`);
+
+    const currentUserFollowingRef = doc(db, 'users', currentUserId, 'following', targetUserId);
+    const targetUserFollowersRef = doc(db, 'users', targetUserId, 'followers', currentUserId);
+
+    try {
+      console.log('Setting follow document for current user...');
+      console.log('Document path:', currentUserFollowingRef.path);
+      await setDoc(currentUserFollowingRef, {
+        userId: targetUserId,
+        followedAt: Timestamp.now()
+      });
+      console.log('Follow document set for current user');
+
+      console.log('Setting follower document for target user...');
+      console.log('Document path:', targetUserFollowersRef.path);
+      await setDoc(targetUserFollowersRef, {
+        userId: currentUserId,
+        followedAt: Timestamp.now()
+      });
+      console.log('Follower document set for target user');
+
+      // For testing: automatically add as friend
+      console.log('Adding as friend...');
+      await this.addUserAsFriend(currentUserId, targetUserId);
+
+      console.log(`User ${currentUserId} successfully followed ${targetUserId}`);
+    } catch (error) {
+      console.error('Error following user:', error);
+      console.error('Error details:', {
+        currentUserId,
+        targetUserId,
+        errorMessage: error.message,
+        errorCode: error.code
+      });
+      throw error;
+    }
+  }
+
+  async addUserAsFriend(currentUserId: string, targetUserId: string): Promise<void> {
+    const currentUserFriendsRef = doc(db, 'users', currentUserId, 'friends', targetUserId);
+    const targetUserFriendsRef = doc(db, 'users', targetUserId, 'friends', currentUserId);
+
+    try {
+      await setDoc(currentUserFriendsRef, {
+        userId: targetUserId,
+        addedAt: Timestamp.now()
+      });
+      await setDoc(targetUserFriendsRef, {
+        userId: currentUserId,
+        addedAt: Timestamp.now()
+      });
+
+      console.log(`User ${currentUserId} and ${targetUserId} are now friends`);
+    } catch (error) {
+      console.error('Error adding user as friend:', error);
+      throw error;
+    }
+  }
+
+  async unfollowUser(currentUserId: string, targetUserId: string): Promise<void> {
+    const currentUserFollowingRef = doc(db, 'users', currentUserId, 'following', targetUserId);
+    const targetUserFollowersRef = doc(db, 'users', targetUserId, 'followers', currentUserId);
+
+    try {
+      await deleteDoc(currentUserFollowingRef);
+      await deleteDoc(targetUserFollowersRef);
+    } catch (error) {
+      console.error('Error unfollowing user:', error);
+      throw error;
+    }
+  }
+
+  async deleteUser(userId: string): Promise<void> {
+    try {
+      const userRef = doc(db, 'users', userId);
+      await deleteDoc(userRef);
+    } catch (error) {
+      console.error('Error deleting user:', error);
+      throw error;
+    }
+  }
+  
+  async getSavedPosts(userId: string): Promise<Post[]> {
+    // This assumes you have a 'savedPosts' subcollection for each user.
+    // You might need to adjust this based on your actual data model.
+    try {
+      const savedPostsQuery = query(
+        collection(db, 'users', userId, 'savedPosts'),
+        orderBy('savedAt', 'desc')
+      );
+      const savedPostsSnapshot = await getDocs(savedPostsQuery);
+      const postPromises = savedPostsSnapshot.docs.map(doc => this.getPost(doc.data().postId));
+      const posts = await Promise.all(postPromises);
+      return posts.filter(p => p !== null) as Post[];
+    } catch (error) {
+      console.error('Error fetching saved posts:', error);
+      return [];
+    }
+  }
+
+  async getUserPosts(userId: string): Promise<Post[]> {
+    try {
+      const postsQuery = query(
+        collection(db, 'posts'),
+        where('userId', '==', userId)
+        // Temporarily removed orderBy to avoid index requirement
+        // orderBy('createdAt', 'desc')
+      );
+      const postsSnapshot = await getDocs(postsQuery);
+      const posts = postsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Post[];
+      
+      // Sort posts client-side instead
+      return posts.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    } catch (error) {
+      console.error('Error fetching user posts:', error);
+      return [];
+    }
+  }
+
+
+  async getPostsFromUsers(userIds: string[]): Promise<Post[]> {
+    if (userIds.length === 0) {
+      return [];
+    }
+    try {
+      const postsQuery = query(
+        collection(db, 'posts'),
+        where('userId', 'in', userIds)
+      );
+      const postsSnapshot = await getDocs(postsQuery);
+      return postsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Post[];
+    } catch (error) {
+      console.error('Error fetching posts from users:', error);
+      return [];
+    }
+  }
+
+  async getSavedLists(userId: string): Promise<List[]> {
+    try {
+      const savedListsQuery = query(
+        collection(db, 'users', userId, 'savedLists'),
+        orderBy('savedAt', 'desc')
+      );
+      const savedListsSnapshot = await getDocs(savedListsQuery);
+      const listPromises = savedListsSnapshot.docs.map(doc => this.getList(doc.data().listId));
+      const lists = await Promise.all(listPromises);
+      return lists.filter(l => l !== null) as List[];
+    } catch (error) {
+      console.error('Error fetching saved lists:', error);
       return [];
     }
   }
@@ -829,7 +1010,7 @@ class FirebaseDataService {
     return users
   }
 
-  private async searchPosts(searchQuery: string, filters: any, limitCount: number): Promise<Post[]> {
+  async searchPosts(searchQuery: string, filters: any, limitCount: number): Promise<Post[]> {
     const postsQuery = query(
       collection(db, 'posts'),
       where('privacy', '==', 'public'),
@@ -891,7 +1072,30 @@ class FirebaseDataService {
         orderBy('createdAt', 'desc')
       );
       const postsSnapshot = await getDocs(postsQuery);
-      return postsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Post[];
+      const posts = postsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Post[];
+      
+      // Enrich posts with user information
+      const enrichedPosts = await Promise.all(
+        posts.map(async (post) => {
+          if (post.userId && !post.username) {
+            try {
+              const username = await this.getUserDisplayName(post.userId);
+              const user = await this.getCurrentUser(post.userId);
+              return { 
+                ...post, 
+                username,
+                userAvatar: user?.avatar || ''
+              };
+            } catch (error) {
+              console.error('Error fetching username for post:', error);
+              return { ...post, username: 'Unknown User', userAvatar: '' };
+            }
+          }
+          return post;
+        })
+      );
+      
+      return enrichedPosts;
     } catch (error) {
       console.error('Error fetching posts for hub:', error);
       return [];
@@ -913,11 +1117,15 @@ class FirebaseDataService {
 
   async getCommentsForPost(postId: string): Promise<PostComment[]> {
     try {
+      console.log('firebaseDataService: Fetching comments for post:', postId);
+      
       const commentsQuery = query(
         collection(db, 'posts', postId, 'comments'),
         orderBy('createdAt', 'desc')
       );
       const commentsSnapshot = await getDocs(commentsQuery);
+      
+      console.log('firebaseDataService: Found', commentsSnapshot.docs.length, 'comments');
       
       const comments = await Promise.all(commentsSnapshot.docs.map(async doc => {
         const commentData = doc.data() as PostComment;
@@ -929,18 +1137,22 @@ class FirebaseDataService {
           userAvatar: user?.avatar || ''
         };
       }));
-
+      
+      console.log('firebaseDataService: Processed comments:', comments.length);
       return comments;
     } catch (error) {
-      console.error('Error fetching comments for post:', error);
+      console.error('firebaseDataService: Error fetching comments for post:', error);
       return [];
     }
   }
 
   async postComment(postId: string, userId: string, text: string): Promise<PostComment | null> {
     try {
+      console.log('firebaseDataService: Posting comment:', { postId, userId, text });
+      
       const currentUser = await this.getCurrentUser(userId);
       if (!currentUser) {
+        console.error('firebaseDataService: User not found for comment posting');
         throw new Error('User not found');
       }
 
@@ -951,15 +1163,18 @@ class FirebaseDataService {
         username: currentUser.username,
         userAvatar: currentUser.avatar || '',
         text,
-        createdAt: new Date().toISOString(),
+        createdAt: Timestamp.now().toDate().toISOString(), // Use proper timestamp
         likes: 0,
         likedBy: [],
       };
 
+      console.log('firebaseDataService: Saving comment to Firestore:', newComment);
       await setDoc(newCommentRef, newComment);
+      
+      console.log('firebaseDataService: Comment saved successfully');
       return newComment;
     } catch (error) {
-      console.error('Error posting comment:', error);
+      console.error('firebaseDataService: Error posting comment:', error);
       return null;
     }
   }
@@ -1015,6 +1230,17 @@ class FirebaseDataService {
         likes: newLikes,
         likedBy: likedBy,
       });
+
+      // Update hub banner image if this post might now be the most popular
+      // Temporarily disabled to prevent banner flickering
+      /*
+      if (post.hubId) {
+        // Use setTimeout to avoid blocking the UI
+        setTimeout(() => {
+          this.updateHubBannerImage(post.hubId);
+        }, 100);
+      }
+      */
     }
   }
 
@@ -1043,6 +1269,17 @@ class FirebaseDataService {
           await this.savePostToList(postId, listId);
         }
       }
+
+      // Update hub banner image if this might be the first post or most popular
+      // Temporarily disabled to prevent banner flickering
+      /*
+      if (postData.hubId) {
+        // Use setTimeout to avoid blocking the UI
+        setTimeout(() => {
+          this.updateHubBannerImage(postData.hubId);
+        }, 100);
+      }
+      */
       
       return postId;
     } catch (error) {
@@ -1062,12 +1299,10 @@ class FirebaseDataService {
       let newLikes = list.likes || 0;
 
       if (likedBy.includes(userId)) {
-        // User has already liked, so unlike
         newLikes -= 1;
         const index = likedBy.indexOf(userId);
         likedBy.splice(index, 1);
       } else {
-        // User has not liked, so like
         newLikes += 1;
         likedBy.push(userId);
       }
@@ -1078,6 +1313,60 @@ class FirebaseDataService {
       });
     }
   }
+
+  async saveList(listId: string, userId: string): Promise<void> {
+    const userSavedListsRef = doc(db, 'users', userId, 'savedLists', listId);
+    const userSavedListSnap = await getDoc(userSavedListsRef);
+
+    if (userSavedListSnap.exists()) {
+      // Remove from saved lists
+      await deleteDoc(userSavedListsRef);
+      // Decrement like count
+      await this.updateListLikeCount(listId, -1);
+    } else {
+      // Add to saved lists
+      await setDoc(userSavedListsRef, { listId, savedAt: Timestamp.now() });
+      // Increment like count
+      await this.updateListLikeCount(listId, 1);
+    }
+  }
+
+  private async updateListLikeCount(listId: string, incrementAmount: number): Promise<void> {
+    try {
+      const listRef = doc(db, 'lists', listId);
+      await updateDoc(listRef, {
+        likes: increment(incrementAmount)
+      });
+    } catch (error) {
+      console.error('Error updating list like count:', error);
+    }
+  }
+
+  async getListLikeCount(listId: string): Promise<number> {
+    try {
+      const listRef = doc(db, 'lists', listId);
+      const listSnap = await getDoc(listRef);
+      if (listSnap.exists()) {
+        return listSnap.data().likes || 0;
+      }
+      return 0;
+    } catch (error) {
+      console.error('Error getting list like count:', error);
+      return 0;
+    }
+  }
+
+  async isListSavedByUser(listId: string, userId: string): Promise<boolean> {
+    try {
+      const userSavedListsRef = doc(db, 'users', userId, 'savedLists', listId);
+      const userSavedListSnap = await getDoc(userSavedListsRef);
+      return userSavedListSnap.exists();
+    } catch (error) {
+      console.error('Error checking if list is saved:', error);
+      return false;
+    }
+  }
+
 
   async savePostToList(postId: string, listId: string): Promise<void> {
     const listRef = doc(db, 'lists', listId);
@@ -1108,7 +1397,8 @@ class FirebaseDataService {
     }
   }
 
-  async savePlaceToList(placeId: string, listId: string, userId: string, note?: string): Promise<void> {
+  async savePlaceToList(placeId: string, listId: string, userId: string, note?: string, savedFromListId?: string, status?: 'loved' | 'tried' | 'want', triedRating?: 'liked' | 'neutral' | 'disliked'): Promise<void> {
+    console.log('savePlaceToList called with:', { placeId, listId, userId, note, savedFromListId, status, triedRating });
     const listRef = doc(db, 'lists', listId);
 
     try {
@@ -1117,15 +1407,46 @@ class FirebaseDataService {
         throw new Error(`List with id ${listId} does not exist.`);
       }
 
+      const listData = listDoc.data() as List;
+      console.log('List data:', listData);
+      
+      // Add to subcollection with status and rating information
       const listPlacesRef = collection(listRef, 'places');
       await setDoc(doc(listPlacesRef, placeId), { 
         placeId: placeId,
         addedBy: userId,
+        status: status || 'loved', // Default to loved if no status provided
+        triedRating: status === 'tried' ? (triedRating || 'liked') : null, // Only include rating for tried status
         note: note || '',
         addedAt: Timestamp.now()
       });
+      console.log('Added to subcollection successfully with status:', status);
 
-      console.log(`Place ${placeId} successfully saved to list ${listId}`);
+      // Update the main list document's hubs array
+      const updatedHubs = listData.hubs || [];
+      console.log('Current hubs:', updatedHubs);
+      if (!updatedHubs.includes(placeId)) {
+        await updateDoc(listRef, {
+          hubs: [...updatedHubs, placeId],
+          updatedAt: Timestamp.now()
+        });
+        console.log('Updated hubs array successfully');
+      } else {
+        console.log('Place already in hubs array');
+      }
+
+      if (savedFromListId) {
+        const fromListRef = doc(db, 'lists', savedFromListId);
+        const fromListDoc = await getDoc(fromListRef);
+        if (fromListDoc.exists()) {
+          const fromList = fromListDoc.data() as List;
+          await updateDoc(fromListRef, {
+            savesFrom: (fromList.savesFrom || 0) + 1
+          });
+        }
+      }
+
+      console.log(`Place ${placeId} successfully saved to list ${listId} with status: ${status}`);
     } catch (error) {
       console.error('Error saving place to list:', error);
     }
@@ -1137,6 +1458,7 @@ class FirebaseDataService {
       const list = {
         id: newListRef.id,
         ...listData,
+        isPublic: listData.privacy === 'public',
         createdAt: Timestamp.now(),
         updatedAt: Timestamp.now(),
         hubs: [],
@@ -1172,14 +1494,65 @@ class FirebaseDataService {
 
   async getListsContainingHub(hubId: string): Promise<List[]> {
     try {
-      const listsQuery = query(
-        collection(db, 'lists'),
-        where('hubs', 'array-contains', hubId)
-      );
+      // Get all lists and check their places subcollections
+      const listsQuery = query(collection(db, 'lists'));
       const listsSnapshot = await getDocs(listsQuery);
-      return listsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as List[];
+      
+      const listsWithHub: List[] = [];
+      
+      for (const listDoc of listsSnapshot.docs) {
+        const listData = listDoc.data() as List;
+        
+        // Check if this hub is in the list's places subcollection
+        const placeRef = doc(db, 'lists', listDoc.id, 'places', hubId);
+        const placeSnap = await getDoc(placeRef);
+        
+        if (placeSnap.exists()) {
+          listsWithHub.push({ id: listDoc.id, ...listData });
+        }
+      }
+      
+      return listsWithHub;
     } catch (error) {
       console.error('Error fetching lists containing hub:', error);
+      return [];
+    }
+  }
+
+  async getFriendsListsContainingHub(hubId: string, currentUserId: string): Promise<List[]> {
+    try {
+      // Get current user's friends (mutual follows)
+      const friends = await this.getUserFriends(currentUserId);
+      const friendIds = friends.map(friend => friend.id);
+      
+      if (friendIds.length === 0) {
+        return [];
+      }
+
+      // Get lists from friends and check their places subcollections
+      const listsQuery = query(
+        collection(db, 'lists'),
+        where('userId', 'in', friendIds)
+      );
+      const listsSnapshot = await getDocs(listsQuery);
+      
+      const friendsListsWithHub: List[] = [];
+      
+      for (const listDoc of listsSnapshot.docs) {
+        const listData = listDoc.data() as List;
+        
+        // Check if this hub is in the list's places subcollection
+        const placeRef = doc(db, 'lists', listDoc.id, 'places', hubId);
+        const placeSnap = await getDoc(placeRef);
+        
+        if (placeSnap.exists()) {
+          friendsListsWithHub.push({ id: listDoc.id, ...listData });
+        }
+      }
+      
+      return friendsListsWithHub;
+    } catch (error) {
+      console.error('Error fetching friends lists containing hub:', error);
       return [];
     }
   }
@@ -1192,9 +1565,56 @@ class FirebaseDataService {
         orderBy('createdAt', 'desc')
       );
       const postsSnapshot = await getDocs(postsQuery);
-      return postsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Post[];
+      const posts = postsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Post[];
+      
+      // Enrich posts with user information
+      const enrichedPosts = await Promise.all(
+        posts.map(async (post) => {
+          if (post.userId && !post.username) {
+            try {
+              const username = await this.getUserDisplayName(post.userId);
+              return { ...post, username };
+            } catch (error) {
+              console.error('Error fetching username for post:', error);
+              return { ...post, username: 'Unknown User' };
+            }
+          }
+          return post;
+        })
+      );
+      
+      return enrichedPosts;
     } catch (error) {
       console.error('Error fetching posts for list:', error);
+      return [];
+    }
+  }
+
+  async getProfileComments(userId: string): Promise<PostComment[]> {
+    try {
+      console.log('firebaseDataService: Fetching profile comments for user:', userId);
+      const commentsQuery = query(
+        collection(db, 'users', userId, 'comments'),
+        orderBy('createdAt', 'desc')
+      );
+      const commentsSnapshot = await getDocs(commentsQuery);
+      console.log('firebaseDataService: Found', commentsSnapshot.docs.length, 'profile comments');
+      
+      const comments = await Promise.all(commentsSnapshot.docs.map(async doc => {
+        const commentData = doc.data() as PostComment;
+        const user = await this.getCurrentUser(commentData.userId);
+        return {
+          id: doc.id,
+          ...commentData,
+          username: user?.username || 'Unknown User',
+          userAvatar: user?.avatar || ''
+        };
+      }));
+      
+      console.log('firebaseDataService: Processed profile comments:', comments.length);
+      return comments;
+    } catch (error) {
+      console.error('firebaseDataService: Error fetching profile comments:', error);
       return [];
     }
   }
@@ -1293,6 +1713,7 @@ class FirebaseDataService {
       placeId?: string
       listId?: string
       postId?: string
+      userId?: string
       duration?: number
     }
   ): Promise<void> {
@@ -1342,6 +1763,83 @@ class FirebaseDataService {
     } catch (error) {
       console.error('Error updating user tags:', error)
       throw error
+    }
+  }
+
+  // ====================
+  // GLOBAL TAG MANAGEMENT
+  // ====================
+
+  async getAllTags(): Promise<string[]> {
+    try {
+      const tagsSnapshot = await getDocs(collection(db, 'tags'))
+      const tags: string[] = []
+      tagsSnapshot.forEach(doc => {
+        tags.push(doc.id)
+      })
+      return tags.sort()
+    } catch (error) {
+      console.error('Error fetching all tags:', error)
+      return []
+    }
+  }
+
+  async addTag(tagName: string): Promise<void> {
+    try {
+      const normalizedTag = tagName.toLowerCase().trim()
+      if (!normalizedTag) return
+
+      // Check if tag already exists
+      const tagDoc = await getDoc(doc(db, 'tags', normalizedTag))
+      if (tagDoc.exists()) {
+        // Tag exists, increment usage count
+        await updateDoc(doc(db, 'tags', normalizedTag), {
+          usageCount: increment(1),
+          lastUsed: Timestamp.now()
+        })
+      } else {
+        // Create new tag
+        await setDoc(doc(db, 'tags', normalizedTag), {
+          name: normalizedTag,
+          displayName: tagName.trim(),
+          usageCount: 1,
+          createdAt: Timestamp.now(),
+          lastUsed: Timestamp.now()
+        })
+      }
+      console.log(`Tag "${normalizedTag}" added/updated successfully`)
+    } catch (error) {
+      console.error('Error adding tag:', error)
+      throw error
+    }
+  }
+
+  async addTags(tagNames: string[]): Promise<void> {
+    try {
+      const uniqueTags = [...new Set(tagNames.map(tag => tag.toLowerCase().trim()).filter(tag => tag))]
+      await Promise.all(uniqueTags.map(tag => this.addTag(tag)))
+    } catch (error) {
+      console.error('Error adding tags:', error)
+      throw error
+    }
+  }
+
+  async getPopularTags(limit: number = 20): Promise<string[]> {
+    try {
+      const tagsQuery = query(
+        collection(db, 'tags'),
+        orderBy('usageCount', 'desc'),
+        limit(limit)
+      )
+      const tagsSnapshot = await getDocs(tagsQuery)
+      const tags: string[] = []
+      tagsSnapshot.forEach(doc => {
+        tags.push(doc.id)
+      })
+      return tags
+    } catch (error) {
+      console.error('Error fetching popular tags:', error)
+      return []
     }
   }
 
@@ -1436,8 +1934,211 @@ class FirebaseDataService {
     // Clear search cache entries for this user (simplified)
     this.searchCache.clear()
   }
+
+  async createHub(hubData: { name: string, address: string, description: string, coordinates?: { lat: number, lng: number } }): Promise<string> {
+    const hubRef = await addDoc(collection(db, 'places'), {
+      name: hubData.name,
+      description: hubData.description,
+      location: {
+        address: hubData.address,
+        lat: hubData.coordinates?.lat || 0,
+        lng: hubData.coordinates?.lng || 0
+      },
+      name_lowercase: hubData.name.toLowerCase(),
+      createdAt: Timestamp.now(),
+      mainImage: '/assets/leaf.png' // Default banner image
+    });
+    return hubRef.id;
+  }
+  
+  async searchHubs(queryText: string, count: number = 10): Promise<Hub[]> {
+    try {
+      const text = queryText.toLowerCase();
+      const hubsRef = collection(db, 'places');
+      
+      // Get all hubs and filter client-side for more lenient matching
+      const hubQuery = query(hubsRef, limit(50)); // Get more results to filter from
+      const hubSnap = await getDocs(hubQuery);
+      const allHubs = hubSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Hub));
+      
+      // More lenient search algorithm
+      const searchTerms = text.split(' ').filter(term => term.length > 0);
+      const scoredHubs = allHubs.map(hub => {
+        const hubName = hub.name.toLowerCase();
+        const hubAddress = (hub.location?.address || '').toLowerCase();
+        const hubDescription = (hub.description || '').toLowerCase();
+        
+        let score = 0;
+        
+        // Exact match gets highest score
+        if (hubName === text) score += 100;
+        if (hubName.includes(text)) score += 50;
+        
+        // Partial word matches
+        searchTerms.forEach(term => {
+          if (hubName.includes(term)) score += 20;
+          if (hubAddress.includes(term)) score += 10;
+          if (hubDescription.includes(term)) score += 5;
+        });
+        
+        // Fuzzy matching for similar words
+        searchTerms.forEach(term => {
+          if (term.length > 2) {
+            // Check if any word in hub name contains most of the search term
+            const hubWords = hubName.split(' ');
+            hubWords.forEach(word => {
+              if (word.length > 2 && (word.includes(term) || term.includes(word))) {
+                score += 15;
+              }
+            });
+          }
+        });
+        
+        return { hub, score };
+      });
+      
+      // Sort by score and return top results
+      return scoredHubs
+        .filter(item => item.score > 0)
+        .sort((a, b) => b.score - a.score)
+        .slice(0, count)
+        .map(item => {
+          const hub = item.hub;
+          // Ensure the hub has the proper structure
+          return {
+            ...hub,
+            location: hub.location || {
+              address: hub.address || 'No address available',
+              lat: hub.lat || 0,
+              lng: hub.lng || 0
+            }
+          } as Hub;
+        });
+    } catch (error) {
+      console.error('Error searching hubs:', error);
+      return [];
+    }
+  }
+
+  async findHubsNear(lat: number, lng: number, radiusInMeters: number): Promise<Hub[]> {
+    try {
+      //-Geopoint search
+      const r = 6371; //-Earth radius in kilometers
+      const radiusInKm = radiusInMeters / 1000;
+
+      const latT = lat + (180 / Math.PI) * (radiusInKm / r);
+      const latB = lat - (180 / Math.PI) * (radiusInKm / r);
+      const lonL = lng - (180 / Math.PI) * (radiusInKm / r) / Math.cos(lat * Math.PI / 180);
+      const lonR = lng + (180 / Math.PI) * (radiusInKm / r) / Math.cos(lat * Math.PI / 180);
+
+      const hubsRef = collection(db, 'places');
+      const hubQuery = query(
+        hubsRef,
+        where('location.lat', '>=', latB),
+        where('location.lat', '<=', latT),
+        where('location.lng', '>=', lonL),
+        where('location.lng', '<=', lonR)
+      );
+      
+      const hubSnap = await getDocs(hubQuery);
+      const hubs = hubSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Hub));
+      
+      //-Filter by longitude client-side
+      return hubs;
+    } catch (error) {
+      console.error('Error finding hubs near location:', error);
+      return [];
+    }
+  }
+
+  async getUserDisplayName(userId: string): Promise<string> {
+    try {
+      const user = await this.getCurrentUser(userId);
+      return user?.name || user?.displayName || 'Unknown User';
+    } catch (error) {
+      console.error('Error fetching user display name:', error);
+      return 'Unknown User';
+    }
+  }
+
+  // ====================
+  // HUB BANNER IMAGE MANAGEMENT
+  // ====================
+
+  async updateHubBannerImage(hubId: string): Promise<void> {
+    try {
+      // Get all posts for this hub
+      const posts = await this.getPostsForHub(hubId);
+      
+      if (posts.length === 0) {
+        // No posts, but keep a default banner image instead of removing it
+        // This prevents the banner from disappearing
+        await updateDoc(doc(db, 'places', hubId), {
+          mainImage: '/assets/leaf.png' // Default fallback image
+        });
+        return;
+      }
+
+      // Find the post with the most likes
+      const mostPopularPost = posts.reduce((prev, current) => 
+        (current.likes || 0) > (prev.likes || 0) ? current : prev
+      );
+
+      // Get the first image from the most popular post
+      const bannerImage = mostPopularPost.images && mostPopularPost.images.length > 0 
+        ? mostPopularPost.images[0] 
+        : '/assets/leaf.png'; // Fallback to default image
+
+      // Only update if the image is actually different to avoid unnecessary updates
+      const currentPlace = await this.getPlace(hubId);
+      if (currentPlace?.mainImage === bannerImage) {
+        console.log(`Hub ${hubId} banner image unchanged: ${bannerImage}`);
+        return;
+      }
+
+      // Update the hub's main image
+      await updateDoc(doc(db, 'places', hubId), {
+        mainImage: bannerImage
+      });
+
+      console.log(`Updated hub ${hubId} banner image to: ${bannerImage}`);
+    } catch (error) {
+      console.error('Error updating hub banner image:', error);
+      // Set a fallback image on error
+      try {
+        await updateDoc(doc(db, 'places', hubId), {
+          mainImage: '/assets/leaf.png'
+        });
+      } catch (fallbackError) {
+        console.error('Error setting fallback banner image:', fallbackError);
+      }
+    }
+  }
+
+  async updateAllHubBannerImages(): Promise<void> {
+    try {
+      // Get all hubs
+      const hubsRef = collection(db, 'places');
+      const hubsSnapshot = await getDocs(hubsRef);
+      
+      const updatePromises = hubsSnapshot.docs.map(doc => 
+        this.updateHubBannerImage(doc.id)
+      );
+      
+      await Promise.all(updatePromises);
+      console.log('Updated banner images for all hubs');
+    } catch (error) {
+      console.error('Error updating all hub banner images:', error);
+    }
+  }
+
+  // Helper function to manually trigger banner update (for testing)
+  async refreshHubBannerImage(hubId: string): Promise<void> {
+    console.log(`Manually refreshing banner image for hub: ${hubId}`);
+    await this.updateHubBannerImage(hubId);
+  }
 }
 
 // Export singleton instance
 export const firebaseDataService = new FirebaseDataService()
-export default firebaseDataService 
+export default firebaseDataService

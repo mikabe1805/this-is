@@ -1,36 +1,58 @@
 import type { List } from '../types/index.js'
 import { XMarkIcon, PhotoIcon, EyeIcon, EyeSlashIcon, UserGroupIcon } from '@heroicons/react/24/outline'
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
+import { firebaseListService } from '../services/firebaseListService'
+import { firebaseDataService } from '../services/firebaseDataService'
+import { useAuth } from '../contexts/AuthContext'
 
 interface CreateListModalProps {
   isOpen: boolean
   onClose: () => void
-  onCreate: (listData: { name: string; description: string; privacy: 'public' | 'private' | 'friends'; tags?: string[]; coverImage?: string }) => void
+  onCreate: (listData: { name: string; description: string; privacy: 'public' | 'private' | 'friends'; tags?: string[]; coverImage?: File }) => void
 }
 
 const CreateListModal = ({ isOpen, onClose, onCreate }: CreateListModalProps) => {
+  const { currentUser } = useAuth()
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
   const [privacy, setPrivacy] = useState<'public' | 'private' | 'friends'>('public')
   const [tags, setTags] = useState<string[]>([])
   const [newTag, setNewTag] = useState('')
-  const [coverImage, setCoverImage] = useState<string>('')
+  const [coverImage, setCoverImage] = useState<File | null>(null)
+  const [coverImagePreview, setCoverImagePreview] = useState<string>('')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const [showTagSuggestions, setShowTagSuggestions] = useState(false)
+  const [availableTags, setAvailableTags] = useState<string[]>([])
 
-  const availableTags = ['coffee', 'food', 'outdoors', 'work', 'study', 'cozy', 'trendy', 'local', 'authentic', 'romantic', 'social', 'quiet', 'artisan', 'hidden-gems', 'weekend', 'brunch', 'adventure', 'nature', 'books', 'date-night']
+  useEffect(() => {
+    if (isOpen) {
+      const fetchTags = async () => {
+        try {
+          const tags = await firebaseDataService.getAllTags();
+          setAvailableTags(tags);
+        } catch (error) {
+          console.error('Error fetching tags:', error);
+          // Fallback to default tags if Firebase fails
+          setAvailableTags(['coffee', 'food', 'outdoors', 'work', 'study', 'cozy', 'trendy', 'local', 'authentic', 'romantic', 'social', 'quiet', 'artisan', 'hidden-gems', 'weekend', 'brunch', 'adventure', 'nature', 'books', 'date-night']);
+        }
+      };
+      fetchTags();
+    }
+  }, [isOpen]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!name.trim()) return
+    if (!name.trim() || !currentUser) return
 
     setIsSubmitting(true)
     try {
-      await onCreate({
+      await firebaseListService.createList({
         name: name.trim(),
         description: description.trim(),
         privacy,
         tags,
+        userId: currentUser.id,
         coverImage: coverImage || undefined
       })
       handleClose()
@@ -47,15 +69,34 @@ const CreateListModal = ({ isOpen, onClose, onCreate }: CreateListModalProps) =>
     setPrivacy('public')
     setTags([])
     setNewTag('')
-    setCoverImage('')
+    setCoverImage(null)
+    setCoverImagePreview('')
     setIsSubmitting(false)
     onClose()
   }
 
-  const handleAddTag = () => {
-    if (newTag.trim() && !tags.includes(newTag.trim()) && tags.length < 5) {
-      setTags([...tags, newTag.trim()])
+  const handleAddTag = async () => {
+    const tagToAdd = newTag.trim()
+    if (tagToAdd && !tags.includes(tagToAdd) && tags.length < 5) {
+      setTags([...tags, tagToAdd])
       setNewTag('')
+      setShowTagSuggestions(false)
+      
+      // Save new tag to Firebase
+      try {
+        await firebaseDataService.addTag(tagToAdd)
+      } catch (error) {
+        console.error('Error saving tag to Firebase:', error)
+        // Don't block the UI if tag saving fails
+      }
+    }
+  }
+  
+  const handleSelectTag = (tag: string) => {
+    if (!tags.includes(tag) && tags.length < 5) {
+      setTags([...tags, tag])
+      setNewTag('')
+      setShowTagSuggestions(false)
     }
   }
 
@@ -63,25 +104,21 @@ const CreateListModal = ({ isOpen, onClose, onCreate }: CreateListModalProps) =>
     setTags(tags.filter(tag => tag !== tagToRemove))
   }
 
-  const handleTagClick = (tag: string) => {
-    if (!tags.includes(tag) && tags.length < 5) {
-      setTags([...tags, tag])
-    }
-  }
-
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (file) {
+      setCoverImage(file)
       const reader = new FileReader()
       reader.onload = (e) => {
-        setCoverImage(e.target?.result as string)
+        setCoverImagePreview(e.target?.result as string)
       }
       reader.readAsDataURL(file)
     }
   }
 
   const handleRemoveImage = () => {
-    setCoverImage('')
+    setCoverImage(null)
+    setCoverImagePreview('')
     if (fileInputRef.current) {
       fileInputRef.current.value = ''
     }
@@ -89,8 +126,10 @@ const CreateListModal = ({ isOpen, onClose, onCreate }: CreateListModalProps) =>
 
   if (!isOpen) return null
 
+  const filteredTags = availableTags.filter(tag => tag.toLowerCase().includes(newTag.toLowerCase()) && !tags.includes(tag));
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
       {/* Backdrop */}
       <div 
         className="absolute inset-0 bg-charcoal-900/50 backdrop-blur-sm"
@@ -117,10 +156,10 @@ const CreateListModal = ({ isOpen, onClose, onCreate }: CreateListModalProps) =>
             <div>
               <label className="block text-sm font-medium text-charcoal-700 mb-3">Cover Image</label>
               <div className="relative">
-                {coverImage ? (
+                {coverImagePreview ? (
                   <div className="relative">
                     <img 
-                      src={coverImage} 
+                      src={coverImagePreview} 
                       alt="Cover preview" 
                       className="w-full h-32 object-cover rounded-xl border border-linen-200"
                     />
@@ -244,7 +283,7 @@ const CreateListModal = ({ isOpen, onClose, onCreate }: CreateListModalProps) =>
             </div>
 
             {/* Tags */}
-            <div>
+            <div className="relative">
               <label className="block text-sm font-medium text-charcoal-700 mb-3">Tags ({tags.length}/5)</label>
               
               {/* Selected Tags */}
@@ -275,6 +314,8 @@ const CreateListModal = ({ isOpen, onClose, onCreate }: CreateListModalProps) =>
                     type="text"
                     value={newTag}
                     onChange={(e) => setNewTag(e.target.value)}
+                    onFocus={() => setShowTagSuggestions(true)}
+                    onBlur={() => setTimeout(() => setShowTagSuggestions(false), 100)}
                     onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddTag())}
                     placeholder="Add a tag..."
                     className="flex-1 px-3 py-2 rounded-lg border border-linen-200 bg-white text-charcoal-700 placeholder-charcoal-400 focus:outline-none focus:ring-2 focus:ring-sage-200 focus:border-transparent text-sm"
@@ -289,6 +330,20 @@ const CreateListModal = ({ isOpen, onClose, onCreate }: CreateListModalProps) =>
                   </button>
                 </div>
               )}
+              {showTagSuggestions && newTag && filteredTags.length > 0 && (
+                <div className="absolute z-10 w-full bg-white border border-linen-200 rounded-lg shadow-lg mt-1">
+                  {filteredTags.map(tag => (
+                    <button
+                      key={tag}
+                      type="button"
+                      onClick={() => handleSelectTag(tag)}
+                      className="block w-full text-left px-4 py-2 text-sm text-charcoal-700 hover:bg-linen-50"
+                    >
+                      {tag}
+                    </button>
+                  ))}
+                </div>
+              )}
 
               {/* Available Tags */}
               <div>
@@ -301,7 +356,7 @@ const CreateListModal = ({ isOpen, onClose, onCreate }: CreateListModalProps) =>
                       <button
                         key={tag}
                         type="button"
-                        onClick={() => handleTagClick(tag)}
+                        onClick={() => handleSelectTag(tag)}
                         disabled={tags.length >= 5}
                         className="px-2 py-1 rounded-full text-xs font-medium bg-linen-100 text-charcoal-600 border border-linen-200 hover:bg-sage-50 hover:text-sage-700 hover:border-sage-200 disabled:opacity-50 disabled:cursor-not-allowed transition"
                       >
@@ -337,4 +392,4 @@ const CreateListModal = ({ isOpen, onClose, onCreate }: CreateListModalProps) =>
   )
 }
 
-export default CreateListModal 
+export default CreateListModal

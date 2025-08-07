@@ -14,8 +14,9 @@ interface SaveModalProps {
   place: Place
   userLists: List[]
   selectedListIds?: string[]
-  onSave: (status: SaveStatus, rating?: TriedRating, listIds?: string[], note?: string) => void
+  onSave: (status: SaveStatus, rating?: TriedRating, listIds?: string[], note?: string, savedFromListId?: string) => void
   onCreateList: (listData: { name: string; description: string; privacy: 'public' | 'private' | 'friends'; tags?: string[]; coverImage?: string }) => void
+  savedFromListId?: string
 }
 
 const SaveModal: React.FC<SaveModalProps> = ({
@@ -25,7 +26,8 @@ const SaveModal: React.FC<SaveModalProps> = ({
   userLists,
   selectedListIds: selectedListIdsProp,
   onSave,
-  onCreateList
+  onCreateList,
+  savedFromListId
 }) => {
   
   const [selectedStatus, setSelectedStatus] = useState<SaveStatus | null>(null)
@@ -135,7 +137,7 @@ const SaveModal: React.FC<SaveModalProps> = ({
   if (!isOpen) return null
   
   const modalContent = (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/20 backdrop-blur-sm">
+    <div className="fixed inset-0 z-[10001] flex items-center justify-center p-4 bg-black/20 backdrop-blur-sm">
       <div className="w-full max-w-md max-h-[80vh] rounded-2xl shadow-botanical border border-linen-200 bg-white overflow-hidden flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-linen-200 flex-shrink-0">
@@ -162,7 +164,7 @@ const SaveModal: React.FC<SaveModalProps> = ({
               <h3 className="font-semibold text-charcoal-700 mb-1">{place.name}</h3>
               <p className="text-sm text-charcoal-500">{place.address}</p>
               <div className="flex flex-wrap gap-1 mt-1">
-                {place.tags.slice(0, 2).map(tag => (
+                {(place.tags || []).slice(0, 2).map(tag => (
                   <span key={tag} className="px-2 py-1 text-xs rounded-full bg-sage-50 text-sage-700 border border-sage-100">
                     #{tag}
                   </span>
@@ -370,7 +372,8 @@ const SaveModal: React.FC<SaveModalProps> = ({
                     selectedStatus,
                     selectedStatus === 'tried' ? triedRating || undefined : undefined,
                     selectedListIds.size > 0 ? Array.from(selectedListIds) : undefined,
-                    note.trim() || undefined
+                    note.trim() || undefined,
+                    savedFromListId
                   )
                   onClose()
                   resetForm()
@@ -406,4 +409,4 @@ const SaveModal: React.FC<SaveModalProps> = ({
   return createPortal(modalContent, document.body)
 }
 
-export default SaveModal 
+export default SaveModal
