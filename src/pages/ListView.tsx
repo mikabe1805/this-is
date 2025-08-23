@@ -17,6 +17,8 @@ import SearchAndFilter from '../components/SearchAndFilter'
 import { firebaseListService } from '../services/firebaseListService';
 import { firebaseDataService } from '../services/firebaseDataService';
 import { useAuth } from '../contexts/AuthContext'
+import AdvancedFiltersDrawer from '../components/AdvancedFiltersDrawer'
+import { useFilters } from '../contexts/FiltersContext'
 
 const ListView = () => {
   const { id } = useParams<{ id: string }>()
@@ -29,6 +31,7 @@ const ListView = () => {
   const [isLiked, setIsLiked] = useState(false)
   const [isSaved, setIsSaved] = useState(false)
   const [showMapModal, setShowMapModal] = useState(false)
+  const [showFullImage, setShowFullImage] = useState(false)
   const [cardMenuOpen, setCardMenuOpen] = useState<string | null>(null)
   const [showHubSearchModal, setShowHubSearchModal] = useState(false)
   const [showSaveModal, setShowSaveModal] = useState(false)
@@ -55,6 +58,9 @@ const ListView = () => {
   const [sortBy, setSortBy] = useState('popular')
   const [activeFilters, setActiveFilters] = useState<string[]>([])
   const [selectedTags, setSelectedTags] = useState<string[]>([])
+  const [recommended, setRecommended] = useState<Place[]>([])
+  const [showAdvanced, setShowAdvanced] = useState(false)
+  const { filters, setFilters } = useFilters()
 
   useEffect(() => {
     const fetchList = async () => {
@@ -74,6 +80,30 @@ const ListView = () => {
     fetchList()
   }, [id])
 
+  // Sync selectedTags with global FiltersContext
+  useEffect(()=>{ setSelectedTags(filters.tags || []) }, [filters.tags])
+
+  // Load recommendations for this list based on its tags
+  useEffect(() => {
+    const load = async () => {
+      const tags = selectedTags.length > 0 ? selectedTags : (list?.tags || [])
+      try {
+        const places = await firebaseDataService.getSuggestedPlaces({ tags, limit: 12 })
+        setRecommended(places)
+      } catch { setRecommended([]) }
+    }
+    load()
+  }, [list?.id, selectedTags])
+
+  // Parallax banner effect
+  const bannerRef = useRef<HTMLDivElement | null>(null)
+  const [scrollY, setScrollY] = useState(0)
+  useEffect(() => {
+    const onScroll = () => setScrollY(window.scrollY)
+    window.addEventListener('scroll', onScroll, { passive: true })
+    return () => window.removeEventListener('scroll', onScroll)
+  }, [])
+
   useEffect(() => {
     if (list && currentUser) {
       setIsLiked(list.likedBy?.includes(currentUser.id) || false)
@@ -84,6 +114,7 @@ const ListView = () => {
 
   // Search and filter options - using standard options from other pages
   const sortOptions = [
+    { key: 'relevance', label: 'Relevance' },
     { key: 'popular', label: 'Most Popular' },
     { key: 'recent', label: 'Most Recent' },
     { key: 'nearby', label: 'Closest to Location' },
@@ -239,14 +270,14 @@ const ListView = () => {
       name: listPlace.place.name,
       description: `A great place to visit in ${listPlace.place.address}`,
       tags: listPlace.place.tags,
-      images: listPlace.place.hubImage ? [listPlace.place.hubImage] : [],
+      images: (listPlace.place as any).mainImage ? [(listPlace.place as any).mainImage] : [],
       location: {
         address: listPlace.place.address,
         lat: listPlace.place.coordinates?.lat || 37.7749,
         lng: listPlace.place.coordinates?.lng || -122.4194,
       },
       googleMapsUrl: `https://www.google.com/maps/search/${encodeURIComponent(listPlace.place.name + ' ' + listPlace.place.address)}`,
-      mainImage: listPlace.place.hubImage,
+      mainImage: (listPlace.place as any).mainImage,
       posts: listPlace.place.posts,
       lists: [],
     }
@@ -421,14 +452,19 @@ const ListView = () => {
         </div>
         {/* Cover image */}
         {list.coverImage && (
-          <div className="w-full h-48 bg-gradient-to-br from-sage-200 to-gold-200 relative overflow-hidden">
+          <div ref={bannerRef} className="w-full h-56 sm:h-64 md:h-72 bg-gradient-to-br from-sage-200 to-gold-200 relative overflow-hidden">
             <img
               src={list.coverImage}
               alt={list.name}
-              className="w-full h-full object-cover"
+              className="w-full h-full object-cover will-change-transform"
+              loading="lazy"
+              style={{ transform: `translateY(${Math.min(scrollY * 0.15, 40)}px) scale(1.05)` }}
+              onClick={() => setShowFullImage(true)}
             />
             <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-black/5 to-transparent backdrop-blur-[1px]"></div>
             <div className="absolute inset-0 border border-white/20"></div>
+            {/* Tap to expand hint */}
+            <div className="absolute bottom-2 right-2 text-xs bg-white/60 backdrop-blur-sm text-charcoal-700 px-2 py-1 rounded-full border border-white/70">Tap to view</div>
           </div>
         )}
         {/* Toolkit */}
@@ -495,18 +531,49 @@ const ListView = () => {
 
       {/* Search and Filter */}
       <div className="relative z-10 px-4 pb-4">
-        <SearchAndFilter
-          placeholder="Search places in this list..."
-          sortOptions={sortOptions}
-          filterOptions={filterOptions}
-          availableTags={availableTags}
-          sortBy={sortBy}
-          setSortBy={setSortBy}
-          activeFilters={activeFilters}
-          setActiveFilters={setActiveFilters}
-          dropdownPosition="top-right"
-        />
+        <form onSubmit={(e) => { e.preventDefault(); /* search is applied in-place via searchQuery state */ }}>
+          <SearchAndFilter
+            placeholder="Search places in this list..."
+            sortOptions={sortOptions}
+            filterOptions={filterOptions}
+            availableTags={availableTags}
+            sortBy={sortBy}
+            setSortBy={setSortBy}
+            activeFilters={activeFilters}
+            setActiveFilters={setActiveFilters}
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            dropdownPosition="top-right"
+            onSubmitQuery={() => {/* keep in place filtering */}}
+            selectedTags={selectedTags}
+            setSelectedTags={(tags)=>{ setSelectedTags(tags); setFilters({ tags }) }}
+            onOpenAdvanced={() => setShowAdvanced(true)}
+          />
+        </form>
       </div>
+
+      {/* Recommended for your list */}
+      {recommended.length > 0 && (
+        <div className="relative z-10 px-4 pb-2">
+          <h3 className="text-lg font-serif font-semibold text-charcoal-800 mb-2">Recommended for your list</h3>
+          <div className="space-y-2">
+            {recommended.slice(0,6).map((p)=> (
+              <div key={p.id} onClick={()=> handlePlaceClick({ id: '', place: p, status: 'loved', addedAt: new Date().toISOString() } as any)} className="bg-white/80 border border-linen-200 rounded-2xl p-4 shadow-soft hover:shadow-cozy transition cursor-pointer">
+                <div className="flex items-start gap-3">
+                  <img src={(p as any).mainImage || 'https://images.unsplash.com/photo-1565299624946-b28f40a0ca4b?w=200&h=150&fit=crop'} alt={p.name} className="w-16 h-16 rounded-lg object-cover" />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between">
+                      <h4 className="font-semibold text-charcoal-800 truncate">{p.name}</h4>
+                      <span className="text-xs text-charcoal-500">{(p.tags||[]).slice(0,2).map(t=>`#${t}`).join(' ')}</span>
+                    </div>
+                    <div className="text-sm text-charcoal-600 line-clamp-1">{p.address}</div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Selected Tags */}
       {selectedTags.length > 0 && (
@@ -522,6 +589,23 @@ const ListView = () => {
                 <span className="text-sage-500">×</span>
               </button>
             ))}
+          </div>
+          {/* Sticky search/filter for long lists */}
+          <div className="sticky top-0 z-10 bg-white/90 backdrop-blur-sm border-b border-linen-200">
+            <form onSubmit={(e) => { e.preventDefault(); /* search is applied in-place via searchQuery state */ }}>
+              <SearchAndFilter
+                placeholder="Search places in this list..."
+                sortOptions={sortOptions}
+                filterOptions={filterOptions}
+                availableTags={availableTags}
+                sortBy={sortBy}
+                setSortBy={setSortBy}
+                activeFilters={activeFilters}
+                setActiveFilters={setActiveFilters}
+                dropdownPosition="top-right"
+                onSubmitQuery={() => {/* keep in place filtering */}}
+              />
+            </form>
           </div>
         </div>
       )}
@@ -568,7 +652,7 @@ const ListView = () => {
             {/* Hub Image on top */}
             <div className="w-full h-40 bg-linen-100 flex-shrink-0 relative">
               <img 
-                src={listPlace.place.hubImage || 'https://images.unsplash.com/photo-1442512595331-e89e73853f31?w=150&h=150&fit=crop'} 
+                src={(listPlace.place as any).mainImage || 'https://images.unsplash.com/photo-1442512595331-e89e73853f31?w=150&h=150&fit=crop'} 
                 alt={listPlace.place.name} 
                 className="w-full h-full object-cover rounded-t-3xl"
               />
@@ -671,6 +755,16 @@ const ListView = () => {
               [Map Placeholder]
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Fullscreen Image Overlay */}
+      {showFullImage && list.coverImage && (
+        <div className="fixed inset-0 z-[100000] bg-black/90 flex items-center justify-center" onClick={() => setShowFullImage(false)}>
+          <img src={list.coverImage} alt={list.name} className="max-w-[95vw] max-h-[95vh] object-contain" />
+          <button className="absolute top-4 right-4 w-10 h-10 rounded-full bg-white/20 border border-white/40 backdrop-blur-sm flex items-center justify-center" onClick={() => setShowFullImage(false)}>
+            <span className="text-white text-lg">×</span>
+          </button>
         </div>
       )}
 
@@ -795,6 +889,7 @@ const ListView = () => {
         onPrivacyChange={handlePrivacyChange}
         listName={list.name}
       />
+      <AdvancedFiltersDrawer isOpen={showAdvanced} onClose={()=> setShowAdvanced(false)} onApply={()=>{/* derived filtering applies automatically */}} />
     </div>
   )
 }

@@ -1,16 +1,14 @@
 import { Routes, Route, useNavigate, useLocation } from 'react-router-dom'
 import { useState, useEffect } from 'react'
-import { NavigationProvider, useNavigation } from './contexts/NavigationContext.tsx'
+import { NavigationProvider } from './contexts/NavigationContext.tsx'
+import { FiltersProvider } from './contexts/FiltersContext.tsx'
 import { ModalProvider, useModal } from './contexts/ModalContext.tsx'
 import { AuthProvider, useAuth } from './contexts/AuthContext.tsx'
-import type { List, Post } from './types/index.js'
+import type { List } from './types/index.js'
 import Navbar from './components/Navbar.tsx'
 import CreatePost from './components/CreatePost.tsx'
 import CreateListModal from './components/CreateListModal.tsx'
-import ListModal from './components/ListModal.tsx'
-import HubModal from './components/HubModal.tsx'
-import SaveModal from './components/SaveModal.tsx'
-import EmbedFromModal from './components/EmbedFromModal.tsx'
+import NavigationModals from './components/NavigationModals.tsx';
 import Home from './pages/Home.tsx'
 import Profile from './pages/Profile.tsx'
 import EditProfile from './pages/EditProfile.tsx'
@@ -28,8 +26,132 @@ import EnhancedSearchDemo from './components/EnhancedSearchDemo.tsx'
 import DatabaseSeeder from './components/DatabaseSeeder.tsx'
 import Auth from './pages/Auth.tsx'
 import { setupViewportHandler } from './utils/viewportHandler.ts'
-import NavigationModals from './components/NavigationModals.tsx';
-import { firebaseDataService } from './services/firebaseDataService.js';
+import EmbedFromModal from './components/EmbedFromModal.tsx'
+import SaveModal from './components/SaveModal.tsx'
+import { firebaseDataService } from './services/firebaseDataService.js'
+
+// Global modals component (moved above usage)
+const GlobalModals = () => {
+  const { showSaveModal, showCreatePost, saveModalData, createPostData, closeSaveModal, closeCreatePostModal } = useModal()
+  const { currentUser } = useAuth()
+  const [userLists, setUserLists] = useState<List[]>([]);
+
+  useEffect(() => {
+    const fetchLists = async () => {
+      if (currentUser) {
+        const lists = await firebaseDataService.getUserLists(currentUser.id);
+        setUserLists(lists);
+      }
+    };
+    if (showSaveModal) {
+      fetchLists();
+    }
+  }, [showSaveModal, currentUser]);
+
+
+  return (
+    <>
+      {/* Save Modal */}
+      {showSaveModal && saveModalData && (saveModalData.hub || saveModalData.list) && (
+        <SaveModal
+          isOpen={showSaveModal}
+          onClose={closeSaveModal}
+          place={saveModalData.hub ? {
+            id: saveModalData.hub.id,
+            name: saveModalData.hub.name,
+            address: saveModalData.hub.location?.address || 'No address available',
+            tags: saveModalData.hub.tags,
+            posts: saveModalData.hub.posts,
+            savedCount: 0,
+            createdAt: '2024-01-15'
+          } : {
+            id: saveModalData.list!.id,
+            name: saveModalData.list!.name,
+            address: 'List',
+            tags: saveModalData.list!.tags,
+            posts: [],
+            savedCount: 0,
+            createdAt: saveModalData.list!.createdAt || '2024-01-15'
+          }}
+          userLists={userLists}
+          onSave={async (status, rating, listIds, note) => {
+            console.log('SaveModal onSave called with:', { status, rating, listIds, note });
+            if (!currentUser) return;
+            const placeId = saveModalData.hub?.id || saveModalData.list!.id;
+            console.log('Saving placeId:', placeId, 'to lists:', listIds);
+
+            const owned = userLists || []
+            const ids = Array.isArray(listIds) ? listIds : []
+
+            // Check for duplicates
+            const already = [] as string[]
+            for (const lid of ids) {
+              const exists = await firebaseDataService.isPlaceInList(lid, placeId)
+              if (exists) already.push(lid)
+            }
+            if (already.length > 0) {
+              const names = owned.filter(l=>already.includes(l.id)).map(l=>l.name).join(', ')
+              const overwrite = window.confirm(`You've already saved this hub to the following lists: ${names}.\nWould you like to overwrite your previous save?`)
+              if (!overwrite) {
+                return
+              }
+            }
+
+            // Save to selected lists
+            for (const listId of ids) {
+              await firebaseDataService.savePlaceToList(placeId, listId, currentUser.id, note, undefined, status, rating);
+            }
+
+            // Centralized auto-list save
+            await firebaseDataService.saveToAutoList(placeId, currentUser.id, status, note, rating)
+            
+            // Track
+            if (saveModalData.hub) {
+              await firebaseDataService.trackUserInteraction(currentUser.id, 'save', { 
+                placeId: saveModalData.hub.id,
+                query: saveModalData.hub.name 
+              });
+            }
+            
+            console.log('Saving with status:', status, rating, listIds, note)
+            closeSaveModal()
+          }}
+          onCreateList={async (listData) => {
+            if (!currentUser) return;
+            const placeId = saveModalData.hub?.id || saveModalData.list!.id;
+            const newListId = await firebaseDataService.createList({ 
+              ...listData, 
+              userId: currentUser.id,
+              tags: listData.tags || []
+            });
+            if (newListId) {
+              await firebaseDataService.savePlaceToList(placeId, newListId, currentUser.id, undefined, undefined, 'loved'); // Default to loved status
+            }
+            console.log('Creating new list:', listData)
+            closeSaveModal()
+          }}
+        />
+      )}
+
+      {/* Create Post Modal */}
+      {showCreatePost && createPostData && (
+        <CreatePost
+          isOpen={showCreatePost}
+          onClose={closeCreatePostModal}
+          preSelectedHub={createPostData.hub ? {
+            id: createPostData.hub.id,
+            name: createPostData.hub.name,
+            address: createPostData.hub.location.address,
+            description: createPostData.hub.description,
+            lat: createPostData.hub.location.lat,
+            lng: createPostData.hub.location.lng
+          } : undefined}
+          preSelectedListIds={createPostData.list ? [createPostData.list.id] : undefined}
+        />
+      )}
+    </>
+  )
+}
 
 function AppContent() {
   const [activeTab, setActiveTab] = useState('home')
@@ -238,114 +360,26 @@ function AppContent() {
   )
 }
 
-// Global modals component
-const GlobalModals = () => {
-  const { showSaveModal, showCreatePost, saveModalData, createPostData, closeSaveModal, closeCreatePostModal } = useModal()
-  const { currentUser } = useAuth()
-  const [userLists, setUserLists] = useState<List[]>([]);
-
-  useEffect(() => {
-    const fetchLists = async () => {
-      if (currentUser) {
-        const lists = await firebaseDataService.getUserLists(currentUser.id);
-        setUserLists(lists);
-      }
-    };
-    if (showSaveModal) {
-      fetchLists();
-    }
-  }, [showSaveModal, currentUser]);
-
-
+function Providers({ children }: { children: React.ReactNode }) {
   return (
-    <>
-      {/* Save Modal */}
-      {showSaveModal && saveModalData && (saveModalData.hub || saveModalData.list) && (
-        <SaveModal
-          isOpen={showSaveModal}
-          onClose={closeSaveModal}
-          place={saveModalData.hub ? {
-            id: saveModalData.hub.id,
-            name: saveModalData.hub.name,
-            address: saveModalData.hub.location?.address || 'No address available',
-            tags: saveModalData.hub.tags,
-            posts: saveModalData.hub.posts,
-            savedCount: 0,
-            createdAt: '2024-01-15'
-          } : {
-            id: saveModalData.list!.id,
-            name: saveModalData.list!.name,
-            address: 'List',
-            tags: saveModalData.list!.tags,
-            posts: [],
-            savedCount: 0,
-            createdAt: saveModalData.list!.createdAt || '2024-01-15'
-          }}
-          userLists={userLists}
-          onSave={async (status, rating, listIds, note) => {
-            console.log('SaveModal onSave called with:', { status, rating, listIds, note });
-            if (!currentUser) return;
-            const placeId = saveModalData.hub?.id || saveModalData.list!.id;
-            console.log('Saving placeId:', placeId, 'to lists:', listIds);
-            if (listIds) {
-              for (const listId of listIds) {
-                console.log('Saving to list:', listId);
-                await firebaseDataService.savePlaceToList(placeId, listId, currentUser.id, note, undefined, status, rating);
-              }
-            }
-            
-            // Track the save interaction
-            if (saveModalData.hub) {
-              await firebaseDataService.trackUserInteraction(currentUser.id, 'save', { 
-                placeId: saveModalData.hub.id,
-                query: saveModalData.hub.name 
-              });
-            }
-            
-            console.log('Saving with status:', status, 'rating:', rating, 'listIds:', listIds, 'note:', note)
-            closeSaveModal()
-          }}
-          onCreateList={async (listData) => {
-            if (!currentUser) return;
-            const placeId = saveModalData.hub?.id || saveModalData.list!.id;
-            const newListId = await firebaseDataService.createList({ 
-              ...listData, 
-              userId: currentUser.id,
-              tags: listData.tags || []
-            });
-            if (newListId) {
-              await firebaseDataService.savePlaceToList(placeId, newListId, currentUser.id, undefined, undefined, 'loved'); // Default to loved status
-            }
-            console.log('Creating new list:', listData)
-            closeSaveModal()
-          }}
-        />
-      )}
-
-      {/* Create Post Modal */}
-      {showCreatePost && createPostData && (
-        <CreatePost
-          isOpen={showCreatePost}
-          onClose={closeCreatePostModal}
-          preSelectedHub={createPostData.hub ? {
-            id: createPostData.hub.id,
-            name: createPostData.hub.name,
-            address: createPostData.hub.location.address,
-            description: createPostData.hub.description,
-            lat: createPostData.hub.location.lat,
-            lng: createPostData.hub.location.lng
-          } : undefined}
-          preSelectedListIds={createPostData.list ? [createPostData.list.id] : undefined}
-        />
-      )}
-    </>
+    <AuthProvider>
+      <NavigationProvider>
+        <FiltersProvider>
+          <ModalProvider>
+            {children}
+          </ModalProvider>
+        </FiltersProvider>
+      </NavigationProvider>
+    </AuthProvider>
   )
 }
 
-
-
 function App() {
-  return <AppContent />
+  return (
+    <Providers>
+      <AppContent />
+    </Providers>
+  )
 }
 
 export default App

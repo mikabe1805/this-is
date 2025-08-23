@@ -99,37 +99,34 @@ const ListMenuDropdown: React.FC<ListMenuDropdownProps> = ({
   }
 
   const handleEditList = () => {
+    onClose()
     if (onEditList) {
-      onEditList()
+      setTimeout(() => onEditList(), 0)
     } else {
-      // Default behavior - could open an edit modal or navigate
       console.log('Edit list clicked')
     }
-    onClose()
   }
 
   const handleChangePrivacy = () => {
+    onClose()
     if (onChangePrivacy) {
-      onChangePrivacy()
+      setTimeout(() => onChangePrivacy(), 0)
     } else {
-      // Default behavior
       console.log('Change privacy clicked')
     }
-    onClose()
   }
 
   const handleDeleteList = () => {
+    onClose()
     if (onDeleteList) {
-      onDeleteList()
+      setTimeout(() => onDeleteList(), 0)
     } else {
-      // Default behavior - could show confirmation dialog
       console.log('Delete list clicked')
     }
-    onClose()
   }
 
   return createPortal(
-    <div className="fixed inset-0 z-50" onClick={onClose}>
+    <div className="fixed inset-0 z-[100000]" onClick={onClose}>
       <div 
         ref={dropdownRef}
         className="absolute w-48 bg-white rounded-2xl shadow-botanical border border-linen-200 overflow-hidden"

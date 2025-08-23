@@ -8,6 +8,18 @@
     ],
     "rewrites": [
       {
+        "source": "/suggestPlaces",
+        "function": {
+          "functionId": "suggestPlaces"
+        }
+      },
+      {
+        "source": "/geocodeLocation",
+        "function": {
+          "functionId": "geocodeLocation"
+        }
+      },
+      {
         "source": "**",
         "destination": "/index.html"
       }

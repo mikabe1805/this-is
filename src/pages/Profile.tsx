@@ -1,18 +1,25 @@
 import type { User, List, Activity, Place } from '../types/index.js'
 import { BookmarkIcon, HeartIcon, PlusIcon, MapPinIcon, CalendarIcon, EllipsisHorizontalIcon } from '@heroicons/react/24/outline'
 import { HeartIcon as HeartIconSolid } from '@heroicons/react/24/solid'
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useMemo, useDeferredValue } from 'react'
 import SearchAndFilter from '../components/SearchAndFilter'
 import SaveModal from '../components/SaveModal'
 import LocationSelectModal from '../components/LocationSelectModal'
 import CreatePost from '../components/CreatePost'
 import UserMenuDropdown from '../components/UserMenuDropdown'
+import ListMenuDropdown from '../components/ListMenuDropdown'
+import EditListModal from '../components/EditListModal'
+import PrivacyModal from '../components/PrivacyModal'
+import ConfirmModal from '../components/ConfirmModal'
+import { firebaseListService } from '../services/firebaseListService.js'
 import GoogleMapsImportModal from '../components/GoogleMapsImportModal'
 import { useNavigate } from 'react-router-dom'
 import { useLocation } from 'react-router-dom'
 import { useNavigation } from '../contexts/NavigationContext.tsx'
 import { useAuth } from '../contexts/AuthContext.tsx'
 import { firebaseDataService } from '../services/firebaseDataService.js'
+import TagAutocomplete from '../components/TagAutocomplete'
+import { formatTimestamp } from '../utils/dateUtils'
 
 const BotanicalAccent = () => (
     <svg width="60" height="60" viewBox="0 0 60 60" fill="none" xmlns="http://www.w3.org/2000/svg" className="absolute -top-6 -left-6 opacity-30 select-none pointer-events-none">
@@ -24,6 +31,7 @@ const BotanicalAccent = () => (
 )
 
 const sortOptions = [
+    { key: 'relevance', label: 'Relevance' },
     { key: 'popular', label: 'Most Popular' },
     { key: 'friends', label: 'Most Liked by Friends' },
     { key: 'nearby', label: 'Closest to Location' },
@@ -33,7 +41,7 @@ const filterOptions = [
     { key: 'tried', label: 'Tried' },
     { key: 'want', label: 'Want to' },
 ]
-const availableTags = ['cozy', 'trendy', 'quiet', 'local', 'charming', 'authentic', 'chill']
+// Tags for filters are fetched from Firebase so tag search can reach the full set
 
 const Profile = () => {
     const { openListModal } = useNavigation()
@@ -49,21 +57,47 @@ const Profile = () => {
     const [followerCount, setFollowerCount] = useState(0);
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState('')
-    const [sortBy, setSortBy] = useState('popular')
+    const [sortBy, setSortBy] = useState('relevance')
     const [activeFilters, setActiveFilters] = useState<string[]>([])
+    const [selectedTags, setSelectedTags] = useState<string[]>([])
+    const [searchQuery, setSearchQuery] = useState('')
+    const deferredSearch = useDeferredValue(searchQuery)
+    const [selectedLocation, setSelectedLocation] = useState<{ lat: number; lng: number; name?: string } | null>(null)
+    const [listDistances, setListDistances] = useState<Record<string, number>>({})
     const [showSaveModal, setShowSaveModal] = useState(false);
     const [showLocationModal, setShowLocationModal] = useState(false);
     const [showCreatePost, setShowCreatePost] = useState(false);
     const [showUserMenu, setShowUserMenu] = useState(false);
     const [showGoogleMapsImport, setShowGoogleMapsImport] = useState(false);
+    const [showListMenu, setShowListMenu] = useState(false);
+    const [selectedListId, setSelectedListId] = useState<string | null>(null);
+    const [showEditListModal, setShowEditListModal] = useState(false);
+    const [showPrivacyModal, setShowPrivacyModal] = useState(false);
+    const [showConfirmModal, setShowConfirmModal] = useState(false);
+    const [confirmModalConfig, setConfirmModalConfig] = useState({ title: '', message: '', onConfirm: () => {} });
     const [commentInput, setCommentInput] = useState('');
     const [newTag, setNewTag] = useState('');
+    const [availableUserTags, setAvailableUserTags] = useState<string[]>([])
+    const [availableTags, setAvailableTags] = useState<string[]>([])
     const [comments, setComments] = useState<any[]>([]);
-    const [likedLists] = useState<Set<string>>(new Set());
+    // const [likedLists] = useState<Set<string>>(new Set());
     const [selectedPlace, setSelectedPlace] = useState<Place | null>(null);
     const [createPostListId, setCreatePostListId] = useState<string | null>(null);
     const [activityItems, setActivityItems] = useState<Activity[]>([]);
+    const [showAllActivity, setShowAllActivity] = useState(false);
     const userMenuButtonRef = useRef<HTMLButtonElement>(null);
+    const listMenuButtonRef = useRef<HTMLButtonElement>(null);
+    const placeCacheRef = useRef<Record<string, Place>>({})
+
+    const toRad = (v: number) => (v * Math.PI) / 180
+    const haversineKm = (lat1: number, lon1: number, lat2: number, lon2: number) => {
+        const R = 6371
+        const dLat = toRad(lat2 - lat1)
+        const dLon = toRad(lon2 - lon1)
+        const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+        return R * c
+    }
 
     useEffect(() => {
         const loadUserActivity = async () => {
@@ -97,6 +131,66 @@ const Profile = () => {
     }
 
     useEffect(() => {
+        const loadUserTags = async () => {
+            try {
+                const [userTags, globalTags] = await Promise.all([
+                    firebaseDataService.getPopularUserTags(100),
+                    firebaseDataService.getPopularTags(200)
+                ])
+                setAvailableUserTags(userTags)
+                setAvailableTags(globalTags)
+            } catch (e) {
+                console.warn('Failed to load tags, using defaults', e)
+                setAvailableUserTags(['cozy','trendy','local','adventurous','bookworm','coffee-lover','foodie','night-owl','early-bird'])
+                setAvailableTags(['cozy','trendy','quiet','local','charming','authentic','chill'])
+            }
+        }
+        loadUserTags()
+    }, [])
+
+    // Compute nearest distances per list when a location is selected or lists change
+    useEffect(() => {
+        const compute = async () => {
+            if (!selectedLocation) return
+            const distances: Record<string, number> = {}
+            await Promise.all(userLists.map(async (list) => {
+                const hubs: any = (list as any).hubs || []
+                if (!Array.isArray(hubs) || hubs.length === 0) return
+                let min = Infinity
+                for (const hubRef of hubs) {
+                    // hubRef may be a placeId string or an object with coordinates
+                    if (typeof hubRef === 'string') {
+                        let place = placeCacheRef.current[hubRef]
+                        if (!place) {
+                            const fetched = await firebaseDataService.getPlace(hubRef)
+                            if (fetched) {
+                                placeCacheRef.current[hubRef] = fetched
+                                place = fetched
+                            }
+                        }
+                        const lat = place && place.coordinates ? place.coordinates.lat : undefined
+                        const lng = place && place.coordinates ? place.coordinates.lng : undefined
+                        if (typeof lat === 'number' && typeof lng === 'number') {
+                            const d = haversineKm(lat, lng, selectedLocation.lat, selectedLocation.lng)
+                            if (d < min) min = d
+                        }
+                    } else {
+                        const lat = (hubRef.location && hubRef.location.lat) || hubRef.coordinates?.lat
+                        const lng = (hubRef.location && hubRef.location.lng) || hubRef.coordinates?.lng
+                        if (typeof lat === 'number' && typeof lng === 'number') {
+                            const d = haversineKm(lat, lng, selectedLocation.lat, selectedLocation.lng)
+                            if (d < min) min = d
+                        }
+                    }
+                }
+                if (min !== Infinity) distances[list.id] = min
+            }))
+            setListDistances(distances)
+        }
+        compute()
+    }, [selectedLocation, userLists])
+
+    useEffect(() => {
         const loadUserData = async () => {
             if (!authUser) {
                 navigate('/auth')
@@ -127,15 +221,14 @@ const Profile = () => {
                         setComments([]);
                     }
                     
-                    // Load saved list IDs
-                    const savedListIdsSet = new Set<string>();
-                    for (const list of lists) {
-                        const isSaved = await firebaseDataService.isListSavedByUser(list.id, authUser.id);
-                        if (isSaved) {
-                            savedListIdsSet.add(list.id);
-                        }
+                    // Load saved list IDs in one shot
+                    try {
+                        const savedLists = await firebaseDataService.getSavedLists(authUser.id)
+                        setSavedListIds(new Set(savedLists.map(l => l.id)))
+                    } catch (e) {
+                        console.warn('Failed to load saved lists, falling back to empty set', e)
+                        setSavedListIds(new Set())
                     }
-                    setSavedListIds(savedListIdsSet);
                 } else {
                     setError('User profile not found.');
                 }
@@ -181,6 +274,111 @@ const Profile = () => {
         }
     }, [location.pathname, authUser, loading]);
 
+    useEffect(() => {
+        const onOpenEdit = (e: any) => {
+            const id = e.detail?.listId as string
+            if (!id) return
+            setSelectedListId(id)
+            setShowEditListModal(true)
+        }
+        const onOpenPrivacy = (e: any) => {
+            const id = e.detail?.listId as string
+            if (!id) return
+            setSelectedListId(id)
+            setShowPrivacyModal(true)
+        }
+        const onOpenDelete = (e: any) => {
+            const id = e.detail?.listId as string
+            if (!id) return
+            setSelectedListId(id)
+            setConfirmModalConfig({ title: 'Delete List', message: 'Are you sure?', onConfirm: async () => {
+                try {
+                    await firebaseListService.deleteList(id)
+                    setUserLists(prev => prev.filter(l => l.id !== id))
+                } catch (e) { console.error(e) }
+            } })
+            setShowConfirmModal(true)
+        }
+        window.addEventListener('openEditListFromModal', onOpenEdit)
+        window.addEventListener('openPrivacyFromModal', onOpenPrivacy)
+        window.addEventListener('openDeleteFromModal', onOpenDelete)
+        return () => {
+            window.removeEventListener('openEditListFromModal', onOpenEdit)
+            window.removeEventListener('openPrivacyFromModal', onOpenPrivacy)
+            window.removeEventListener('openDeleteFromModal', onOpenDelete)
+        }
+    }, [])
+
+    // Derived data (must be above any early returns to keep hook order stable)
+    const filteredLists = useMemo(() => userLists.filter(list => {
+        if ((list.tags || []).includes('auto-generated')) return false
+        if (deferredSearch.trim()) {
+            const q = deferredSearch.toLowerCase()
+            const matches =
+                list.name.toLowerCase().includes(q) ||
+                (list.description || '').toLowerCase().includes(q) ||
+                (list.tags || []).some(t => t.toLowerCase().includes(q))
+            if (!matches) return false
+        }
+        if (selectedTags.length > 0) {
+            const hasTag = selectedTags.some(tag => (list.tags || []).map(t=>t.toLowerCase()).includes(tag.toLowerCase()))
+            if (!hasTag) return false
+        }
+        if (activeFilters.length === 0) return true
+        return activeFilters.some(f => (list.tags || []).includes(f))
+    }), [userLists, deferredSearch, activeFilters, selectedTags])
+
+    const sortedLists = useMemo(() => {
+        if (sortBy === 'relevance') {
+            const q = deferredSearch.trim().toLowerCase()
+            const tagSet = new Set(selectedTags.map(t=>t.toLowerCase()))
+            const scored = filteredLists.map(l => {
+                let score = 0
+                const name = (l.name||'').toLowerCase()
+                const desc = (l.description||'').toLowerCase()
+                const tags = (l.tags||[]).map(t=>t.toLowerCase())
+                if (q) {
+                    if (name.includes(q)) score += 4
+                    if (desc.includes(q)) score += 2
+                    if (tags.some(t=>t.includes(q))) score += 3
+                }
+                if (tagSet.size>0) {
+                    const matches = tags.filter(t=>tagSet.has(t)).length
+                    score += matches * 5
+                }
+                // tie-breaker by popularity
+                return { l, score: score, pop: l.likes||0 }
+            })
+            return scored.sort((a,b)=> (b.score - a.score) || (b.pop - a.pop)).map(s=>s.l)
+        }
+        if (sortBy === 'friends') return [...filteredLists].reverse()
+        if (sortBy === 'nearby' && selectedLocation) {
+            return [...filteredLists].sort((a, b) => {
+                const da = listDistances[a.id] ?? Number.MAX_VALUE
+                const db = listDistances[b.id] ?? Number.MAX_VALUE
+                return da - db
+            })
+        }
+        return filteredLists
+    }, [filteredLists, sortBy, selectedLocation, listDistances, deferredSearch, selectedTags])
+
+    const [visibleCount, setVisibleCount] = useState(6)
+    const visibleLists = useMemo(() => sortedLists.slice(0, visibleCount), [sortedLists, visibleCount])
+
+    const filteredActivityItems = useMemo(() => activityItems.filter(activity => {
+        const q = deferredSearch.trim().toLowerCase()
+        if (!q) return true
+        const placeMatch = activity.place?.name?.toLowerCase().includes(q) || activity.place?.address?.toLowerCase().includes(q)
+        const listMatch = activity.list?.name?.toLowerCase().includes(q) || activity.list?.description?.toLowerCase().includes(q)
+        return !!(placeMatch || listMatch)
+    }), [activityItems, deferredSearch])
+
+    const lastWeekCutoff = Date.now() - 7 * 24 * 60 * 60 * 1000
+    const weeklyActivityItems = useMemo(() => filteredActivityItems.filter(a => {
+        const t = new Date((a as any).createdAt).getTime()
+        return !Number.isNaN(t) && t >= lastWeekCutoff
+    }), [filteredActivityItems, lastWeekCutoff])
+
     if (loading) {
         return (
             <div className="min-h-screen bg-gradient-to-br from-warmGray-50 via-white to-warmGray-100 flex items-center justify-center">
@@ -208,14 +406,7 @@ const Profile = () => {
         )
     }
 
-    let filteredLists = userLists.filter(list => {
-        if (list.tags.includes('auto-generated')) return false
-        if (activeFilters.length === 0) return true
-        return activeFilters.some(f => list.tags.includes(f))
-    })
-    if (sortBy === 'popular') filteredLists = filteredLists
-    if (sortBy === 'friends') filteredLists = [...filteredLists].reverse()
-    if (sortBy === 'nearby') filteredLists = filteredLists
+    const activityToShow = showAllActivity ? weeklyActivityItems : filteredActivityItems.slice(0, 3)
 
         const handleLikeList = async (listId: string) => {
         if (!currentUser) return;
@@ -246,8 +437,8 @@ const Profile = () => {
         );
         
         try {
-            // Update Firebase in the background
-            await firebaseDataService.saveList(listId, currentUser.id);
+            // Only toggle like, not save, to avoid double counting likes
+            await firebaseListService.likeList(listId, currentUser.id);
         } catch (error) {
             console.error("Failed to like list:", error);
             // Revert on failure
@@ -334,18 +525,28 @@ const Profile = () => {
                 <div className="absolute inset-0 bg-gradient-radial from-transparent via-transparent to-charcoal-900/10"></div>
             </div>
             <div className="relative z-10 px-4 pt-6">
-                <SearchAndFilter
-                    placeholder="Search your lists, places, or friends..."
-                    sortOptions={sortOptions}
-                    filterOptions={filterOptions}
-                    availableTags={availableTags}
-                    sortBy={sortBy}
-                    setSortBy={handleSortByChange}
-                    activeFilters={activeFilters}
-                    setActiveFilters={setActiveFilters}
-                    dropdownPosition="top-right"
-                />
+                <form onSubmit={(e) => { e.preventDefault() }}>
+                    <SearchAndFilter
+                        placeholder="Search your lists, places, or friends..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        showBackButton={!!searchQuery}
+                        onBackClick={() => setSearchQuery('')}
+                        sortOptions={sortOptions}
+                        filterOptions={filterOptions}
+                        availableTags={availableTags}
+                        selectedTags={selectedTags}
+                        setSelectedTags={setSelectedTags}
+                        sortBy={sortBy}
+                        setSortBy={handleSortByChange}
+                        activeFilters={activeFilters}
+                        setActiveFilters={setActiveFilters}
+                        dropdownPosition="top-right"
+                        onSubmitQuery={() => { /* in-place filtering */ }}
+                    />
+                </form>
             </div>
+            {!searchQuery.trim() && (
             <div className="relative z-10 p-8 mt-8 rounded-3xl shadow-botanical border border-linen-200 bg-white max-w-2xl mx-auto overflow-hidden flex flex-col gap-2">
                 <BotanicalAccent />
                 <div className="flex items-center gap-6">
@@ -392,10 +593,7 @@ const Profile = () => {
                         )}
                         <div className="flex items-center gap-2 text-sm text-gold-600">
                             <CalendarIcon className="w-5 h-5 text-gold-400" />
-                            <span>Member since {currentUser.createdAt ? (() => {
-                            const date = new Date(currentUser.createdAt);
-                            return isNaN(date.getTime()) ? 'Recently' : date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
-                        })() : 'Recently'}</span>
+                            <span>Member since {formatTimestamp(currentUser.createdAt)}</span>
                         </div>
                     </div>
                 </div>
@@ -420,27 +618,23 @@ const Profile = () => {
                             #{tag}
                         </button>
                     ))}
-                    <form
-                        onSubmit={e => {
-                            e.preventDefault()
-                            if (newTag.trim() && !profileTags.includes(newTag.trim())) {
-                                setProfileTags(tags => [...tags, newTag.trim()])
-                                setNewTag('')
-                            }
-                        }}
-                        className="flex items-center gap-2"
-                    >
-                        <input
-                            type="text"
+                    <div className="w-full max-w-xs">
+                        <TagAutocomplete
                             value={newTag}
-                            onChange={e => setNewTag(e.target.value)}
-                            placeholder="Add tag..."
-                            className="w-24 px-3 py-2 rounded-full text-sm border border-linen-200 bg-linen-50 text-charcoal-600 focus:outline-none focus:ring-2 focus:ring-sage-200 shadow-soft"
+                            onChange={setNewTag}
+                            onAdd={() => {
+                                if (newTag.trim() && !profileTags.includes(newTag.trim())) {
+                                    setProfileTags(tags => [...tags, newTag.trim()])
+                                    setNewTag('')
+                                }
+                            }}
+                            currentTags={profileTags}
+                            availableTags={availableUserTags}
+                            showPopularTags={true}
+                            popularLabel="Relevant tags"
+                            persistTo="userTags"
                         />
-                        <button type="submit" className="p-2 rounded-full bg-sage-400 text-white shadow-soft hover:bg-sage-500 transition">
-                            <PlusIcon className="w-4 h-4" />
-                        </button>
-                    </form>
+                    </div>
                 </div>
                 <div className="grid grid-cols-3 gap-4 mt-6 border-t border-linen-200 pt-4">
                     <div className="text-center cursor-pointer" onClick={() => navigate('/lists')}>
@@ -457,6 +651,8 @@ const Profile = () => {
                     </div>
                 </div>
             </div>
+            )}
+            {!searchQuery.trim() && (
             <div className="relative z-10 p-4 max-w-2xl mx-auto">
                 <div className="rounded-2xl shadow-botanical border border-linen-200 bg-white p-6 flex gap-4 transition hover:shadow-cozy hover:-translate-y-1">
                     <button
@@ -484,19 +680,28 @@ const Profile = () => {
                     </button>
                 </div>
             </div>
+            )}
             <div className="relative z-10 p-4 max-w-2xl mx-auto space-y-8 pb-20">
                 <div>
                     <div className="flex items-center justify-between mb-4">
-                        <h3 className="text-xl font-serif font-semibold text-charcoal-700">Most Popular Lists</h3>
+                        <h3 className="text-xl font-serif font-semibold text-charcoal-700">{searchQuery.trim() ? 'Your Lists' : 'Most Popular Lists'}</h3>
+                        {!searchQuery.trim() && (
                         <button
-                            onClick={() => navigate('/lists')}
+                            onClick={() => {
+                                const params = new URLSearchParams()
+                                if (selectedTags.length > 0) params.set('tags', selectedTags.join(','))
+                                if (sortBy) params.set('sort', sortBy)
+                                params.set('onlyMine', 'true')
+                                navigate(`/lists?${params.toString()}`)
+                            }}
                             className="text-sm font-medium text-sage-700 hover:underline"
                         >
                             View All
                         </button>
+                        )}
                     </div>
                     <div className="space-y-4">
-                        {filteredLists.map((list) => (
+                        {visibleLists.map((list) => (
                             <div
                                 key={list.id}
                                 role="button"
@@ -506,7 +711,7 @@ const Profile = () => {
                                 aria-label={`Open list ${list.name}`}
                             >
                                 <div className="w-full md:w-40 h-28 md:h-auto flex-shrink-0 bg-linen-100">
-                                    <img src={list.coverImage} alt={list.name} className="w-full h-full object-cover rounded-l-2xl" />
+                                    <img src={list.coverImage} alt={list.name} className="w-full h-full object-cover rounded-l-2xl" loading="lazy" />
                                 </div>
                                 <div className="flex-1 p-4 flex flex-col justify-between">
                                     <div>
@@ -516,6 +721,23 @@ const Profile = () => {
                                                 <span className="px-2 py-1 rounded-full text-xs font-medium bg-gold-100 text-gold-700 border border-gold-200">
                                                     Auto
                                                 </span>
+                                            )}
+                                            {currentUser?.id === list.userId && (
+                                                <button
+                                                    ref={listMenuButtonRef}
+                                                    onClick={(e) => {
+                                                        e.stopPropagation()
+                                                        setSelectedListId(list.id)
+                                                        // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+                                                        // @ts-ignore
+                                                        listMenuButtonRef.current = e.currentTarget as HTMLButtonElement
+                                                        setShowListMenu(true)
+                                                    }}
+                                                    className="ml-auto w-8 h-8 bg-linen-100 rounded-full flex items-center justify-center hover:bg-linen-200 transition-colors"
+                                                    aria-label="Open list actions"
+                                                >
+                                                    <EllipsisHorizontalIcon className="w-5 h-5 text-charcoal-600" />
+                                                </button>
                                             )}
                                         </div>
                                         <p className="text-sm text-charcoal-500 mb-2 leading-relaxed break-words">{list.description}</p>
@@ -535,7 +757,7 @@ const Profile = () => {
                                         </div>
                                     </div>
                                     <div className="flex items-center gap-2 mt-2">
-                                        <img src={currentUser?.avatar || 'https://via.placeholder.com/150'} alt={currentUser?.name || 'User'} className="w-6 h-6 rounded-full border-2 border-white shadow-soft object-cover" />
+                                        <img src={currentUser?.avatar || 'https://via.placeholder.com/150'} alt={currentUser?.name || 'User'} className="w-6 h-6 rounded-full border-2 border-white shadow-soft object-cover" loading="lazy" />
                                         <span className="text-xs text-charcoal-500 font-medium">{currentUser?.name || 'User'}</span>
                                         <div className="ml-auto flex items-center gap-2">
                                             <button
@@ -590,11 +812,42 @@ const Profile = () => {
                             </div>
                         ))}
                     </div>
+                    {visibleCount < sortedLists.length && (
+                        <div className="mt-4 flex justify-center">
+                            <button
+                                onClick={() => setVisibleCount(c => c + 6)}
+                                className="px-4 py-2 rounded-xl bg-linen-100 text-sage-700 border border-linen-200 hover:bg-linen-200 transition"
+                            >
+                                Load more
+                            </button>
+                        </div>
+                    )}
+                    {/* Reset filters/tags when any tag filters are active */}
+                    {(selectedTags.length > 0 || activeFilters.length > 0 || searchQuery.trim()) && (
+                        <div className="mt-2">
+                            <button
+                                onClick={() => { setSelectedTags([]); setActiveFilters([]); setSearchQuery(''); setSortBy('popular'); }}
+                                className="text-xs text-charcoal-500 hover:underline"
+                            >
+                                Reset filters
+                            </button>
+                        </div>
+                    )}
                 </div>
                 <div>
-                    <h3 className="text-xl font-serif font-semibold text-charcoal-700 mb-4">Recent Activity</h3>
+                    <div className="flex items-center justify-between mb-4">
+                        <h3 className="text-xl font-serif font-semibold text-charcoal-700">Recent Activity</h3>
+                        {!searchQuery.trim() && (
+                            <button
+                                onClick={() => setShowAllActivity(prev => !prev)}
+                                className="text-sm font-medium text-sage-700 hover:underline"
+                            >
+                                {showAllActivity ? 'Show less' : 'See all recent activity'}
+                            </button>
+                        )}
+                    </div>
                     <div className="space-y-4">
-                        {activityItems.map((activity) => (
+                        {activityToShow.map((activity) => (
                             <div key={activity.id} className="rounded-2xl shadow-soft border border-linen-200 bg-white/98 flex items-center gap-4 p-4 transition hover:shadow-cozy hover:-translate-y-1">
                                 <div className="w-12 h-12 rounded-xl bg-sage-100 flex items-center justify-center">
                                     <BookmarkIcon className="w-6 h-6 text-sage-500" />
@@ -603,14 +856,21 @@ const Profile = () => {
                                     <p className="text-sm text-charcoal-700 font-medium">
                                         Saved <span className="font-semibold">{activity.place?.name}</span> to <span className="font-semibold">{activity.list?.name}</span>
                                     </p>
-                                    <p className="text-xs text-charcoal-400 mt-1">
-                                        {new Date(activity.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                                    </p>
+                                    <p className="text-xs text-charcoal-400 mt-1">{formatTimestamp((activity as any).createdAt)}</p>
                                 </div>
                             </div>
                         ))}
+                        {(!searchQuery.trim() && !showAllActivity && filteredActivityItems.length > 3) && (
+                            <button
+                                onClick={() => setShowAllActivity(true)}
+                                className="w-full mt-2 text-center text-sm font-medium text-sage-700 hover:underline"
+                            >
+                                See all recent activity
+                            </button>
+                        )}
                     </div>
                 </div>
+                {!searchQuery.trim() && (
                 <div className="rounded-2xl shadow-soft border border-linen-200 p-6">
                     <h3 className="text-xl font-serif font-semibold text-charcoal-700 mb-4">Comments</h3>
                     <div className="space-y-4 mb-4">
@@ -621,7 +881,7 @@ const Profile = () => {
                                     <div className="flex-1">
                                         <div className="flex items-center gap-2 mb-1">
                                             <span className="text-sm font-medium text-charcoal-700">{comment.username}</span>
-                                            <span className="text-xs text-charcoal-400">{new Date(comment.createdAt).toLocaleDateString()}</span>
+                                            <span className="text-xs text-charcoal-400">{formatTimestamp(comment.createdAt)}</span>
                                         </div>
                                         <p className="text-sm text-charcoal-600">{comment.text}</p>
                                     </div>
@@ -667,6 +927,7 @@ const Profile = () => {
                         />
                     </form>
                 </div>
+                )}
             </div>
             {selectedPlace && (
                 <SaveModal
@@ -684,7 +945,11 @@ const Profile = () => {
             <LocationSelectModal
                 isOpen={showLocationModal}
                 onClose={() => setShowLocationModal(false)}
-                onLocationSelect={() => setShowLocationModal(false)}
+                onLocationSelect={(loc: any) => {
+                    setSelectedLocation({ lat: loc.coordinates.lat, lng: loc.coordinates.lng, name: loc.name })
+                    setSortBy('nearby')
+                    setShowLocationModal(false)
+                }}
             />
             <CreatePost
                 isOpen={showCreatePost}
@@ -709,6 +974,117 @@ const Profile = () => {
                 }}
                 onImportFromGoogleMaps={handleImportFromGoogleMaps}
                 onLogout={handleLogout}
+            />
+            {/* List Menu Dropdown */}
+            <ListMenuDropdown
+                isOpen={showListMenu}
+                onClose={() => {
+                    setShowListMenu(false)
+                }}
+                buttonRef={listMenuButtonRef}
+                onEditList={() => {
+                    const list = userLists.find(l => l.id === selectedListId)
+                    if (!list) return
+                    setShowListMenu(false)
+                    // slight timeout to ensure menu unmounts before modal mounts
+                    setTimeout(() => {
+                        setShowEditListModal(true)
+                    }, 0)
+                }}
+                onChangePrivacy={() => {
+                    const list = userLists.find(l => l.id === selectedListId)
+                    if (!list) return
+                    setShowPrivacyModal(true)
+                    setShowListMenu(false)
+                }}
+                onDeleteList={() => {
+                    const list = userLists.find(l => l.id === selectedListId)
+                    if (!list) return
+                    setConfirmModalConfig({
+                        title: 'Delete List',
+                        message: `Are you sure you want to delete "${list.name}"? This action cannot be undone.`,
+                        onConfirm: async () => {
+                            try {
+                                await firebaseListService.deleteList(list.id)
+                                setUserLists(prev => prev.filter(l => l.id !== list.id))
+                            } catch (e) {
+                                console.error('Failed to delete list:', e)
+                            }
+                        }
+                    })
+                    setShowConfirmModal(true)
+                    setShowListMenu(false)
+                }}
+                isPublic={(() => {
+                    const list = userLists.find(l => l.id === selectedListId)
+                    if (!list) return true
+                    // Prefer explicit privacy flag, fallback to isPublic boolean
+                    return (list as any).privacy ? (list as any).privacy === 'public' : !!(list as any).isPublic
+                })()}
+                isOwner={true}
+            />
+            {/* Edit List Modal */}
+            <EditListModal
+                isOpen={showEditListModal}
+                onClose={() => setShowEditListModal(false)}
+                list={selectedListId ? (userLists.find(l => l.id === selectedListId)
+                  ? {
+                      id: (userLists.find(l => l.id === selectedListId) as any)!.id,
+                      name: (userLists.find(l => l.id === selectedListId) as any)!.name,
+                      description: (userLists.find(l => l.id === selectedListId) as any)!.description || '',
+                      privacy: (((userLists.find(l => l.id === selectedListId) as any)!.privacy) || 'public') as 'public' | 'private' | 'friends',
+                      tags: (userLists.find(l => l.id === selectedListId) as any)!.tags || [],
+                      coverImage: (userLists.find(l => l.id === selectedListId) as any)!.coverImage || ''
+                    }
+                  : null) : null}
+                onSave={async (listData) => {
+                    if (selectedListId) {
+                        try {
+                            await firebaseListService.updateList(selectedListId, listData as any)
+                        } catch (e) {
+                            console.error('Failed to save list changes:', e)
+                        }
+                    }
+                    // Update locally after successful save upstream
+                    setUserLists(prev => prev.map(l => l.id === selectedListId ? { ...l, ...listData } as List : l))
+                    setShowEditListModal(false)
+                }}
+            />
+            {/* Privacy Modal */}
+            <PrivacyModal
+                isOpen={showPrivacyModal}
+                onClose={() => setShowPrivacyModal(false)}
+                currentPrivacy={(selectedListId ? ((userLists.find(l => l.id === selectedListId) as any)?.privacy || 'public') : 'public')}
+                onPrivacyChange={async (newPrivacy) => {
+                    if (!selectedListId) return
+                    try {
+                        await firebaseListService.updateList(selectedListId, { privacy: newPrivacy } as any)
+                    } catch (e) {
+                        console.error('Failed to update privacy:', e)
+                    }
+                    setUserLists(prev => prev.map(l => l.id === selectedListId ? { ...l, privacy: newPrivacy, isPublic: (newPrivacy as any) === 'public' } as any : l))
+                }}
+                listName={selectedListId ? (userLists.find(l => l.id === selectedListId)?.name || '') : ''}
+            />
+            {/* Confirm Modal */}
+            <ConfirmModal
+                isOpen={showConfirmModal}
+                onClose={() => setShowConfirmModal(false)}
+                onConfirm={async () => {
+                    const list = userLists.find(l => l.id === selectedListId)
+                    if (!list) return
+                    try {
+                        await firebaseListService.deleteList(list.id)
+                        setUserLists(prev => prev.filter(l => l.id !== list.id))
+                    } catch (e) {
+                        console.error('Failed to delete list:', e)
+                    }
+                    setShowConfirmModal(false)
+                }}
+                title={confirmModalConfig.title}
+                message={confirmModalConfig.message}
+                confirmText="Delete"
+                type="danger"
             />
             <GoogleMapsImportModal
                 isOpen={showGoogleMapsImport}

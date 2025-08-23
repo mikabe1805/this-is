@@ -26,6 +26,7 @@ interface SearchAndFilterProps {
   onChange?: (e: React.ChangeEvent<HTMLInputElement>) => void
   onFocus?: (e: React.FocusEvent<HTMLInputElement>) => void
   onSubmit?: (e: React.FormEvent) => void
+  onSubmitQuery?: (query: string) => void
   // Filter props
   sortOptions: Option[]
   filterOptions: Option[]
@@ -40,8 +41,11 @@ interface SearchAndFilterProps {
   filterCount?: number
   hubFilter?: string | null
   onApplyFilters?: () => void
+  onOpenAdvanced?: () => void
   // Positioning
   dropdownPosition?: 'top-right' | 'bottom-right' | 'center'
+  distanceKm?: number
+  setDistanceKm?: (km: number) => void
 }
 
 const SearchAndFilter: React.FC<SearchAndFilterProps> = ({
@@ -53,6 +57,7 @@ const SearchAndFilter: React.FC<SearchAndFilterProps> = ({
   onChange,
   onFocus,
   onSubmit,
+  onSubmitQuery,
   sortOptions,
   filterOptions,
   availableTags,
@@ -65,9 +70,19 @@ const SearchAndFilter: React.FC<SearchAndFilterProps> = ({
   onLocationSelect,
   filterCount = 0,
   hubFilter,
-  dropdownPosition = 'top-right'
+  onOpenAdvanced,
+  dropdownPosition = 'top-right',
+  distanceKm,
+  setDistanceKm
 }) => {
   const [showDropdown, setShowDropdown] = useState(false)
+  const [internalValue, setInternalValue] = useState<string>(value || '')
+
+  // Keep internal value in sync if controlled
+  React.useEffect(() => {
+    if (onChange) return
+    setInternalValue(value || '')
+  }, [value, onChange])
   const filterButtonRef = useRef<HTMLButtonElement>(null)
 
   const handleFilterClick = () => {
@@ -132,10 +147,26 @@ const SearchAndFilter: React.FC<SearchAndFilterProps> = ({
             <input
               type="text"
               placeholder={placeholder}
-              value={onChange ? value : undefined}
-              defaultValue={!onChange ? value : undefined}
-              onChange={onChange}
+              value={onChange ? value : internalValue}
+              onChange={onChange ?? ((e) => setInternalValue(e.target.value))}
               onFocus={onFocus}
+              autoComplete="off"
+              autoCapitalize="none"
+              autoCorrect="off"
+              inputMode="search"
+              enterKeyHint="search"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault()
+                  if (onSubmit) {
+                    // Let parent form handler run as well
+                    onSubmit({ preventDefault: () => {}, stopPropagation: () => {} } as unknown as React.FormEvent)
+                  }
+                  if (onSubmitQuery) {
+                    onSubmitQuery(onChange ? (value || '') : internalValue)
+                  }
+                }
+              }}
               className="w-full pl-12 pr-4 py-3 bg-white/80 backdrop-blur-sm border border-linen-200 rounded-2xl text-charcoal-600 placeholder-charcoal-400 focus:outline-none focus:ring-2 focus:ring-sage-200 focus:border-sage-300 shadow-soft transition-all duration-300"
             />
           </div>
@@ -172,6 +203,9 @@ const SearchAndFilter: React.FC<SearchAndFilterProps> = ({
         anchorRect={filterButtonRef.current?.getBoundingClientRect() || null}
         onLocationSelect={onLocationSelect}
         hubFilter={hubFilter}
+        onOpenAdvanced={onOpenAdvanced}
+        distanceKm={distanceKm}
+        setDistanceKm={setDistanceKm}
       />
     </div>
   )

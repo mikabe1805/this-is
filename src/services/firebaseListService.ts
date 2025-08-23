@@ -32,6 +32,7 @@ class FirebaseListService {
         name: listData.name,
         description: listData.description,
         privacy: listData.privacy,
+        isPublic: listData.privacy === 'public',
         tags: listData.tags,
         userId: listData.userId,
         coverImage: coverImageUrl,
@@ -217,7 +218,11 @@ class FirebaseListService {
 
   async updateList(listId: string, data: Partial<List>): Promise<void> {
     const listRef = doc(db, 'lists', listId);
-    await updateDoc(listRef, { ...data, updatedAt: Timestamp.now() });
+    const updatePayload: any = { ...data, updatedAt: Timestamp.now() };
+    if (typeof (data as any).privacy === 'string') {
+      updatePayload.isPublic = (data as any).privacy === 'public';
+    }
+    await updateDoc(listRef, updatePayload);
   }
 
   async deleteList(listId: string): Promise<void> {

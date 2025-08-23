@@ -109,6 +109,12 @@ service cloud.firestore {
       allow write: if isAuthenticated(); // Allow authenticated users to create/update tags
     }
 
+    // UserTags collection - personality tags
+    match /userTags/{tagId} {
+      allow read: if true; // Allow all reads so clients can fetch relevant tags
+      allow write: if isAuthenticated(); // Allow authenticated users to create/update their own tags
+    }
+
     // User preferences collection - Allow read/write for demo purposes
     match /userPreferences/{userId} {
       allow read: if true; // Allow all reads for demo

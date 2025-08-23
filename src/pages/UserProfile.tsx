@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { formatTimestamp } from '../utils/dateUtils';
 import { useParams, useNavigate } from 'react-router-dom';
 import { MapPinIcon, UserIcon, CalendarIcon, HeartIcon, BookmarkIcon, EyeIcon, PlusIcon, ShareIcon, ArrowLeftIcon } from '@heroicons/react/24/outline';
 import { HeartIcon as HeartIconSolid, BookmarkIcon as BookmarkIconSolid, EyeIcon as EyeIconSolid } from '@heroicons/react/24/solid';
@@ -6,6 +7,8 @@ import type { User, Post, List } from '../types/index.js';
 import { firebaseListService } from '../services/firebaseListService.js';
 import { useAuth } from '../contexts/AuthContext.js';
 import firebaseDataService from '../services/firebaseDataService.js';
+import SearchAndFilter from '../components/SearchAndFilter';
+import TagSearchModal from '../components/TagSearchModal';
 
 const UserProfile = () => {
   const { userId } = useParams<{ userId: string }>();
@@ -19,6 +22,7 @@ const UserProfile = () => {
   const [likedPosts, setLikedPosts] = useState<Set<string>>(new Set());
   const [savedPosts, setSavedPosts] = useState<Set<string>>(new Set());
   const [likedLists, setLikedLists] = useState<Set<string>>(new Set());
+  const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
     const fetchData = async () => {
@@ -146,6 +150,24 @@ const UserProfile = () => {
             <ShareIcon className="w-6 h-6 text-charcoal-600" />
           </button>
         </div>
+        <div className="max-w-2xl mx-auto px-4 pb-4">
+          <form onSubmit={(e) => { e.preventDefault(); }}>
+            <SearchAndFilter
+              placeholder={`Search ${user.name}'s posts and lists...`}
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              sortOptions={[{ key: 'relevance', label: 'Relevance' }, { key: 'recent', label: 'Most Recent' }]}
+              filterOptions={[]}
+              availableTags={[]}
+              sortBy={'recent'}
+              setSortBy={() => {}}
+              activeFilters={[]}
+              setActiveFilters={() => {}}
+              dropdownPosition="top-right"
+              onSubmitQuery={() => { /* in-place filtering */ }}
+            />
+          </form>
+        </div>
       </div>
 
       {/* Profile Header */}
@@ -156,6 +178,7 @@ const UserProfile = () => {
               src={user.avatar}
               alt={user.name}
               className="w-24 h-24 rounded-full border-4 border-white shadow-botanical"
+              loading="lazy"
             />
             <div className="flex-1">
               <div className="flex items-center gap-3 mb-2">
@@ -192,7 +215,7 @@ const UserProfile = () => {
               <div className="flex items-center gap-4 text-sm text-charcoal-500">
                 <div className="flex items-center gap-1">
                   <CalendarIcon className="w-4 h-4" />
-                  <span>Joined {new Date(user.createdAt.seconds ? user.createdAt.toDate() : user.createdAt).toLocaleDateString()}</span>
+                  <span>Joined {formatTimestamp(user.createdAt)}</span>
                 </div>
               </div>
             </div>
@@ -266,8 +289,14 @@ const UserProfile = () => {
         {/* Tab content */}
         {activeTab === 'posts' && (
           <div className="space-y-4">
-            {posts.length > 0 ? (
-              posts.map((post) => (
+            {(() => {
+              const q = searchQuery.trim().toLowerCase();
+              const filtered = q ? posts.filter(p => (
+                (p.description || '').toLowerCase().includes(q) ||
+                (p.tags || []).some((t: string) => t.toLowerCase().includes(q))
+              )) : posts;
+              return filtered.length > 0 ? (
+              filtered.map((post) => (
                 <div
                   key={post.id}
                   className="bg-white/98 backdrop-blur-sm rounded-2xl shadow-botanical border border-linen-200 overflow-hidden"
@@ -279,13 +308,12 @@ const UserProfile = () => {
                         src={post.userAvatar}
                         alt={post.username}
                         className="w-10 h-10 rounded-full border-2 border-white shadow-soft"
+                        loading="lazy"
                       />
                       <div className="flex-1">
                         <div className="flex items-center gap-2">
                           <span className="font-semibold text-charcoal-700">{post.username}</span>
-                          <span className="text-xs text-charcoal-500">
-                            {new Date(post.createdAt.seconds ? post.createdAt.toDate() : post.createdAt).toLocaleDateString()}
-                          </span>
+                          <span className="text-xs text-charcoal-500">{formatTimestamp(post.createdAt)}</span>
                         </div>
                         <div className="flex items-center gap-2 text-xs text-charcoal-500">
                           {post.postType === 'loved' && (
@@ -364,20 +392,28 @@ const UserProfile = () => {
                   </div>
                 </div>
               ))
-            ) : (
-              <div className="bg-white/98 backdrop-blur-sm rounded-2xl shadow-botanical border border-linen-200 p-8 text-center">
-                <UserIcon className="w-16 h-16 text-charcoal-300 mx-auto mb-4" />
-                <p className="text-charcoal-500 mb-2">No posts yet</p>
-                <p className="text-sm text-charcoal-400">This user hasn't shared any posts yet.</p>
-              </div>
-            )}
+              ) : (
+                <div className="bg-white/98 backdrop-blur-sm rounded-2xl shadow-botanical border border-linen-200 p-8 text-center">
+                  <UserIcon className="w-16 h-16 text-charcoal-300 mx-auto mb-4" />
+                  <p className="text-charcoal-500 mb-2">No posts found</p>
+                  <p className="text-sm text-charcoal-400">Try a different search.</p>
+                </div>
+              );
+            })()}
           </div>
         )}
 
         {activeTab === 'lists' && (
           <div className="space-y-4">
-            {lists.length > 0 ? (
-              lists.map((list) => (
+            {(() => {
+              const q = searchQuery.trim().toLowerCase();
+              const filtered = q ? lists.filter(l => (
+                (l.name || '').toLowerCase().includes(q) ||
+                (l.description || '').toLowerCase().includes(q) ||
+                (l.tags || []).some((t: string) => t.toLowerCase().includes(q))
+              )) : lists;
+              return filtered.length > 0 ? (
+              filtered.map((list) => (
                 <div
                   key={list.id}
                   className="bg-white/98 backdrop-blur-sm rounded-2xl shadow-botanical border border-linen-200 overflow-hidden"
@@ -389,6 +425,7 @@ const UserProfile = () => {
                           src={list.coverImage} 
                           alt={list.name} 
                           className="w-20 h-20 rounded-xl object-cover shadow-soft"
+                          loading="lazy"
                         />
                       )}
                       <div className="flex-1">
@@ -404,7 +441,7 @@ const UserProfile = () => {
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-4 text-sm text-charcoal-500">
                             <span>{list.likes || 0} likes</span>
-                            <span>Created {new Date(list.createdAt.seconds ? list.createdAt.toDate() : list.createdAt).toLocaleDateString()}</span>
+                            <span>Created {formatTimestamp(list.createdAt)}</span>
                           </div>
                           <button 
                             onClick={() => handleLikeList(list.id)}
@@ -426,13 +463,14 @@ const UserProfile = () => {
                   </div>
                 </div>
               ))
-            ) : (
-              <div className="bg-white/98 backdrop-blur-sm rounded-2xl shadow-botanical border border-linen-200 p-8 text-center">
-                <BookmarkIcon className="w-16 h-16 text-charcoal-300 mx-auto mb-4" />
-                <p className="text-charcoal-500 mb-2">No lists yet</p>
-                <p className="text-sm text-charcoal-400">This user hasn't created any lists yet.</p>
-              </div>
-            )}
+              ) : (
+                <div className="bg-white/98 backdrop-blur-sm rounded-2xl shadow-botanical border border-linen-200 p-8 text-center">
+                  <BookmarkIcon className="w-16 h-16 text-charcoal-300 mx-auto mb-4" />
+                  <p className="text-charcoal-500 mb-2">No lists found</p>
+                  <p className="text-sm text-charcoal-400">Try a different search.</p>
+                </div>
+              );
+            })()}
           </div>
         )}
       </div>

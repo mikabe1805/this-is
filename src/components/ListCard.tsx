@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { HeartIcon, BookmarkIcon, EyeIcon, UserIcon, StarIcon, EllipsisHorizontalIcon } from '@heroicons/react/24/outline'
 import { HeartIcon as HeartIconSolid } from '@heroicons/react/24/solid'
 import TagCloud from './TagCloud'
@@ -55,6 +55,7 @@ const ListCard = ({
 }: ListCardProps) => {
   const [isExpanded, setIsExpanded] = useState(false)
   const [showListMenu, setShowListMenu] = useState(false)
+  const menuButtonRef = useRef<HTMLButtonElement>(null)
   const navigate = useNavigate()
 
   // Check if this is a default "All" list
@@ -154,6 +155,7 @@ const ListCard = ({
                   e.stopPropagation()
                   setShowListMenu(true)
                 }}
+                ref={menuButtonRef}
                 className="w-8 h-8 bg-linen-100 rounded-full flex items-center justify-center hover:bg-linen-200 transition-colors"
               >
                 <EllipsisHorizontalIcon className="w-4 h-4 text-charcoal-600" />
@@ -301,8 +303,9 @@ const ListCard = ({
         isOpen={showListMenu}
         onClose={() => setShowListMenu(false)}
         onEditList={onEditList}
-        onTogglePrivacy={onTogglePrivacy}
-        onDelete={onDelete}
+        onChangePrivacy={onTogglePrivacy}
+        onDeleteList={onDelete}
+        buttonRef={menuButtonRef}
         isPublic={!isPrivate}
         isOwner={isOwner}
       />

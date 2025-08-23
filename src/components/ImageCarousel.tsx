@@ -39,13 +39,8 @@ const ImageCarousel: React.FC<ImageCarouselProps> = ({
     touchEndX.current = e.targetTouches[0].clientX
     touchEndY.current = e.targetTouches[0].clientY
     
-    // Only prevent default if it's a significant horizontal movement
-    const horizontalDistance = Math.abs(touchStartX.current - touchEndX.current)
-    const verticalDistance = Math.abs((touchStartY.current || 0) - (touchEndY.current || 0))
-    
-    if (horizontalDistance > 10 && horizontalDistance > verticalDistance) {
-      e.preventDefault()
-    }
+    // Only compute; do not call preventDefault on passive listeners
+    // Horizontal swipe detection happens on touchend
   }
 
   const handleTouchEnd = (e: React.TouchEvent) => {
@@ -64,8 +59,7 @@ const ImageCarousel: React.FC<ImageCarouselProps> = ({
       return
     }
 
-    // Only prevent default and stop propagation if we're handling a horizontal swipe
-    e.preventDefault()
+    // Stop propagation only; rely on CSS touch-action to prevent default scrolling
     e.stopPropagation()
     
     if (swipeDistance > 0) {
@@ -109,7 +103,7 @@ const ImageCarousel: React.FC<ImageCarouselProps> = ({
     <div
       ref={containerRef}
       className={`relative w-full h-full overflow-hidden ${className}`}
-      style={{ touchAction: 'pan-x' }}
+      style={{ touchAction: 'pan-y' }}
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
@@ -121,39 +115,46 @@ const ImageCarousel: React.FC<ImageCarouselProps> = ({
       >
         {images.map((src, idx) => (
           <div key={idx} className="relative w-full h-full flex-shrink-0">
-                                    <img
-                          src={src}
-                          alt={`Image ${idx + 1}`}
-                          className="w-full h-full object-cover"
-                          style={{ 
+            <img
+              src={src}
+              alt={`Image ${idx + 1}`}
+              className="w-full h-full object-cover"
+              style={{ 
                 objectFit: 'cover', 
                 width: '100%', 
                 height: '100%', 
-                minHeight: '100vh',
                 backfaceVisibility: 'hidden',
                 transform: 'translateZ(0)'
               }}
-                          draggable={false}
-                        />
+              draggable={false}
+              onError={(e) => {
+                // Skip broken first image by advancing index; swap to a fallback
+                const target = e.currentTarget as HTMLImageElement
+                target.src = '/assets/leaf.png'
+                if (idx === 0 && images.length > 1) {
+                  const newIndex = 1
+                  setCurrentIndex(newIndex)
+                  if (onIndexChange) onIndexChange(newIndex)
+                }
+              }}
+            />
           </div>
         ))}
       </div>
 
       {/* Dots Indicator */}
-                        {images.length > 1 && (
-                    <div className="absolute bottom-20 left-1/2 transform -translate-x-1/2 flex gap-2">
-                      {images.map((_, idx) => (
-                        <div
-                          key={idx}
-                          className={`w-2 h-2 rounded-full transition-all duration-300 ${
-                            idx === currentIndex
-                              ? 'bg-white scale-110'
-                              : 'bg-white/50'
-                          }`}
-                        />
-                      ))}
-                    </div>
-                  )}
+      {images.length > 1 && (
+        <div className="pointer-events-none absolute bottom-2 left-1/2 transform -translate-x-1/2 flex gap-2">
+          {images.map((_, idx) => (
+            <div
+              key={idx}
+              className={`w-2 h-2 rounded-full transition-all duration-300 ${
+                idx === currentIndex ? 'bg-white scale-110' : 'bg-white/50'
+              }`}
+            />
+          ))}
+        </div>
+      )}
     </div>
   )
 }

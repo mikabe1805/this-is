@@ -92,6 +92,15 @@ const NavigationModals = () => {
           onOpenHub={(place) => {
             openHubModal(place, 'list-modal')
           }}
+          onEditList={(list) => {
+            window.dispatchEvent(new CustomEvent('openEditListFromModal', { detail: { listId: list.id } }))
+          }}
+          onChangePrivacy={(list) => {
+            window.dispatchEvent(new CustomEvent('openPrivacyFromModal', { detail: { listId: list.id } }))
+          }}
+          onDeleteList={(list) => {
+            window.dispatchEvent(new CustomEvent('openDeleteFromModal', { detail: { listId: list.id } }))
+          }}
         />
       )}
 

@@ -11,6 +11,9 @@ interface TagAutocompleteProps {
   availableTags: string[]
   className?: string
   disabled?: boolean
+  showPopularTags?: boolean
+  popularLabel?: string
+  persistTo?: 'tags' | 'userTags'
 }
 
 export default function TagAutocomplete({
@@ -22,7 +25,10 @@ export default function TagAutocomplete({
   currentTags,
   availableTags,
   className = "",
-  disabled = false
+  disabled = false,
+  showPopularTags = true,
+  popularLabel = 'Popular tags',
+  persistTo = 'tags'
 }: TagAutocompleteProps) {
   const [showDropdown, setShowDropdown] = useState(false)
   const [filteredTags, setFilteredTags] = useState<string[]>([])
@@ -41,18 +47,23 @@ export default function TagAutocomplete({
     }
   }, [value, availableTags, currentTags])
 
+  const persistTag = async (tag: string) => {
+    try {
+      if (persistTo === 'userTags') {
+        await firebaseDataService.addUserTag(tag)
+      } else {
+        await firebaseDataService.addTag(tag)
+      }
+    } catch (error) {
+      console.error('Error saving tag:', error)
+    }
+  }
+
   const handleSelectTag = async (tag: string) => {
     onChange(tag)
     setShowDropdown(false)
-    
-    // Save new tag to Firebase if it's not in availableTags
     if (!availableTags.includes(tag)) {
-      try {
-        await firebaseDataService.addTag(tag)
-      } catch (error) {
-        console.error('Error saving tag to Firebase:', error)
-        // Don't block the UI if tag saving fails
-      }
+      await persistTag(tag)
     }
   }
 
@@ -66,15 +77,8 @@ export default function TagAutocomplete({
   const handleAddTag = async () => {
     if (value.trim() && !currentTags.includes(value.trim()) && currentTags.length < maxTags) {
       onAdd()
-      
-      // Save new tag to Firebase if it's not in availableTags
       if (!availableTags.includes(value.trim())) {
-        try {
-          await firebaseDataService.addTag(value.trim())
-        } catch (error) {
-          console.error('Error saving tag to Firebase:', error)
-          // Don't block the UI if tag saving fails
-        }
+        await persistTag(value.trim())
       }
     }
   }
@@ -86,7 +90,6 @@ export default function TagAutocomplete({
   }
 
   const handleBlur = () => {
-    // Small delay to allow clicking on dropdown items
     setTimeout(() => setShowDropdown(false), 150)
   }
 
@@ -127,26 +130,27 @@ export default function TagAutocomplete({
         </div>
       )}
       
-      {/* Popular tags */}
-      <div className="mt-2">
-        <p className="text-xs text-charcoal-500 mb-2">Popular tags:</p>
-        <div className="flex flex-wrap gap-1">
-          {availableTags.slice(0, 6).map((tag) => (
-            <button
-              key={tag}
-              onClick={() => !currentTags.includes(tag) && currentTags.length < maxTags && handleSelectTag(tag)}
-              disabled={currentTags.includes(tag) || currentTags.length >= maxTags}
-              className={`px-2 py-1 rounded-full text-xs transition ${
-                currentTags.includes(tag) || currentTags.length >= maxTags
-                  ? 'bg-sage-200 text-sage-600 cursor-not-allowed opacity-50'
-                  : 'bg-linen-100 text-charcoal-600 hover:bg-sage-100'
-              }`}
-            >
-              #{tag}
-            </button>
-          ))}
+      {showPopularTags && (
+        <div className="mt-2">
+          <p className="text-xs text-charcoal-500 mb-2">{popularLabel}:</p>
+          <div className="flex flex-wrap gap-1">
+            {availableTags.slice(0, 6).map((tag) => (
+              <button
+                key={tag}
+                onClick={() => !currentTags.includes(tag) && currentTags.length < maxTags && handleSelectTag(tag)}
+                disabled={currentTags.includes(tag) || currentTags.length >= maxTags}
+                className={`px-2 py-1 rounded-full text-xs transition ${
+                  currentTags.includes(tag) || currentTags.length >= maxTags
+                    ? 'bg-sage-200 text-sage-600 cursor-not-allowed opacity-50'
+                    : 'bg-linen-100 text-charcoal-600 hover:bg-sage-100'
+                }`}
+              >
+                #{tag}
+              </button>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   )
 } 

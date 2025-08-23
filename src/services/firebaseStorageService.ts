@@ -9,8 +9,9 @@ export class FirebaseStorageService {
   async uploadProfilePicture(userId: string, file: File): Promise<string> {
     try {
       // Validate file
+      // Allow any image/* type including HEIC/HEIF; convert/compress when possible
       if (!this.isValidImageFile(file)) {
-        throw new Error('Invalid file type. Please upload a valid image (JPG, PNG, GIF, WebP)')
+        throw new Error('Invalid file type. Please upload a valid image')
       }
 
       if (file.size > 5 * 1024 * 1024) { // 5MB limit
@@ -24,8 +25,14 @@ export class FirebaseStorageService {
       // Create storage reference
       const storageRef = ref(storage, `profile-pictures/${fileName}`)
       
+      // Compress before upload when possible
+      let toUpload = file
+      try {
+        toUpload = await this.compressImage(file, 1200, 0.85)
+      } catch {}
+
       // Upload file
-      const snapshot = await uploadBytes(storageRef, file)
+      const snapshot = await uploadBytes(storageRef, toUpload)
       
       // Get download URL
       const downloadURL = await getDownloadURL(snapshot.ref)
@@ -56,7 +63,11 @@ export class FirebaseStorageService {
       const fileName = `hub_${hubId}_${imageIndex}_${Date.now()}.${fileExtension}`
       
       const storageRef = ref(storage, `hub-images/${fileName}`)
-      const snapshot = await uploadBytes(storageRef, file)
+      let toUpload = file
+      try {
+        toUpload = await this.compressImage(file, 1600, 0.85)
+      } catch {}
+      const snapshot = await uploadBytes(storageRef, toUpload)
       const downloadURL = await getDownloadURL(snapshot.ref)
       
       console.log('Hub image uploaded successfully:', downloadURL)
@@ -85,7 +96,11 @@ export class FirebaseStorageService {
       const fileName = `list_${listId}_${Date.now()}.${fileExtension}`
       
       const storageRef = ref(storage, `list-images/${fileName}`)
-      const snapshot = await uploadBytes(storageRef, file)
+      let toUpload = file
+      try {
+        toUpload = await this.compressImage(file, 1400, 0.85)
+      } catch {}
+      const snapshot = await uploadBytes(storageRef, toUpload)
       const downloadURL = await getDownloadURL(snapshot.ref)
       
       console.log('List image uploaded successfully:', downloadURL)
@@ -114,7 +129,11 @@ export class FirebaseStorageService {
       const fileName = `post_${postId}_${imageIndex}_${Date.now()}.${fileExtension}`
       
       const storageRef = ref(storage, `post-images/${fileName}`)
-      const snapshot = await uploadBytes(storageRef, file)
+      let toUpload = file
+      try {
+        toUpload = await this.compressImage(file, 1600, 0.85)
+      } catch {}
+      const snapshot = await uploadBytes(storageRef, toUpload)
       const downloadURL = await getDownloadURL(snapshot.ref)
       
       console.log('Post image uploaded successfully:', downloadURL)
@@ -131,9 +150,9 @@ export class FirebaseStorageService {
    */
   async uploadPostImages(postId: string, files: File[]): Promise<string[]> {
     try {
-      const uploadPromises = files.map((file, index) => 
-        this.uploadPostImage(postId, file, index)
-      )
+      const uploadPromises = files.map(async (file, index) => {
+        return this.uploadPostImage(postId, file, index)
+      })
       
       const urls = await Promise.all(uploadPromises)
       return urls
@@ -297,8 +316,8 @@ export class FirebaseStorageService {
    * Validate if file is a valid image
    */
   private isValidImageFile(file: File): boolean {
-    const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp']
-    return validTypes.includes(file.type)
+    // Accept any image/* (to include HEIC/HEIF from iOS) and rely on compress/upload handling
+    return file.type.startsWith('image/')
   }
 
   /**
@@ -335,11 +354,25 @@ export class FirebaseStorageService {
         // Draw and compress
         ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
         
+        // Choose an output type compatible with canvas encoders
+        const lowerType = (file.type || '').toLowerCase()
+        const needsConversion = lowerType.includes('heic') || lowerType.includes('heif') || lowerType === ''
+        const outputType = needsConversion ? 'image/jpeg' : file.type
+
+        // Ensure filename extension matches outputType
+        const getExtFromMime = (mime: string) => {
+          if (mime === 'image/png') return 'png'
+          if (mime === 'image/webp') return 'webp'
+          return 'jpg'
+        }
+        const baseName = file.name.includes('.') ? file.name.substring(0, file.name.lastIndexOf('.')) : file.name
+        const newName = `${baseName}.${getExtFromMime(outputType)}`
+
         canvas.toBlob(
           (blob) => {
             if (blob) {
-              const compressedFile = new File([blob], file.name, {
-                type: file.type,
+              const compressedFile = new File([blob], newName, {
+                type: outputType,
                 lastModified: Date.now()
               })
               resolve(compressedFile)
@@ -347,7 +380,7 @@ export class FirebaseStorageService {
               resolve(file) // Fallback to original
             }
           },
-          file.type,
+          outputType,
           quality
         )
       }

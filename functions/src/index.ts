@@ -2,7 +2,6 @@ import {onCall, onRequest} from "firebase-functions/v2/https";
 import {setGlobalOptions} from "firebase-functions";
 import {logger} from "firebase-functions";
 import cors from "cors";
-import fetch from "node-fetch";
 import * as cheerio from "cheerio";
 import * as admin from 'firebase-admin';
 
@@ -405,3 +404,5 @@ export const extractEmbedCallable = onCall(async (request) => {
 
 export * from './analytics-cleanup';
 export * from './influences';
+export * from './content-enrichment';
+export * from './places';

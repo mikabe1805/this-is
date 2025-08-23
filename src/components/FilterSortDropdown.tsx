@@ -1,7 +1,8 @@
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { EllipsisHorizontalIcon } from '@heroicons/react/24/outline'
 import TagSearchModal from './TagSearchModal'
+import { useFilters } from '../contexts/FiltersContext'
 
 interface Option {
   key: string
@@ -34,6 +35,9 @@ interface FilterSortDropdownProps {
   onLocationSelect?: (location: Location) => void
   hubFilter?: string | null
   onApplyFilters?: () => void
+  onOpenAdvanced?: () => void
+  distanceKm?: number
+  setDistanceKm?: (km: number) => void
 }
 
 const PANEL_WIDTH = 320
@@ -53,9 +57,17 @@ const FilterSortDropdown: React.FC<FilterSortDropdownProps> = ({
   anchorRect,
   onLocationSelect,
   hubFilter,
-  onApplyFilters
+  onApplyFilters,
+  onOpenAdvanced,
+  distanceKm,
+  setDistanceKm
 }) => {
   const [showTagSearch, setShowTagSearch] = useState(false)
+  const [tagQuery, setTagQuery] = useState('')
+  const { resetFilters } = useFilters()
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => { setMounted(true) }, [])
 
   if (!show) return null
 
@@ -73,8 +85,8 @@ const FilterSortDropdown: React.FC<FilterSortDropdownProps> = ({
 
   return createPortal(
     <>
-      <div className="fixed inset-0 z-[9999] bg-black/10" onClick={onClose}></div>
-      <div style={panelStyle} className="rounded-2xl shadow-cozy border border-linen-200 bg-white/95 p-6">
+      <div className={`fixed inset-0 z-[9999] bg-black/10 transition-opacity duration-200 ${mounted ? 'opacity-100' : 'opacity-0'}`} onClick={onClose}></div>
+      <div style={panelStyle} className={`rounded-2xl shadow-cozy border border-linen-200 bg-white p-6 transition-all duration-200 ${mounted ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 translate-y-2 scale-95'}`}>
         <div className="mb-6">
           <div className="font-serif font-semibold mb-4 text-lg text-charcoal-700">Sort by</div>
           <div className="space-y-2">
@@ -122,24 +134,60 @@ const FilterSortDropdown: React.FC<FilterSortDropdownProps> = ({
               </label>
             ))}
           </div>
+          {/* Distance filter (optional) */}
+          {typeof distanceKm === 'number' && setDistanceKm && (
+            <div className="mb-4">
+              <div className="flex items-center justify-between mb-2">
+                <div className="text-sm font-medium text-charcoal-700">Max distance</div>
+                <div className="text-sm text-charcoal-600">{Math.round(distanceKm)} km</div>
+              </div>
+              <input
+                type="range"
+                min={5}
+                max={200}
+                step={5}
+                value={distanceKm}
+                onChange={(e)=> setDistanceKm(parseInt(e.target.value,10))}
+                className="w-full"
+              />
+              <div className="flex justify-between text-xs text-charcoal-500 mt-1">
+                <span>5</span>
+                <span>200</span>
+              </div>
+            </div>
+          )}
+          {/* Inline tag search */}
+          <div className="mb-3">
+            <input
+              type="text"
+              value={tagQuery}
+              onChange={(e) => setTagQuery(e.target.value)}
+              placeholder="Search tags..."
+              className="w-full px-3 py-2 rounded-lg border border-linen-200 bg-white text-charcoal-600 focus:outline-none focus:ring-2 focus:ring-sage-200"
+            />
+          </div>
           <div className="flex flex-wrap gap-2">
-            {availableTags.slice(0, 6).map(tag => (
+            {[...selectedTags, ...availableTags.filter(t => !selectedTags.includes(t))]
+              .filter(t => t.toLowerCase().includes(tagQuery.toLowerCase()))
+              .slice(0, 12)
+              .map(tag => (
               <label key={tag} className="flex items-center gap-2 px-3 py-2 rounded-full text-sm font-medium bg-linen-100 border border-linen-200 text-charcoal-500 hover:bg-linen-200 cursor-pointer">
                 <input
                   type="checkbox"
-                  checked={activeFilters.includes(tag)}
+                  checked={selectedTags.includes(tag)}
                   onChange={() => {
-                    const newFilters = activeFilters.includes(tag)
-                      ? activeFilters.filter(f => f !== tag)
-                      : [...activeFilters, tag];
-                    setActiveFilters(newFilters);
+                    if (!setSelectedTags) return
+                    const newTags = selectedTags.includes(tag)
+                      ? selectedTags.filter(t => t !== tag)
+                      : [...selectedTags, tag]
+                    setSelectedTags(newTags)
                   }}
                   className="w-4 h-4 text-sage-500 focus:ring-sage-400"
                 />
                 {tag}
               </label>
             ))}
-            {availableTags.length > 6 && (
+            {availableTags.filter(t => t.toLowerCase().includes(tagQuery.toLowerCase())).length > 12 && (
               <button
                 onClick={() => setShowTagSearch(true)}
                 className="flex items-center gap-2 px-3 py-2 rounded-full text-sm font-medium bg-linen-100 border border-linen-200 text-charcoal-500 hover:bg-linen-200 cursor-pointer transition"
@@ -149,27 +197,50 @@ const FilterSortDropdown: React.FC<FilterSortDropdownProps> = ({
             )}
           </div>
         </div>
-        <button
-          className="mt-6 w-full py-3 rounded-full font-semibold bg-sage-400 text-white shadow-soft hover:bg-sage-500 transition"
-          onClick={() => {
-            if (onApplyFilters) {
-              onApplyFilters()
-            }
-            onClose()
-          }}
-        >
-          Apply Filters
-        </button>
+        {onOpenAdvanced && (
+          <div className="mt-4 mb-2 flex justify-end">
+            <button
+              className="px-3 py-1.5 rounded-full text-sm font-semibold bg-white text-sage-700 border border-sage-200 shadow-soft hover:bg-sage-50 transition"
+              onClick={() => { onOpenAdvanced(); onClose(); }}
+            >
+              Advanced filters
+            </button>
+          </div>
+        )}
+        <div className="mt-4 flex gap-2">
+          <button
+            className="flex-1 py-3 rounded-full font-semibold bg-sage-400 text-white shadow-soft hover:bg-sage-500 transition"
+            onClick={() => {
+              if (onApplyFilters) {
+                onApplyFilters()
+              }
+              onClose()
+            }}
+          >
+            Apply Filters
+          </button>
+          <button
+            className="px-4 py-3 rounded-full font-semibold bg-linen-100 text-charcoal-700 border border-linen-200 hover:bg-linen-200 transition"
+            onClick={() => {
+              // Reset both general and advanced filters
+              resetFilters()
+              setActiveFilters([])
+              if (setSelectedTags) setSelectedTags([])
+              setTagQuery('')
+            }}
+          >
+            Reset
+          </button>
+        </div>
       </div>
 
       <TagSearchModal
         isOpen={showTagSearch}
         onClose={() => setShowTagSearch(false)}
         availableTags={availableTags}
-        selectedTags={activeFilters.filter(filter => availableTags.includes(filter))}
-                onTagsChange={(newTags) => {
-          const nonTagFilters = activeFilters.filter(f => !availableTags.includes(f));
-          setActiveFilters([...nonTagFilters, ...newTags]);
+        selectedTags={selectedTags}
+        onTagsChange={(newTags) => {
+          if (setSelectedTags) setSelectedTags(newTags)
         }}
       />
     </>,

@@ -1,5 +1,5 @@
-import type { Hub, Post, List, PostComment } from '../types/index.js'
-import { MapPinIcon, HeartIcon, BookmarkIcon, PlusIcon, ShareIcon, CameraIcon, ChatBubbleLeftIcon, XMarkIcon, ArrowRightIcon, ArrowLeftIcon, ArrowsPointingOutIcon } from '@heroicons/react/24/outline'
+import type { Hub, Post, List } from '../types/index.js'
+import { MapPinIcon, HeartIcon, BookmarkIcon, PlusIcon, ShareIcon, CameraIcon, XMarkIcon, ArrowRightIcon, ArrowLeftIcon, ArrowsPointingOutIcon, SparklesIcon } from '@heroicons/react/24/outline'
 import { HeartIcon as SolidHeartIcon } from '@heroicons/react/20/solid'
 import { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
@@ -28,7 +28,7 @@ interface HubModalProps {
 
 const HubModal = ({ hub, isOpen, onClose, onAddPost, onSave, onShare, onOpenFullScreen, showBackButton, onBack, onOpenList, initialTab = 'overview', initialPostId, savedFromListId }: HubModalProps) => {
   const { currentUser } = useAuth();
-  const { openListModal, openPostOverlay } = useNavigation()
+  const { openListModal, openPostOverlay, openHubModal } = useNavigation()
   const [tab, setTab] = useState<'overview' | 'posts'>('overview')
   const [posts, setPosts] = useState<Post[]>([])
   const [isVisible, setIsVisible] = useState(false)
@@ -38,12 +38,14 @@ const HubModal = ({ hub, isOpen, onClose, onAddPost, onSave, onShare, onOpenFull
   const [lists, setLists] = useState<List[]>([]);
   const [friendsLists, setFriendsLists] = useState<List[]>([]);
   const [sortBy, setSortBy] = useState<'likes' | 'recent'>('likes');
+  const isGoogleSuggestion = (hub as any)?.source === 'google'
 
   useEffect(() => {
     const fetchListsContainingHub = async () => {
       if (hub?.id) {
         const fetchedLists = await firebaseDataService.getListsContainingHub(hub.id);
-        setLists(fetchedLists);
+        // Exclude private lists from Popular Lists section
+        setLists(fetchedLists.filter(l => (l as any).privacy === 'public' || (l as any).isPublic === true));
         
         // Also fetch friends' lists if user is logged in
         if (currentUser) {
@@ -309,7 +311,14 @@ const HubModal = ({ hub, isOpen, onClose, onAddPost, onSave, onShare, onOpenFull
           
           {/* Text overlay */}
           <div className="absolute bottom-0 left-0 right-0 p-4 z-10">
-            <h1 className="text-3xl font-serif font-bold text-[#FAF3E3] drop-shadow-[1px_1px_2px_rgba(255,250,240,0.8)]">{hub?.name || 'Unknown Hub'}</h1>
+            <div className="flex items-center gap-2 mb-1">
+              <h1 className="text-3xl font-serif font-bold text-[#FAF3E3] drop-shadow-[1px_1px_2px_rgba(255,250,240,0.8)]">{hub?.name || 'Unknown Hub'}</h1>
+              {isGoogleSuggestion && (
+                <span className="inline-flex items-center gap-1 text-xs font-semibold text-[#1d4ed8] bg-white/80 px-2 py-1 rounded-full border border-white/60">
+                  <SparklesIcon className="w-3 h-3" /> Suggested
+                </span>
+              )}
+            </div>
             <div className="flex items-center text-white/90 text-sm mb-3 drop-shadow-md">
               <MapPinIcon className="w-4 h-4 mr-1.5" />
               {hub?.location?.address || 'No address available'}
@@ -352,8 +361,25 @@ const HubModal = ({ hub, isOpen, onClose, onAddPost, onSave, onShare, onOpenFull
           <div className="p-4 space-y-5 flex-1">
             {/* Action Buttons - Clean sticky positioning without background box */}
             <div className="flex gap-2 sticky top-0 z-20 pt-2 pb-3">
-              <a 
-                href={hub?.googleMapsUrl || '#'} 
+              <a
+                href={(function(){
+                  const direct = (hub as any)?.googleMapsUrl
+                  if (direct) return direct
+                  const addr = (hub as any)?.location?.address || (hub as any)?.address
+                  const name = (hub as any)?.name
+                  if (addr || name) {
+                    const q = encodeURIComponent([name, addr].filter(Boolean).join(' '))
+                    return `https://www.google.com/maps/search/?api=1&query=${q}`
+                  }
+                  const placeId = (hub as any)?.placeId
+                  if (placeId) return `https://www.google.com/maps/search/?api=1&query=place_id:${placeId}`
+                  const lat = (hub as any)?.location?.lat || (hub as any)?.coordinates?.lat
+                  const lng = (hub as any)?.location?.lng || (hub as any)?.coordinates?.lng
+                  if (typeof lat === 'number' && typeof lng === 'number') {
+                    return `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`
+                  }
+                  return '#'
+                })()}
                 target="_blank" 
                 rel="noopener noreferrer" 
                 className="flex-1 flex items-center justify-center gap-2 bg-gradient-to-r from-[#B08968] to-[#9A7B5A] text-[#FEF6E9] px-3 py-3 rounded-xl text-sm font-semibold shadow-lg border border-[#9A7B5A]/30 active:scale-95 transition-all duration-200 backdrop-blur-sm"
@@ -362,13 +388,33 @@ const HubModal = ({ hub, isOpen, onClose, onAddPost, onSave, onShare, onOpenFull
                 Directions
                 <ArrowRightIcon className="w-3 h-3" />
               </a>
-              <button 
-                onClick={(e) => { e.stopPropagation(); onAddPost?.(hub); }}
-                className="flex-1 flex items-center justify-center gap-2 bg-gradient-to-r from-[#D4A574] to-[#B08968] text-[#FEF6E9] px-3 py-3 rounded-xl text-sm font-semibold shadow-lg border border-[#B08968]/30 active:scale-95 transition-all duration-200 backdrop-blur-sm"
-              >
-                <PlusIcon className="w-4 h-4" />
-                Add Post
-              </button>
+              {isGoogleSuggestion ? (
+                <button 
+                  onClick={async (e) => { 
+                    e.stopPropagation(); 
+                    try {
+                      const coords = (hub as any)?.location ? { lat: (hub as any).location.lat || 0, lng: (hub as any).location.lng || 0 } : { lat: 0, lng: 0 }
+                      const hubId = await firebaseDataService.createHub({ name: hub.name, address: (hub as any)?.location?.address || (hub as any)?.address || '', description: '', coordinates: coords })
+                      const mapsUrl = coords.lat && coords.lng ? `https://www.google.com/maps/search/?api=1&query=${coords.lat},${coords.lng}` : ((hub as any)?.location?.address ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent((hub as any).location.address)}` : '')
+                      const newHub: any = { ...hub, id: hubId, source: undefined, googleMapsUrl: mapsUrl }
+                      onClose()
+                      setTimeout(()=> openHubModal(newHub, 'converted-google-suggestion'), 0)
+                    } catch (err) { console.error('Create hub from suggestion failed', err) }
+                  }}
+                  className="flex-1 flex items-center justify-center gap-2 bg-gradient-to-r from-[#2563eb] to-[#1d4ed8] text-white px-3 py-3 rounded-xl text-sm font-semibold shadow-lg border border-[#1d4ed8]/30 active:scale-95 transition-all duration-200 backdrop-blur-sm"
+                >
+                  <PlusIcon className="w-4 h-4" />
+                  Create Hub
+                </button>
+              ) : (
+                <button 
+                  onClick={(e) => { e.stopPropagation(); onAddPost?.(hub); }}
+                  className="flex-1 flex items-center justify-center gap-2 bg-gradient-to-r from-[#D4A574] to-[#B08968] text-[#FEF6E9] px-3 py-3 rounded-xl text-sm font-semibold shadow-lg border border-[#B08968]/30 active:scale-95 transition-all duration-200 backdrop-blur-sm"
+                >
+                  <PlusIcon className="w-4 h-4" />
+                  Add Post
+                </button>
+              )}
               <button 
                 onClick={(e) => { e.stopPropagation(); onSave?.(hub, savedFromListId); }}
                 className="flex-1 flex items-center justify-center gap-2 bg-gradient-to-r from-[#C17F59] to-[#B08968] text-[#FEF6E9] px-3 py-3 rounded-xl text-sm font-semibold shadow-lg border border-[#B08968]/30 active:scale-95 transition-all duration-200 backdrop-blur-sm"
@@ -424,6 +470,14 @@ const HubModal = ({ hub, isOpen, onClose, onAddPost, onSave, onShare, onOpenFull
             {/* Tab content */}
             {tab === 'overview' && (
               <div className="space-y-4 pb-6">
+                {isGoogleSuggestion && (
+                  <div className="bg-white/80 border border-blue-100 text-blue-700 rounded-xl p-3 flex items-start gap-2 shadow-soft">
+                    <SparklesIcon className="w-5 h-5 mt-0.5" />
+                    <div className="text-sm">
+                      This place is suggested from Google. Create a hub to start adding posts, comments, and lists.
+                    </div>
+                  </div>
+                )}
                 {/* Popular Lists */}
                 <div className="bg-[#fdf6e3]/50 backdrop-blur-sm rounded-xl p-4 border border-[#E8D4C0]/40 shadow-lg relative">
                   {/* Subtle background leaf accent */}

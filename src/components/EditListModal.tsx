@@ -1,5 +1,9 @@
 import { useState, useEffect } from 'react'
 import { XMarkIcon, CameraIcon, EyeIcon, EyeSlashIcon, UsersIcon, PencilIcon } from '@heroicons/react/24/outline'
+import AddressAutocomplete from './AddressAutocomplete'
+import TagAutocomplete from './TagAutocomplete'
+import { useMemo } from 'react'
+import { firebaseDataService } from '../services/firebaseDataService.js'
 
 interface EditListModalProps {
   isOpen: boolean
@@ -33,6 +37,8 @@ const EditListModal = ({ isOpen, onClose, list, onSave }: EditListModalProps) =>
   })
   const [newTag, setNewTag] = useState('')
   const [isSaving, setIsSaving] = useState(false)
+  const [location, setLocation] = useState<{ address: string; lat?: number; lng?: number }>({ address: '' })
+  const [availableTags, setAvailableTags] = useState<string[]>([])
 
   useEffect(() => {
     if (isOpen && list) {
@@ -43,6 +49,11 @@ const EditListModal = ({ isOpen, onClose, list, onSave }: EditListModalProps) =>
         tags: [...list.tags],
         coverImage: list.coverImage
       })
+      // Load existing location if present
+      const anyList: any = list
+      setLocation({ address: anyList.location?.address || '', lat: anyList.location?.lat, lng: anyList.location?.lng })
+      // Load popular tags for suggestions
+      firebaseDataService.getPopularTags(30).then(setAvailableTags).catch(() => setAvailableTags(['cozy','trendy','local','authentic','quiet','charming','coffee','food','outdoors']))
     }
   }, [isOpen, list])
 
@@ -76,7 +87,10 @@ const EditListModal = ({ isOpen, onClose, list, onSave }: EditListModalProps) =>
     
     setIsSaving(true)
     try {
-      await onSave(formData)
+      await onSave({
+        ...formData,
+        ...(location.address?.trim() ? { location: { address: location.address, lat: location.lat, lng: location.lng } } : {})
+      } as any)
       onClose()
     } catch (error) {
       console.error('Error saving list:', error)
@@ -88,7 +102,7 @@ const EditListModal = ({ isOpen, onClose, list, onSave }: EditListModalProps) =>
   if (!isOpen || !list) return null
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-[100200] flex items-center justify-center p-4">
       {/* Backdrop */}
       <div 
         className="absolute inset-0 bg-charcoal-900/50 backdrop-blur-sm"
@@ -96,9 +110,9 @@ const EditListModal = ({ isOpen, onClose, list, onSave }: EditListModalProps) =>
       />
       
       {/* Modal */}
-      <div className="relative w-full max-w-md bg-white rounded-3xl shadow-botanical border border-linen-200 max-h-[90vh] overflow-y-auto">
+      <div className="relative w-full max-w-md bg-white rounded-3xl shadow-botanical border border-linen-200 max-h-[92vh] flex flex-col overflow-hidden">
         {/* Header */}
-        <div className="sticky top-0 p-6 border-b border-linen-200 bg-white/95 backdrop-blur-glass rounded-t-3xl">
+        <div className="sticky top-0 z-[1] p-6 border-b border-linen-200 bg-white/95 backdrop-blur-glass rounded-t-3xl">
           <div className="flex items-center justify-between">
             <h2 className="text-xl font-serif font-semibold text-charcoal-800">Edit List</h2>
             <button
@@ -111,15 +125,18 @@ const EditListModal = ({ isOpen, onClose, list, onSave }: EditListModalProps) =>
         </div>
 
         {/* Content */}
-        <div className="p-6 space-y-6">
+        <div className="p-6 space-y-6 overflow-y-auto" style={{ maxHeight: 'calc(92vh - 160px)', WebkitOverflowScrolling: 'touch' }}>
           {/* Cover Image */}
           <div>
             <label className="block text-sm font-medium text-charcoal-700 mb-3">Cover Image</label>
             <div className="relative">
               <img
-                src={formData.coverImage}
+                src={formData.coverImage || undefined as any}
                 alt="List cover"
                 className="w-full h-32 rounded-2xl object-cover border border-linen-200"
+                onError={(e) => {
+                  e.currentTarget.src = '/assets/leaf.png'
+                }}
               />
               <button className="absolute bottom-2 right-2 p-2 bg-sage-500 text-white rounded-full shadow-soft hover:bg-sage-600 transition-colors">
                 <CameraIcon className="w-4 h-4" />
@@ -155,6 +172,22 @@ const EditListModal = ({ isOpen, onClose, list, onSave }: EditListModalProps) =>
               />
               <PencilIcon className="absolute right-3 top-3 w-4 h-4 text-charcoal-400" />
             </div>
+          </div>
+
+          {/* Location (moved here under name) */}
+          <div className="relative overflow-visible">
+            <label className="block text-sm font-medium text-charcoal-700 mb-2">List Location (optional)</label>
+            <AddressAutocomplete
+              value={location.address}
+              onPlaceSelect={(formatted, details) => {
+                setLocation({
+                  address: formatted,
+                  lat: details?.geometry?.location?.lat?.() as number | undefined,
+                  lng: details?.geometry?.location?.lng?.() as number | undefined,
+                })
+              }}
+              placeholder="e.g., Miami, Florida, USA"
+            />
           </div>
 
           {/* Privacy Settings */}
@@ -227,33 +260,20 @@ const EditListModal = ({ isOpen, onClose, list, onSave }: EditListModalProps) =>
                 </span>
               ))}
             </div>
-            
-            <form
-              onSubmit={(e) => {
-                e.preventDefault()
-                handleAddTag()
-              }}
-              className="flex items-center gap-2"
-            >
-              <input
-                type="text"
-                value={newTag}
-                onChange={(e) => setNewTag(e.target.value)}
-                placeholder="Add a tag..."
-                className="flex-1 px-3 py-2 rounded-xl border border-linen-200 bg-linen-50 text-charcoal-600 focus:outline-none focus:ring-2 focus:ring-sage-200 text-sm"
-              />
-              <button 
-                type="submit"
-                className="px-3 py-2 rounded-xl bg-sage-500 text-white text-sm font-medium hover:bg-sage-600 transition-colors"
-              >
-                Add
-              </button>
-            </form>
+            <TagAutocomplete
+              value={newTag}
+              onChange={setNewTag}
+              onAdd={handleAddTag}
+              currentTags={formData.tags}
+              availableTags={availableTags}
+            />
           </div>
+
+          {/* Location: removed old manual inputs */}
         </div>
 
         {/* Footer */}
-        <div className="sticky bottom-0 p-6 border-t border-linen-200 bg-white/95 backdrop-blur-glass rounded-b-3xl">
+        <div className="sticky bottom-0 z-[1] p-6 border-t border-linen-200 bg-white/95 backdrop-blur-glass rounded-b-3xl">
           <div className="flex gap-3">
             <button
               onClick={onClose}

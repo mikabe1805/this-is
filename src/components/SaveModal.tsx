@@ -48,10 +48,15 @@ const SaveModal: React.FC<SaveModalProps> = ({
 
   // Update filtered lists when user types or userLists change
   useEffect(() => {
+    // Only show non auto-generated lists to pick from
     setFilteredLists(
-      userLists.filter(list =>
-        list.name.toLowerCase().includes(listSearch.toLowerCase())
-      )
+      userLists.filter(list => {
+        const tags = Array.isArray((list as any).tags) ? (list as any).tags : []
+        const isAutoTag = tags.includes('#auto-generated')
+        const nameLower = (list.name || '').toLowerCase()
+        const isAutoByName = nameLower === 'all loved' || nameLower === 'all tried' || nameLower === 'all want'
+        return !isAutoTag && !isAutoByName && nameLower.includes(listSearch.toLowerCase())
+      })
     )
   }, [listSearch, userLists])
 
@@ -153,9 +158,9 @@ const SaveModal: React.FC<SaveModalProps> = ({
         {/* Place Info */}
         <div className="p-4 border-b border-linen-200 flex-shrink-0">
           <div className="flex items-center gap-3">
-            {place.hubImage && (
+            {(place as any).mainImage && (
               <img
-                src={place.hubImage}
+                src={(place as any).mainImage}
                 alt={place.name}
                 className="w-12 h-12 rounded-xl object-cover border border-linen-200"
               />

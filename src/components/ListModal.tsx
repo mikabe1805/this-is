@@ -1,7 +1,8 @@
 import type { List, Place, Post } from '../types/index.js'
-import { MapPinIcon, HeartIcon, BookmarkIcon, PlusIcon, ShareIcon, XMarkIcon, UserIcon, CalendarIcon, ArrowsPointingOutIcon, ArrowLeftIcon } from '@heroicons/react/24/outline'
+import { MapPinIcon, HeartIcon, BookmarkIcon, PlusIcon, ShareIcon, XMarkIcon, UserIcon, CalendarIcon, ArrowsPointingOutIcon, ArrowLeftIcon, EllipsisHorizontalIcon } from '@heroicons/react/24/outline'
 import { HeartIcon as HeartIconSolid } from '@heroicons/react/24/solid'
 import { useState, useEffect } from 'react'
+import SearchAndFilter from './SearchAndFilter'
 import { createPortal } from 'react-dom'
 import { useNavigation } from '../contexts/NavigationContext.tsx'
 import { firebaseListService } from '../services/firebaseListService';
@@ -23,9 +24,12 @@ interface ListModalProps {
   showBackButton?: boolean
   onBack?: () => void
   onLikeChange?: (listId: string, isLiked: boolean, newLikes: number) => void
+  onEditList?: (list: List) => void
+  onChangePrivacy?: (list: List) => void
+  onDeleteList?: (list: List) => void
 }
 
-const ListModal = ({ list, isOpen, onClose, onSave, onShare, onAddPost, onOpenFullScreen, onOpenHub, showBackButton, onBack, onLikeChange }: ListModalProps) => {
+const ListModal = ({ list, isOpen, onClose, onSave, onShare, onAddPost, onOpenFullScreen, onOpenHub, showBackButton, onBack, onLikeChange, onEditList, onChangePrivacy, onDeleteList }: ListModalProps) => {
   const { currentUser } = useAuth()
   const { openPostOverlay, openFullScreenList } = useNavigation()
   const [isLiked, setIsLiked] = useState(false)
@@ -35,6 +39,14 @@ const ListModal = ({ list, isOpen, onClose, onSave, onShare, onAddPost, onOpenFu
   const [posts, setPosts] = useState<Post[]>([])
   const [places, setPlaces] = useState<any[]>([])
   const [creatorName, setCreatorName] = useState<string>('');
+  const [showOwnerMenu, setShowOwnerMenu] = useState(false)
+  const [menuPos, setMenuPos] = useState<{ top: number; left: number } | null>(null)
+  // Local filter/search state (does not affect parent page filters)
+  const [modalSearch, setModalSearch] = useState('')
+  const [modalSortBy, setModalSortBy] = useState('popular')
+  const [modalActiveFilters, setModalActiveFilters] = useState<string[]>([])
+  const [modalSelectedTags, setModalSelectedTags] = useState<string[]>([])
+  const [availableTags, setAvailableTags] = useState<string[]>([])
 
   useEffect(() => {
     if (currentUser && list) {
@@ -67,6 +79,10 @@ const ListModal = ({ list, isOpen, onClose, onSave, onShare, onAddPost, onOpenFu
             const name = await firebaseDataService.getUserDisplayName(list.userId);
             setCreatorName(name);
           }
+          try {
+            const tags = await firebaseDataService.getPopularTags(150)
+            setAvailableTags(tags)
+          } catch {}
         } catch (error) {
           console.error('Error fetching list data:', error);
           setPosts([]);
@@ -104,6 +120,14 @@ const ListModal = ({ list, isOpen, onClose, onSave, onShare, onAddPost, onOpenFu
       setIsVisible(false)
     }
   }, [isOpen])
+
+  useEffect(() => {
+    const onClickAway = (e: MouseEvent) => {
+      if (!(e.target as HTMLElement).closest('#list-modal-owner-menu')) setShowOwnerMenu(false)
+    }
+    if (showOwnerMenu) document.addEventListener('mousedown', onClickAway)
+    return () => document.removeEventListener('mousedown', onClickAway)
+  }, [showOwnerMenu])
 
   if (!isOpen) return null
 
@@ -227,7 +251,7 @@ const ListModal = ({ list, isOpen, onClose, onSave, onShare, onAddPost, onOpenFu
       }}
     >
       <div 
-        className={`modal-container w-full max-w-[600px] mx-1 max-h-[90vh] sm:max-h-screen bg-gradient-to-br from-[#FEF6E9] via-[#FBF0D9] to-[#F7E8CC] rounded-3xl shadow-2xl border border-[#E8D4C0]/60 overflow-hidden relative transition-all duration-500 ease-out ${
+        className={`modal-container w-full max-w-[600px] mx-1 max-h-[88vh] sm:max-h-[92vh] bg-gradient-to-br from-[#FEF6E9] via-[#FBF0D9] to-[#F7E8CC] rounded-3xl shadow-2xl border border-[#E8D4C0]/60 overflow-hidden relative transition-all duration-500 ease-out ${
           isVisible ? 'opacity-100 scale-100' : 'opacity-0 scale-95'
         }`}
         style={{
@@ -485,7 +509,9 @@ const ListModal = ({ list, isOpen, onClose, onSave, onShare, onAddPost, onOpenFu
             <img
               src={list.coverImage}
               alt={list.name}
-              className="w-full h-full object-cover"
+              className="w-full h-full object-cover will-change-transform"
+              style={{ transform: 'scale(1.03)' }}
+              onClick={() => window.open(list.coverImage, '_blank')}
             />
           )}
           {/* Enhanced gradient overlay */}
@@ -503,6 +529,26 @@ const ListModal = ({ list, isOpen, onClose, onSave, onShare, onAddPost, onOpenFu
               </button>
             ) : <div></div>}
             <div className="flex items-center gap-2">
+              {currentUser?.id === list.userId && (
+                <div className="relative">
+                  <button
+                    onClick={(e) => { e.stopPropagation(); const rect = (e.currentTarget as HTMLButtonElement).getBoundingClientRect(); setMenuPos({ top: rect.bottom + 8, left: rect.right - 176 }); setShowOwnerMenu((s) => !s) }}
+                    className="w-10 h-10 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center shadow-lg border border-white/30 active:scale-95 transition-all duration-200"
+                    title="List actions"
+                  >
+                    <EllipsisHorizontalIcon className="w-5 h-5 text-white" />
+                  </button>
+                  {showOwnerMenu && createPortal(
+                    <div id="list-modal-owner-menu" className="fixed z-[100001]" style={{ top: (menuPos?.top || 80), left: (menuPos?.left || (window.innerWidth - 200)) }}>
+                      <div className="w-44 bg-white rounded-xl shadow-botanical border border-linen-200 overflow-hidden" onClick={(e)=>e.stopPropagation()}>
+                        <button className="w-full text-left px-3 py-2 hover:bg-sage-50" onClick={() => { setShowOwnerMenu(false); setTimeout(() => onEditList && onEditList(list), 0) }}>Edit List</button>
+                        <button className="w-full text-left px-3 py-2 hover:bg-sage-50" onClick={() => { setShowOwnerMenu(false); setTimeout(() => onChangePrivacy && onChangePrivacy(list), 0) }}>Change Privacy</button>
+                        <button className="w-full text-left px-3 py-2 text-red-600 hover:bg-red-50" onClick={() => { setShowOwnerMenu(false); setTimeout(() => onDeleteList && onDeleteList(list), 0) }}>Delete</button>
+                      </div>
+                    </div>, document.body)
+                  }
+                </div>
+              )}
               <button
                 onClick={handleOpenFullScreen}
                 className="w-10 h-10 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center shadow-lg border border-white/30 active:scale-95 transition-all duration-200"
@@ -549,7 +595,26 @@ const ListModal = ({ list, isOpen, onClose, onSave, onShare, onAddPost, onOpenFu
         </div>
         
         {/* Content - Mobile-optimized scroll container */}
-        <div className="modal-content flex flex-col h-[calc(90vh-12rem)] sm:h-[calc(100vh-0.5rem-12rem)] overflow-y-auto pb-4" style={{ WebkitOverflowScrolling: 'touch' }}>
+        <div className="modal-content flex flex-col h-[calc(88vh-12rem)] sm:h-[calc(92vh-12rem)] overflow-y-auto pb-4" style={{ WebkitOverflowScrolling: 'touch', overscrollBehavior: 'contain', touchAction: 'manipulation' }}>
+          {/* Sticky search/filter inside modal content */}
+          <div className="sticky top-0 z-10 bg-gradient-to-b from-[#FEF6E9]/95 to-[#FEF6E9]/70 p-3 border-b border-[#E8D4C0]/50">
+            <SearchAndFilter
+              placeholder="Search within this list..."
+              value={modalSearch}
+              onChange={(e) => setModalSearch(e.target.value)}
+              sortOptions={[{ key: 'relevance', label: 'Relevance' }, { key: 'popular', label: 'Most Popular' }, { key: 'nearby', label: 'Closest to Location' }]}
+              filterOptions={[]}
+              availableTags={availableTags}
+              sortBy={modalSortBy}
+              setSortBy={setModalSortBy}
+              activeFilters={modalActiveFilters}
+              setActiveFilters={setModalActiveFilters}
+              selectedTags={modalSelectedTags}
+              setSelectedTags={setModalSelectedTags}
+              dropdownPosition="center"
+              onSubmitQuery={() => {}}
+            />
+          </div>
           <div className="p-4 space-y-5 flex-1 pb-6">
           {/* Description */}
             <div className="bg-[#E8D4C0]/20 backdrop-blur-sm rounded-3xl p-4 border border-[#E8D4C0]/40 shadow-[0_6px_30px_rgba(0,0,0,0.1)] relative overflow-hidden">
@@ -626,7 +691,19 @@ const ListModal = ({ list, isOpen, onClose, onSave, onShare, onAddPost, onOpenFu
               <h3 className="text-lg font-serif font-semibold text-[#5D4A2E] mb-4 relative z-10">Places in this list</h3>
               <div className="space-y-3 relative z-10">
                 {/* Display saved places first */}
-                {places.map((place) => (
+                {places
+                  .filter(p => {
+                    const q = modalSearch.trim().toLowerCase()
+                    if (!q && modalSelectedTags.length === 0) return true
+                    const matchesQ = q
+                      ? (p.place?.name?.toLowerCase().includes(q) || p.place?.address?.toLowerCase().includes(q) || (p.place?.tags||[]).some((t:string)=>t.toLowerCase().includes(q)))
+                      : true
+                    const matchesTags = modalSelectedTags.length > 0
+                      ? modalSelectedTags.some(t => (p.place?.tags||[]).map((x:string)=>x.toLowerCase()).includes(t.toLowerCase()))
+                      : true
+                    return matchesQ && matchesTags
+                  })
+                  .map((place) => (
                   <div
                     key={`place-${place.id}`}
                     onClick={() => onOpenHub?.(place.place)}
@@ -634,7 +711,7 @@ const ListModal = ({ list, isOpen, onClose, onSave, onShare, onAddPost, onOpenFu
                   >
                     <div className="w-12 h-12 bg-[#FEF6E9] rounded-lg flex-shrink-0 border border-[#E8D4C0] shadow-sm overflow-hidden">
                       <img 
-                        src={place.place?.hubImage || '/assets/leaf.png'} 
+                        src={(place.place as any)?.mainImage || '/assets/leaf.png'} 
                         alt={place.place?.name || 'Place'} 
                         className="w-full h-full object-cover"
                         onError={(e) => {
@@ -680,7 +757,14 @@ const ListModal = ({ list, isOpen, onClose, onSave, onShare, onAddPost, onOpenFu
                 ))}
                 
                 {/* Display posts */}
-                {posts.map((post) => (
+                {posts
+                  .filter(post => {
+                    const q = modalSearch.trim().toLowerCase()
+                    const matchesQ = q ? ((post.description||'').toLowerCase().includes(q) || (post.tags||[] as any).some((t:string)=>t.toLowerCase().includes(q))) : true
+                    const matchesTags = modalSelectedTags.length > 0 ? modalSelectedTags.some(t => ((post.tags||[] as any) as string[]).map(x=>x.toLowerCase()).includes(t.toLowerCase())) : true
+                    return matchesQ && matchesTags
+                  })
+                  .map((post) => (
                   <div
                     key={`post-${post.id}`}
                     onClick={() => handlePostClick(post)}

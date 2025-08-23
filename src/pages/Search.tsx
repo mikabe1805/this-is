@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { MapIcon, BookmarkIcon, UserIcon } from '@heroicons/react/24/outline';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useLocation } from 'react-router-dom';
 import SearchAndFilter from '../components/SearchAndFilter';
 import type { Hub, Place, List, User } from '../types/index.js';
 import { useNavigation } from '../contexts/NavigationContext.tsx';
@@ -12,7 +12,7 @@ const Search = () => {
   const { openHubModal, openListModal, openProfileModal } = useNavigation();
   const { currentUser } = useAuth();
   const location = useLocation();
-  const navigate = useNavigate();
+  // const navigate = useNavigate();
   const {
     searchQuery,
     setSearchQuery,
@@ -30,6 +30,19 @@ const Search = () => {
   const [sortBy, setSortBy] = useState('relevant');
   const [activeFilters, setActiveFiltersState] = useState<string[]>([]);
   const [recentFinds, setRecentFinds] = useState<{ type: 'place' | 'list' | 'user', item: any, timestamp: Date }[]>([]);
+  const [availableTags, setAvailableTags] = useState<string[]>([]);
+  useEffect(() => {
+    const loadTags = async () => {
+      try {
+        const tags = await firebaseDataService.getPopularTags(200);
+        setAvailableTags(tags);
+      } catch {
+        setAvailableTags(['cozy','trendy','quiet','local','charming','authentic','chill']);
+      }
+    };
+    loadTags();
+  }, []);
+  const [showAdvanced, setShowAdvanced] = useState(false);
 
   // Load recent searches from user preferences
   useEffect(() => {
@@ -49,8 +62,13 @@ const Search = () => {
   // Handle URL parameters for tag filtering
   useEffect(() => {
     const urlParams = new URLSearchParams(location.search);
+    const qParam = urlParams.get('q');
     const tagParam = urlParams.get('tag');
-    if (tagParam) {
+    if (qParam && qParam.trim()) {
+      setSearchQuery(qParam);
+      performSearch(qParam, { sortBy, tags: activeFilters });
+      setShowSearchHistory(false);
+    } else if (tagParam) {
       setActiveFiltersState([tagParam]);
       // Perform an empty search with the tag filter
       performSearch('', { sortBy, tags: [tagParam] });
@@ -219,13 +237,14 @@ const Search = () => {
               { key: 'nearby', label: 'Closest to Location' },
             ]}
             filterOptions={[]}
-            availableTags={['cozy', 'trendy', 'quiet', 'local', 'charming', 'authentic', 'chill']}
+            availableTags={availableTags}
             sortBy={sortBy}
             setSortBy={setSortBy}
             activeFilters={activeFilters}
             setActiveFilters={setActiveFiltersState}
             filterCount={activeFilters.length}
             onApplyFilters={() => performSearch(searchQuery, { sortBy, tags: activeFilters })}
+            onOpenAdvanced={() => setShowAdvanced(true)}
           />
           <button type="button" onClick={() => console.log('Map view - coming soon!')} className="px-4 py-2 rounded-full font-semibold shadow-botanical flex items-center gap-2 bg-sage-500 text-white hover:bg-sage-600 transition-colors">
             <MapIcon className="w-4 h-4" /><span>Map</span>

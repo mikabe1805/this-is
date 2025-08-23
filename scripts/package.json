@@ -9,7 +9,12 @@
     "backup": "node backup-database.js",
     "restore": "node restore-database.js",
     "deploy-rules": "firebase deploy --only firestore:rules",
-    "deploy-indexes": "firebase deploy --only firestore:indexes"
+    "deploy-indexes": "firebase deploy --only firestore:indexes",
+    "seed-user-tags": "node seed-user-tags.js",
+    "backfill-tag-usage": "node seed-tags-usage.js",
+    "normalize-places": "node normalize-places.js",
+    "enrich-places": "node enrich-places-from-posts.js",
+    "cleanup-hubimage": "node cleanup-hubimage.js"
   },
   "dependencies": {
     "firebase-admin": "^12.0.0",

@@ -1,5 +1,5 @@
 import type { Hub, Post, List } from '../types/index.js'
-import { MapPinIcon, HeartIcon, BookmarkIcon, PlusIcon, ShareIcon, CameraIcon, ChatBubbleLeftIcon, ArrowRightIcon, ArrowLeftIcon } from '@heroicons/react/24/outline'
+import { MapPinIcon, HeartIcon, BookmarkIcon, PlusIcon, ShareIcon, CameraIcon, ChatBubbleLeftIcon, ArrowRightIcon, ArrowLeftIcon, MagnifyingGlassIcon } from '@heroicons/react/24/outline'
 import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import CreatePost from '../components/CreatePost'
@@ -26,6 +26,7 @@ const PlaceHub = () => {
   const [selectedPost, setSelectedPost] = useState<Post | null>(null)
   const [likedPosts, setLikedPosts] = useState<Set<string>>(new Set())
   const [savedPosts, setSavedPosts] = useState<Set<string>>(new Set())
+  const [postSearch, setPostSearch] = useState('')
   
   // Real data state
   const [hub, setHub] = useState<Hub | null>(null)
@@ -62,14 +63,14 @@ const PlaceHub = () => {
           name: place.name,
           description: `Discover ${place.name}, a ${place.category || 'great'} place in ${place.address}`,
           tags: place.tags,
-          images: place.hubImage ? [place.hubImage] : [],
+          images: (place as any).mainImage ? [(place as any).mainImage] : [],
           location: {
             address: place.address,
             lat: place.coordinates?.lat || 0,
             lng: place.coordinates?.lng || 0,
           },
           googleMapsUrl: `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(place.address)}`,
-          mainImage: place.hubImage || '',
+          mainImage: (place as any).mainImage || '',
           posts: [],
           lists: [],
         }
@@ -97,16 +98,25 @@ const PlaceHub = () => {
     fetchUserLists();
   }, [authUser]);
 
-  const handleLikePost = (postId: string) => {
+  const handleLikePost = async (postId: string) => {
     setLikedPosts(prev => {
       const newSet = new Set(prev)
-      if (newSet.has(postId)) {
-        newSet.delete(postId)
-      } else {
-        newSet.add(postId)
-      }
+      if (newSet.has(postId)) newSet.delete(postId)
+      else newSet.add(postId)
       return newSet
     })
+    try {
+      if (authUser) await firebaseDataService.likePost(postId, authUser.id)
+      setPosts(ps => ps.map(p => p.id === postId ? {
+        ...p,
+        likes: (p.likes || 0) + (likedPosts.has(postId) ? -1 : 1),
+        likedBy: likedPosts.has(postId)
+          ? (p.likedBy || []).filter(id => id !== authUser?.id)
+          : ([...(p.likedBy || []), authUser?.id].filter(Boolean) as string[])
+      } : p))
+    } catch (e) {
+      console.warn('Failed to like post', e)
+    }
   }
 
   const handleSavePost = (postId: string) => {
@@ -133,24 +143,30 @@ const PlaceHub = () => {
   const handleSave = async (status: 'loved' | 'tried' | 'want', rating?: 'liked' | 'neutral' | 'disliked', listIds?: string[], note?: string) => {
     if (!selectedPlace || !authUser) return;
 
-    if (listIds && listIds.length > 0) {
-      await Promise.all(
-        listIds.map(listId => 
-          firebaseDataService.savePlaceToList(selectedPlace.id, listId, authUser.id, note, undefined, status, rating)
+    try {
+      const ids = Array.isArray(listIds) ? listIds : []
+      const already: string[] = []
+      for (const lid of ids) {
+        if (await firebaseDataService.isPlaceInList(lid, selectedPlace.id)) already.push(lid)
+      }
+      if (already.length > 0) {
+        const names = userLists.filter(l=>already.includes(l.id)).map(l=>l.name).join(', ')
+        const overwrite = window.confirm(`You've already saved this hub to the following lists: ${names}.\nWould you like to overwrite your previous save?`)
+        if (!overwrite) return
+      }
+
+      if (ids.length > 0) {
+        await Promise.all(
+          ids.map(listId =>
+            firebaseDataService.savePlaceToList(selectedPlace.id, listId, authUser.id, note, undefined, status, rating)
+          )
         )
-      );
+      }
+
+      await firebaseDataService.saveToAutoList(selectedPlace.id, authUser.id, status, note, rating)
+    } catch (e) {
+      console.error('Error saving place:', e)
     }
-    
-    // Also handle top-level status saves (loved, tried, want) if necessary
-    // This part of the data model seems to be handled by lists, but if you have a separate
-    // 'user_saves' collection or similar, the logic would go here.
-    console.log('Saving place:', { 
-      place: selectedPlace, 
-      status, 
-      rating, 
-      listIds, 
-      note 
-    });
 
     setShowSaveModal(false)
     setSelectedPlace(null)
@@ -161,6 +177,7 @@ const PlaceHub = () => {
     
     const newListId = await firebaseDataService.createList({
       ...listData,
+      tags: listData.tags || [],
       userId: authUser.id,
     });
 
@@ -184,37 +201,76 @@ const PlaceHub = () => {
   }
 
   const handleViewAllLists = () => {
-    navigate('/search')
+    if (id) {
+      navigate(`/lists?type=popular&hub=${encodeURIComponent(id)}`)
+    } else {
+      navigate('/lists?type=popular')
+    }
   }
 
-  const handleViewAllFriendsLists = () => {
-    navigate('/search')
-  }
+  // (friends lists navigation handler removed as unused)
+
+  const filteredPosts = postSearch.trim()
+    ? posts.filter(p => (
+        (p.description || '').toLowerCase().includes(postSearch.toLowerCase()) ||
+        (p.username || '').toLowerCase().includes(postSearch.toLowerCase()) ||
+        (Array.isArray((p as any).tags) && ((p as any).tags as string[]).some(t => t.toLowerCase().includes(postSearch.toLowerCase())))
+      ))
+    : posts
 
   const handleReply = (post: Post) => {
     setSelectedPost(post)
     setShowReplyModal(true)
   }
 
-  const handleViewComments = (post: Post) => {
+  const handleViewComments = async (post: Post) => {
     setSelectedPost(post)
     setShowCommentsModal(true)
+    try {
+      const comments = await firebaseDataService.getCommentsForPost(post.id)
+      setSelectedPost(prev => prev ? { ...prev, comments } as Post : prev)
+    } catch (e) {
+      console.warn('Failed to load comments', e)
+    }
   }
 
   const handleAddComment = async (text: string) => {
-    if (!selectedPost) return
-    // In a real app, this would make an API call to add a comment
-    console.log('Adding comment to post:', selectedPost.id, 'Text:', text)
+    if (!selectedPost || !authUser) return
+    const created = await firebaseDataService.postComment(selectedPost.id, authUser.id, text)
+    if (created) {
+      setSelectedPost(prev => prev ? { ...prev, comments: [created, ...(prev.comments || [])] } as Post : prev)
+    }
   }
 
   const handleLikeComment = async (commentId: string) => {
-    // In a real app, this would make an API call to like a comment
-    console.log('Liking comment:', commentId)
+    if (!selectedPost || !authUser) return
+    await firebaseDataService.likeComment(selectedPost.id, commentId, authUser.id)
+    setSelectedPost(prev => {
+      if (!prev) return prev
+      const updated = (prev.comments || []).map(c => c.id === commentId ? {
+        ...c,
+        likes: (c.likes || 0) + ((c.likedBy || []).includes(authUser.id) ? -1 : 1),
+        likedBy: (c.likedBy || []).includes(authUser.id)
+          ? (c.likedBy || []).filter(id => id !== authUser.id)
+          : ([...(c.likedBy || []), authUser.id])
+      } : c)
+      return { ...prev, comments: updated } as Post
+    })
   }
 
   const handleReplyToComment = async (commentId: string, text: string) => {
-    // In a real app, this would make an API call to reply to a comment
-    console.log('Replying to comment:', commentId, 'Text:', text)
+    if (!selectedPost || !authUser) return
+    const reply = await firebaseDataService.addReplyToComment(selectedPost.id, commentId, authUser.id, text)
+    if (reply) {
+      setSelectedPost(prev => {
+        if (!prev) return prev
+        const updated = (prev.comments || []).map(c => c.id === commentId ? {
+          ...c,
+          replies: [...(c.replies || []), reply]
+        } : c)
+        return { ...prev, comments: updated } as Post
+      })
+    }
   }
 
   const handlePostReply = async (text: string, images?: string[]) => {
@@ -223,19 +279,7 @@ const PlaceHub = () => {
     console.log('Creating reply to post:', selectedPost.id, 'Text:', text, 'Images:', images)
   }
 
-  const handleSavePostToList = (post: Post) => {
-    // Convert post to place for save modal
-    const place: Place = {
-      id: post.id,
-      name: hub.name,
-      address: hub.location.address,
-      tags: hub.tags,
-      posts: [],
-      savedCount: post.likes,
-      createdAt: post.createdAt
-    }
-    handleSaveToPlace(place)
-  }
+  // (save post to list handler removed as unused)
 
   // Loading state
   if (loading) {
@@ -364,7 +408,7 @@ const PlaceHub = () => {
           >
             <ArrowLeftIcon className="w-5 h-5 text-sage-600" />
           </button>
-          <h1 className="text-xl font-serif font-semibold text-charcoal-700">{hub.name}</h1>
+          <h1 className="text-xl font-serif font-semibold text-charcoal-700">{hub?.name || ''}</h1>
           <button 
             onClick={handleShare}
             className="w-10 h-10 bg-gradient-to-br from-gold-100 to-gold-200 rounded-full flex items-center justify-center shadow-soft hover:shadow-botanical transition-all duration-300 transform hover:scale-105"
@@ -382,6 +426,7 @@ const PlaceHub = () => {
               src={hub.mainImage || '/assets/leaf.png'}
               alt={hub.name}
               className="w-full h-full object-cover"
+              loading="lazy"
               onError={(e) => {
                 e.currentTarget.src = '/assets/leaf.png';
               }}
@@ -401,15 +446,15 @@ const PlaceHub = () => {
                   {posts.length} posts
                 </span>
                 <span className="px-4 py-2 bg-white/30 backdrop-blur-sm rounded-full text-white text-sm font-semibold border border-white/20">
-                  {hub.tags[0] || 'Popular'}
+                  {(hub?.tags || [])[0] || 'Popular'}
                 </span>
               </div>
             </div>
           </div>
           <div className="p-6">
-            <p className="text-charcoal-600 text-sm mb-4 leading-relaxed">{hub.description}</p>
+            <p className="text-charcoal-600 text-sm mb-4 leading-relaxed">{hub?.description || ''}</p>
             <div className="flex flex-wrap gap-2 mb-4">
-              {hub.tags.map(tag => (
+              {(hub?.tags || []).map(tag => (
                 <span key={tag} className="px-3 py-1 text-xs rounded-full bg-sage-100 text-sage-700 font-medium border border-sage-200">#{tag}</span>
               ))}
             </div>
@@ -533,11 +578,20 @@ const PlaceHub = () => {
         )}
         {tab === 'posts' && (
           <div className="space-y-4 pb-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-serif font-semibold text-[#6B5B47]">Posts</h3>
+            <div className="mb-3">
+              <div className="relative">
+                <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-[#8B7355]" />
+                <input
+                  type="text"
+                  value={postSearch}
+                  onChange={(e) => setPostSearch(e.target.value)}
+                  placeholder={`Search posts in ${hub.name}...`}
+                  className="w-full pl-10 pr-4 py-2 rounded-xl border border-[#E4D5C7] bg-[#FEF6E9] text-[#6B5B47] focus:outline-none focus:ring-2 focus:ring-sage-200 focus:border-sage-300"
+                />
+              </div>
             </div>
-            {posts.length > 0 ? (
-              posts.map((post) => (
+            {filteredPosts.length > 0 ? (
+              filteredPosts.map((post) => (
                 <div
                   key={post.id}
                   className="bg-[#E4D5C7]/15 backdrop-blur-sm rounded-xl p-4 shadow-lg border border-[#E4D5C7]/30"
@@ -554,9 +608,7 @@ const PlaceHub = () => {
                     <div className="flex items-center space-x-2">
                       <span className="font-serif font-semibold text-[#6B5B47] text-sm">{post.username}</span>
                     </div>
-                    <p className="text-xs text-[#8B7355] font-serif">
-                      {new Date(post.createdAt).toLocaleDateString()}
-                    </p>
+                    <p className="text-xs text-[#8B7355] font-serif">{require('../utils/dateUtils').formatTimestamp(post.createdAt)}</p>
                   </div>
                 </div>
                 {post.images && post.images[0] && (
@@ -610,14 +662,14 @@ const PlaceHub = () => {
                   </div>
                 </div>
               </div>
-            ))
+              ))
             ) : (
               <div className="text-center py-12">
                 <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-[#E8D4C0]/50 flex items-center justify-center">
                   <CameraIcon className="w-8 h-8 text-[#8B7355]" />
                 </div>
-                <h3 className="text-lg font-serif font-semibold text-[#6B5B47] mb-2">No posts yet</h3>
-                <p className="text-[#7A5D3F] mb-4">Be the first to share your experience!</p>
+                <h3 className="text-lg font-serif font-semibold text-[#6B5B47] mb-2">{postSearch ? 'No posts found' : 'No posts yet'}</h3>
+                <p className="text-[#7A5D3F] mb-4">{postSearch ? 'Try a different search.' : 'Be the first to share your experience!'}</p>
                 <button
                   onClick={handleCreatePost}
                   className="bg-gradient-to-r from-[#D4A574] to-[#B08968] text-[#FEF6E9] px-4 py-2 rounded-xl text-sm font-semibold shadow-lg border border-[#B08968]/30 active:scale-95 transition-all duration-200"
@@ -667,13 +719,10 @@ const PlaceHub = () => {
             setShowCommentsModal(false)
             setSelectedPost(null)
           }}
-          postId={selectedPost.id}
-          postTitle={`${selectedPost.username}'s post about ${hub.name}`}
           comments={selectedPost.comments || []}
           onAddComment={handleAddComment}
           onLikeComment={handleLikeComment}
           onReplyToComment={handleReplyToComment}
-          currentUserId={authUser?.id}
         />
       )}
 

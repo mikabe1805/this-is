@@ -202,29 +202,9 @@ export default function AddressAutocomplete({
           onBlur={handleInputBlur}
           placeholder={placeholder}
           className={`w-full px-4 py-3 pl-10 border border-linen-200 rounded-xl focus:ring-2 focus:ring-sage-200 focus:border-transparent transition-all bg-white text-charcoal-600 ${className}`}
-          style={{ zIndex: 1000 }} // Ensure input is above other elements
+          style={{ zIndex: 1000, position: 'relative' }}
         />
         <MapPinIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-charcoal-400" />
-      </div>
-      
-      {/* Status indicator */}
-      <div className="mt-1">
-        {!isLoaded && (
-          <p className="text-xs text-amber-600">
-            💡 Loading enhanced address search... You can still type your address manually.
-          </p>
-        )}
-        {isLoaded && (
-          <p className="text-xs text-green-600">
-            ✓ Smart address search enabled - type to see suggestions
-          </p>
-        )}
-      </div>
-      
-      {/* Debug info */}
-      <div className="mt-1 text-xs text-gray-500">
-        <p>Debug: isLoaded={isLoaded.toString()}, hasInputRef={!!inputRef.current}</p>
-        <p>Input value: "{inputValue}"</p>
       </div>
     </div>
   )

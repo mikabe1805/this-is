@@ -80,6 +80,7 @@ export interface List {
   saves?: number
   savesFrom?: number
   isLiked?: boolean
+  location?: { address: string; lat?: number; lng?: number }
 }
 
 export interface ListPlace {

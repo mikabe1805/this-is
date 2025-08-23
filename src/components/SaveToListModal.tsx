@@ -98,9 +98,9 @@ const SaveToListModal: React.FC<SaveToListModalProps> = ({
         {/* Place Info */}
         <div className="p-6 border-b border-linen-200">
           <div className="flex items-center gap-4">
-            {place.hubImage && (
+            {(place as any).mainImage && (
               <img
-                src={place.hubImage}
+                src={(place as any).mainImage}
                 alt={place.name}
                 className="w-16 h-16 rounded-xl object-cover border border-linen-200"
               />

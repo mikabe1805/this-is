@@ -1,4 +1,4 @@
-import { collection, doc, getDoc, getDocs, setDoc, updateDoc, query, where, orderBy, limit, startAfter, endBefore, onSnapshot, Timestamp, QueryConstraint, addDoc, deleteDoc, increment } from 'firebase/firestore'
+import { collection, doc, getDoc, getDocs, setDoc, updateDoc, query, where, orderBy, limit as fsLimit, startAfter, endBefore, onSnapshot, Timestamp, QueryConstraint, addDoc, deleteDoc, increment } from 'firebase/firestore'
 import { db } from '../firebase/config'
 import type { User, Place, List, Post, PostComment, Activity, Hub } from '../types'
 import { auth } from '../firebase/config'
@@ -388,7 +388,7 @@ class FirebaseDataService {
       const savedPlacesQuery = query(
         collection(db, 'users', userId, 'savedPlaces'),
         orderBy('savedAt', 'desc'),
-        limit(50)
+        fsLimit(50)
       )
       const savedPlacesSnapshot = await getDocs(savedPlacesQuery)
       
@@ -414,7 +414,7 @@ class FirebaseDataService {
       const likedPostsQuery = query(
         collection(db, 'users', userId, 'likedPosts'),
         orderBy('likedAt', 'desc'),
-        limit(30)
+        fsLimit(30)
       )
       const likedPostsSnapshot = await getDocs(likedPostsQuery)
       const likedPostIds = likedPostsSnapshot.docs.map(doc => doc.data().postId)
@@ -907,11 +907,11 @@ class FirebaseDataService {
     // If we have a search query, we need to get more results first, then filter and rank
     if (searchQuery && searchQuery.trim()) {
       // For text search, get a larger set first, then filter client-side
-      constraints.push(limit(limitCount * 5)) // Get 5x more results for better search coverage
+      constraints.push(fsLimit(limitCount * 5)) // Get 5x more results for better search coverage
     } else {
       // For browsing without search, order by popularity
       constraints.push(orderBy('savedCount', 'desc'))
-      constraints.push(limit(limitCount))
+      constraints.push(fsLimit(limitCount))
     }
 
     if (filters.category) {
@@ -938,7 +938,34 @@ class FirebaseDataService {
       console.log(`  - ${name} (tags: ${Array.isArray(tags) ? tags.join(', ') : 'none'})`)
     })
 
-    // AI search will handle relevance filtering, so we can remove the client-side filtering here.
+    // Client-side filtering when a text query is provided
+    if (searchQuery && searchQuery.trim()) {
+      const q = searchQuery.toLowerCase()
+      places = places.filter(p => {
+        const name = (p.name || (p as any).placeName || '').toLowerCase()
+        const address = (p.address || '').toLowerCase()
+        const tags = ((p.tags || (p as any).placeTags || []) as string[]).map(t => t.toLowerCase())
+        return (
+          name.includes(q) ||
+          address.includes(q) ||
+          tags.some(t => t.includes(q))
+        )
+      })
+      // Basic relevance ranking: name > tags > address
+      places.sort((a, b) => {
+        const rank = (p: Place) => {
+          const name = (p.name || (p as any).placeName || '').toLowerCase()
+          const address = (p.address || '').toLowerCase()
+          const tags = ((p.tags || (p as any).placeTags || []) as string[]).map(t => t.toLowerCase())
+          if (name.includes(q)) return 0
+          if (tags.some(t => t.includes(q))) return 1
+          if (address.includes(q)) return 2
+          return 3
+        }
+        return rank(a) - rank(b)
+      })
+      places = places.slice(0, limitCount)
+    }
 
     console.log(`🏢 Final places result: ${places.length} places`)
     return places
@@ -948,23 +975,23 @@ class FirebaseDataService {
     const constraints: QueryConstraint[] = [
       where('isPublic', '==', true)
     ]
-
+ 
     console.log(`🔍 Searching lists for: "${searchQuery}"`)
-
+ 
     // If we have a search query, we need to get more results first, then filter and rank
     if (searchQuery && searchQuery.trim()) {
       // For text search, get a larger set first, then filter client-side
-      constraints.push(limit(limitCount * 5)) // Get 5x more results for better search coverage
+      constraints.push(fsLimit(limitCount * 5)) // Get 5x more results for better search coverage
     } else {
       // For browsing without search, order by popularity
       constraints.push(orderBy('likes', 'desc'))
-      constraints.push(limit(limitCount))
+      constraints.push(fsLimit(limitCount))
     }
-
+ 
     if (filters.tags && filters.tags.length > 0) {
       constraints.push(where('tags', 'array-contains-any', filters.tags))
     }
-
+ 
     const listsQuery = query(collection(db, 'lists'), ...constraints)
     const listsSnapshot = await getDocs(listsQuery)
     
@@ -972,15 +999,43 @@ class FirebaseDataService {
       id: doc.id,
       ...doc.data()
     })) as List[]
-
+ 
     // Debug: Log what we got from Firebase
     console.log(`📋 Found ${lists.length} lists from Firebase:`)
     lists.forEach(list => {
       console.log(`  - ${list.name || list.listName || 'NO_NAME'} (tags: ${(list.tags || list.listTags || []).join(', ')})`)
     })
-
-    // AI search will handle relevance filtering, so we can remove the client-side filtering here.
-
+ 
+    // Client-side text filtering for list name/description/tags to ensure relevant results like 'cat'
+    if (searchQuery && searchQuery.trim()) {
+      const q = searchQuery.toLowerCase()
+      lists = lists.filter(list => {
+        const name = (list.name || list.listName || '').toLowerCase()
+        const description = (list.description || '').toLowerCase()
+        const tags = (list.tags || list.listTags || []).map(t => t.toLowerCase())
+        return (
+          name.includes(q) ||
+          description.includes(q) ||
+          tags.some((t: string) => t.includes(q))
+        )
+      })
+      // Basic relevance: prioritize name matches, then tag, then description
+      lists.sort((a, b) => {
+        const rank = (l: List) => {
+          const name = (l.name || l.listName || '').toLowerCase()
+          const description = (l.description || '').toLowerCase()
+          const tags = (l.tags || l.listTags || []).map(t => t.toLowerCase())
+          if (name.includes(q)) return 0
+          if (tags.some((t: string) => t.includes(q))) return 1
+          if (description.includes(q)) return 2
+          return 3
+        }
+        return rank(a) - rank(b)
+      })
+      // Trim to requested limit after filtering
+      lists = lists.slice(0, limitCount)
+    }
+ 
     return lists
   }
 
@@ -988,14 +1043,20 @@ class FirebaseDataService {
     const usersQuery = query(
       collection(db, 'users'),
       orderBy('influences', 'desc'),
-      limit(limitCount)
+      fsLimit(limitCount)
     )
     const usersSnapshot = await getDocs(usersQuery)
     
-    const users = usersSnapshot.docs.map(doc => ({
+    let users = usersSnapshot.docs.map(doc => ({
       id: doc.id,
       ...doc.data()
     })) as User[]
+
+    // Optional user-tag filtering (via filters.tags)
+    if (filters && Array.isArray(filters.tags) && filters.tags.length > 0) {
+      const tagSet = new Set((filters.tags as string[]).map(t => t.toLowerCase()))
+      users = users.filter(user => Array.isArray((user as any).tags) && (user as any).tags.some((tag: string) => tagSet.has(String(tag).toLowerCase())))
+    }
 
     if (searchQuery) {
       const searchLower = searchQuery.toLowerCase()
@@ -1015,7 +1076,7 @@ class FirebaseDataService {
       collection(db, 'posts'),
       where('privacy', '==', 'public'),
       orderBy('likes', 'desc'),
-      limit(limitCount)
+      fsLimit(limitCount)
     )
     const postsSnapshot = await getDocs(postsQuery)
     
@@ -1048,6 +1109,22 @@ class FirebaseDataService {
     } catch (error) {
       console.error('Error fetching place:', error)
       return null
+    }
+  }
+
+  async getPlaceKeysLite(limitCount: number = 500): Promise<Array<{ id: string; name: string; address?: string; lat?: number; lng?: number }>> {
+    try {
+      const placesQuery = query(collection(db, 'places'), fsLimit(limitCount))
+      const snap = await getDocs(placesQuery)
+      return snap.docs.map(d => {
+        const data: any = d.data()
+        const lat = (data.coordinates && data.coordinates.lat) || data.location?.lat
+        const lng = (data.coordinates && data.coordinates.lng) || data.location?.lng
+        return { id: d.id, name: data.name || data.placeName || '', address: data.address || data.location?.address, lat, lng }
+      })
+    } catch (e) {
+      console.warn('getPlaceKeysLite failed', e)
+      return []
     }
   }
 
@@ -1179,6 +1256,55 @@ class FirebaseDataService {
     }
   }
 
+  async likeComment(postId: string, commentId: string, userId: string): Promise<void> {
+    try {
+      const commentRef = doc(db, 'posts', postId, 'comments', commentId)
+      const snap = await getDoc(commentRef)
+      if (!snap.exists()) return
+      const data = snap.data() as PostComment
+      const likedBy = data.likedBy || []
+      let likes = data.likes || 0
+      if (likedBy.includes(userId)) {
+        likes = Math.max(0, likes - 1)
+        await updateDoc(commentRef, { likes, likedBy: likedBy.filter(id => id !== userId) })
+      } else {
+        likes += 1
+        await updateDoc(commentRef, { likes, likedBy: [...likedBy, userId] })
+      }
+    } catch (error) {
+      console.error('firebaseDataService: Error liking comment:', error)
+    }
+  }
+
+  async addReplyToComment(postId: string, commentId: string, userId: string, text: string): Promise<{ id: string; userId: string; username: string; userAvatar: string; text: string; createdAt: string } | null> {
+    try {
+      const currentUser = await this.getCurrentUser(userId)
+      if (!currentUser) throw new Error('User not found')
+
+      const commentRef = doc(db, 'posts', postId, 'comments', commentId)
+      const snap = await getDoc(commentRef)
+      if (!snap.exists()) return null
+      const data = snap.data() as PostComment & { replies?: any[] }
+
+      const replyId = doc(collection(db, 'posts', postId, 'comments', commentId, 'replies')).id
+      const reply = {
+        id: replyId,
+        userId,
+        username: currentUser.username,
+        userAvatar: currentUser.avatar || '',
+        text,
+        createdAt: new Date().toISOString()
+      }
+
+      const existingReplies = Array.isArray((data as any).replies) ? (data as any).replies : []
+      await updateDoc(commentRef, { replies: [...existingReplies, reply] })
+      return reply
+    } catch (error) {
+      console.error('firebaseDataService: Error adding reply to comment:', error)
+      return null
+    }
+  }
+
   async postProfileComment(profileUserId: string, authorUserId: string, text: string): Promise<PostComment | null> {
     try {
       const author = await this.getCurrentUser(authorUserId);
@@ -1263,6 +1389,18 @@ class FirebaseDataService {
 
       await setDoc(newPostRef, finalPostData);
 
+      // Log activity for user feed
+      try {
+        await this.logActivity(postData.userId, {
+          type: 'post',
+          userId: postData.userId,
+          postId: postId,
+          createdAt: new Date().toISOString()
+        })
+      } catch (e) {
+        console.warn('Failed to log post activity:', e)
+      }
+
       // If the post is associated with lists, update those lists
       if (postData.listIds && postData.listIds.length > 0) {
         for (const listId of postData.listIds) {
@@ -1328,6 +1466,12 @@ class FirebaseDataService {
       await setDoc(userSavedListsRef, { listId, savedAt: Timestamp.now() });
       // Increment like count
       await this.updateListLikeCount(listId, 1);
+      // Log activity
+      try {
+        await this.logActivity(userId, { type: 'save', userId, listId })
+      } catch (e) {
+        console.warn('Failed to log save list activity:', e)
+      }
     }
   }
 
@@ -1446,26 +1590,91 @@ class FirebaseDataService {
         }
       }
 
-      console.log(`Place ${placeId} successfully saved to list ${listId} with status: ${status}`);
+      // Log activity for user feed
+      try {
+        await this.logActivity(userId, { type: 'save', userId, placeId, listId })
+      } catch (e) {
+        console.warn('Failed to log save place activity:', e)
+      }
+
+      // Increment savedCount on the place to support discovery ranking
+      try {
+        const placeRef = doc(db, 'places', placeId)
+        await updateDoc(placeRef, { savedCount: increment(1) })
+      } catch (e) {
+        console.warn('Failed to increment place savedCount', e)
+      }
+
+      console.log(`Place ${placeId} successfully saved to list ${listId}`);
     } catch (error) {
       console.error('Error saving place to list:', error);
+    }
+  }
+
+  private cleanUndefined<T extends Record<string, any>>(obj: T): T {
+    const out: Record<string, any> = {}
+    Object.keys(obj).forEach((k) => {
+      const v = (obj as any)[k]
+      if (v !== undefined) out[k] = v
+    })
+    return out as T
+  }
+
+  async ensureAutoList(userId: string, status: 'loved' | 'tried' | 'want'): Promise<List> {
+    const autoName = status === 'loved' ? 'All Loved' : status === 'tried' ? 'All Tried' : 'All Want'
+    // Try to find existing
+    const lists = await this.getUserLists(userId)
+    const found = lists.find(l => (l.name || '').trim().toLowerCase() === autoName.toLowerCase() || ((l as any).tags||[]).includes('#auto-generated') && ((l as any).tags||[]).includes(`#${status}`))
+    if (found) return found
+    // Create if missing (private by default)
+    const newId = await this.createList({
+      name: autoName,
+      description: '',
+      privacy: 'private',
+      tags: ['#auto-generated', `#${status}`],
+      userId
+    })
+    if (!newId) throw new Error('Failed to create auto-generated list')
+    const created = await this.getList(newId)
+    if (!created) throw new Error('Auto-generated list not found after creation')
+    return created
+  }
+
+  async saveToAutoList(placeId: string, userId: string, status: 'loved' | 'tried' | 'want', note?: string, rating?: 'liked' | 'neutral' | 'disliked'): Promise<void> {
+    const autoList = await this.ensureAutoList(userId, status)
+    const exists = await this.isPlaceInList(autoList.id, placeId)
+    if (!exists) {
+      await this.savePlaceToList(placeId, autoList.id, userId, note, undefined, status, rating)
     }
   }
 
   async createList(listData: { name: string; description: string; privacy: 'public' | 'private' | 'friends'; tags: string[], userId: string }): Promise<string | null> {
     try {
       const newListRef = doc(collection(db, 'lists'));
-      const list = {
+      const cleaned = this.cleanUndefined(listData)
+      const list = this.cleanUndefined({
         id: newListRef.id,
-        ...listData,
+        ...cleaned,
         isPublic: listData.privacy === 'public',
         createdAt: Timestamp.now(),
         updatedAt: Timestamp.now(),
         hubs: [],
         likes: 0,
         isLiked: false,
-      };
+      });
       await setDoc(newListRef, list);
+
+      // Log activity for user feed
+      try {
+        await this.logActivity(listData.userId, {
+          type: 'create_list',
+          userId: listData.userId,
+          listId: newListRef.id,
+          createdAt: new Date().toISOString()
+        })
+      } catch (e) {
+        console.warn('Failed to log create_list activity:', e)
+      }
       return newListRef.id;
     } catch (error) {
       console.error('Error creating list:', error);
@@ -1684,14 +1893,33 @@ class FirebaseDataService {
       const activityQuery = query(
         collection(db, 'users', userId, 'activity'),
         orderBy('createdAt', 'desc'),
-        limit(limitCount)
+        fsLimit(limitCount)
       )
       const activitySnapshot = await getDocs(activityQuery)
       
-      const activities = activitySnapshot.docs.map(doc => ({
+      let activities = activitySnapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
       })) as Activity[]
+
+      // Enrich activities with referenced data for UI convenience
+      const enriched: Activity[] = []
+      for (const a of activities) {
+        const activity: any = { ...a }
+        try {
+          if (a.listId && !a.list) {
+            const list = await this.getList(a.listId)
+            if (list) activity.list = list
+          }
+          if (a.placeId && !a.place) {
+            const place = await this.getPlace(a.placeId)
+            if (place) activity.place = place
+          }
+        } catch {}
+        enriched.push(activity as Activity)
+      }
+
+      activities = enriched
 
       this.userActivityCache.set(userId, { activities, timestamp: Date.now() })
       return activities
@@ -1750,6 +1978,21 @@ class FirebaseDataService {
 
     } catch (error) {
       console.error('Error tracking user interaction:', error)
+    }
+  }
+
+  // Write a normalized activity entry for a user feed
+  async logActivity(userId: string, activity: { type: 'save' | 'like' | 'post' | 'create_list'; userId: string; placeId?: string; listId?: string; postId?: string; createdAt?: string }): Promise<void> {
+    try {
+      const activityRef = doc(collection(db, 'users', userId, 'activity'))
+      await setDoc(activityRef, {
+        ...activity,
+        createdAt: activity.createdAt || new Date().toISOString()
+      })
+      // Bust cache for that user's activity
+      this.userActivityCache.delete(userId)
+    } catch (error) {
+      console.error('Error logging activity:', error)
     }
   }
 
@@ -1824,21 +2067,77 @@ class FirebaseDataService {
     }
   }
 
-  async getPopularTags(limit: number = 20): Promise<string[]> {
+  async getPopularTags(limitCount: number = 20): Promise<string[]> {
     try {
-      const tagsQuery = query(
-        collection(db, 'tags'),
-        orderBy('usageCount', 'desc'),
-        limit(limit)
-      )
-      const tagsSnapshot = await getDocs(tagsQuery)
-      const tags: string[] = []
-      tagsSnapshot.forEach(doc => {
-        tags.push(doc.id)
-      })
-      return tags
+      // Prefer ordering by usageCount when available
+      try {
+        const tagsQuery = query(
+          collection(db, 'tags'),
+          orderBy('usageCount', 'desc'),
+          fsLimit(limitCount)
+        )
+        const tagsSnapshot = await getDocs(tagsQuery)
+        const tags: string[] = []
+        if (!tagsSnapshot.empty) {
+          tagsSnapshot.forEach(docSnap => tags.push(docSnap.id))
+          return tags
+        }
+      } catch {}
+
+      // Fallback: no usageCount or query failed — return all tags sorted alphabetically
+      const all = await getDocs(collection(db, 'tags'))
+      const names = all.docs.map(d => d.id).sort()
+      return names.slice(0, limitCount)
     } catch (error) {
       console.error('Error fetching popular tags:', error)
+      return []
+    }
+  }
+
+  // Suggest places for cold-start users based on interests and optional location
+  async getSuggestedPlaces(options: { tags?: string[]; location?: { lat: number; lng: number }; limit?: number } = {}): Promise<Place[]> {
+    const { tags = [], location, limit = 12 } = options
+    try {
+      // Try to fetch top places by savedCount/popularity first
+      const q = query(
+        collection(db, 'places'),
+        orderBy('savedCount', 'desc'),
+        fsLimit(Math.max(limit * 10, 100))
+      )
+      const snap = await getDocs(q)
+      let places: any[] = []
+      snap.forEach(d => places.push({ id: d.id, ...d.data() }))
+
+      // If we have tag preferences, filter and rank by tag overlap
+      if (tags.length > 0) {
+        const tagSet = new Set(tags.map(t => t.toLowerCase()))
+        const scored = places.map(p => {
+          const ptags = (p.tags || []).map((t: string) => String(t).toLowerCase())
+          const overlap = ptags.filter((t: string) => tagSet.has(t)).length
+          let score = overlap * 5 + (p.savedCount || 0)
+          // Light distance boost if user location available
+          if (location && p.coordinates && typeof p.coordinates.lat === 'number' && typeof p.coordinates.lng === 'number') {
+            const dlat = (p.coordinates.lat - location.lat)
+            const dlng = (p.coordinates.lng - location.lng)
+            const approxKm = Math.sqrt(dlat * dlat + dlng * dlng) * 111
+            const distBoost = Math.max(0, 30 - Math.min(30, approxKm)) // up to +30 near
+            score += distBoost
+          }
+          return { p, score }
+        })
+        places = scored.sort((a, b) => b.score - a.score).map(s => s.p)
+      } else if (location) {
+        // No tags: lightly sort by proximity if location given
+        places = places.sort((a, b) => {
+          const da = a.coordinates ? Math.hypot(a.coordinates.lat - location.lat, a.coordinates.lng - location.lng) : 1e9
+          const db = b.coordinates ? Math.hypot(b.coordinates.lat - location.lat, b.coordinates.lng - location.lng) : 1e9
+          return da - db
+        })
+      }
+
+      return places.slice(0, limit)
+    } catch (e) {
+      console.warn('getSuggestedPlaces fallback', e)
       return []
     }
   }
@@ -1935,7 +2234,70 @@ class FirebaseDataService {
     this.searchCache.clear()
   }
 
+  async getExternalSuggestedPlaces(
+    lat: number,
+    lng: number,
+    tags: string[] = [],
+    limit = 12,
+    options: { interests?: string[]; radiusKm?: number; openNow?: boolean } = {}
+  ): Promise<Place[]> {
+    try {
+      const clientKey = (import.meta as any).env?.VITE_GOOGLE_MAPS_API_KEY
+      const payload = { lat, lng, tags, limit, interests: options.interests || [], radiusKm: options.radiusKm ?? undefined, openNow: options.openNow ?? undefined, clientKey }
+      // Use deployed Cloud Function only
+      const cfUrl = 'https://us-central1-this-is-76332.cloudfunctions.net/suggestPlaces'
+      const resp = await fetch(cfUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      } as any)
+      if (!resp || !resp.ok) throw new Error('Request failed')
+      const data = await resp.json()
+      return data.places || []
+    } catch (e) {
+      console.warn('getExternalSuggestedPlaces failed', e)
+      return []
+    }
+  }
+
+  async geocodeLocation(query: string): Promise<{ lat: number; lng: number; address: string } | null> {
+    try {
+      // Try local rewrites first (emulator/hosting)
+      const clientKey = (import.meta as any).env?.VITE_GOOGLE_MAPS_API_KEY
+      let resp: any = await fetch(`/geocodeLocation?q=${encodeURIComponent(query)}&clientKey=${encodeURIComponent(clientKey || '')}` as any)
+      if (!resp || !resp.ok) {
+        // Fallback to deployed Cloud Function URL
+        const cfUrl = 'https://us-central1-this-is-76332.cloudfunctions.net/geocodeLocation'
+        resp = await fetch(`${cfUrl}?q=${encodeURIComponent(query)}&clientKey=${encodeURIComponent(clientKey || '')}` as any)
+      }
+      if (!resp || !resp.ok) return null
+      const data = await (resp as any).json()
+      console.log('[geocodeLocation] query ->', query, 'result ->', data)
+      return data.location || null
+    } catch {
+      return null
+    }
+  }
+
   async createHub(hubData: { name: string, address: string, description: string, coordinates?: { lat: number, lng: number } }): Promise<string> {
+    // Prevent duplicates: look for matching name and similar address first
+    try {
+      const nameLower = (hubData.name || '').toLowerCase().trim()
+      if (nameLower) {
+        const qname = query(collection(db, 'places'), where('name_lowercase', '==', nameLower), fsLimit(10))
+        const snap = await getDocs(qname)
+        const normalize = (v: string) => String(v || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
+        const addrNorm = normalize(hubData.address)
+        for (const d of snap.docs) {
+          const data: any = d.data()
+          const existingAddr = data.address || data.location?.address || ''
+          if (normalize(existingAddr) === addrNorm) {
+            return d.id // Return existing hub id instead of creating a duplicate
+          }
+        }
+      }
+    } catch {}
+
     const hubRef = await addDoc(collection(db, 'places'), {
       name: hubData.name,
       description: hubData.description,
@@ -1944,6 +2306,13 @@ class FirebaseDataService {
         lat: hubData.coordinates?.lat || 0,
         lng: hubData.coordinates?.lng || 0
       },
+      // Store coordinates in a dedicated field as well; other parts of the app read from this
+      coordinates: {
+        lat: hubData.coordinates?.lat || 0,
+        lng: hubData.coordinates?.lng || 0
+      },
+      tags: [],
+      savedCount: 0,
       name_lowercase: hubData.name.toLowerCase(),
       createdAt: Timestamp.now(),
       mainImage: '/assets/leaf.png' // Default banner image
@@ -1957,7 +2326,7 @@ class FirebaseDataService {
       const hubsRef = collection(db, 'places');
       
       // Get all hubs and filter client-side for more lenient matching
-      const hubQuery = query(hubsRef, limit(50)); // Get more results to filter from
+      const hubQuery = query(hubsRef, fsLimit(50)); // Get more results to filter from
       const hubSnap = await getDocs(hubQuery);
       const allHubs = hubSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Hub));
       
@@ -2136,6 +2505,75 @@ class FirebaseDataService {
   async refreshHubBannerImage(hubId: string): Promise<void> {
     console.log(`Manually refreshing banner image for hub: ${hubId}`);
     await this.updateHubBannerImage(hubId);
+  }
+
+  async addUserTag(tagName: string): Promise<void> {
+    try {
+      const normalizedTag = tagName.toLowerCase().trim()
+      if (!normalizedTag) return
+      const tagDoc = await getDoc(doc(db, 'userTags', normalizedTag))
+      if (tagDoc.exists()) {
+        await updateDoc(doc(db, 'userTags', normalizedTag), {
+          usageCount: increment(1),
+          lastUsed: Timestamp.now()
+        })
+      } else {
+        await setDoc(doc(db, 'userTags', normalizedTag), {
+          name: normalizedTag,
+          displayName: tagName.trim(),
+          usageCount: 1,
+          createdAt: Timestamp.now(),
+          lastUsed: Timestamp.now()
+        })
+      }
+    } catch (error) {
+      console.error('Error adding user tag:', error)
+    }
+  }
+
+  async getAllUserTags(): Promise<string[]> {
+    try {
+      const snapshot = await getDocs(collection(db, 'userTags'))
+      const tags: string[] = []
+      snapshot.forEach(doc => tags.push(doc.id))
+      return tags.sort()
+    } catch (error) {
+      console.error('Error fetching all user tags:', error)
+      return []
+    }
+  }
+
+  async getPopularUserTags(limitCount: number = 20): Promise<string[]> {
+    try {
+      const q = query(collection(db, 'userTags'), orderBy('usageCount', 'desc'), fsLimit(limitCount))
+      const snapshot = await getDocs(q)
+      const tags: string[] = []
+      snapshot.forEach(doc => tags.push(doc.id))
+      return tags
+    } catch (error) {
+      console.error('Error fetching popular user tags:', error)
+      return []
+    }
+  }
+
+  async isPlaceInList(listId: string, placeId: string): Promise<boolean> {
+    try {
+      const placeRef = doc(db, 'lists', listId, 'places', placeId)
+      const snap = await getDoc(placeRef)
+      return snap.exists()
+    } catch (error) {
+      console.error('Error checking if place is in list:', error)
+      return false
+    }
+  }
+
+  async setHubMainImage(hubId: string, imageUrl: string): Promise<void> {
+    try {
+      await updateDoc(doc(db, 'places', hubId), { mainImage: imageUrl })
+    } catch (error) {
+      console.error('Error setting hub main image:', error)
+      throw error
+    }
   }
 }
 

@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react'
-import { ArrowLeftIcon, CameraIcon, MapPinIcon, CalendarIcon, PencilIcon } from '@heroicons/react/24/outline'
+import { ArrowLeftIcon, CameraIcon, CalendarIcon, PencilIcon } from '@heroicons/react/24/outline'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext.js'
+import { formatTimestamp } from '../utils/dateUtils'
 import { firebaseDataService } from '../services/firebaseDataService.js'
 import type { User } from '../types/index.js'
+import GooglePlacesAutocomplete from '../components/GooglePlacesAutocomplete'
 
 // SVG botanical accent
 const BotanicalAccent = () => (
@@ -182,16 +184,15 @@ const EditProfile = () => {
 
             <div>
               <label className="block text-sm font-medium text-charcoal-700 mb-2">Location</label>
-              <div className="relative">
-                <MapPinIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-sage-400" />
-                <input
-                  type="text"
-                  value={formData.location || ''}
-                  onChange={(e) => handleInputChange('location', e.target.value)}
-                  className="w-full pl-10 pr-4 py-3 rounded-xl border border-linen-200 bg-linen-50 text-charcoal-700 focus:outline-none focus:ring-2 focus:ring-sage-200 focus:border-sage-300 transition-colors"
-                  placeholder="Enter your location"
-                />
-              </div>
+              <GooglePlacesAutocomplete
+                value={formData.location || ''}
+                placeholder="Start typing your city..."
+                onPlaceSelect={(address) => {
+                  if (address) {
+                    handleInputChange('location', address)
+                  }
+                }}
+              />
             </div>
           </div>
         </div>
@@ -251,7 +252,7 @@ const EditProfile = () => {
                 <CalendarIcon className="w-5 h-5 text-gold-500" />
                 <div>
                   <p className="font-medium text-charcoal-700">Member Since</p>
-                  <p className="text-sm text-charcoal-500">{formData.createdAt ? new Date(formData.createdAt).toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) : 'N/A'}</p>
+                  <p className="text-sm text-charcoal-500">{formData.createdAt ? formatTimestamp(formData.createdAt as any) : 'N/A'}</p>
                 </div>
               </div>
             </div>

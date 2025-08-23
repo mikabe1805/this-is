@@ -4,6 +4,8 @@ import { useState, useRef, useEffect } from 'react'
 import { firebaseListService } from '../services/firebaseListService'
 import { firebaseDataService } from '../services/firebaseDataService'
 import { useAuth } from '../contexts/AuthContext'
+import AddressAutocomplete from './AddressAutocomplete'
+import TagAutocomplete from './TagAutocomplete'
 
 interface CreateListModalProps {
   isOpen: boolean
@@ -22,14 +24,14 @@ const CreateListModal = ({ isOpen, onClose, onCreate }: CreateListModalProps) =>
   const [coverImagePreview, setCoverImagePreview] = useState<string>('')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
-  const [showTagSuggestions, setShowTagSuggestions] = useState(false)
   const [availableTags, setAvailableTags] = useState<string[]>([])
+  const [location, setLocation] = useState<{ address: string; lat?: number; lng?: number }>({ address: '' })
 
   useEffect(() => {
     if (isOpen) {
       const fetchTags = async () => {
         try {
-          const tags = await firebaseDataService.getAllTags();
+          const tags = await firebaseDataService.getPopularTags(30);
           setAvailableTags(tags);
         } catch (error) {
           console.error('Error fetching tags:', error);
@@ -47,7 +49,7 @@ const CreateListModal = ({ isOpen, onClose, onCreate }: CreateListModalProps) =>
 
     setIsSubmitting(true)
     try {
-      await firebaseListService.createList({
+      const newListId = await firebaseListService.createList({
         name: name.trim(),
         description: description.trim(),
         privacy,
@@ -55,6 +57,10 @@ const CreateListModal = ({ isOpen, onClose, onCreate }: CreateListModalProps) =>
         userId: currentUser.id,
         coverImage: coverImage || undefined
       })
+      // Save optional location on the created list
+      if (newListId && location.address.trim()) {
+        await firebaseListService.updateList(newListId, { location } as any)
+      }
       handleClose()
     } catch (error) {
       console.error('Error creating list:', error)
@@ -80,23 +86,13 @@ const CreateListModal = ({ isOpen, onClose, onCreate }: CreateListModalProps) =>
     if (tagToAdd && !tags.includes(tagToAdd) && tags.length < 5) {
       setTags([...tags, tagToAdd])
       setNewTag('')
-      setShowTagSuggestions(false)
-      
-      // Save new tag to Firebase
-      try {
-        await firebaseDataService.addTag(tagToAdd)
-      } catch (error) {
-        console.error('Error saving tag to Firebase:', error)
-        // Don't block the UI if tag saving fails
-      }
+      try { await firebaseDataService.addTag(tagToAdd) } catch {}
     }
   }
-  
   const handleSelectTag = (tag: string) => {
     if (!tags.includes(tag) && tags.length < 5) {
       setTags([...tags, tag])
       setNewTag('')
-      setShowTagSuggestions(false)
     }
   }
 
@@ -137,7 +133,7 @@ const CreateListModal = ({ isOpen, onClose, onCreate }: CreateListModalProps) =>
       />
       
       {/* Modal */}
-      <div className="relative w-full max-w-md bg-white rounded-2xl shadow-botanical border border-linen-200 max-h-[90vh] overflow-hidden">
+      <div className="relative w-full max-w-md bg-white rounded-2xl shadow-botanical border border-linen-200 max-h-[92vh] overflow-hidden">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-linen-200">
           <h2 className="text-xl font-serif font-semibold text-charcoal-800">Create New List</h2>
@@ -150,7 +146,7 @@ const CreateListModal = ({ isOpen, onClose, onCreate }: CreateListModalProps) =>
         </div>
 
         {/* Content */}
-        <div className="p-6 space-y-6 max-h-[calc(90vh-180px)] overflow-y-auto">
+        <div className="p-6 space-y-6 max-h-[calc(92vh-180px)] overflow-y-auto" style={{ WebkitOverflowScrolling: 'touch', overscrollBehavior: 'contain' }}>
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* Cover Image */}
             <div>
@@ -219,6 +215,22 @@ const CreateListModal = ({ isOpen, onClose, onCreate }: CreateListModalProps) =>
                 placeholder="Describe what this list is about..."
                 rows={3}
                 className="w-full px-4 py-3 rounded-xl border border-linen-200 bg-white text-charcoal-700 placeholder-charcoal-400 focus:outline-none focus:ring-2 focus:ring-sage-200 focus:border-transparent resize-none"
+              />
+            </div>
+
+            {/* Location */}
+            <div className="relative overflow-visible">
+              <label className="block text-sm font-medium text-charcoal-700 mb-2">List Location (optional)</label>
+              <AddressAutocomplete
+                value={location.address}
+                onPlaceSelect={(formatted, details) => {
+                  setLocation({
+                    address: formatted,
+                    lat: details?.geometry?.location?.lat?.() as number | undefined,
+                    lng: details?.geometry?.location?.lng?.() as number | undefined,
+                  })
+                }}
+                placeholder="e.g., Miami, Florida, USA"
               />
             </div>
 
@@ -307,64 +319,20 @@ const CreateListModal = ({ isOpen, onClose, onCreate }: CreateListModalProps) =>
                 </div>
               )}
 
-              {/* Add Tag Input */}
+              {/* Tag Autocomplete */}
               {tags.length < 5 && (
-                <div className="flex gap-2 mb-3">
-                  <input
-                    type="text"
-                    value={newTag}
-                    onChange={(e) => setNewTag(e.target.value)}
-                    onFocus={() => setShowTagSuggestions(true)}
-                    onBlur={() => setTimeout(() => setShowTagSuggestions(false), 100)}
-                    onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddTag())}
-                    placeholder="Add a tag..."
-                    className="flex-1 px-3 py-2 rounded-lg border border-linen-200 bg-white text-charcoal-700 placeholder-charcoal-400 focus:outline-none focus:ring-2 focus:ring-sage-200 focus:border-transparent text-sm"
-                  />
-                  <button
-                    type="button"
-                    onClick={handleAddTag}
-                    disabled={!newTag.trim()}
-                    className="px-3 py-2 rounded-lg bg-sage-100 text-sage-700 font-medium text-sm hover:bg-sage-200 disabled:opacity-50 disabled:cursor-not-allowed transition"
-                  >
-                    Add
-                  </button>
-                </div>
+                <TagAutocomplete
+                  value={newTag}
+                  onChange={setNewTag}
+                  onAdd={handleAddTag}
+                  currentTags={tags}
+                  availableTags={availableTags}
+                  className="mb-3"
+                  showPopularTags={true}
+                  popularLabel="Popular tags"
+                  persistTo="tags"
+                />
               )}
-              {showTagSuggestions && newTag && filteredTags.length > 0 && (
-                <div className="absolute z-10 w-full bg-white border border-linen-200 rounded-lg shadow-lg mt-1">
-                  {filteredTags.map(tag => (
-                    <button
-                      key={tag}
-                      type="button"
-                      onClick={() => handleSelectTag(tag)}
-                      className="block w-full text-left px-4 py-2 text-sm text-charcoal-700 hover:bg-linen-50"
-                    >
-                      {tag}
-                    </button>
-                  ))}
-                </div>
-              )}
-
-              {/* Available Tags */}
-              <div>
-                <div className="text-xs text-charcoal-500 mb-2">Popular tags:</div>
-                <div className="flex flex-wrap gap-2">
-                  {availableTags
-                    .filter(tag => !tags.includes(tag))
-                    .slice(0, 10)
-                    .map(tag => (
-                      <button
-                        key={tag}
-                        type="button"
-                        onClick={() => handleSelectTag(tag)}
-                        disabled={tags.length >= 5}
-                        className="px-2 py-1 rounded-full text-xs font-medium bg-linen-100 text-charcoal-600 border border-linen-200 hover:bg-sage-50 hover:text-sage-700 hover:border-sage-200 disabled:opacity-50 disabled:cursor-not-allowed transition"
-                      >
-                        #{tag}
-                      </button>
-                    ))}
-                </div>
-              </div>
             </div>
           </form>
         </div>

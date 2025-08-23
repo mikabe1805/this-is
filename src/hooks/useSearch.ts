@@ -3,9 +3,11 @@ import { useAuth } from '../contexts/AuthContext';
 import { firebaseDataService, type FirebaseSearchData } from '../services/firebaseDataService';
 import { aiSearchService } from '../services/aiSearchService';
 import { searchIntelligently, type IntelligentSearchResult, type SearchContext } from '../utils/intelligentSearchService';
+import { useFilters } from '../contexts/FiltersContext';
 
 export const useSearch = () => {
   const { currentUser: authUser } = useAuth();
+  const { filters } = useFilters();
   const [searchQuery, setSearchQuery] = useState('');
   const [displayResults, setDisplayResults] = useState<IntelligentSearchResult | FirebaseSearchData>({
     places: [], lists: [], users: [], posts: [], totalResults: { places: 0, lists: 0, users: 0, posts: 0 }
@@ -36,19 +38,24 @@ export const useSearch = () => {
   }, [authUser]);
 
   const performSearch = useCallback(async (query: string, options: { sortBy?: string, tags?: string[] } = {}) => {
-    if (!query.trim()) {
-      setDisplayResults({ places: [], lists: [], users: [], posts: [], totalResults: { places: 0, lists: 0, users: 0, posts: 0 } });
-      return;
-    }
     setIsSearching(true);
     setError('');
 
     try {
       let results;
+      // Merge global advanced filters into the search options
+      const mergedOptions: any = {
+        ...options,
+        radius: typeof filters.distanceKm === 'number' ? filters.distanceKm : undefined,
+        location: filters.location ? `${filters.location.lat},${filters.location.lng}` : undefined,
+        priceRange: Array.isArray(filters.priceLevels) && filters.priceLevels.length > 0 ? filters.priceLevels.map(String) : undefined,
+        openNow: !!filters.openNow
+      };
+
       if (aiSearchService.isAISearchEnabled() && searchContext) {
-        results = await searchIntelligently(query, searchContext, options);
+        results = await searchIntelligently(query, searchContext, mergedOptions);
       } else {
-        results = await firebaseDataService.performSearch(query, options);
+        results = await firebaseDataService.performSearch(query, mergedOptions);
       }
       setDisplayResults(results);
     } catch (err) {
@@ -57,7 +64,7 @@ export const useSearch = () => {
     } finally {
       setIsSearching(false);
     }
-  }, [searchContext]);
+  }, [searchContext, filters]);
 
   return {
     searchQuery,

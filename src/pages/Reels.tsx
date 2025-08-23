@@ -39,8 +39,8 @@ const Reels = () => {
   const [currentReelComments, setCurrentReelComments] = useState<PostComment[]>([]);
   const [followingStatus, setFollowingStatus] = useState<Record<string, boolean>>({});
   const containerRef = useRef<HTMLDivElement>(null);
-  const touchStartY = useRef<number>(0);
-  const touchEndY = useRef<number>(0);
+  // const touchStartY = useRef<number>(0);
+  // const touchEndY = useRef<number>(0);
   const videoRefs = useRef<(HTMLVideoElement | null)[]>([])
   const touchStartRef = useRef({ x: 0, y: 0 })
   const isScrollingRef = useRef(false)
@@ -60,6 +60,9 @@ const Reels = () => {
       if (followingIds.length > 0) {
         allFollowingPosts = await firebaseDataService.getPostsFromUsers(followingIds);
         setFollowingReels(allFollowingPosts);
+      } else {
+        // If user follows no one, default to discovery and keep Follow control disabled
+        setActiveTab('discovery')
       }
       
       // Fetch popular posts for discovery
@@ -85,8 +88,26 @@ const Reels = () => {
         if (user) usersMap[user.id] = user;
       });
       
-      hubsData.forEach(hub => {
-        if (hub) hubsMap[hub.id] = hub;
+      hubsData.forEach(place => {
+        if (place) {
+          // Coerce Place into minimal Hub shape for Reels overlay use
+          hubsMap[place.id] = {
+            id: place.id,
+            name: place.name,
+            description: place.description || '',
+            tags: place.tags || [],
+            images: [],
+            location: {
+              address: place.address,
+              lat: place.coordinates?.lat || 0,
+              lng: place.coordinates?.lng || 0
+            },
+            googleMapsUrl: `https://www.google.com/maps/search/${encodeURIComponent(place.name + ' ' + place.address)}`,
+            mainImage: (place as any).hubImage,
+            posts: [],
+            lists: []
+          } as unknown as Hub;
+        }
       });
       
       setUsers(usersMap);
@@ -161,9 +182,10 @@ const Reels = () => {
     isScrollingRef.current = true
     setCurrentReelIndex(newIndex)
 
+    // shorten lockout window for more responsive swipes
     setTimeout(() => {
       isScrollingRef.current = false
-    }, 500)
+    }, 300)
   }
 
   const handleTouchStart = (e: React.TouchEvent) => {
@@ -186,7 +208,8 @@ const Reels = () => {
     const diffY = touchStartRef.current.y - touchEnd.y
     const diffX = Math.abs(touchStartRef.current.x - touchEnd.x)
 
-    if (Math.abs(diffY) > 30 && Math.abs(diffY) > diffX) {
+    // Increase vertical threshold slightly and suppress accidental diagonal scrolls
+    if (Math.abs(diffY) > 45 && Math.abs(diffY) > diffX + 10) {
       e.preventDefault()
       handleScroll(diffY > 0 ? 'up' : 'down')
     }
@@ -254,8 +277,18 @@ const Reels = () => {
 
   const handleLike = async () => {
     if (!authUser || !currentReel) return;
+    const hasLiked = (currentReel.likedBy || []).includes(authUser.id)
     await firebaseDataService.likePost(currentReel.id, authUser.id);
-    const updatedReels = currentReels.map(r => r.id === currentReel.id ? { ...r, likes: (r.likes || 0) + 1, likedBy: [...(r.likedBy || []), authUser.id] } : r);
+    const updatedReels = currentReels.map(r => {
+      if (r.id !== currentReel.id) return r
+      const likedByArr = r.likedBy || []
+      const newLikedBy = hasLiked ? likedByArr.filter(id => id !== authUser.id) : [...likedByArr, authUser.id]
+      return {
+        ...r,
+        likedBy: newLikedBy,
+        likes: newLikedBy.length
+      }
+    });
     if (activeTab === 'following') setFollowingReels(updatedReels);
     else setDiscoveryReels(updatedReels);
   }
@@ -335,7 +368,9 @@ const Reels = () => {
       className="fixed inset-0 bg-black overflow-hidden"
       style={{
         zIndex: 1000,
-        overscrollBehavior: 'none'
+        overscrollBehavior: 'none',
+        WebkitOverflowScrolling: 'auto',
+        touchAction: 'manipulation'
       }}
       data-reels-page="true"
       onTouchStart={handleTouchStart}
@@ -453,8 +488,9 @@ const Reels = () => {
                 ? 'bg-white text-black shadow-lg'
                 : 'text-white/80 hover:text-white'
               }`}
+            disabled={followingReels.length === 0}
           >
-            Following
+            {followingReels.length === 0 ? 'Following (add some)' : 'Following'}
           </button>
           <button
             onClick={() => setActiveTab('discovery')}
@@ -561,7 +597,15 @@ const Reels = () => {
       <SaveModal
         isOpen={showSaveModal}
         onClose={() => setShowSaveModal(false)}
-        place={postHub}
+        place={{
+          id: postHub.id,
+          name: postHub.name,
+          address: postHub.location?.address || '',
+          tags: postHub.tags,
+          posts: postHub.posts,
+          savedCount: 0,
+          createdAt: new Date().toISOString()
+        }}
         onSave={(status, rating, listIds, note) => {
           console.log('Save place:', status, rating, listIds, note)
           setShowSaveModal(false)

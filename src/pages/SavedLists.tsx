@@ -20,6 +20,7 @@ const BotanicalAccent = () => (
 )
 
 const sortOptions = [
+  { key: 'relevance', label: 'Relevance' },
   { key: 'recent', label: 'Recently Favorited' },
   { key: 'popular', label: 'Most Popular' },
   { key: 'alphabetical', label: 'Alphabetical' },
@@ -41,7 +42,8 @@ const Favorites = () => {
 
   const [savedLists, setSavedLists] = useState<List[]>([])
   const [loading, setLoading] = useState(true)
-  const [sortBy, setSortBy] = useState('recent')
+  const [sortBy, setSortBy] = useState('relevance')
+  const [searchQuery, setSearchQuery] = useState('')
   const [activeFilters, setActiveFilters] = useState<string[]>([])
   const [selectedTags, setSelectedTags] = useState<string[]>([])
   const [showSaveModal, setShowSaveModal] = useState(false)
@@ -70,6 +72,14 @@ const Favorites = () => {
 
   // Filter and sort lists
   let filteredLists = savedLists.filter(list => {
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase()
+      const matches =
+        list.name.toLowerCase().includes(q) ||
+        (list.description || '').toLowerCase().includes(q) ||
+        (list.tags || []).some(t => t.toLowerCase().includes(q))
+      if (!matches) return false
+    }
     // Filter by privacy
     if (activeFilters.length > 0) {
       const hasPrivacyFilter = activeFilters.some(f => list.privacy === f)
@@ -87,6 +97,25 @@ const Favorites = () => {
 
   // Sort lists
   switch (sortBy) {
+    case 'relevance': {
+      const q = searchQuery.trim().toLowerCase()
+      const tags = selectedTags.map(t=>t.toLowerCase())
+      const score = (l: List) => {
+        let s = 0
+        const name = l.name.toLowerCase()
+        const desc = (l.description||'').toLowerCase()
+        const lt = (l.tags||[]).map(t=>t.toLowerCase())
+        if (q) { if (name.includes(q)) s+=4; if (desc.includes(q)) s+=2; if (lt.some(t=>t.includes(q))) s+=3 }
+        if (tags.length>0) { s += lt.filter(t=>tags.includes(t)).length * 5 }
+        return s
+      }
+      filteredLists = [...filteredLists].sort((a,b)=>{
+        const sa = score(a), sb = score(b)
+        if (sb !== sa) return sb - sa
+        return (b.likes||0) - (a.likes||0)
+      })
+      break
+    }
     case 'recent':
       filteredLists = [...filteredLists].sort((a, b) => new Date(b.updatedAt || 0).getTime() - new Date(a.updatedAt || 0).getTime())
       break
@@ -177,17 +206,22 @@ const Favorites = () => {
 
           {/* Search and Filter */}
           <div className="mb-6">
-            <SearchAndFilter
-              placeholder="Search favorites..."
-              sortOptions={sortOptions}
-              filterOptions={filterOptions}
-              availableTags={availableTags}
-              sortBy={sortBy}
-              setSortBy={setSortBy}
-              activeFilters={activeFilters}
-              setActiveFilters={setActiveFilters}
-              dropdownPosition="top-right"
-            />
+            <form onSubmit={(e) => { e.preventDefault(); }}>
+              <SearchAndFilter
+                placeholder="Search favorites..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                sortOptions={sortOptions}
+                filterOptions={filterOptions}
+                availableTags={availableTags}
+                sortBy={sortBy}
+                setSortBy={setSortBy}
+                activeFilters={activeFilters}
+                setActiveFilters={setActiveFilters}
+                dropdownPosition="top-right"
+                onSubmitQuery={() => { /* in-place filtering */ }}
+              />
+            </form>
           </div>
 
           {/* Selected Tags */}

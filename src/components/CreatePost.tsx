@@ -208,7 +208,8 @@ const CreatePost = ({ isOpen, onClose, preSelectedHub, preSelectedListIds }: Cre
   }
   const handleLocationSearch = async (query: string) => {
     setLocationSearch(query)
-    if (query.length > 2) {
+    // Always offer create-new option; search when query has 0+ chars
+    if (query.length >= 0) {
       setIsSearching(true)
       
       const results = await firebaseDataService.searchHubs(query, 10);
@@ -221,8 +222,6 @@ const CreatePost = ({ isOpen, onClose, preSelectedHub, preSelectedListIds }: Cre
         lng: p.location?.lng,
       })));
       setIsSearching(false)
-    } else {
-      setSearchResults([])
     }
   }
   const handleSelectHub = (hub: CreatePostHub) => {
@@ -356,7 +355,7 @@ const CreatePost = ({ isOpen, onClose, preSelectedHub, preSelectedListIds }: Cre
 
   const modalContent = (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-      <div className="relative w-full max-w-2xl max-h-[90vh] bg-white rounded-3xl shadow-botanical border border-linen-200 overflow-hidden">
+      <div className="relative w-full max-w-2xl max-h-[92vh] bg-white rounded-3xl shadow-botanical border border-linen-200 overflow-hidden">
         {/* Header */}
         <div className="p-6 border-b border-linen-200 bg-linen-50 flex items-center justify-between">
           <button
@@ -382,7 +381,7 @@ const CreatePost = ({ isOpen, onClose, preSelectedHub, preSelectedListIds }: Cre
           <div className={`w-3 h-3 rounded-full ${step === 'details' ? 'bg-sage-500' : 'bg-sage-200'}`} />
         </div>
         {/* Content */}
-        <div className="p-6 space-y-6 max-h-[calc(90vh-12rem)] overflow-y-auto">
+        <div className="p-6 space-y-6 max-h-[calc(92vh-12rem)] overflow-y-auto" style={{ WebkitOverflowScrolling: 'touch', overscrollBehavior: 'contain' }}>
           {/* Step 1: Photo */}
           {step === 'photo' && (
             <div className="space-y-6">
@@ -418,6 +417,7 @@ const CreatePost = ({ isOpen, onClose, preSelectedHub, preSelectedListIds }: Cre
                 ref={photoInputRef}
                 type="file"
                 accept="image/*"
+                capture="environment"
                 onChange={handlePhotoUpload}
                 className="hidden"
               />
@@ -548,7 +548,7 @@ const CreatePost = ({ isOpen, onClose, preSelectedHub, preSelectedListIds }: Cre
                       ))}
                     </div>
                   )}
-                  {locationSearch && searchResults.length === 0 && !isSearching && (
+                  {!isSearching && (
                     <div className="text-center py-4">
                       <p className="text-charcoal-500 mb-4">Can't find what you're looking for?</p>
                       <button
