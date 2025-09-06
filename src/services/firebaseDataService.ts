@@ -2009,6 +2009,19 @@ class FirebaseDataService {
     }
   }
 
+  // Soft negative feedback: user is not interested in a place
+  async markPlaceNotInterested(userId: string, placeId: string): Promise<void> {
+    try {
+      const prefs = await this.getUserPreferences(userId)
+      const hidden = Array.isArray((prefs as any).hiddenPlaces) ? (prefs as any).hiddenPlaces as string[] : []
+      if (!hidden.includes(placeId)) hidden.unshift(placeId)
+      ;(prefs as any).hiddenPlaces = hidden.slice(0, 500)
+      await this.saveUserPreferences(userId, prefs)
+    } catch (e) {
+      console.error('Failed to mark not interested', e)
+    }
+  }
+
   // ====================
   // GLOBAL TAG MANAGEMENT
   // ====================

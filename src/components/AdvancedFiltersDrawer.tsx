@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react'
+import { createPortal } from 'react-dom'
 import AddressAutocomplete from './AddressAutocomplete'
 import { useFilters } from '../contexts/FiltersContext'
 
@@ -32,10 +33,10 @@ export default function AdvancedFiltersDrawer({ isOpen, onClose, onApply }: Prop
   const unitsLabel = useMemo(() => (local.unit === 'mi' ? 'miles' : 'km'), [local.unit])
 
   if (!isOpen) return null
-  return (
-    <div className="fixed inset-0 z-[10030]">
+  return createPortal(
+    <div className="fixed inset-0 z-[10040]">
       <div className={`absolute inset-0 bg-black/40 transition-opacity duration-200 ${mounted ? 'opacity-100' : 'opacity-0'}`} onClick={onClose} />
-      <div className={`absolute bottom-0 left-0 right-0 max-w-md mx-auto bg-white rounded-t-3xl border border-white/30 shadow-xl p-4 transition-transform duration-200 ${mounted ? 'translate-y-0' : 'translate-y-4'}`}> 
+      <div className={`absolute bottom-0 left-0 right-0 max-w-md mx-auto bg-white rounded-t-3xl border border-white/30 shadow-xl p-4 transition-transform duration-200 ${mounted ? 'translate-y-0' : 'translate-y-4'}`} style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 12px)', WebkitOverflowScrolling: 'touch' }}> 
         <div className="flex items-center justify-between mb-2">
           <h3 className="text-lg font-semibold">Advanced Filters</h3>
           <button
@@ -53,7 +54,7 @@ export default function AdvancedFiltersDrawer({ isOpen, onClose, onApply }: Prop
           </button>
         </div>
 
-        <div className="space-y-4 max-h-[65vh] overflow-y-auto pr-1">
+        <div className="space-y-4 max-h-[65vh] overflow-y-auto pr-1" style={{ overscrollBehavior: 'contain', touchAction: 'manipulation' }}>
           <div>
             <label className="block text-sm text-sage-800 mb-1">Distance from</label>
             <div className="flex gap-2">
@@ -63,7 +64,7 @@ export default function AdvancedFiltersDrawer({ isOpen, onClose, onApply }: Prop
             </div>
             {local.origin === 'custom' && (
               <div className="mt-2">
-                <AddressAutocomplete value={local.location?.name || ''} onPlaceSelect={(formatted, details) => {
+                <AddressAutocomplete mode="city" worldwideBias value={local.location?.name || ''} onPlaceSelect={(formatted, details) => {
                   const lat = details?.geometry?.location?.lat?.() as number | undefined
                   const lng = details?.geometry?.location?.lng?.() as number | undefined
                   setLocal({ ...local, location: lat && lng ? { lat, lng, name: formatted } : undefined })
@@ -134,11 +135,14 @@ export default function AdvancedFiltersDrawer({ isOpen, onClose, onApply }: Prop
                   localStorage.setItem('recent_locations_v1', JSON.stringify(next))
                 }
               } catch {}
-              onClose(); onApply && onApply()
+              // Defer onApply until after context state updates to avoid "second apply" issue
+              onClose();
+              setTimeout(() => { try { onApply && onApply() } catch {} }, 0)
             }}>Apply</button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }
 

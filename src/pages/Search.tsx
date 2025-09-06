@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react';
-import { MapIcon, BookmarkIcon, UserIcon } from '@heroicons/react/24/outline';
+import { MapIcon, BookmarkIcon, UserIcon, SparklesIcon } from '@heroicons/react/24/outline';
 import { useLocation } from 'react-router-dom';
+import AdvancedFiltersDrawer from '../components/AdvancedFiltersDrawer';
 import SearchAndFilter from '../components/SearchAndFilter';
 import type { Hub, Place, List, User } from '../types/index.js';
 import { useNavigation } from '../contexts/NavigationContext.tsx';
+import ImageCarousel from '../components/ImageCarousel';
 import { useSearch } from '../hooks/useSearch';
 import { useAuth } from '../contexts/AuthContext';
 import { firebaseDataService } from '../services/firebaseDataService';
@@ -31,6 +33,12 @@ const Search = () => {
   const [activeFilters, setActiveFiltersState] = useState<string[]>([]);
   const [recentFinds, setRecentFinds] = useState<{ type: 'place' | 'list' | 'user', item: any, timestamp: Date }[]>([]);
   const [availableTags, setAvailableTags] = useState<string[]>([]);
+  const [recommendedHubs, setRecommendedHubs] = useState<Place[]>([]);
+  const [externalHubs, setExternalHubs] = useState<Place[]>([]);
+  const [googleQueryHubs, setGoogleQueryHubs] = useState<Place[]>([]);
+  const [usedLocation, setUsedLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const [suggestedTag, setSuggestedTag] = useState<string | null>(null);
+  const [recsRefreshTick, setRecsRefreshTick] = useState(0);
   useEffect(() => {
     const loadTags = async () => {
       try {
@@ -43,6 +51,139 @@ const Search = () => {
     loadTags();
   }, []);
   const [showAdvanced, setShowAdvanced] = useState(false);
+
+  // Lightweight hub recommendations when query is empty
+  useEffect(() => {
+    const loadRecommended = async () => {
+      try {
+        const prefs = currentUser ? await firebaseDataService.getUserPreferences(currentUser.id) : null;
+        const tags = prefs?.favoriteCategories?.slice(0, 6) || availableTags.slice(0, 6);
+        // Try to determine a location: prefs.homeLocation -> geolocation -> profile.location geocoded
+        let loc: { lat: number; lng: number } | null = usedLocation || null;
+        try { if (typeof (prefs as any)?.homeLocation === 'object') loc = (prefs as any).homeLocation; } catch {}
+        if (!loc && 'geolocation' in navigator) {
+          await new Promise<void>(resolve => navigator.geolocation.getCurrentPosition(p => { loc = { lat: p.coords.latitude, lng: p.coords.longitude }; resolve(); }, () => resolve(), { timeout: 4000 }));
+        }
+        if (!loc && currentUser) {
+          try {
+            const profile = await firebaseDataService.getCurrentUser(currentUser.id);
+            const locStr = (profile as any)?.location;
+            if (typeof locStr === 'string' && locStr.trim().length > 0) {
+              const geo = await firebaseDataService.geocodeLocation(locStr.trim());
+              if (geo) loc = { lat: geo.lat, lng: geo.lng };
+            }
+          } catch {}
+        }
+
+        // Internal recs
+        let recs = await firebaseDataService.getSuggestedPlaces({ tags, limit: 32 });
+        // Filter internal by proximity when we have a location
+        if (loc) {
+          const radiusKmPref = (prefs as any)?.locationPreferences?.nearbyRadius;
+          const radiusKm = typeof radiusKmPref === 'number' && radiusKmPref > 0 ? Math.min(radiusKmPref * 1.60934, 120) : 80;
+          recs = recs.filter(p => {
+            const plat = (p as any)?.coordinates?.lat;
+            const plng = (p as any)?.coordinates?.lng;
+            if (typeof plat !== 'number' || typeof plng !== 'number') return false;
+            const d = Math.hypot(plat - loc!.lat, plng - loc!.lng) * 111;
+            return d <= radiusKm;
+          });
+          // Sort by proximity
+          recs = recs.sort((a,b)=>{
+            const aLat = (a as any)?.coordinates?.lat, aLng = (a as any)?.coordinates?.lng;
+            const bLat = (b as any)?.coordinates?.lat, bLng = (b as any)?.coordinates?.lng;
+            const da = Math.hypot((aLat||0) - loc!.lat, (aLng||0) - loc!.lng);
+            const db = Math.hypot((bLat||0) - loc!.lat, (bLng||0) - loc!.lng);
+            return da - db;
+          })
+        }
+        setRecommendedHubs((recs || []).slice(0, 12));
+
+        // If still thin, fetch external Google suggestions and filter by radius
+        if ((recs?.length || 0) < 6 && loc) {
+          const radiusKmPref = (prefs as any)?.locationPreferences?.nearbyRadius;
+          const radiusKm = typeof radiusKmPref === 'number' && radiusKmPref > 0 ? Math.min(radiusKmPref * 1.60934, 120) : 50;
+          const ext = await firebaseDataService.getExternalSuggestedPlaces(loc.lat, loc.lng, tags, 12, { radiusKm, openNow: false });
+          setExternalHubs(ext || []);
+        } else {
+          setExternalHubs([]);
+        }
+
+        setUsedLocation(loc);
+
+        // Compute a simple auto-suggest tag from shown items if not in user's tags
+        try {
+          const items = [...(recs || []), ...externalHubs].slice(0, 12);
+          const freq: Record<string, number> = {};
+          items.forEach(p => (p.tags || []).forEach(t => { const k = t.toLowerCase(); freq[k] = (freq[k] || 0) + 1; }));
+          const top = Object.entries(freq).sort((a,b)=> b[1]-a[1])[0]?.[0];
+          if (top && prefs && !(prefs as any)?.userTags?.includes(top)) {
+            setSuggestedTag(top);
+          } else {
+            setSuggestedTag(null);
+          }
+        } catch { setSuggestedTag(null); }
+      } catch {
+        setRecommendedHubs([]); setExternalHubs([]);
+      }
+    };
+    if (!searchQuery.trim()) loadRecommended();
+  }, [searchQuery, currentUser, availableTags, recsRefreshTick, usedLocation]);
+
+  // Load Google recommendations tied to the current query when internal matches are sparse
+  useEffect(() => {
+    const fetchGoogleForQuery = async () => {
+      try {
+        if (isSearching) return;
+        const q = searchQuery.trim();
+        if (!q) { setGoogleQueryHubs([]); return; }
+        const internalPlaces = Array.isArray((displayResults as any)?.places) ? (displayResults as any).places as Place[] : [];
+        if ((internalPlaces?.length || 0) >= 8) { setGoogleQueryHubs([]); return; }
+
+        // Resolve location (prefer already resolved)
+        let loc = usedLocation;
+        if (!loc && 'geolocation' in navigator) {
+          await new Promise<void>(resolve => navigator.geolocation.getCurrentPosition(p => { loc = { lat: p.coords.latitude, lng: p.coords.longitude }; resolve(); }, () => resolve(), { timeout: 4000 }));
+        }
+        if (!loc && currentUser) {
+          try {
+            const profile = await firebaseDataService.getCurrentUser(currentUser.id);
+            const locStr = (profile as any)?.location;
+            if (typeof locStr === 'string' && locStr.trim().length > 0) {
+              const geo = await firebaseDataService.geocodeLocation(locStr.trim());
+              if (geo) loc = { lat: geo.lat, lng: geo.lng };
+            }
+          } catch {}
+        }
+        if (!loc) { setGoogleQueryHubs([]); return; }
+
+        // Build tags from the query tokens (simple split)
+        const tokens = q.toLowerCase().split(/\s+/).filter(Boolean).slice(0, 5);
+        const radiusKm = 50;
+        const ext = await firebaseDataService.getExternalSuggestedPlaces(loc.lat, loc.lng, tokens, 12, { radiusKm, openNow: false });
+
+        // De-duplicate vs internal places
+        const keyFor = (p: any) => `${String(p.name||'').toLowerCase()}|${String(p.address||'').toLowerCase()}`;
+        const coordKey = (p: any) => (p.coordinates && typeof p.coordinates.lat==='number' && typeof p.coordinates.lng==='number') ? `${p.coordinates.lat.toFixed(5)},${p.coordinates.lng.toFixed(5)}` : '';
+        const seenComposite = new Set([
+          ...internalPlaces.map(p => keyFor(p as any)),
+          ...internalPlaces.map(p => coordKey(p as any)).filter(Boolean)
+        ]);
+        let filtered = (ext||[]).filter(p => !seenComposite.has(keyFor(p)) && (!coordKey(p) || !seenComposite.has(coordKey(p))));
+        // Enforce radius and coordinates requirement
+        filtered = filtered.filter(p => typeof (p as any)?.coordinates?.lat === 'number' && typeof (p as any)?.coordinates?.lng === 'number');
+        filtered = filtered.filter(p => {
+          const plat = (p as any).coordinates.lat, plng = (p as any).coordinates.lng;
+          const d = Math.hypot(plat - loc!.lat, plng - loc!.lng) * 111;
+          return d <= radiusKm;
+        }).slice(0, 8);
+        setGoogleQueryHubs(filtered);
+      } catch {
+        setGoogleQueryHubs([]);
+      }
+    };
+    fetchGoogleForQuery();
+  }, [searchQuery, isSearching, displayResults, usedLocation]);
 
   // Load recent searches from user preferences
   useEffect(() => {
@@ -251,12 +392,92 @@ const Search = () => {
           </button>
         </form>
       </div>
+      <AdvancedFiltersDrawer isOpen={showAdvanced} onClose={()=>setShowAdvanced(false)} onApply={()=>{ if (searchQuery.trim()) performSearch(searchQuery, { sortBy, tags: activeFilters }); }} />
 
       <div className="relative z-10 p-4">
         {isSearching ? (
           <div className="text-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-moss-600 mx-auto"></div><p className="mt-2">Searching...</p></div>
         ) : (
           <>
+            {!searchQuery.trim() && (recommendedHubs.length > 0 || externalHubs.length > 0) && (
+              <div className="mb-6">
+                <div className="flex items-center gap-2 mb-3">
+                  <SparklesIcon className="w-5 h-5 text-sage-600" />
+                  <h3 className="text-lg font-serif font-semibold text-charcoal-800">Recommended hubs for you</h3>
+                </div>
+                {!usedLocation && (
+                  <div className="mb-3 text-sm text-charcoal-600">
+                    Improve recommendations by using your location.
+                    <button
+                      className="ml-2 px-3 py-1.5 rounded-full bg-sage-500 text-white hover:bg-sage-600"
+                      onClick={async () => {
+                        try {
+                          if ('geolocation' in navigator) {
+                            await new Promise<void>((resolve) => navigator.geolocation.getCurrentPosition(
+                              async (p) => { setUsedLocation({ lat: p.coords.latitude, lng: p.coords.longitude }); resolve(); },
+                              () => resolve(),
+                              { timeout: 5000 }
+                            ));
+                            setRecsRefreshTick(t=>t+1)
+                          }
+                        } catch {}
+                      }}
+                    >Use my location</button>
+                  </div>
+                )}
+                {suggestedTag && currentUser && (
+                  <div className="mb-3 text-sm flex items-center gap-2 bg-linen-50 border border-linen-200 rounded-xl p-2">
+                    <span>You often like “{suggestedTag}”.</span>
+                    <button
+                      className="px-3 py-1.5 rounded-full bg-gold-100 text-gold-700 hover:bg-gold-200 border border-gold-200"
+                      onClick={async () => {
+                        try {
+                          const prefs = await firebaseDataService.getUserPreferences(currentUser!.id);
+                          const userTags = Array.isArray((prefs as any)?.userTags) ? (prefs as any).userTags as string[] : []
+                          const next = [...new Set([...userTags, suggestedTag!])]
+                          await firebaseDataService.updateUserTags(currentUser!.id, next)
+                          setSuggestedTag(null)
+                        } catch {}
+                      }}
+                    >Add {suggestedTag} to my tags</button>
+                  </div>
+                )}
+                <div className="space-y-2">
+                  {(() => {
+                    const items = [...recommendedHubs, ...externalHubs]
+                    const loc = usedLocation
+                    const within = (p: any) => {
+                      if (!loc) return true
+                      const plat = p?.coordinates?.lat, plng = p?.coordinates?.lng
+                      if (typeof plat !== 'number' || typeof plng !== 'number') return false
+                      const d = Math.hypot(plat - loc.lat, plng - loc.lng) * 111
+                      const maxKm =  (/* default */ 80)
+                      return d <= maxKm
+                    }
+                    return items.filter(within).map(p => (
+                    <div key={p.id} className="bg-white/80 border border-linen-200 rounded-2xl p-4 shadow-soft hover:shadow-cozy transition">
+                      <div className="flex items-start gap-3">
+                        <img src={(p as any).mainImage || '/assets/leaf.png'} alt={p.name} className="w-16 h-16 rounded-lg object-cover" />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between">
+                            <h4 className="font-semibold text-charcoal-800 truncate">{p.name}</h4>
+                            <span className="text-xs text-charcoal-500">{(p.tags||[]).slice(0,2).map(t=>`#${t}`).join(' ')}</span>
+                          </div>
+                          <div className="text-sm text-charcoal-600 line-clamp-1">{p.address}</div>
+                        </div>
+                      </div>
+                      <div className="mt-3 flex items-center justify-end gap-3">
+                        <button onClick={() => handlePlaceClick(p)} className="px-3 py-1.5 rounded-full text-sm bg-sage-500 text-white hover:bg-sage-600">View</button>
+                        {currentUser && (
+                          <button onClick={async (e) => { e.stopPropagation(); await firebaseDataService.markPlaceNotInterested(currentUser.id, p.id); setRecommendedHubs(prev=>prev.filter(x=>x.id!==p.id)); setExternalHubs(prev=>prev.filter(x=>x.id!==p.id)); }} className="px-3 py-1.5 rounded-full text-sm bg-linen-100 text-charcoal-700 border border-linen-200 hover:bg-linen-200">Not interested</button>
+                        )}
+                      </div>
+                    </div>
+                    ))
+                  })()}
+                </div>
+              </div>
+            )}
             {showSearchHistory ? (
               <div>
                 <h3 className="font-semibold mb-2">Recent Searches</h3>
@@ -271,6 +492,61 @@ const Search = () => {
                     </button>
                   ))}
                 </div>
+
+                {/* Google results for the current query (after results header/tabs) */}
+                {searchQuery.trim() && googleQueryHubs.length > 0 && (
+                  <div className="my-6">
+                    <div className="flex items-center justify-between mb-3">
+                      <h3 className="text-lg font-serif font-semibold" style={{ color: '#2563eb' }}>Recommended from Google</h3>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+                      {googleQueryHubs
+                        .filter(it => (activeFilters.length === 0) || (Array.isArray((it as any).tags) && (it as any).tags.some((t:string)=> activeFilters.includes(t))))
+                        .slice(0, 8)
+                        .map((item) => {
+                        const price = typeof (item as any).priceLevel === 'number' ? '$'.repeat(Math.max(1, Math.min(4, (item as any).priceLevel))) : ''
+                        const rating = typeof (item as any).rating === 'number' ? (item as any).rating.toFixed(1) : ''
+                        const ratingCount = typeof (item as any).userRatingsTotal === 'number' ? ` (${(item as any).userRatingsTotal})` : ''
+                        const ratingAndCount = rating ? `${rating} ★${ratingCount}` : ''
+                        const meta = [ratingAndCount, price, (item as any).openNow ? 'Open now' : ''].filter(Boolean).join(' · ')
+                        const images = Array.isArray((item as any).images) && (item as any).images.length > 0 ? (item as any).images : ((item as any).mainImage ? [(item as any).mainImage] : [])
+                        return (
+                          <div key={item.id} className="relative w-full rounded-3xl shadow-xl border border-white/30 ring-1 ring-white/50 overflow-hidden" style={{ background: 'linear-gradient(145deg, rgba(248,252,255,0.9), rgba(221,236,255,0.65))', backdropFilter: 'blur(28px) saturate(1.32)' }}>
+                            <div className="pointer-events-none absolute -top-20 left-6 w-56 h-56 rounded-full bg-white/70 blur-3xl opacity-70" />
+                            <div className="pointer-events-none absolute -bottom-24 right-8 w-52 h-52 rounded-full bg-blue-200/70 blur-3xl opacity-70" />
+                            <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-white/20 via-transparent to-blue-200/20" />
+                            <div className="pointer-events-none absolute -top-10 -left-20 w-[160%] h-14 bg-gradient-to-r from-white/10 via-white/70 to-white/10 opacity-60 blur-xl transform -rotate-6" />
+                            <div className="pointer-events-none absolute bottom-2 left-1/2 -translate-x-1/2 w-2/3 h-10 rounded-full bg-white/15 blur-md" />
+
+                            {/* media */}
+                            <div className="w-full h-40 bg-gradient-to-br from-blue-200/30 to-blue-100/20 relative">
+                              {images.length > 1 ? (
+                                <ImageCarousel images={images as any} className="h-40 w-full" />
+                              ) : (
+                                <img src={((images as any)[0] || (item as any).mainImage || '/assets/leaf.png')} alt={item.name} className="absolute inset-0 w-full h-full object-cover" />
+                              )}
+                              <div className="absolute inset-x-0 top-0 h-12 bg-gradient-to-b from-black/25 to-transparent" />
+                            </div>
+
+                            {/* content */}
+                            <div className="p-4 relative">
+                              <div className="absolute inset-2 rounded-2xl bg-white/18 border border-white/30 shadow-inner pointer-events-none" />
+                              <div className="relative">
+                                <h4 className="font-semibold text-blue-900 text-base text-center line-clamp-2">{item.name}</h4>
+                                <p className="text-blue-700 text-[11px] text-center mt-1 line-clamp-1">{(item as any).address || ''}</p>
+                                {meta && <p className="text-blue-900/80 text-[11px] text-center mt-2">{meta}</p>}
+                                <div className="mt-3 flex items-center justify-center">
+                                  <button onClick={() => handlePlaceClick(item)} className="px-3 py-1.5 rounded-full text-xs bg-blue-600 text-white hover:bg-blue-700">Create Hub</button>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
+
                 {error && <p className="text-red-500 text-center">{error}</p>}
                 {displayResults.places.length === 0 && displayResults.lists.length === 0 && displayResults.users.length === 0 && !isSearching && <div>No results.</div>}
                 

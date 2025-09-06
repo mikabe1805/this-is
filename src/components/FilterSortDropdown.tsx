@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { EllipsisHorizontalIcon } from '@heroicons/react/24/outline'
 import TagSearchModal from './TagSearchModal'
@@ -66,27 +66,68 @@ const FilterSortDropdown: React.FC<FilterSortDropdownProps> = ({
   const [tagQuery, setTagQuery] = useState('')
   const { resetFilters } = useFilters()
   const [mounted, setMounted] = useState(false)
+  const [isMobile, setIsMobile] = useState<boolean>(() => typeof window !== 'undefined' ? window.matchMedia('(max-width: 640px)').matches : false)
 
   useEffect(() => { setMounted(true) }, [])
 
-  if (!show) return null
+  // Detect mobile viewport and update on resize
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 640px)')
+    const handler = () => setIsMobile(mq.matches)
+    handler()
+    mq.addEventListener?.('change', handler)
+    return () => mq.removeEventListener?.('change', handler)
+  }, [])
 
-  // Center the dropdown on the page to avoid cutting off
-  const panelStyle = {
-    position: 'fixed' as const,
-    top: '50%',
-    left: '50%',
-    transform: 'translate(-50%, -50%)',
-    width: PANEL_WIDTH,
-    zIndex: 99999
-  }
+  // Lock body scroll while open
+  useEffect(() => {
+    if (!show) return
+    const previousOverflow = document.body.style.overflow
+    const previousPosition = document.body.style.position
+    document.body.style.overflow = 'hidden'
+    document.body.style.position = 'relative'
+    return () => {
+      document.body.style.overflow = previousOverflow
+      document.body.style.position = previousPosition
+    }
+  }, [show])
+
+  // Positioning: center panel on desktop, bottom sheet on mobile
+  const panelStyle = useMemo(() => {
+    if (isMobile) {
+      return {
+        position: 'fixed' as const,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        width: '100%',
+        zIndex: 99999,
+        maxHeight: '82vh',
+        paddingBottom: 'max(env(safe-area-inset-bottom), 12px)'
+      }
+    }
+    return {
+      position: 'fixed' as const,
+      top: '50%',
+      left: '50%',
+      transform: 'translate(-50%, -50%)',
+      width: PANEL_WIDTH,
+      zIndex: 99999
+    }
+  }, [isMobile])
+
+  if (!show) return null
 
 
 
   return createPortal(
     <>
-      <div className={`fixed inset-0 z-[9999] bg-black/10 transition-opacity duration-200 ${mounted ? 'opacity-100' : 'opacity-0'}`} onClick={onClose}></div>
-      <div style={panelStyle} className={`rounded-2xl shadow-cozy border border-linen-200 bg-white p-6 transition-all duration-200 ${mounted ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 translate-y-2 scale-95'}`}>
+      <div className={`fixed inset-0 z-[9999] bg-black/20 transition-opacity duration-200 ${mounted ? 'opacity-100' : 'opacity-0'}`} onClick={onClose}></div>
+      <div
+        style={panelStyle}
+        className={`${isMobile ? 'rounded-t-2xl rounded-b-none' : 'rounded-2xl'} shadow-cozy border border-linen-200 bg-white transition-all duration-200 ${mounted ? (isMobile ? 'opacity-100 translate-y-0' : 'opacity-100 translate-y-0 scale-100') : (isMobile ? 'opacity-0 translate-y-4' : 'opacity-0 translate-y-2 scale-95')}`}
+      >
+        <div className={`${isMobile ? 'p-5' : 'p-6'} ${isMobile ? '' : ''}`} style={{ paddingBottom: isMobile ? 'max(env(safe-area-inset-bottom), 12px)' : undefined, maxHeight: isMobile ? 'calc(82vh - 16px)' : undefined, overflowY: 'auto', WebkitOverflowScrolling: 'touch', overscrollBehavior: 'contain', touchAction: 'manipulation' }}>
         <div className="mb-6">
           <div className="font-serif font-semibold mb-4 text-lg text-charcoal-700">Sort by</div>
           <div className="space-y-2">
@@ -231,6 +272,7 @@ const FilterSortDropdown: React.FC<FilterSortDropdownProps> = ({
           >
             Reset
           </button>
+        </div>
         </div>
       </div>
 

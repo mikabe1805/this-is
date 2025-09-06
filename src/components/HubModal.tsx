@@ -112,8 +112,17 @@ const HubModal = ({ hub, isOpen, onClose, onAddPost, onSave, onShare, onOpenFull
   useEffect(() => {
     console.log('HubModal: isOpen changed to:', isOpen)
     if (isOpen) {
+      // Lock background scroll while modal is open
+      const prevOverflow = document.body.style.overflow
+      const prevPadding = document.body.style.paddingRight
+      document.body.style.overflow = 'hidden'
+      document.body.style.paddingRight = 'env(safe-area-inset-right)'
       // Small delay to ensure DOM is ready for animation
       setTimeout(() => setIsVisible(true), 10)
+      return () => {
+        document.body.style.overflow = prevOverflow
+        document.body.style.paddingRight = prevPadding
+      }
     } else {
       setIsVisible(false)
     }
@@ -209,6 +218,7 @@ const HubModal = ({ hub, isOpen, onClose, onAddPost, onSave, onShare, onOpenFull
         }`}
         style={{
           overflowX: 'hidden',
+          paddingBottom: 'max(env(safe-area-inset-bottom), 8px)',
           backgroundImage: `
             radial-gradient(circle at 20% 80%, rgba(232, 212, 192, 0.25) 0%, transparent 50%), 
             radial-gradient(circle at 80% 20%, rgba(251, 240, 217, 0.3) 0%, transparent 50%),

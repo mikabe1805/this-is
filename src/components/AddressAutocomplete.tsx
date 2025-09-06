@@ -6,6 +6,8 @@ interface AddressAutocompleteProps {
   placeholder?: string
   value?: string
   className?: string
+  mode?: 'address' | 'city' | 'place'
+  worldwideBias?: boolean
 }
 
 declare global {
@@ -19,7 +21,9 @@ export default function AddressAutocomplete({
   onPlaceSelect,
   placeholder = "Enter address...",
   value = "",
-  className = ""
+  className = "",
+  mode = 'address',
+  worldwideBias = true
 }: AddressAutocompleteProps) {
   const inputRef = useRef<HTMLInputElement>(null)
   const autocompleteRef = useRef<google.maps.places.Autocomplete | null>(null)
@@ -118,15 +122,28 @@ export default function AddressAutocomplete({
         originalWarn(message, ...args)
       }
 
-      // Create autocomplete instance for addresses with more flexible options
+      // Create worldwide bounds to minimize local IP/location bias
+      const worldBounds = new window.google.maps.LatLngBounds(
+        new window.google.maps.LatLng(-85, -180),
+        new window.google.maps.LatLng(85, 180)
+      )
+
+      // Determine autocomplete types by mode
+      const types: google.maps.places.AutocompleteComponentRestrictions | string[] =
+        mode === 'city' ? ['(cities)'] : mode === 'place' ? ['establishment'] : ['geocode', 'establishment']
+
+      // Create autocomplete instance with flexible, worldwide options
       autocompleteRef.current = new window.google.maps.places.Autocomplete(
         inputRef.current,
         {
-          types: ['establishment', 'geocode'], // Allow both establishments and addresses
+          // @ts-expect-error - types accepts special tokens like '(cities)'
+          types,
           fields: ['formatted_address', 'name', 'place_id', 'geometry', 'address_components', 'types'],
-          componentRestrictions: undefined, // Allow global results
-          strictBounds: false
-        }
+          componentRestrictions: undefined,
+          strictBounds: false,
+          // Use bounds to counteract default IP/location bias if requested
+          bounds: worldwideBias ? worldBounds : undefined
+        } as any
       )
 
       console.log('AddressAutocomplete: Autocomplete instance created successfully');

@@ -20,6 +20,7 @@ import { useAuth } from '../contexts/AuthContext.tsx'
 import { firebaseDataService } from '../services/firebaseDataService.js'
 import TagAutocomplete from '../components/TagAutocomplete'
 import { formatTimestamp } from '../utils/dateUtils'
+import AdvancedFiltersDrawer from '../components/AdvancedFiltersDrawer'
 
 const BotanicalAccent = () => (
     <svg width="60" height="60" viewBox="0 0 60 60" fill="none" xmlns="http://www.w3.org/2000/svg" className="absolute -top-6 -left-6 opacity-30 select-none pointer-events-none">
@@ -62,6 +63,7 @@ const Profile = () => {
     const [selectedTags, setSelectedTags] = useState<string[]>([])
     const [searchQuery, setSearchQuery] = useState('')
     const deferredSearch = useDeferredValue(searchQuery)
+    const [showAdvanced, setShowAdvanced] = useState(false)
     const [selectedLocation, setSelectedLocation] = useState<{ lat: number; lng: number; name?: string } | null>(null)
     const [listDistances, setListDistances] = useState<Record<string, number>>({})
     const [showSaveModal, setShowSaveModal] = useState(false);
@@ -543,8 +545,16 @@ const Profile = () => {
                         setActiveFilters={setActiveFilters}
                         dropdownPosition="top-right"
                         onSubmitQuery={() => { /* in-place filtering */ }}
+                        onOpenAdvanced={() => setShowAdvanced(true)}
                     />
                 </form>
+                <AdvancedFiltersDrawer
+                    isOpen={showAdvanced}
+                    onClose={() => setShowAdvanced(false)}
+                    onApply={() => {
+                        setShowAdvanced(false);
+                    }}
+                />
             </div>
             {!searchQuery.trim() && (
             <div className="relative z-10 p-8 mt-8 rounded-3xl shadow-botanical border border-linen-200 bg-white max-w-2xl mx-auto overflow-hidden flex flex-col gap-2">
@@ -1090,6 +1100,13 @@ const Profile = () => {
                 isOpen={showGoogleMapsImport}
                 onClose={() => setShowGoogleMapsImport(false)}
                 onImport={handleGoogleMapsImport}
+            />
+            <AdvancedFiltersDrawer
+                isOpen={showAdvanced}
+                onClose={() => setShowAdvanced(false)}
+                onApply={() => {
+                    setShowAdvanced(false);
+                }}
             />
         </div>
     )
