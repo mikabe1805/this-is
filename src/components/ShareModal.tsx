@@ -1,6 +1,7 @@
 import { XMarkIcon, LinkIcon, ShareIcon, ChatBubbleLeftIcon, EnvelopeIcon, DocumentDuplicateIcon, CheckIcon } from '@heroicons/react/24/outline'
 import { useState } from 'react'
 import { createPortal } from 'react-dom'
+import Button from './Button'
 
 interface ShareModalProps {
   isOpen: boolean
@@ -133,7 +134,7 @@ const ShareModal = ({ isOpen, onClose, title, description, url, image, type }: S
           <h2 className="text-lg font-serif font-semibold text-charcoal-800">Share</h2>
           <button
             onClick={handleClose}
-            className="p-2 rounded-xl text-charcoal-400 hover:text-charcoal-600 hover:bg-linen-100 transition"
+            className="btn-icon"
           >
             <XMarkIcon className="w-5 h-5" />
           </button>
@@ -199,13 +200,12 @@ const ShareModal = ({ isOpen, onClose, title, description, url, image, type }: S
 
         {/* Quick Actions */}
         <div className="p-4 border-t border-linen-200">
-          <button
-            onClick={handleCopyLink}
-            className="w-full py-3 px-4 bg-gradient-to-r from-sage-500 to-gold-500 text-white rounded-xl font-semibold hover:shadow-botanical transition-all duration-200 flex items-center justify-center gap-2"
-          >
-            <DocumentDuplicateIcon className="w-5 h-5" />
-            {copied ? 'Link Copied!' : 'Copy Link'}
-          </button>
+          <Button onClick={handleCopyLink} className="w-full">
+            <span className="inline-flex items-center gap-2">
+              <DocumentDuplicateIcon className="w-5 h-5" />
+              {copied ? 'Link Copied!' : 'Copy Link'}
+            </span>
+          </Button>
         </div>
       </div>
     </div>

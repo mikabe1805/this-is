@@ -1,4 +1,5 @@
 import type { Place, List, Hub, User } from '../types/index.js'
+import TagPill from './TagPill'
 import { formatTimestamp } from '../utils/dateUtils'
 import { MapPinIcon, BookmarkIcon, StarIcon, FireIcon, EllipsisHorizontalIcon, SparklesIcon, UserIcon } from '@heroicons/react/24/outline'
 import { useState, useEffect, useRef } from 'react'
@@ -573,7 +574,7 @@ const DiscoveryTab = () => {
                       {!!(place.tags && place.tags.length) && (
                         <div className="flex flex-wrap gap-1 mb-2">
                           {place.tags.slice(0, 3).map((tag) => (
-                            <span key={tag} className="px-2 py-1 bg-sage-100 text-sage-700 text-xs rounded-full">#{tag}</span>
+                            <TagPill key={tag} label={tag} size="sm" />
                           ))}
                         </div>
                       )}
@@ -858,9 +859,7 @@ const DiscoveryTab = () => {
                         <p className="text-sm text-charcoal-500 mb-2 leading-relaxed">{list.description}</p>
                         <div className="flex flex-wrap gap-2 mb-2">
                           {list.tags.map(tag => (
-                            <span key={tag} className="px-3 py-1 rounded-full text-xs font-medium bg-sage-50 border border-sage-100 text-sage-700">
-                              #{tag}
-                            </span>
+                            <TagPill key={tag} label={tag} size="sm" />
                           ))}
                         </div>
                       </div>

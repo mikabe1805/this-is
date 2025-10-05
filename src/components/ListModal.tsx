@@ -11,6 +11,7 @@ import { formatTimestamp } from '../utils/dateUtils.ts'
 import ImageCarousel from './ImageCarousel.tsx'
 import CommentsModal from './CommentsModal.tsx'
 import { firebaseDataService } from '../services/firebaseDataService.js'
+import TagPill from './TagPill.tsx'
 
 interface ListModalProps {
   list: List
@@ -592,13 +593,7 @@ const ListModal = ({ list, isOpen, onClose, onSave, onShare, onAddPost, onOpenFu
                 {posts.length + places.length} {posts.length + places.length === 1 ? 'place' : 'places'}
               </span>
               {list.tags.map((tag, index) => (
-                <span 
-                  key={tag} 
-                  className="px-3 py-1 bg-white/20 backdrop-blur-sm rounded-full text-white text-xs font-medium border border-white/30 shadow-sm"
-                  style={{ opacity: 1 - (index * 0.15) }}
-                >
-                  #{tag}
-                </span>
+                <TagPill key={tag} label={tag} size="sm" />
               ))}
             </div>
           </div>

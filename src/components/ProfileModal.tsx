@@ -237,7 +237,7 @@ const ProfileModal = ({ userId, isOpen, onClose, onFollow, onShare, onOpenFullSc
             <div className="relative">
           <div className="h-48 bg-gradient-to-br from-[#D4A574] via-[#C17F59] to-[#A67C52] overflow-hidden">
             <img 
-              src={user?.coverPhoto || '/assets/default-banner.jpg'} 
+              src={user?.coverPhoto || '/assets/leaf.png'} 
               alt="Cover" 
               className="w-full h-full object-cover opacity-80" 
             />
@@ -273,7 +273,7 @@ const ProfileModal = ({ userId, isOpen, onClose, onFollow, onShare, onOpenFullSc
 
           <div className="absolute top-28 left-1/2 -translate-x-1/2 z-20">
              <img
-              src={user?.avatar || '/assets/default-avatar.png'}
+              src={user?.avatar || '/assets/default-avatar.svg'}
               alt={user?.name}
               className="w-32 h-32 rounded-full border-4 border-[#F8F4EF] shadow-lg"
             />
@@ -299,11 +299,11 @@ const ProfileModal = ({ userId, isOpen, onClose, onFollow, onShare, onOpenFullSc
               <div className="p-6">
                 {/* User Info */}
                 <div className="text-center">
-                  <h3 className="text-3xl font-bold text-[#FDF6E3] drop-shadow-[1px_1px_2px_rgba(255,250,240,0.8)]" style={{ fontFamily: "'Inter', system-ui, sans-serif" }}>{user.name}</h3>
-                  <p className="text-sm text-[#FDF6E3] mb-1" style={{ fontFamily: "'Inter', system-ui, sans-serif" }}>@{user.username}</p>
+                  <h3 className="text-[1.6rem] sm:text-3xl font-bold text-[#FDF6E3] drop-shadow-[1px_1px_2px_rgba(255,250,240,0.8)]" style={{ fontFamily: "'Inter', system-ui, sans-serif" }}>{user.name}</h3>
+                  <p className="text-[0.95rem] text-[#FDF6E3] mb-1" style={{ fontFamily: "'Inter', system-ui, sans-serif" }}>@{user.username}</p>
                   {user.location && (
-                    <div className="flex items-center justify-center gap-1 text-sm text-[#FDF6E3] mb-2">
-                      <MapPinIcon className="w-4 h-4" />
+                    <div className="flex items-center justify-center gap-1 text-[0.95rem] text-[#FDF6E3] mb-2">
+                      <MapPinIcon className="w-5 h-5" />
                       <span>{user.location as any}</span>
                     </div>
                   )}

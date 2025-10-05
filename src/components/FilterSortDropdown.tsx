@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { EllipsisHorizontalIcon } from '@heroicons/react/24/outline'
 import TagSearchModal from './TagSearchModal'
+import TagPill from './TagPill'
 import { useFilters } from '../contexts/FiltersContext'
 
 interface Option {
@@ -212,28 +213,26 @@ const FilterSortDropdown: React.FC<FilterSortDropdownProps> = ({
               .filter(t => t.toLowerCase().includes(tagQuery.toLowerCase()))
               .slice(0, 12)
               .map(tag => (
-              <label key={tag} className="flex items-center gap-2 px-3 py-2 rounded-full text-sm font-medium bg-linen-100 border border-linen-200 text-charcoal-500 hover:bg-linen-200 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={selectedTags.includes(tag)}
-                  onChange={() => {
+                <TagPill
+                  key={tag}
+                  label={tag}
+                  size="sm"
+                  selected={selectedTags.includes(tag)}
+                  onClick={() => {
                     if (!setSelectedTags) return
                     const newTags = selectedTags.includes(tag)
                       ? selectedTags.filter(t => t !== tag)
                       : [...selectedTags, tag]
                     setSelectedTags(newTags)
                   }}
-                  className="w-4 h-4 text-sage-500 focus:ring-sage-400"
                 />
-                {tag}
-              </label>
             ))}
             {availableTags.filter(t => t.toLowerCase().includes(tagQuery.toLowerCase())).length > 12 && (
               <button
                 onClick={() => setShowTagSearch(true)}
-                className="flex items-center gap-2 px-3 py-2 rounded-full text-sm font-medium bg-linen-100 border border-linen-200 text-charcoal-500 hover:bg-linen-200 cursor-pointer transition"
+                className="px-3 py-2 rounded-full text-sm font-medium bg-linen-100 border border-linen-200 text-charcoal-600 hover:bg-linen-200 transition"
               >
-                <EllipsisHorizontalIcon className="w-4 h-4" />
+                More tags
               </button>
             )}
           </div>
@@ -241,7 +240,7 @@ const FilterSortDropdown: React.FC<FilterSortDropdownProps> = ({
         {onOpenAdvanced && (
           <div className="mt-4 mb-2 flex justify-end">
             <button
-              className="px-3 py-1.5 rounded-full text-sm font-semibold bg-white text-sage-700 border border-sage-200 shadow-soft hover:bg-sage-50 transition"
+              className="btn-secondary btn-sm"
               onClick={() => { onOpenAdvanced(); onClose(); }}
             >
               Advanced filters
@@ -250,7 +249,7 @@ const FilterSortDropdown: React.FC<FilterSortDropdownProps> = ({
         )}
         <div className="mt-4 flex gap-2">
           <button
-            className="flex-1 py-3 rounded-full font-semibold bg-sage-400 text-white shadow-soft hover:bg-sage-500 transition"
+            className="flex-1 btn-primary"
             onClick={() => {
               if (onApplyFilters) {
                 onApplyFilters()
@@ -261,7 +260,7 @@ const FilterSortDropdown: React.FC<FilterSortDropdownProps> = ({
             Apply Filters
           </button>
           <button
-            className="px-4 py-3 rounded-full font-semibold bg-linen-100 text-charcoal-700 border border-linen-200 hover:bg-linen-200 transition"
+            className="btn-secondary"
             onClick={() => {
               // Reset both general and advanced filters
               resetFilters()

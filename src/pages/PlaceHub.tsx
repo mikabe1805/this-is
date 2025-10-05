@@ -402,7 +402,13 @@ const PlaceHub = () => {
       <div className="relative z-10 bg-white/98 backdrop-blur-md border-b border-linen-200 px-6 py-4 shadow-soft">
         <div className="flex items-center justify-between mb-4">
           <button 
-            onClick={handleBack}
+            onClick={() => {
+              if (window.history.length > 1) {
+                navigate(-1)
+              } else {
+                handleBack()
+              }
+            }}
             className="w-10 h-10 bg-gradient-to-br from-sage-100 to-sage-200 rounded-full flex items-center justify-center shadow-soft hover:shadow-botanical transition-all duration-300 transform hover:scale-105"
             aria-label="Go back"
           >

@@ -32,6 +32,14 @@ export default function AdvancedFiltersDrawer({ isOpen, onClose, onApply }: Prop
 
   const unitsLabel = useMemo(() => (local.unit === 'mi' ? 'miles' : 'km'), [local.unit])
 
+  // Close on Escape
+  useEffect(() => {
+    if (!isOpen) return
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [isOpen, onClose])
+
   if (!isOpen) return null
   return createPortal(
     <div className="fixed inset-0 z-[10040]">
@@ -39,8 +47,9 @@ export default function AdvancedFiltersDrawer({ isOpen, onClose, onApply }: Prop
       <div className={`absolute bottom-0 left-0 right-0 max-w-md mx-auto bg-white rounded-t-3xl border border-white/30 shadow-xl p-4 transition-transform duration-200 ${mounted ? 'translate-y-0' : 'translate-y-4'}`} style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 12px)', WebkitOverflowScrolling: 'touch' }}> 
         <div className="flex items-center justify-between mb-2">
           <h3 className="text-lg font-semibold">Advanced Filters</h3>
-          <button
-            className="text-sage-700 text-sm"
+          <div className="flex items-center gap-3">
+            <button
+              className="btn-secondary btn-sm"
             onClick={() => {
               // Reset only advanced fields; preserve global tags
               const reset = { origin: 'profile' as const, unit: 'mi' as const, distanceKm: 80, priceLevels: [], openNow: false }
@@ -49,9 +58,11 @@ export default function AdvancedFiltersDrawer({ isOpen, onClose, onApply }: Prop
               // Notify listeners (e.g., Home) to refresh relevant sections
               try { onApply && onApply() } catch {}
             }}
-          >
-            Reset
-          </button>
+            >
+              Reset
+            </button>
+            <button aria-label="Close filters" className="btn-icon" onClick={onClose}>✕</button>
+          </div>
         </div>
 
         <div className="space-y-4 max-h-[65vh] overflow-y-auto pr-1" style={{ overscrollBehavior: 'contain', touchAction: 'manipulation' }}>
@@ -120,8 +131,8 @@ export default function AdvancedFiltersDrawer({ isOpen, onClose, onApply }: Prop
         </div>
 
         <div className="mt-4 flex gap-2">
-          <button className="flex-1 py-2 rounded-xl bg-linen-200" onClick={onClose}>Cancel</button>
-          <button className="flex-1 py-2 rounded-xl text-white" style={{ background: 'linear-gradient(135deg, #1ea4ff, #1d4ed8)' }}
+          <button className="flex-1 btn-secondary" onClick={onClose}>Cancel</button>
+          <button className="flex-1 btn-primary"
             onClick={()=>{
               // Apply only advanced fields; keep existing tags
               const { origin, unit, distanceKm, priceLevels, openNow, location } = local

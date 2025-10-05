@@ -382,7 +382,7 @@ const ViewAllLists = () => {
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center gap-4">
               <button
-                onClick={() => navigate(-1)}
+                onClick={() => { if (window.history.length > 1) navigate(-1); else navigate('/profile') }}
                 className="p-2 rounded-full hover:bg-linen-100 transition-colors"
               >
                 <ArrowLeftIcon className="w-5 h-5 text-charcoal-600" />
@@ -408,7 +408,7 @@ const ViewAllLists = () => {
 
       {/* Search and Filter */}
       <div className="sticky top-0 z-10 bg-white/95 backdrop-blur-sm border-b border-linen-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+        <div className="max-w-2xl mx-auto px-4 py-4">
           <SearchAndFilter
             placeholder="Search lists..."
             value={searchQuery}
@@ -446,7 +446,7 @@ const ViewAllLists = () => {
       </div>
 
       {/* Content */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="max-w-2xl mx-auto px-4 py-8">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredLists.map((list) => (
             <div

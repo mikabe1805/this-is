@@ -4,6 +4,7 @@ import { HeartIcon as HeartIconSolid, BookmarkIcon as BookmarkIconSolid, EyeIcon
 import { createPortal } from 'react-dom'
 import type { List, Place } from '../types/index.js'
 import SearchBar from './SearchBar'
+import Button from './Button'
 
 type SaveStatus = 'loved' | 'tried' | 'want'
 type TriedRating = 'liked' | 'neutral' | 'disliked'
@@ -149,7 +150,7 @@ const SaveModal: React.FC<SaveModalProps> = ({
           <h2 className="text-lg font-serif font-semibold text-charcoal-700">Save Place</h2>
           <button
             onClick={onClose}
-            className="p-2 rounded-full hover:bg-linen-100 transition-colors"
+            className="btn-icon"
           >
             <XMarkIcon className="w-5 h-5 text-charcoal-500" />
           </button>
@@ -370,7 +371,7 @@ const SaveModal: React.FC<SaveModalProps> = ({
         {/* Save/Cancel Buttons - Always visible at bottom */}
         <div className="p-4 border-t border-linen-200 flex-shrink-0 bg-white">
           {!showCreateList ? (
-            <button
+            <Button
               onClick={() => {
                 if (selectedStatus) {
                   onSave(
@@ -385,25 +386,18 @@ const SaveModal: React.FC<SaveModalProps> = ({
                 }
               }}
               disabled={!selectedStatus || (selectedStatus === 'tried' && !triedRating)}
-              className="w-full py-2 rounded-xl font-semibold bg-sage-400 text-white shadow-soft hover:bg-sage-500 transition disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full"
             >
               Save
-            </button>
+            </Button>
           ) : (
             <div className="flex gap-3">
-              <button
-                onClick={() => setShowCreateList(false)}
-                className="flex-1 py-2 rounded-xl font-medium border border-linen-200 text-charcoal-600 hover:bg-linen-50 transition"
-              >
+              <Button variant="secondary" className="flex-1" onClick={() => setShowCreateList(false)}>
                 Cancel
-              </button>
-              <button
-                onClick={handleCreateList}
-                disabled={!newListName.trim()}
-                className="flex-1 py-2 rounded-xl font-semibold bg-sage-400 text-white shadow-soft hover:bg-sage-500 transition disabled:opacity-50 disabled:cursor-not-allowed"
-              >
+              </Button>
+              <Button className="flex-1" onClick={handleCreateList} disabled={!newListName.trim()}>
                 Create & Save
-              </button>
+              </Button>
             </div>
           )}
         </div>

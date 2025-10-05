@@ -8,6 +8,7 @@ import { useAuth } from '../contexts/AuthContext.tsx'
 import { formatTimestamp } from '../utils/dateUtils.ts'
 import ImageCarousel from './ImageCarousel.tsx'
 import { firebaseDataService } from '../services/firebaseDataService.ts'
+import TagPill from './TagPill'
 
 interface HubModalProps {
   hub: Hub
@@ -276,13 +277,12 @@ const HubModal = ({ hub, isOpen, onClose, onAddPost, onSave, onShare, onOpenFull
         
           {/* Header with image */}
         <div className="relative h-64 bg-gradient-to-br from-[#D4A574] via-[#C17F59] to-[#A67C52] overflow-hidden">
-          {hub?.mainImage && (
-            <img
-              src={hub.mainImage}
-              alt={hub?.name || 'Hub'}
-              className="w-full h-full object-cover"
-            />
-          )}
+          <img
+            src={hub?.mainImage || '/assets/leaf.png'}
+            alt={hub?.name || 'Hub'}
+            className="w-full h-full object-cover"
+            onError={(e) => { (e.currentTarget as HTMLImageElement).src = '/assets/leaf.png' }}
+          />
           {/* Enhanced gradient overlay */}
           <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
           
@@ -322,7 +322,7 @@ const HubModal = ({ hub, isOpen, onClose, onAddPost, onSave, onShare, onOpenFull
           {/* Text overlay */}
           <div className="absolute bottom-0 left-0 right-0 p-4 z-10">
             <div className="flex items-center gap-2 mb-1">
-              <h1 className="text-3xl font-serif font-bold text-[#FAF3E3] drop-shadow-[1px_1px_2px_rgba(255,250,240,0.8)]">{hub?.name || 'Unknown Hub'}</h1>
+              <h1 className="text-[1.6rem] sm:text-3xl font-serif font-bold text-[#FAF3E3] drop-shadow-[1px_1px_2px_rgba(255,250,240,0.8)]">{hub?.name || 'Unknown Hub'}</h1>
               {isGoogleSuggestion && (
                 <span className="inline-flex items-center gap-1 text-xs font-semibold text-[#1d4ed8] bg-white/80 px-2 py-1 rounded-full border border-white/60">
                   <SparklesIcon className="w-3 h-3" /> Suggested
@@ -686,9 +686,7 @@ const HubModal = ({ hub, isOpen, onClose, onAddPost, onSave, onShare, onOpenFull
                       {post?.tags && post.tags.length > 0 && (
                         <div className="flex flex-wrap gap-2 mb-3">
                           {post.tags.map(tag => (
-                            <span key={tag} className="px-3 py-1 bg-[#E8D4C0]/60 text-[#7A5D3F] text-xs font-semibold rounded-full font-sans">
-                              #{tag}
-                            </span>
+                            <TagPill key={tag} label={tag} size="sm" />
                           ))}
                         </div>
                       )}

@@ -121,7 +121,7 @@ const Following = () => {
       <div className="relative z-10 p-4 border-b border-linen-200 bg-white/95 backdrop-blur-glass">
         <div className="flex items-center justify-between mb-4">
           <button
-            onClick={() => navigate('/profile')}
+            onClick={() => { if (window.history.length > 1) navigate(-1); else navigate('/profile') }}
             className="p-2 rounded-xl bg-linen-100 text-charcoal-600 hover:bg-linen-200 transition-colors"
           >
             <ArrowLeftIcon className="w-5 h-5" />

@@ -9,6 +9,11 @@ import ImageCarousel from '../components/ImageCarousel';
 import { useSearch } from '../hooks/useSearch';
 import { useAuth } from '../contexts/AuthContext';
 import { firebaseDataService } from '../services/firebaseDataService';
+import Card from '../components/Card';
+import TagPill from '../components/TagPill';
+import CreateHubModal from '../components/CreateHubModal';
+import QuickViewModal from '../components/QuickViewModal';
+import SaveModal from '../components/SaveModal';
 
 const Search = () => {
   const { openHubModal, openListModal, openProfileModal } = useNavigation();
@@ -25,11 +30,13 @@ const Search = () => {
     contextLoading
   } = useSearch();
 
-  const [activeFilter, setActiveFilter] = useState<'all' | 'places' | 'lists' | 'users'>('all');
+  // Focus the search scopes to reduce overload
+  const [activeFilter, setActiveFilter] = useState<'places' | 'lists' | 'users'>('places');
   const [showSearchHistory, setShowSearchHistory] = useState(true);
   const [searchHistory, setSearchHistory] = useState<string[]>([]);
   const [searchTimeoutId, setSearchTimeoutId] = useState<NodeJS.Timeout | null>(null);
   const [sortBy, setSortBy] = useState('relevant');
+  // Start with fewer noisy filters by default
   const [activeFilters, setActiveFiltersState] = useState<string[]>([]);
   const [recentFinds, setRecentFinds] = useState<{ type: 'place' | 'list' | 'user', item: any, timestamp: Date }[]>([]);
   const [availableTags, setAvailableTags] = useState<string[]>([]);
@@ -51,6 +58,59 @@ const Search = () => {
     loadTags();
   }, []);
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [showCreateHubModal, setShowCreateHubModal] = useState(false);
+  const [createHubSeed, setCreateHubSeed] = useState<any>(null);
+  const [quickView, setQuickView] = useState<{ title: string; subtitle?: string; image?: string; meta?: string; type: 'place' | 'external_place' | 'list' | 'user'; place?: any; list?: any; user?: any } | null>(null);
+  const [showSaveModal, setShowSaveModal] = useState(false);
+  const [selectedPlace, setSelectedPlace] = useState<Place | null>(null);
+  const [userOwnedLists, setUserOwnedLists] = useState<List[]>([]);
+
+  useEffect(() => {
+    const loadLists = async () => {
+      try {
+        if (!currentUser) return;
+        const lists = await firebaseDataService.getUserLists(currentUser.id);
+        setUserOwnedLists(Array.isArray(lists) ? lists.filter((l:any)=> l.userId === currentUser.id) : []);
+      } catch { setUserOwnedLists([]) }
+    };
+    loadLists();
+  }, [currentUser]);
+
+  // Normalize external tags (Google) to friendly app tags and filter out generic ones
+  const normalizeExternalTags = (rawTags: string[] = []): string[] => {
+    const EXCLUDED = new Set([
+      'point_of_interest','establishment','food','store','atm','finance','health','place_of_worship','political','postal_code',
+      'postal_town','route','street_address','locality','sublocality','premise','plus_code','general_contractor'
+    ])
+    const MAP: Record<string,string> = {
+      cafe: 'coffee', coffee_shop: 'coffee', bakery: 'bakery', bar: 'bar', restaurant: 'restaurant',
+      park: 'park', museum: 'museum', art_gallery: 'art', book_store: 'books', library: 'library',
+      movie_theater: 'movies', night_club: 'nightlife', shopping_mall: 'shopping', clothing_store: 'fashion',
+      gym: 'fitness', spa: 'spa', beach: 'beach', tourist_attraction: 'attraction', music_venue: 'music',
+      ice_cream_shop: 'ice cream', amusement_park: 'amusement', aquarium: 'aquarium', zoo: 'zoo'
+    }
+    const cleaned = rawTags
+      .map(t => String(t || '').toLowerCase())
+      .filter(t => !!t && !EXCLUDED.has(t))
+      .map(t => MAP[t] || t.replace(/_/g, ' '))
+    const seen = new Set<string>()
+    const out: string[] = []
+    for (const t of cleaned) { const k = t.trim(); if (!seen.has(k)) { seen.add(k); out.push(k) } }
+    return out.slice(0, 6)
+  }
+
+  const isExternalPlace = (obj: any): boolean => !!(obj && (obj.source === 'google' || obj.googlePlaceId || obj.provider === 'google'))
+
+  const distanceFromUserKm = (lat?: number, lng?: number): number | null => {
+    if (!usedLocation || typeof lat !== 'number' || typeof lng !== 'number') return null
+    const toRad = (v:number)=> v*Math.PI/180
+    const R = 6371
+    const dLat = toRad(lat - usedLocation.lat)
+    const dLon = toRad(lng - usedLocation.lng)
+    const a = Math.sin(dLat/2)**2 + Math.cos(toRad(usedLocation.lat)) * Math.cos(toRad(lat)) * Math.sin(dLon/2)**2
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a))
+    return R * c
+  }
 
   // Lightweight hub recommendations when query is empty
   useEffect(() => {
@@ -113,11 +173,13 @@ const Search = () => {
 
         // Compute a simple auto-suggest tag from shown items if not in user's tags
         try {
-          const items = [...(recs || []), ...externalHubs].slice(0, 12);
+          const items = [...(recs || []), ...externalHubs].slice(0, 16);
           const freq: Record<string, number> = {};
-          items.forEach(p => (p.tags || []).forEach(t => { const k = t.toLowerCase(); freq[k] = (freq[k] || 0) + 1; }));
-          const top = Object.entries(freq).sort((a,b)=> b[1]-a[1])[0]?.[0];
-          if (top && prefs && !(prefs as any)?.userTags?.includes(top)) {
+          items.forEach(p => normalizeExternalTags((p as any).tags || []).forEach(t => { const k = t.toLowerCase(); freq[k] = (freq[k] || 0) + 1; }));
+          const ranked = Object.entries(freq).filter(([k]) => k && k.length >= 3)
+            .sort((a,b)=> b[1]-a[1]);
+          const top = ranked[0]?.[0];
+          if (top && prefs && !(prefs as any)?.userTags?.map((x:string)=>x.toLowerCase()).includes(top.toLowerCase())) {
             setSuggestedTag(top);
           } else {
             setSuggestedTag(null);
@@ -360,11 +422,9 @@ const Search = () => {
   if (contextLoading) return <div className="p-6 text-center">Loading...</div>;
 
   return (
-    <div className="relative min-h-full overflow-x-hidden bg-linen-50">
-      <div className="absolute inset-0 z-0 pointer-events-none">
-        <div className="absolute inset-0 bg-linen-texture opacity-80 mix-blend-multiply"></div>
-      </div>
-      <div className="relative z-10 bg-white/90 border-b px-6 py-4">
+    <>
+    <div className="relative min-h-full overflow-x-hidden bg-surface">
+      <div className="relative z-10 bg-white border-b px-5 py-3">
         <form onSubmit={handleSearchSubmit} className="flex items-center gap-3">
           <SearchAndFilter 
             placeholder="Search..." 
@@ -387,14 +447,53 @@ const Search = () => {
             onApplyFilters={() => performSearch(searchQuery, { sortBy, tags: activeFilters })}
             onOpenAdvanced={() => setShowAdvanced(true)}
           />
-          <button type="button" onClick={() => console.log('Map view - coming soon!')} className="px-4 py-2 rounded-full font-semibold shadow-botanical flex items-center gap-2 bg-sage-500 text-white hover:bg-sage-600 transition-colors">
+          <button type="button" onClick={() => console.log('Map view - coming soon!')} className="btn-primary text-sm">
             <MapIcon className="w-4 h-4" /><span>Map</span>
           </button>
         </form>
+        {/* Quick tags row for discovery without clutter */}
+        {availableTags.length > 0 && (
+          <div className="mt-3 flex items-center gap-2 overflow-x-auto no-scrollbar py-1">
+            {availableTags.slice(0, 12).map((t) => (
+              <TagPill
+                key={`quick-${t}`}
+                label={t}
+                size="sm"
+                selected={activeFilters.includes(t)}
+                onClick={() => {
+                  setActiveFiltersState(prev => {
+                    const next = prev.includes(t) ? prev.filter(x => x !== t) : [...prev, t]
+                    if (searchQuery.trim()) {
+                      performSearch(searchQuery, { sortBy, tags: next })
+                    }
+                    return next
+                  })
+                }}
+              />
+            ))}
+          </div>
+        )}
       </div>
       <AdvancedFiltersDrawer isOpen={showAdvanced} onClose={()=>setShowAdvanced(false)} onApply={()=>{ if (searchQuery.trim()) performSearch(searchQuery, { sortBy, tags: activeFilters }); }} />
 
-      <div className="relative z-10 p-4">
+      <div className="relative z-10 p-4 max-w-2xl mx-auto">
+        {/* Active filters row */}
+        {activeFilters.length > 0 && (
+          <div className="mb-4 flex items-center gap-2 flex-wrap">
+            {activeFilters.map((t) => (
+              <TagPill
+                key={`active-${t}`}
+                label={t}
+                size="sm"
+                selected
+                removable
+                onRemove={() => setActiveFiltersState(prev => prev.filter(x => x !== t))}
+                onClick={() => setActiveFiltersState(prev => prev.filter(x => x !== t))}
+              />
+            ))}
+            <button className="btn-secondary btn-sm" onClick={() => setActiveFiltersState([])}>Clear</button>
+          </div>
+        )}
         {isSearching ? (
           <div className="text-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-moss-600 mx-auto"></div><p className="mt-2">Searching...</p></div>
         ) : (
@@ -409,7 +508,7 @@ const Search = () => {
                   <div className="mb-3 text-sm text-charcoal-600">
                     Improve recommendations by using your location.
                     <button
-                      className="ml-2 px-3 py-1.5 rounded-full bg-sage-500 text-white hover:bg-sage-600"
+                      className="ml-2 btn-secondary btn-sm"
                       onClick={async () => {
                         try {
                           if ('geolocation' in navigator) {
@@ -443,7 +542,21 @@ const Search = () => {
                   </div>
                 )}
                 <div className="space-y-2">
-                  {(() => {
+                  {isSearching ? (
+                    <div className="space-y-3">
+                      {Array.from({ length: 3 }).map((_,i)=> (
+                        <div key={i} className="p-4 rounded-xl border border-linen-200 bg-white animate-pulse">
+                          <div className="flex items-start gap-3">
+                            <div className="w-14 h-14 rounded-lg bg-linen-200" />
+                            <div className="flex-1 space-y-2">
+                              <div className="h-4 bg-linen-200 rounded w-1/2" />
+                              <div className="h-3 bg-linen-200 rounded w-2/3" />
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (() => {
                     const items = [...recommendedHubs, ...externalHubs]
                     const loc = usedLocation
                     const within = (p: any) => {
@@ -455,9 +568,17 @@ const Search = () => {
                       return d <= maxKm
                     }
                     return items.filter(within).map(p => (
-                    <div key={p.id} className="bg-white/80 border border-linen-200 rounded-2xl p-4 shadow-soft hover:shadow-cozy transition">
+                    <Card key={p.id} className="p-4" interactive onClick={()=>{
+                      const isExternal = ((p as any).source === 'google');
+                      const d = distanceFromUserKm((p as any)?.coordinates?.lat, (p as any)?.coordinates?.lng)
+                      const metaLine = [
+                        (p.tags||[]).slice(0,2).map((t:string)=>`#${t}`).join(' '),
+                        typeof d === 'number' ? `${d < 1 ? (d*1000).toFixed(0)+' m' : d.toFixed(1)+' km'}` : ''
+                      ].filter(Boolean).join(' · ')
+                      setQuickView({ title: p.name, subtitle: (p as any).address, image: (p as any).mainImage, meta: metaLine, type: isExternal ? 'external_place' : 'place', place: p })
+                    }}>
                       <div className="flex items-start gap-3">
-                        <img src={(p as any).mainImage || '/assets/leaf.png'} alt={p.name} className="w-16 h-16 rounded-lg object-cover" />
+                        <img src={(p as any).mainImage || '/assets/leaf.png'} alt={p.name} className="w-14 h-14 rounded-lg object-cover" />
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center justify-between">
                             <h4 className="font-semibold text-charcoal-800 truncate">{p.name}</h4>
@@ -467,12 +588,12 @@ const Search = () => {
                         </div>
                       </div>
                       <div className="mt-3 flex items-center justify-end gap-3">
-                        <button onClick={() => handlePlaceClick(p)} className="px-3 py-1.5 rounded-full text-sm bg-sage-500 text-white hover:bg-sage-600">View</button>
+                        <button onClick={() => handlePlaceClick(p)} className="btn-primary text-sm">View</button>
                         {currentUser && (
-                          <button onClick={async (e) => { e.stopPropagation(); await firebaseDataService.markPlaceNotInterested(currentUser.id, p.id); setRecommendedHubs(prev=>prev.filter(x=>x.id!==p.id)); setExternalHubs(prev=>prev.filter(x=>x.id!==p.id)); }} className="px-3 py-1.5 rounded-full text-sm bg-linen-100 text-charcoal-700 border border-linen-200 hover:bg-linen-200">Not interested</button>
+                          <button onClick={async (e) => { e.stopPropagation(); await firebaseDataService.markPlaceNotInterested(currentUser.id, p.id); setRecommendedHubs(prev=>prev.filter(x=>x.id!==p.id)); setExternalHubs(prev=>prev.filter(x=>x.id!==p.id)); }} className="btn-secondary text-sm">Not interested</button>
                         )}
                       </div>
-                    </div>
+                    </Card>
                     ))
                   })()}
                 </div>
@@ -480,27 +601,52 @@ const Search = () => {
             )}
             {showSearchHistory ? (
               <div>
-                <h3 className="font-semibold mb-2">Recent Searches</h3>
-                {searchHistory.map(q => <button key={q} onClick={() => { setSearchQuery(q); performSearch(q); setShowSearchHistory(false); }} className="block w-full text-left p-2 rounded-lg hover:bg-linen-100">{q}</button>)}
-              </div>
-            ) : (
-              <div className="space-y-6">
-                <div className="flex justify-center bg-white/60 rounded-2xl p-1 shadow-soft border">
-                  {(['all', 'places', 'lists', 'users'] as const).map(filter => (
-                    <button key={filter} onClick={() => setActiveFilter(filter)} className={`flex-1 py-2 px-3 text-sm font-medium rounded-xl ${activeFilter === filter ? 'bg-sage-500 text-white' : ''}`}>
-                      {filter.charAt(0).toUpperCase() + filter.slice(1)}
+                <h3 className="text-cozy-title mb-3">Recent Searches</h3>
+                <div className="space-y-1">
+                  {searchHistory.map(q => (
+                    <button
+                      key={q}
+                      onClick={() => { setSearchQuery(q); performSearch(q); setShowSearchHistory(false); }}
+                      className="w-full text-left px-3 py-2 rounded-xl bg-white border border-linen-200 hover:bg-linen-50 transition"
+                    >
+                      {q}
                     </button>
                   ))}
                 </div>
+              </div>
+            ) : (
+              <div className="space-y-6">
+                <div className="flex justify-center bg-white rounded-xl p-1 border">
+                  {(['places', 'lists', 'users'] as const).map(filter => {
+                    const placeCount = (displayResults.places || []).length
+                    const listCount = (displayResults.lists || []).length
+                    const userCount = (displayResults.users || []).length
+                    const label = filter === 'places' ? `Places (${placeCount})` : filter === 'lists' ? `Lists (${listCount})` : `People (${userCount})`
+                    return (
+                      <button key={filter} onClick={() => setActiveFilter(filter)} className={`flex-1 py-2 px-3 text-sm font-medium rounded-xl ${activeFilter === filter ? 'bg-sage-600 text-white' : ''}`}>
+                        {label}
+                      </button>
+                    )
+                  })}
+                </div>
 
                 {/* Google results for the current query (after results header/tabs) */}
-                {searchQuery.trim() && googleQueryHubs.length > 0 && (
+                {searchQuery.trim() && (
                   <div className="my-6">
                     <div className="flex items-center justify-between mb-3">
                       <h3 className="text-lg font-serif font-semibold" style={{ color: '#2563eb' }}>Recommended from Google</h3>
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-                      {googleQueryHubs
+                      {(isSearching ? Array.from({ length: 6 }).map((_,i)=> (
+                        <div key={`sk-${i}`} className="relative w-full rounded-2xl border border-linen-200 overflow-hidden bg-white animate-pulse">
+                          <div className="w-full h-36 bg-linen-200" />
+                          <div className="p-4">
+                            <div className="h-4 bg-linen-200 rounded w-2/3 mb-2" />
+                            <div className="h-3 bg-linen-200 rounded w-1/2" />
+                          </div>
+                        </div>
+                      )) : (
+                        googleQueryHubs
                         .filter(it => (activeFilters.length === 0) || (Array.isArray((it as any).tags) && (it as any).tags.some((t:string)=> activeFilters.includes(t))))
                         .slice(0, 8)
                         .map((item) => {
@@ -511,78 +657,112 @@ const Search = () => {
                         const meta = [ratingAndCount, price, (item as any).openNow ? 'Open now' : ''].filter(Boolean).join(' · ')
                         const images = Array.isArray((item as any).images) && (item as any).images.length > 0 ? (item as any).images : ((item as any).mainImage ? [(item as any).mainImage] : [])
                         return (
-                          <div key={item.id} className="relative w-full rounded-3xl shadow-xl border border-white/30 ring-1 ring-white/50 overflow-hidden" style={{ background: 'linear-gradient(145deg, rgba(248,252,255,0.9), rgba(221,236,255,0.65))', backdropFilter: 'blur(28px) saturate(1.32)' }}>
+                          <div key={item.id} className="relative w-full rounded-2xl border border-linen-200 overflow-hidden bg-white cursor-pointer" onClick={()=>{ const d = distanceFromUserKm((item as any)?.coordinates?.lat, (item as any)?.coordinates?.lng); const metaLine = [meta, typeof d === 'number' ? `${d < 1 ? (d*1000).toFixed(0)+' m' : d.toFixed(1)+' km'}` : ''].filter(Boolean).join(' · '); setQuickView({ title: (item as any).name, subtitle: (item as any).address, image: (Array.isArray((item as any).images) && (item as any).images[0]) || (item as any).mainImage, meta: metaLine, type: ((item as any).source === 'google' || (item as any).googlePlaceId || (item as any).provider === 'google') ? 'external_place' : 'place', place: item }) }}>
                             <div className="pointer-events-none absolute -top-20 left-6 w-56 h-56 rounded-full bg-white/70 blur-3xl opacity-70" />
                             <div className="pointer-events-none absolute -bottom-24 right-8 w-52 h-52 rounded-full bg-blue-200/70 blur-3xl opacity-70" />
-                            <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-white/20 via-transparent to-blue-200/20" />
-                            <div className="pointer-events-none absolute -top-10 -left-20 w-[160%] h-14 bg-gradient-to-r from-white/10 via-white/70 to-white/10 opacity-60 blur-xl transform -rotate-6" />
-                            <div className="pointer-events-none absolute bottom-2 left-1/2 -translate-x-1/2 w-2/3 h-10 rounded-full bg-white/15 blur-md" />
+                            
 
                             {/* media */}
-                            <div className="w-full h-40 bg-gradient-to-br from-blue-200/30 to-blue-100/20 relative">
+                            <div className="w-full h-36 bg-linen-100 relative">
                               {images.length > 1 ? (
-                                <ImageCarousel images={images as any} className="h-40 w-full" />
+                                <ImageCarousel images={images as any} className="h-36 w-full" />
                               ) : (
-                                <img src={((images as any)[0] || (item as any).mainImage || '/assets/leaf.png')} alt={item.name} className="absolute inset-0 w-full h-full object-cover" />
+                                <img src={((images as any)[0] || (item as any).mainImage || '/assets/leaf.png')} alt={item.name} className="absolute inset-0 w-full h-full object-cover" onError={(e)=>{ (e.currentTarget as HTMLImageElement).src='/assets/leaf.png' }} />
                               )}
-                              <div className="absolute inset-x-0 top-0 h-12 bg-gradient-to-b from-black/25 to-transparent" />
+                              <div className="absolute inset-x-0 top-0 h-10 bg-gradient-to-b from-black/25 to-transparent" />
                             </div>
 
                             {/* content */}
                             <div className="p-4 relative">
-                              <div className="absolute inset-2 rounded-2xl bg-white/18 border border-white/30 shadow-inner pointer-events-none" />
                               <div className="relative">
                                 <h4 className="font-semibold text-blue-900 text-base text-center line-clamp-2">{item.name}</h4>
                                 <p className="text-blue-700 text-[11px] text-center mt-1 line-clamp-1">{(item as any).address || ''}</p>
                                 {meta && <p className="text-blue-900/80 text-[11px] text-center mt-2">{meta}</p>}
-                                <div className="mt-3 flex items-center justify-center">
-                                  <button onClick={() => handlePlaceClick(item)} className="px-3 py-1.5 rounded-full text-xs bg-blue-600 text-white hover:bg-blue-700">Create Hub</button>
-                                </div>
+                                {Array.isArray((item as any).tags) && (item as any).tags.length > 0 && (
+                                  <div className="mt-2 flex flex-wrap justify-center gap-1">
+                                    {normalizeExternalTags((item as any).tags).slice(0,4).map((t:string, i:number) => (
+                                      <TagPill
+                                        key={`${t}-${i}`}
+                                        label={t}
+                                        size="sm"
+                                        selected={activeFilters.includes(t)}
+                                        onClick={(e) => {
+                                          e.stopPropagation()
+                                          setActiveFiltersState(prev => {
+                                            const next = prev.includes(t) ? prev.filter(x => x !== t) : [...prev, t]
+                                            // Trigger a search with updated filters if a query exists; otherwise show filtered recs
+                                            if (searchQuery.trim()) {
+                                              performSearch(searchQuery, { sortBy, tags: next })
+                                            }
+                                            return next
+                                          })
+                                        }}
+                                      />
+                                    ))}
+                                  </div>
+                                )}
+                                <div className="mt-3 flex items-center justify-center text-[11px] text-blue-900/80">Tap to preview</div>
                               </div>
                             </div>
                           </div>
                         )
-                      })}
+                      }))
+                    )}
                     </div>
                   </div>
                 )}
 
                 {error && <p className="text-red-500 text-center">{error}</p>}
-                {displayResults.places.length === 0 && displayResults.lists.length === 0 && displayResults.users.length === 0 && !isSearching && <div>No results.</div>}
+                {displayResults.places.length === 0 && displayResults.lists.length === 0 && displayResults.users.length === 0 && !isSearching && (
+                  <div className="text-center text-cozy-sub">No results. Try a different query or filters.</div>
+                )}
                 
-                {['all', 'places'].includes(activeFilter) && displayResults.places.map((result) => {
+                {activeFilter === 'places' && (
+                  <>
+                    <h3 className="text-cozy-title mb-2">Places</h3>
+                    {displayResults.places.map((result) => {
                   const place = 'item' in result ? result.item : result;
                   return (
-                    <div key={place.id} onClick={() => handlePlaceClick(place)} className="p-4 bg-white/70 rounded-2xl shadow-soft cursor-pointer">
-                      <h4 className="font-semibold">{place.name}</h4>
-                      <p className="text-sm">{place.address}</p>
+                    <div key={place.id} onClick={() => { if (isExternalPlace(place)) { setQuickView({ title: place.name, subtitle: (place as any).address, image: (place as any).mainImage, meta: (place.tags||[]).slice(0,3).map((t:string)=>`#${t}`).join(' '), type: 'external_place', place }); } else { handlePlaceClick(place) } }} className="p-4 bg-white rounded-xl border border-linen-200 cursor-pointer hover:bg-linen-50 transition">
+                      <h4 className="text-cozy-title">{place.name}</h4>
+                      <p className="text-cozy-sub line-clamp-1">{place.address}</p>
                       {'score' in result && <p className="text-xs text-purple-600">Score: {Math.round(result.score as number)}</p>}
                       {'reasons' in result && <p className="text-xs text-purple-600 mt-1">Why: {(result.reasons as string[] || []).join(', ')}</p>}
                     </div>
                   );
-                })}
+                    })}
+                  </>
+                )}
 
-                {['all', 'lists'].includes(activeFilter) && displayResults.lists.map((result) => {
+                {activeFilter === 'lists' && (
+                  <>
+                    <h3 className="text-cozy-title mb-2">Lists</h3>
+                    {displayResults.lists.map((result) => {
                   const list = 'item' in result ? result.item : result;
                   return (
-                    <div key={list.id} onClick={() => handleListClick(list)} className="p-4 bg-white/70 rounded-2xl shadow-soft cursor-pointer">
-                      <h4 className="font-semibold">{list.name}</h4>
-                      <p className="text-sm">{list.description}</p>
+                    <div key={list.id} onClick={() => setQuickView({ title: list.name, subtitle: list.description, image: (list as any).coverImage, meta: (list.tags||[]).slice(0,3).map((t:string)=>`#${t}`).join(' '), type: 'list', list })} className="p-4 bg-white rounded-xl border border-linen-200 cursor-pointer hover:bg-linen-50 transition">
+                      <h4 className="text-cozy-title">{list.name}</h4>
+                      <p className="text-cozy-sub line-clamp-2">{list.description}</p>
                       {'score' in result && <p className="text-xs text-purple-600">Score: {Math.round(result.score as number)}</p>}
                       {'reasons' in result && <p className="text-xs text-purple-600 mt-1">Why: {(result.reasons as string[] || []).join(', ')}</p>}
                     </div>
                   );
-                })}
+                    })}
+                  </>
+                )}
 
-                {['all', 'users'].includes(activeFilter) && displayResults.users.map((result) => {
+                {activeFilter === 'users' && (
+                  <>
+                    <h3 className="text-cozy-title mb-2">People</h3>
+                    {displayResults.users.map((result) => {
                     const user = 'item' in result ? result.item : result;
                     return (
-                        <div key={user.id} onClick={() => handleUserClick(user)} className="p-4 bg-white/70 rounded-2xl shadow-soft cursor-pointer flex items-center space-x-3">
-                            <img src={user.avatar} alt={user.name} className="w-12 h-12 rounded-full" />
+                        <div key={user.id} onClick={() => handleUserClick(user)} className="p-4 bg-white rounded-xl border border-linen-200 cursor-pointer flex items-center gap-3 hover:bg-linen-50 transition">
+                            <img src={user.avatar} alt={user.name} className="w-12 h-12 rounded-full object-cover" />
                             <div>
-                                <h4 className="font-semibold">{user.name}</h4>
-                                <p className="text-sm text-gray-500">@{user.username}</p>
-                                {user.bio && <p className="text-sm mt-1">{user.bio}</p>}
+                                <h4 className="text-cozy-title">{user.name}</h4>
+                                <p className="text-cozy-sub">@{user.username}</p>
+                                {user.bio && <p className="text-cozy-meta mt-1 line-clamp-2">{user.bio}</p>}
                                 {user.tags && user.tags.length > 0 && (
                                     <div className="flex flex-wrap gap-1 mt-2">
                                         {user.tags.map((tag: string) => (
@@ -593,7 +773,9 @@ const Search = () => {
                             </div>
                         </div>
                     );
-                })}
+                    })}
+                  </>
+                )}
               </div>
             )}
             
@@ -603,7 +785,7 @@ const Search = () => {
                 <h3 className="font-semibold mb-4 text-lg">Recent Finds</h3>
                 <div className="space-y-3">
                   {recentFinds.slice(0, 5).map((find, index) => (
-                    <div key={`${find.type}-${find.item.id}-${index}`} className="p-3 bg-white/60 rounded-xl shadow-soft cursor-pointer hover:bg-white/80 transition-colors">
+                    <div key={`${find.type}-${find.item.id}-${index}`} className="p-3 bg-white rounded-xl border border-linen-200 cursor-pointer hover:bg-linen-50 transition-colors">
                       <div className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded-lg bg-sage-100 flex items-center justify-center">
                           {find.type === 'place' && <MapIcon className="w-5 h-5 text-sage-600" />}
@@ -629,7 +811,7 @@ const Search = () => {
                             if (find.type === 'list') handleListClick(find.item);
                             if (find.type === 'user') handleUserClick(find.item);
                           }}
-                          className="px-3 py-1 text-xs bg-sage-500 text-white rounded-full hover:bg-sage-600 transition-colors"
+                          className="px-3 py-1 text-xs bg-sage-600 text-white rounded-full hover:bg-sage-700 transition-colors"
                         >
                           View
                         </button>
@@ -641,8 +823,104 @@ const Search = () => {
             )}
           </>
         )}
-      </div>
     </div>
+      {showCreateHubModal && (
+        <CreateHubModal
+          isOpen={showCreateHubModal}
+          onClose={() => setShowCreateHubModal(false)}
+          place={createHubSeed || undefined}
+          onCreate={async (data) => {
+            try {
+              if (!currentUser) return
+              const hubId = await firebaseDataService.createHub({ name: data.name, description: data.description || '', address: data.address, coordinates: data.coordinates } as any)
+              if (hubId) {
+                if (data.mainImage) { try { await firebaseDataService.setHubMainImage(hubId, data.mainImage) } catch {} }
+                setShowCreateHubModal(false)
+                const newHub: Hub = { id: hubId, name: data.name, description: data.description || '', tags: [], images: [], location: { address: data.address, lat: data.coordinates?.lat || 0, lng: data.coordinates?.lng || 0 }, googleMapsUrl: data.coordinates ? `https://www.google.com/maps/search/?api=1&query=${data.coordinates.lat},${data.coordinates.lng}` : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(data.address)}`, mainImage: data.mainImage, posts: [], lists: [] }
+                openHubModal(newHub, 'search-suggested-create')
+              }
+            } catch (e) { console.error('Failed to create hub from search suggestion', e) }
+          }}
+        />
+      )}
+    </div>
+      {quickView && (
+        <QuickViewModal
+          isOpen={!!quickView}
+          onClose={() => setQuickView(null)}
+          title={quickView.title}
+          subtitle={quickView.subtitle}
+          image={quickView.image}
+          meta={quickView.meta}
+          badge={quickView.type === 'external_place' ? 'Google Place' : quickView.type === 'place' ? 'This Is Place' : quickView.type === 'list' ? 'List' : 'User'}
+          chips={(() => {
+            const chips: Array<{label: string; tone?: any}> = []
+            if (quickView.type === 'external_place' || quickView.type === 'place') {
+              const p: any = quickView.place || {}
+              if (typeof p.rating === 'number') chips.push({ label: `${p.rating.toFixed(1)} ★`, tone: 'brand' })
+              if (typeof p.userRatingsTotal === 'number') chips.push({ label: `${p.userRatingsTotal}`, tone: 'neutral' })
+              if (typeof p.priceLevel === 'number') chips.push({ label: '$'.repeat(Math.max(1, Math.min(4, p.priceLevel))) })
+              if (p.openNow === true) chips.push({ label: 'Open now', tone: 'success' })
+            }
+            return chips
+          })()}
+          actions={
+            <>
+              {quickView.type === 'place' && (
+                <>
+                  <button className="btn-primary text-sm" onClick={()=>{ if (quickView?.place) { handlePlaceClick(quickView.place) }}}>Open</button>
+                  <button className="btn-secondary text-sm" onClick={()=>{ if (quickView?.place) { setSelectedPlace(quickView.place); setShowSaveModal(true); setQuickView(null) }}}>Save</button>
+                  <button className="btn-secondary text-sm" onClick={()=>{ if (quickView?.place) { const p:any = quickView.place; const lat=p?.coordinates?.lat, lng=p?.coordinates?.lng; const url = (typeof lat==='number' && typeof lng==='number') ? `https://www.google.com/maps/search/?api=1&query=${lat},${lng}` : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(p.address||quickView.subtitle||'')}`; window.open(url, '_blank'); }}}>Directions</button>
+                  <button className="btn-secondary text-sm" onClick={()=> setQuickView(null)}>Close</button>
+                </>
+              )}
+              {quickView.type === 'external_place' && (
+                <>
+                  <button className="btn-primary text-sm" onClick={()=>{ if (quickView?.place) { setCreateHubSeed({ name: (quickView.place as any).name, address: (quickView.place as any).address, coordinates: (quickView.place as any).coordinates, images: (quickView.place as any).images, mainImage: (quickView.place as any).mainImage, description: (quickView.place as any).description }); setShowCreateHubModal(true); setQuickView(null) }}}>Create Hub</button>
+                  <button className="btn-secondary text-sm" onClick={()=>{ if (quickView?.place) { const p:any = quickView.place; const lat=p?.coordinates?.lat, lng=p?.coordinates?.lng; const url = (typeof lat==='number' && typeof lng==='number') ? `https://www.google.com/maps/search/?api=1&query=${lat},${lng}` : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(p.address||quickView.subtitle||'')}`; window.open(url, '_blank'); }}}>Directions</button>
+                  <button className="btn-secondary text-sm" onClick={()=> setQuickView(null)}>Close</button>
+                </>
+              )}
+              {quickView.type === 'list' && (
+                <>
+                  <button className="btn-primary text-sm" onClick={()=>{ if (quickView?.list) { handleListClick(quickView.list) }}}>Open</button>
+                  <button className="btn-secondary text-sm" onClick={()=> setQuickView(null)}>Close</button>
+                </>
+              )}
+            </>
+          }
+        />
+      )}
+      {selectedPlace && (
+        <SaveModal
+          isOpen={showSaveModal}
+          onClose={() => { setShowSaveModal(false); setSelectedPlace(null) }}
+          place={selectedPlace}
+          userLists={userOwnedLists}
+          onSave={async (status, rating, listIds, note) => {
+            try {
+              if (!currentUser || !selectedPlace) return;
+              const ids = Array.isArray(listIds) ? listIds : []
+              for (const id of ids) {
+                await firebaseDataService.savePlaceToList(selectedPlace.id, id, currentUser.id, note, undefined, status, rating);
+              }
+              await firebaseDataService.saveToAutoList(selectedPlace.id, currentUser.id, status, note, rating)
+            } catch {}
+            setShowSaveModal(false); setSelectedPlace(null);
+          }}
+          onCreateList={async (listData) => {
+            try {
+              if (!currentUser || !selectedPlace) return;
+              const newListId = await firebaseDataService.createList({ ...listData, userId: currentUser.id, tags: listData.tags || [] });
+              if (newListId) {
+                await firebaseDataService.savePlaceToList(selectedPlace.id, newListId, currentUser.id, undefined, undefined, 'loved');
+              }
+            } catch {}
+            setShowSaveModal(false); setSelectedPlace(null);
+          }}
+        />
+      )}
+    </>
   );
 };
 

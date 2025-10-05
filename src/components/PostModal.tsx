@@ -8,6 +8,7 @@ import { useNavigation } from '../contexts/NavigationContext.tsx';
 import { useAuth } from '../contexts/AuthContext.tsx';
 import { useModal } from '../contexts/ModalContext.tsx';
 import { formatTimestamp } from '../utils/dateUtils.ts';
+import TagPill from './TagPill'
 
 interface PostModalProps {
   postId: string;
@@ -225,9 +226,7 @@ const PostModal = ({ postId, from, isOpen, onClose, showBackButton, onBack }: Po
                   {post.tags && post.tags.length > 0 && (
                     <div className="flex flex-wrap gap-2 mb-6">
                       {post.tags.map(tag => (
-                        <span key={tag} className="px-3 py-1 bg-[#E8D4C0]/50 text-[#7A5D3F] text-sm font-medium rounded-full">
-                          #{tag}
-                        </span>
+                        <TagPill key={tag} label={tag} size="sm" />
                       ))}
                     </div>
                   )}

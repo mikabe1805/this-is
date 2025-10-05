@@ -4,6 +4,7 @@ import AddressAutocomplete from './AddressAutocomplete'
 import TagAutocomplete from './TagAutocomplete'
 import { useMemo } from 'react'
 import { firebaseDataService } from '../services/firebaseDataService.js'
+import Button from './Button'
 
 interface EditListModalProps {
   isOpen: boolean
@@ -117,7 +118,7 @@ const EditListModal = ({ isOpen, onClose, list, onSave }: EditListModalProps) =>
             <h2 className="text-xl font-serif font-semibold text-charcoal-800">Edit List</h2>
             <button
               onClick={onClose}
-              className="p-2 rounded-xl bg-linen-100 text-charcoal-600 hover:bg-linen-200 transition-colors"
+              className="btn-icon"
             >
               <XMarkIcon className="w-5 h-5" />
             </button>
@@ -138,7 +139,7 @@ const EditListModal = ({ isOpen, onClose, list, onSave }: EditListModalProps) =>
                   e.currentTarget.src = '/assets/leaf.png'
                 }}
               />
-              <button className="absolute bottom-2 right-2 p-2 bg-sage-500 text-white rounded-full shadow-soft hover:bg-sage-600 transition-colors">
+              <button className="absolute bottom-2 right-2 btn-icon bg-sage-500 text-white hover:bg-sage-600 border-0">
                 <CameraIcon className="w-4 h-4" />
               </button>
             </div>
@@ -275,23 +276,10 @@ const EditListModal = ({ isOpen, onClose, list, onSave }: EditListModalProps) =>
         {/* Footer */}
         <div className="sticky bottom-0 z-[1] p-6 border-t border-linen-200 bg-white/95 backdrop-blur-glass rounded-b-3xl">
           <div className="flex gap-3">
-            <button
-              onClick={onClose}
-              className="flex-1 px-4 py-3 rounded-xl border border-linen-200 bg-linen-50 text-charcoal-600 font-medium hover:bg-linen-100 transition-colors"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={handleSave}
-              disabled={isSaving || !formData.name.trim()}
-              className={`flex-1 px-4 py-3 rounded-xl font-medium transition-colors ${
-                isSaving || !formData.name.trim()
-                  ? 'bg-sage-200 text-sage-400 cursor-not-allowed'
-                  : 'bg-sage-500 text-white hover:bg-sage-600 shadow-soft'
-              }`}
-            >
+            <Button variant="secondary" className="flex-1" onClick={onClose}>Cancel</Button>
+            <Button className="flex-1" onClick={handleSave} disabled={isSaving || !formData.name.trim()}>
               {isSaving ? 'Saving...' : 'Save Changes'}
-            </button>
+            </Button>
           </div>
         </div>
       </div>

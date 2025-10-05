@@ -185,7 +185,7 @@ const Favorites = () => {
         <div className="max-w-2xl mx-auto">
           <div className="flex items-center gap-4 mb-6">
             <button
-              onClick={() => navigate(-1)}
+              onClick={() => { if (window.history.length > 1) navigate(-1); else navigate('/profile') }}
               className="p-2 rounded-xl bg-white/80 backdrop-blur-sm border border-linen-200 text-charcoal-600 hover:bg-white hover:shadow-soft transition"
             >
               <ArrowLeftIcon className="w-5 h-5" />

@@ -3,6 +3,60 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Readability and mobile-first typography tweaks */
+@layer base {
+  :root {
+    --surface: #FAF8F4; /* linen-50 */
+    --surface-2: #FFFFFF;
+    --border: #ECE7DE; /* linen-200 */
+    --text: #3D3D3D; /* charcoal-700 */
+    --muted: #6B7280; /* slate-500 */
+    --primary: #4A614A; /* sage-600 */
+    --primary-strong: #3D4F3D; /* sage-700 */
+    --accent: #C9A94B; /* gold-400 */
+  }
+
+  html { -webkit-text-size-adjust: 100%; }
+  body { background: var(--surface); color: var(--text); }
+  h1 { @apply text-[1.5rem] sm:text-2xl font-serif font-semibold leading-tight; }
+  h2 { @apply text-[1.25rem] sm:text-xl font-serif font-semibold leading-tight; }
+  h3 { @apply text-lg font-serif font-semibold leading-snug; }
+}
+
+@layer components {
+  .text-cozy-title { @apply text-[1.125rem] sm:text-lg font-serif font-semibold text-charcoal-800; }
+  .text-cozy-sub { @apply text-[0.95rem] sm:text-base text-charcoal-600; }
+  .text-cozy-meta { @apply text-[0.875rem] text-charcoal-500; }
+  .cozy-card { @apply bg-white/98 rounded-2xl border border-linen-200 shadow-botanical; }
+  /* Semantic tokens */
+  .bg-surface { background-color: var(--surface); }
+  .bg-surface-2 { background-color: var(--surface-2); }
+  .text-muted { color: var(--muted); }
+  .text-primary { color: var(--primary); }
+  .border-token { border-color: var(--border); }
+  /* Buttons */
+  .btn { @apply inline-flex items-center justify-center rounded-full transition-colors duration-200 ease-out gap-2; min-height: 40px; }
+  .btn-sm { @apply px-3 py-1.5 text-sm; min-height: 36px; }
+  .btn-md { @apply px-3.5 py-2 text-sm; min-height: 40px; }
+  .btn-lg { @apply px-4 py-2.5 text-base; min-height: 44px; }
+
+  .btn-primary { @apply btn btn-md font-semibold text-white; background-color: var(--primary); }
+  .btn-primary:hover { background-color: var(--primary-strong); }
+  .btn-primary:disabled { @apply opacity-60 cursor-not-allowed; }
+
+  .btn-secondary { @apply btn btn-md font-medium border; background-color: var(--surface-2); border-color: var(--border); color: var(--text); }
+  .btn-secondary:hover { background-color: #F5F3EE; }
+  .btn-secondary:disabled { @apply opacity-60 cursor-not-allowed; }
+
+  .btn-icon { @apply inline-flex items-center justify-center rounded-full border border-linen-200 bg-white text-charcoal-600 hover:bg-linen-100 transition-colors; width: 40px; height: 40px; }
+  .btn-icon:disabled { @apply opacity-60 cursor-not-allowed; }
+  /* Type scale helpers */
+  .type-title { @apply text-[1.125rem] sm:text-xl font-serif font-semibold; }
+  .type-subtitle { @apply text-[1rem] sm:text-[1.05rem] font-medium; }
+  .type-body { @apply text-[0.95rem]; }
+  .type-caption { @apply text-[0.8125rem] text-charcoal-500; }
+}
+
 /* Line clamp utilities for text truncation */
 .line-clamp-2 {
   display: -webkit-box;
@@ -90,12 +144,15 @@ input, textarea, [contenteditable] {
     -webkit-box-orient: vertical;
     overflow: hidden;
   }
+  /* Hide horizontal scrollbar (for quick tags row) */
+  .no-scrollbar::-webkit-scrollbar { display: none; }
+  .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 }
 
 html, body {
-  background: #fdf8f3;
+  background: var(--surface);
   font-family: 'Inter', system-ui, sans-serif;
-  color: #4e3521;
+  color: var(--text);
   overflow-x: hidden;
   height: 100vh;
   width: 100%;
@@ -106,7 +163,7 @@ html, body {
 
 h1, h2, h3, h4, h5, h6, .font-serif, .logo {
   font-family: 'DM Serif Display', Georgia, serif;
-  color: #6d4c2f;
+  color: #2a2a2a;
 }
 
 :root {

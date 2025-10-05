@@ -19,15 +19,11 @@ import { useAuth } from '../contexts/AuthContext.tsx'
 import { firebaseDataService } from '../services/firebaseDataService.js'
 import ImageCarousel from '../components/ImageCarousel'
 import CreateHubModal from '../components/CreateHubModal'
+import Card from '../components/Card'
+import Section from '../components/Section'
+import TagPill from '../components/TagPill'
 
-const BotanicalAccent = () => (
-    <svg width="80" height="80" viewBox="0 0 60 60" fill="none" xmlns="http://www.w3.org/2000/svg" className="absolute -top-8 -left-8 opacity-30 select-none pointer-events-none">
-        <path d="M10 50 Q30 10 50 50" stroke="#A3B3A3" strokeWidth="3" fill="none" />
-        <ellipse cx="18" cy="38" rx="4" ry="8" fill="#C7D0C7" />
-        <ellipse cx="30" cy="28" rx="4" ry="8" fill="#A3B3A3" />
-        <ellipse cx="42" cy="38" rx="4" ry="8" fill="#7A927A" />
-    </svg>
-)
+// BotanicalAccent removed for a cleaner, less decorative header
 
 interface FriendActivity extends Omit<Activity, 'list'> {
     user: User
@@ -77,7 +73,7 @@ const Home = () => {
     const [discoveryItems, setDiscoveryItems] = useState<DiscoveryItem[]>([])
     const [isLoadingActivity, setIsLoadingActivity] = useState(true)
     //
-    const [activeTab, setActiveTab] = useState<'friends' | 'discovery'>('friends')
+    const [activeTab, setActiveTab] = useState<'friends' | 'discovery'>('discovery')
     const [sortBy, setSortBy] = useState('relevance')
     const [searchQuery, setSearchQuery] = useState('')
     const [activeFilters, setActiveFilters] = useState<string[]>([])
@@ -834,32 +830,21 @@ const Home = () => {
     // handleCreateHubFromGoogle removed; flow uses CreateHubModal
 
     return (
-        <div className="min-h-full relative bg-linen-50 overflow-x-hidden">
-            <div className="absolute inset-0 z-0 pointer-events-none">
-                <div className="absolute inset-0 bg-linen-texture opacity-80 mix-blend-multiply"></div>
-                <div className="absolute inset-0 bg-gradient-to-br from-gold-50/60 via-linen-100/80 to-sage-100/70 opacity-80"></div>
-                <div className="absolute inset-0 bg-gradient-radial from-transparent via-transparent to-charcoal-900/10"></div>
-            </div>
-            <div className="relative z-10 p-8 pb-4 max-w-2xl mx-auto flex flex-col gap-2 overflow-visible">
-                <BotanicalAccent />
+        <div className="min-h-full relative bg-surface overflow-x-hidden">
+            <div className="relative z-10 p-5 pb-3 max-w-2xl mx-auto flex flex-col gap-2 overflow-visible">
                 <div className="flex items-center justify-between mb-6">
                     <div>
                         <div className="flex items-center gap-2">
-                            <h1 className="text-3xl font-serif font-extrabold text-charcoal-800 tracking-tight">
+                            <h1 className="text-2xl font-serif font-extrabold text-charcoal-800 tracking-tight">
                                 This Is
                             </h1>
-                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" className="ml-1 -mt-1">
-                                <path d="M4 20 Q12 4 20 20" stroke="#A3B3A3" strokeWidth="2" fill="none" />
-                                <ellipse cx="8" cy="15" rx="2" ry="4" fill="#C7D0C7" />
-                                <ellipse cx="16" cy="15" rx="2" ry="4" fill="#A3B3A3" />
-                            </svg>
                         </div>
                         <p className="text-sage-700 text-base mt-1">
                             Your personal memory journal
                         </p>
                     </div>
                 </div>
-                <div className="relative mb-6">
+                <div className="relative mb-4">
                     <form onSubmit={(e) => { e.preventDefault(); }}>
                     <SearchAndFilter
                         placeholder="Search places, lists, or friends..."
@@ -885,12 +870,12 @@ const Home = () => {
                     </form>
                     
                 </div>
-                <div className="flex bg-white/80 rounded-xl p-1 mb-6 shadow-soft">
+                <div className="flex bg-white/80 rounded-xl p-1 mb-4 border border-linen-200">
                     <button
                         onClick={() => setActiveTab('friends')}
                         className={`flex-1 py-2 px-4 rounded-lg font-medium transition-all duration-200 ${activeTab === 'friends'
-                            ? 'bg-gradient-to-r from-sage-400 to-gold-300 text-white shadow-botanical'
-                            : 'text-sage-700 hover:text-sage-900'
+                            ? 'bg-sage-600 text-white'
+                            : 'text-sage-700'
                             }`}
                     >
                         Friends
@@ -898,20 +883,18 @@ const Home = () => {
                     <button
                         onClick={() => setActiveTab('discovery')}
                         className={`flex-1 py-2 px-4 rounded-lg font-medium transition-all duration-200 ${activeTab === 'discovery'
-                            ? 'bg-gradient-to-r from-sage-400 to-gold-300 text-white shadow-botanical'
-                            : 'text-sage-700 hover:text-sage-900'
+                            ? 'bg-sage-600 text-white'
+                            : 'text-sage-700'
                             }`}
                     >
                         Discovery
                     </button>
                 </div>
             </div>
-            <div className="relative z-10 px-8 pb-8 max-w-2xl mx-auto overflow-x-hidden">
+            <div className="relative z-10 px-5 pb-8 max-w-2xl mx-auto overflow-x-hidden">
                 {activeTab === 'friends' ? (
                     <div className="space-y-6">
-                        <h2 className="text-xl font-serif font-semibold text-charcoal-700 mb-4">
-                            Recent Activity
-                        </h2>
+                        <Section title="Recent Activity">
                         {isLoadingActivity ? (
                             <p className="text-center py-8">Loading activity...</p>
                         ) : (() => {
@@ -925,20 +908,21 @@ const Home = () => {
                                 ))
                               : friendsActivity
                             if (filtered.length === 0) {
-                                return <p className="text-center py-8">No recent activity yet.</p>
+                                return <p className="text-center py-8 text-cozy-sub">No recent activity yet.</p>
                             }
                             return (
                                 filtered.map((activity) => (
                                 <button
                                     key={activity.id}
                                     onClick={() => handleActivityClick(activity)}
-                                    className="w-full bg-white/98 rounded-2xl shadow-botanical border border-linen-200 p-5 hover:shadow-cozy hover:-translate-y-1 transition-all duration-300 text-left flex flex-col gap-2 overflow-hidden"
+                                    className="w-full text-left flex flex-col gap-2 overflow-hidden"
                                 >
+                                    <Card interactive className="p-4">
                                     <div className="flex items-start gap-4">
                                         <img
                                             src={activity.user.avatar}
                                             alt={activity.user.name}
-                                            className="w-12 h-12 rounded-xl object-cover border-2 border-white shadow-soft"
+                                            className="w-10 h-10 rounded-lg object-cover"
                                         />
                                         <div className="flex-1 min-w-0">
                                             <div className="flex items-center gap-2 mb-2">
@@ -947,17 +931,17 @@ const Home = () => {
                                                         e.stopPropagation()
                                                         handleUserClick(activity.user.id)
                                                     }}
-                                                    className="font-semibold text-charcoal-800 hover:text-sage-600 transition-colors cursor-pointer"
+                                                    className="text-cozy-title hover:text-sage-600 transition-colors cursor-pointer"
                                                 >
                                                     {activity.user.name}
                                                 </span>
                                                 <span className="text-sage-400">•</span>
-                                                <span className="text-sage-500 text-sm">{formatTimestamp(activity.createdAt)}</span>
+                                                <span className="text-cozy-meta">{formatTimestamp(activity.createdAt)}</span>
                                             </div>
                                             <div className="flex items-start gap-2">
                                                 {getActionIcon(activity.type)}
                                                 <div className="flex-1">
-                                                    <p className="text-sage-900">
+                                                    <p className="text-cozy-sub">
                                                         {activity.type === 'create_list' ? (
                                                             <>
                                                                 <span className="font-medium">{getActionText(activity.type)}</span>
@@ -971,19 +955,20 @@ const Home = () => {
                                                         )}
                                                     </p>
                                                     {activity.type === 'create_list' && (
-                                                        <p className="text-sage-700 text-sm mt-1">{activity.note}</p>
+                                                        <p className="text-cozy-meta mt-1">{activity.note}</p>
                                                     )}
                                                     {activity.note && (
-                                                        <p className="text-sage-700 text-sm mt-2 italic">
+                                                        <p className="text-cozy-meta mt-2 italic">
                                                             "{activity.note}"
                                                         </p>
                                                     )}
                                                     {activity.placeImage && (
-                                                        <img
-                                                            src={activity.placeImage}
-                                                            alt={activity.place?.name}
-                                                            className="w-full h-32 object-cover rounded-lg mt-3 shadow-soft"
-                                                        />
+                                        <img
+                                            src={activity.placeImage}
+                                            alt={activity.place?.name}
+                                            className="w-full h-32 object-cover rounded-lg mt-3"
+                                            onError={(e)=>{ (e.currentTarget as HTMLImageElement).src = '/assets/leaf.png' }}
+                                        />
                                                     )}
                                                     {activity.list && activity.type !== 'create_list' && (
                                                         <div className="mt-2">
@@ -1003,30 +988,26 @@ const Home = () => {
                                             </div>
                                         </div>
                                     </div>
+                                    </Card>
                                 </button>
                             ))
                             )
                         })()}
+                        </Section>
                     </div>
                 ) : (
-                    <div className="space-y-6">
-                        <div className="flex items-center justify-between mb-4">
-                            <h2 className="text-xl font-serif font-semibold text-charcoal-700">For You</h2>
-                            {hasLoadedDiscovery && (
-                              <button
-                                onClick={async () => { await loadForYou(true) }}
-                                className="text-sage-700 text-sm px-3 py-1 rounded-lg bg-white/80 border border-linen-200 hover:bg-white transition"
-                                aria-label="Refresh recommendations"
-                              >
-                                Refresh
-                              </button>
-                            )}
-                        </div>
+                    <div className="space-y-5">
+                        <Section
+                          title="For You"
+                          action={hasLoadedDiscovery ? (
+                            <button onClick={async()=>{ await loadForYou(true) }} className="btn-secondary text-sm" aria-label="Refresh recommendations">Refresh</button>
+                          ) : null}
+                        >
                         {isLoadingForYou ? (
                             <div className="space-y-4">
                               {/* skeleton loaders to keep user engaged */}
                               {Array.from({ length: 4 }).map((_, i) => (
-                                <div key={i} className="w-full rounded-2xl border border-linen-200 bg-white/70 p-5 animate-pulse">
+                                <Card key={i} className="p-5 animate-pulse">
                                   <div className="flex items-start gap-4">
                                     <div className="w-16 h-16 rounded-xl bg-linen-200" />
                                     <div className="flex-1 space-y-2">
@@ -1035,7 +1016,7 @@ const Home = () => {
                                       <div className="h-3 bg-linen-200 rounded w-2/3" />
                                     </div>
                                   </div>
-                                </div>
+                                </Card>
                               ))}
                             </div>
                         ) : (() => {
@@ -1092,9 +1073,9 @@ const Home = () => {
                                       <img src={recentCreatedHub.mainImage || '/assets/leaf.png'} alt={recentCreatedHub.name} className="w-16 h-16 rounded-xl object-cover border-2 border-white shadow-soft" />
                                       <div className="flex-1 min-w-0">
                                         <div className="flex items-start justify-between mb-2">
-                                          <h3 className="font-semibold text-charcoal-800 line-clamp-2">{recentCreatedHub.name}</h3>
+                                          <h3 className="text-cozy-title line-clamp-2">{recentCreatedHub.name}</h3>
                                         </div>
-                                        <p className="text-sage-700 text-sm mb-3">{recentCreatedHub.location?.address}</p>
+                                        <p className="text-cozy-sub mb-3">{recentCreatedHub.location?.address}</p>
                                       </div>
                                     </div>
                                   </div>
@@ -1103,17 +1084,19 @@ const Home = () => {
                                 <div
                                     key={item.id}
                                     onClick={() => handleDiscoveryClick(item)}
-                                    className="w-full bg-white/98 rounded-2xl shadow-botanical border border-linen-200 p-5 hover:shadow-cozy hover:-translate-y-1 transition-all duration-300 text-left flex flex-col gap-2 overflow-hidden cursor-pointer"
+                                    className="w-full text-left flex flex-col gap-2 overflow-hidden cursor-pointer"
                                 >
+                                    <Card interactive className="p-4">
                                     <div className="flex items-start gap-4">
                                         <img
                                             src={item.image}
                                             alt={item.title}
-                                            className="w-16 h-16 rounded-xl object-cover border-2 border-white shadow-soft"
+                                            className="w-16 h-16 rounded-lg object-cover"
+                                            onError={(e)=>{ (e.currentTarget as HTMLImageElement).src = '/assets/leaf.png' }}
                                         />
                                         <div className="flex-1 min-w-0">
                                             <div className="flex items-start justify-between mb-2">
-                                                <h3 className="font-semibold text-charcoal-800 line-clamp-2">{item.title}</h3>
+                                                <h3 className="text-cozy-title line-clamp-2">{item.title}</h3>
                                                 <div className="flex items-center gap-1 ml-2">
                                                     <button
                                                         onClick={e => {
@@ -1214,23 +1197,17 @@ const Home = () => {
                                             </div>
                                         </div>
                                     </div>
+                                    </Card>
                                 </div>
                                 ))}
                                 <div className="mt-8">
-                                    <div className="flex items-center justify-between mb-4">
-                                      <h2 className="text-xl font-serif font-semibold text-center flex-1" style={{ color: '#2563eb' }}>Suggested Hubs</h2>
-                                      <button
-                                        onClick={async () => { await loadSuggested(true) }}
-                                        className="ml-2 text-blue-700 text-sm px-3 py-1 rounded-lg bg-white/70 border border-white/40 hover:bg-white/90 transition"
-                                        disabled={isLoadingSuggested}
-                                      >
-                                        {isLoadingSuggested ? 'Loading…' : 'Refresh'}
-                                      </button>
-                                    </div>
+                                    <Section title="Suggested Hubs" action={
+                                      <button onClick={async()=>{ await loadSuggested(true) }} className="btn-secondary text-blue-700 text-sm" disabled={isLoadingSuggested}>{isLoadingSuggested ? 'Loading…' : 'Refresh'}</button>
+                                    }>
                                     {isLoadingSuggested ? (
                                       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
                                         {Array.from({ length: 6 }).map((_, i) => (
-                                          <div key={i} className="rounded-3xl border border-white/30 ring-1 ring-white/50 bg-white/50 h-60 animate-pulse" />
+                                          <Card key={i} className="h-60 animate-pulse" />
                                         ))}
                                       </div>
                                     ) : (
@@ -1302,8 +1279,7 @@ const Home = () => {
                                                          mainImage: item.mainImage,
                                                          description: item.description
                                                        }); setShowCreateHubModal(true) }}
-                                                       className="mt-3 w-full py-2 rounded-xl font-semibold text-white shadow-lg transition-all duration-200 active:scale-95"
-                                                       style={{ background: 'linear-gradient(135deg, #1ea4ff, #1d4ed8)' }}
+                                                       className="mt-3 w-full btn-primary active:scale-95"
                                                      >
                                                        Create Hub
                                                      </button>
@@ -1314,10 +1290,12 @@ const Home = () => {
                                             })}
                                           </div>
                         )}
+                                    </Section>
                                 </div>
                                 </>
                             )
                         })()}
+                        </Section>
                     </div>
                 )}
             </div>

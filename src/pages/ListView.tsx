@@ -431,7 +431,7 @@ const ListView = () => {
       <div className="relative z-10">
         <div className="flex items-center px-4 pt-4 pb-2">
           <button 
-            onClick={handleBack}
+            onClick={() => { if (window.history.length > 1) navigate(-1); else handleBack() }}
             className="flex items-center text-sage-700 hover:text-sage-900 transition-colors"
             aria-label="Go back"
           >
@@ -470,19 +470,19 @@ const ListView = () => {
         {/* Toolkit */}
         <div className="flex items-center justify-between gap-2 px-4 py-3">
           <button
-            className="flex items-center justify-center w-10 h-10 rounded-full bg-gradient-to-r from-sage-400 to-gold-300 text-white shadow-botanical hover:from-sage-500 hover:to-gold-400 transition-all border-2 border-sage-200 focus:outline-none focus:ring-2 focus:ring-sage-300"
+            className="btn-icon bg-gradient-to-r from-sage-500 to-gold-400 text-white border-2 border-sage-200 focus:outline-none focus:ring-2 focus:ring-sage-300"
             onClick={() => setShowMapModal(true)}
             aria-label="View all on map"
             title="View all on map"
           >
             <MapIcon className="w-6 h-6" />
           </button>
-          <button className="w-10 h-10 bg-sage-100 rounded-full flex items-center justify-center shadow-soft hover:bg-sage-200 transition">
+          <button className="btn-icon bg-sage-100 hover:bg-sage-200">
             <ShareIcon className="w-5 h-5 text-sage-600" />
           </button>
           <button 
             onClick={handleLike}
-            className={`w-10 h-10 rounded-full flex items-center justify-center shadow-soft transition ${
+            className={`btn-icon transition ${
               isLiked 
                 ? 'bg-gold-100' 
                 : 'bg-sage-100 hover:bg-sage-200'
@@ -500,7 +500,7 @@ const ListView = () => {
           ) : (
             <button 
               onClick={handleSaveList}
-              className={`w-10 h-10 rounded-full flex items-center justify-center shadow-soft transition ${
+              className={`btn-icon transition ${
                 isSaved 
                   ? 'bg-sage-100' 
                   : 'bg-sage-100 hover:bg-sage-200'
@@ -611,7 +611,7 @@ const ListView = () => {
       )}
 
       {/* Main Content: places */}
-      <div className="relative z-10 p-4 space-y-8">
+      <div className="relative z-10 p-4 space-y-8 max-w-2xl mx-auto">
         {sortedPlaces.map((listPlace) => (
           <div
             key={listPlace.id}

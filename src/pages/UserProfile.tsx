@@ -8,6 +8,7 @@ import { firebaseListService } from '../services/firebaseListService.js';
 import { useAuth } from '../contexts/AuthContext.js';
 import firebaseDataService from '../services/firebaseDataService.js';
 import SearchAndFilter from '../components/SearchAndFilter';
+import TagPill from '../components/TagPill';
 import TagSearchModal from '../components/TagSearchModal';
 
 const UserProfile = () => {
@@ -135,7 +136,7 @@ const UserProfile = () => {
       <div className="bg-white/90 backdrop-blur-glass border-b border-linen-200/50 shadow-crystal sticky top-0 z-10">
         <div className="flex items-center justify-between p-4 max-w-2xl mx-auto">
           <button
-            onClick={() => navigate(-1)}
+            onClick={() => { if (window.history.length > 1) navigate(-1); else navigate('/profile') }}
             className="p-2 rounded-full hover:bg-linen-100 transition-colors"
           >
             <ArrowLeftIcon className="w-6 h-6 text-charcoal-600" />
@@ -203,12 +204,7 @@ const UserProfile = () => {
               {user.tags && user.tags.length > 0 && (
                 <div className="flex flex-wrap gap-2 mb-4">
                   {user.tags.map((tag) => (
-                    <span
-                      key={tag}
-                      className="px-3 py-1 bg-sage-100 text-sage-700 text-sm rounded-full border border-sage-200"
-                    >
-                      #{tag}
-                    </span>
+                    <TagPill key={tag} label={tag} size="sm" />
                   ))}
                 </div>
               )}

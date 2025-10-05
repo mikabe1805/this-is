@@ -20,6 +20,7 @@ const defaultFilters: Filters = {
   origin: 'profile',
   unit: 'mi',
   distanceKm: 80,
+  // Exempt noisy recommended defaults
   priceLevels: [],
   openNow: false,
   tags: []

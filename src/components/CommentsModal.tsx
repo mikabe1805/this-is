@@ -2,6 +2,7 @@ import { XMarkIcon, HeartIcon, PaperAirplaneIcon, UserIcon } from '@heroicons/re
 import { HeartIcon as HeartIconSolid } from '@heroicons/react/24/solid'
 import { useState, useRef, useEffect } from 'react'
 import { createPortal } from 'react-dom'
+import Button from './Button'
 
 interface Comment {
   id: string
@@ -124,7 +125,7 @@ const CommentsModal = ({
           <h2 className="text-lg font-semibold text-charcoal-800">Comments</h2>
           <button
             onClick={onClose}
-            className="text-charcoal-500 hover:text-charcoal-700 transition-colors p-1 rounded-lg hover:bg-white/50"
+            className="btn-icon"
           >
             <XMarkIcon className="w-6 h-6" />
           </button>
@@ -204,13 +205,9 @@ const CommentsModal = ({
                             placeholder={`Reply to ${comment.username}...`}
                             className="flex-1 px-3 py-2 bg-white/80 backdrop-blur-sm border border-linen-200/50 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-sage-300/50 focus:border-transparent transition-all"
                           />
-                          <button
-                            type="submit"
-                            disabled={!replyText.trim() || isSubmitting}
-                            className="px-3 py-2 bg-gradient-to-r from-sage-600 to-sage-700 text-white rounded-xl disabled:opacity-50 disabled:cursor-not-allowed hover:from-sage-700 hover:to-sage-800 transition-all"
-                          >
+                          <Button type="submit" size="sm" disabled={!replyText.trim() || isSubmitting}>
                             <PaperAirplaneIcon className="w-4 h-4" />
-                          </button>
+                          </Button>
                         </div>
                       </form>
                     )}
@@ -232,17 +229,13 @@ const CommentsModal = ({
               placeholder="Add a comment..."
               className="flex-1 px-4 py-3 bg-white/80 backdrop-blur-sm border border-linen-200/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-sage-300/50 focus:border-transparent transition-all"
             />
-            <button
-              type="submit"
-              disabled={!newComment.trim() || isSubmitting}
-              className="px-4 py-3 bg-gradient-to-r from-sage-600 to-sage-700 text-white rounded-xl disabled:opacity-50 disabled:cursor-not-allowed hover:from-sage-700 hover:to-sage-800 transition-all shadow-soft hover:shadow-liquid"
-            >
+            <Button type="submit" size="md" disabled={!newComment.trim() || isSubmitting}>
               {isSubmitting ? (
                 <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
               ) : (
                 <PaperAirplaneIcon className="w-5 h-5" />
               )}
-            </button>
+            </Button>
           </form>
         </div>
       </div>

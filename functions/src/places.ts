@@ -91,9 +91,10 @@ export const suggestPlaces = onRequest({ cors: true }, async (req, res) => {
 
     const results = baseResults.map((p: any) => {
       const photoRef = Array.isArray(p.photos) && p.photos[0]?.photo_reference
-      const photoUrl = photoRef ? `https://maps.googleapis.com/maps/api/place/photo?maxwidth=800&photo_reference=${photoRef}&key=${key}` : ''
+      // Use a safer photo URL: prefer 'maxheight' and add 'sensor=false' to be explicit; avoid oversized widths
+      const photoUrl = photoRef ? `https://maps.googleapis.com/maps/api/place/photo?maxheight=540&photo_reference=${photoRef}&sensor=false&key=${key}` : ''
       const det = enriched[p.place_id] || {}
-      const extraPhotos = Array.isArray(det.photos) ? det.photos.slice(0, 6).map((ph: any) => `https://maps.googleapis.com/maps/api/place/photo?maxwidth=800&photo_reference=${ph.photo_reference}&key=${key}`) : []
+      const extraPhotos = Array.isArray(det.photos) ? det.photos.slice(0, 6).map((ph: any) => `https://maps.googleapis.com/maps/api/place/photo?maxheight=540&photo_reference=${ph.photo_reference}&sensor=false&key=${key}`) : []
       // Prefer details photos first; fall back to Nearby photo if details missing
       const allImages: string[] = (extraPhotos.length > 0 ? extraPhotos : (photoUrl ? [photoUrl] : [])).filter(Boolean)
       const main = allImages[0] || photoUrl || ''

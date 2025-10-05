@@ -120,8 +120,8 @@ const PlusDropdown: React.FC<PlusDropdownProps> = ({ onCreatePost, onSaveHub, on
           >
             <PhotoIcon className="w-5 h-5 text-sage-600" />
             <div>
-              <div className="font-medium">Create Post</div>
-              <div className="text-xs text-charcoal-500">Share your experience</div>
+              <div className="font-medium">Create</div>
+              <div className="text-xs text-charcoal-500">Post a place or experience</div>
             </div>
           </button>
           <button
@@ -130,8 +130,8 @@ const PlusDropdown: React.FC<PlusDropdownProps> = ({ onCreatePost, onSaveHub, on
           >
             <LinkIcon className="w-5 h-5 text-sage-600" />
             <div>
-              <div className="font-medium">Embed from...</div>
-              <div className="text-xs text-charcoal-500">Instagram, TikTok, etc.</div>
+              <div className="font-medium">Embed</div>
+              <div className="text-xs text-charcoal-500">Add from Instagram, TikTok, etc.</div>
             </div>
           </button>
           {variant === 'list' && (
@@ -141,8 +141,8 @@ const PlusDropdown: React.FC<PlusDropdownProps> = ({ onCreatePost, onSaveHub, on
             >
               <BookmarkIcon className="w-5 h-5 text-sage-600" />
               <div>
-                <div className="font-medium">Save Hub</div>
-                <div className="text-xs text-charcoal-500">Add a place to this list</div>
+                <div className="font-medium">Save Place</div>
+                <div className="text-xs text-charcoal-500">Add a hub to this list</div>
               </div>
             </button>
           )}

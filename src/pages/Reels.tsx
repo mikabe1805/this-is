@@ -11,6 +11,7 @@ import {
   HeartIcon as HeartIconSolid,
 } from '@heroicons/react/24/solid'
 import ImageCarousel from '../components/ImageCarousel'
+import Button from '../components/Button'
 import { useNavigation } from '../contexts/NavigationContext'
 import CommentsModal from '../components/CommentsModal'
 import SaveModal from '../components/SaveModal'
@@ -558,12 +559,9 @@ const Reels = () => {
               >
                 {postUser.name}
               </span>
-              <button 
-                className="text-xs font-semibold px-3 py-1 rounded-full bg-white text-black hover:bg-gray-100 transition-colors"
-                onClick={() => handleFollow(postUser.id)}
-              >
-                {followingStatus[postUser.id] ? 'Following' : 'Follow'}
-              </button>
+          <Button variant="secondary" size="sm" className="!rounded-full !px-3 !py-1 text-xs" onClick={() => handleFollow(postUser.id)}>
+            {followingStatus[postUser.id] ? 'Following' : 'Follow'}
+          </Button>
             </div>
           )}
 
@@ -572,12 +570,8 @@ const Reels = () => {
           </p>
 
           {postHub &&
-            <button
-              onClick={handlePlaceClick}
-              className="flex items-center gap-2 text-white/80 text-xs hover:text-white transition-colors active:scale-95"
-            >
-              <MapPinIcon className="w-3 h-3" />
-              {postHub.name}
+            <button onClick={handlePlaceClick} className="flex items-center gap-2 text-white/80 text-xs hover:text-white transition-colors active:scale-95">
+              <MapPinIcon className="w-3 h-3" /> {postHub.name}
             </button>
           }
         </div>

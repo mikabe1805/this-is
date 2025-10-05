@@ -1,4 +1,5 @@
 import { XMarkIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline'
+import Button from './Button'
 
 interface ConfirmModalProps {
   isOpen: boolean
@@ -70,7 +71,7 @@ const ConfirmModal = ({
             <h2 className="text-xl font-serif font-semibold text-charcoal-800">{title}</h2>
             <button
               onClick={onClose}
-              className="p-2 rounded-xl bg-linen-100 text-charcoal-600 hover:bg-linen-200 transition-colors"
+              className="btn-icon"
             >
               <XMarkIcon className="w-5 h-5" />
             </button>
@@ -92,21 +93,8 @@ const ConfirmModal = ({
         {/* Footer */}
         <div className="p-6 border-t border-linen-200">
           <div className="flex gap-3">
-            <button
-              onClick={onClose}
-              className="flex-1 px-4 py-3 rounded-xl border border-linen-200 bg-linen-50 text-charcoal-600 font-medium hover:bg-linen-100 transition-colors"
-            >
-              {cancelText}
-            </button>
-            <button
-              onClick={() => {
-                onConfirm()
-                onClose()
-              }}
-              className={`flex-1 px-4 py-3 rounded-xl font-medium transition-colors shadow-soft ${styles.confirmButton}`}
-            >
-              {confirmText}
-            </button>
+            <Button variant="secondary" className="flex-1" onClick={onClose}>{cancelText}</Button>
+            <Button className="flex-1" onClick={() => { onConfirm(); onClose(); }}>{confirmText}</Button>
           </div>
         </div>
       </div>

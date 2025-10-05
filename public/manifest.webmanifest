@@ -1,0 +1,19 @@
+{
+  "name": "this.is - Curate Your World",
+  "short_name": "this.is",
+  "start_url": "/?source=pwa",
+  "display": "standalone",
+  "background_color": "#FFF8EF",
+  "theme_color": "#B08968",
+  "description": "Discover, save, and share cozy places, curated by you and friends.",
+  "icons": [
+    { "src": "/assets/thisis_logoOnly.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/assets/thisis_logoOnly.png", "sizes": "256x256", "type": "image/png", "purpose": "any" },
+    { "src": "/assets/thisis_logoOnly.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/assets/thisis_transparent.png", "sizes": "1024x1024", "type": "image/png", "purpose": "any" }
+  ],
+  "prefer_related_applications": false,
+  "categories": ["lifestyle", "travel", "social"]
+}
+
+

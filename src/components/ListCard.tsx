@@ -4,6 +4,7 @@ import { HeartIcon as HeartIconSolid } from '@heroicons/react/24/solid'
 import TagCloud from './TagCloud'
 import ListMenuDropdown from './ListMenuDropdown'
 import { useNavigate } from 'react-router-dom'
+import TagPill from './TagPill'
 
 interface Place {
   id: string
@@ -255,9 +256,7 @@ const ListCard = ({
                   {!isDefaultList && place.tags.length > 0 && (
                     <div className="flex flex-wrap gap-1 mb-2">
                       {place.tags.slice(0, 3).map((tag) => (
-                        <span key={tag} className="text-xs bg-linen-100 text-sage-700 px-2 py-0.5 rounded-full">
-                          #{tag}
-                        </span>
+                        <TagPill key={tag} label={tag} size="sm" />
                       ))}
                       {place.tags.length > 3 && (
                         <span className="text-xs text-earth-400">

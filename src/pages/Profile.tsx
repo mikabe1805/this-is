@@ -19,17 +19,13 @@ import { useNavigation } from '../contexts/NavigationContext.tsx'
 import { useAuth } from '../contexts/AuthContext.tsx'
 import { firebaseDataService } from '../services/firebaseDataService.js'
 import TagAutocomplete from '../components/TagAutocomplete'
+import TagPill from '../components/TagPill'
 import { formatTimestamp } from '../utils/dateUtils'
 import AdvancedFiltersDrawer from '../components/AdvancedFiltersDrawer'
+// import Card from '../components/Card'
+import Section from '../components/Section'
 
-const BotanicalAccent = () => (
-    <svg width="60" height="60" viewBox="0 0 60 60" fill="none" xmlns="http://www.w3.org/2000/svg" className="absolute -top-6 -left-6 opacity-30 select-none pointer-events-none">
-        <path d="M10 50 Q30 10 50 50" stroke="#A3B3A3" strokeWidth="3" fill="none" />
-        <ellipse cx="18" cy="38" rx="4" ry="8" fill="#C7D0C7" />
-        <ellipse cx="30" cy="28" rx="4" ry="8" fill="#A3B3A3" />
-        <ellipse cx="42" cy="38" rx="4" ry="8" fill="#7A927A" />
-    </svg>
-)
+// BotanicalAccent removed for minimal profile header
 
 const sortOptions = [
     { key: 'relevance', label: 'Relevance' },
@@ -353,6 +349,7 @@ const Profile = () => {
             })
             return scored.sort((a,b)=> (b.score - a.score) || (b.pop - a.pop)).map(s=>s.l)
         }
+        if (sortBy === 'popular') return [...filteredLists].sort((a,b)=> (b.likes||0)-(a.likes||0))
         if (sortBy === 'friends') return [...filteredLists].reverse()
         if (sortBy === 'nearby' && selectedLocation) {
             return [...filteredLists].sort((a, b) => {
@@ -520,13 +517,8 @@ const Profile = () => {
     }
 
     return (
-        <div className="relative min-h-full overflow-x-hidden bg-linen-50">
-            <div className="absolute inset-0 z-0 pointer-events-none">
-                <div className="absolute inset-0 bg-linen-texture opacity-80 mix-blend-multiply"></div>
-                <div className="absolute inset-0 bg-gradient-to-br from-gold-50/60 via-linen-100/80 to-sage-100/70 opacity-80"></div>
-                <div className="absolute inset-0 bg-gradient-radial from-transparent via-transparent to-charcoal-900/10"></div>
-            </div>
-            <div className="relative z-10 px-4 pt-6">
+        <div className="relative min-h-full overflow-x-hidden bg-surface">
+            <div className="relative z-10 px-4 pt-5">
                 <form onSubmit={(e) => { e.preventDefault() }}>
                     <SearchAndFilter
                         placeholder="Search your lists, places, or friends..."
@@ -557,14 +549,13 @@ const Profile = () => {
                 />
             </div>
             {!searchQuery.trim() && (
-            <div className="relative z-10 p-8 mt-8 rounded-3xl shadow-botanical border border-linen-200 bg-white max-w-2xl mx-auto overflow-hidden flex flex-col gap-2">
-                <BotanicalAccent />
+            <div className="relative z-10 p-6 mt-6 rounded-2xl border border-linen-200 bg-white max-w-2xl mx-auto overflow-hidden flex flex-col gap-2">
                 <div className="flex items-center gap-6">
                     <div className="relative">
                         <img
                             src={currentUser.avatar || 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face'}
                             alt={currentUser.name}
-                            className="w-24 h-24 rounded-2xl border-4 border-linen-100 shadow-botanical object-cover bg-linen-200"
+                            className="w-20 h-20 rounded-xl object-cover bg-linen-200"
                             onError={(e) => {
                                 console.warn('Profile image failed to load:', currentUser.avatar)
                                 e.currentTarget.src = 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face'
@@ -579,12 +570,7 @@ const Profile = () => {
                     <div className="flex-1">
                         <div className="flex items-center justify-between mb-1">
                             <div className="flex items-center gap-2">
-                                <h2 className="text-3xl font-serif font-extrabold text-charcoal-800 tracking-tight">{currentUser.name}</h2>
-                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" className="ml-1 -mt-1">
-                                    <path d="M4 20 Q12 4 20 20" stroke="#A3B3A3" strokeWidth="2" fill="none" />
-                                    <ellipse cx="8" cy="15" rx="2" ry="4" fill="#C7D0C7" />
-                                    <ellipse cx="16" cy="15" rx="2" ry="4" fill="#A3B3A3" />
-                                </svg>
+                                <h2 className="text-2xl font-serif font-extrabold text-charcoal-800 tracking-tight">{currentUser.name}</h2>
                             </div>
                             <button
                                 ref={userMenuButtonRef}
@@ -594,39 +580,44 @@ const Profile = () => {
                                 <EllipsisHorizontalIcon className="w-5 h-5 text-charcoal-600" />
                             </button>
                         </div>
-                        <p className="text-base text-charcoal-500 mb-1">@{currentUser.username}</p>
+                        <p className="text-[1.05rem] text-charcoal-600 mb-1">@{currentUser.username}</p>
                         {currentUser.location && (
-                            <div className="flex items-center gap-2 text-sm text-sage-700 mb-1">
-                                <MapPinIcon className="w-5 h-5 text-sage-400" />
+                            <div className="flex items-center gap-2 text-[0.95rem] text-sage-700 mb-1">
+                                <MapPinIcon className="w-5 h-5 text-sage-500" />
                                 {currentUser.location}
                             </div>
                         )}
-                        <div className="flex items-center gap-2 text-sm text-gold-600">
-                            <CalendarIcon className="w-5 h-5 text-gold-400" />
+                        <div className="flex items-center gap-2 text-[0.95rem] text-gold-700">
+                            <CalendarIcon className="w-5 h-5 text-gold-500" />
                             <span>Member since {formatTimestamp(currentUser.createdAt)}</span>
                         </div>
                     </div>
                 </div>
-                <div className="relative flex items-center justify-center my-6">
-                    <div className="absolute left-0 right-0 h-0.5 bg-gradient-to-r from-gold-200 via-sage-200 to-gold-200 opacity-60" />
-                    <span className="relative z-10 px-8 py-2 bg-white text-2xl font-extrabold tracking-widest text-gold-600 uppercase shadow-soft rounded-full border-2 border-gold-100" style={{ letterSpacing: '0.2em' }}>
-                        {currentUser.influences} Influences
-                    </span>
+                <div className="flex items-center gap-6 mt-4">
+                    <div className="text-center">
+                        <div className="text-xl font-serif font-bold text-charcoal-700">{listCount}</div>
+                        <div className="text-xs text-charcoal-400">Lists</div>
+                    </div>
+                    <div className="text-center">
+                        <div className="text-xl font-serif font-bold text-charcoal-700">{placeCount}</div>
+                        <div className="text-xs text-charcoal-400">Places</div>
+                    </div>
+                    <div className="text-center">
+                        <div className="text-xl font-serif font-bold text-charcoal-700">{followerCount}</div>
+                        <div className="text-xs text-charcoal-400">Followers</div>
+                    </div>
                 </div>
                 {currentUser.bio && (
-                    <p className="mt-4 text-lg text-charcoal-700 italic bg-linen-100 rounded-xl p-4 shadow-soft">{currentUser.bio}</p>
+                    <p className="mt-4 text-[0.95rem] text-charcoal-700 bg-linen-100 rounded-xl p-3">{currentUser.bio}</p>
                 )}
                 <div className="flex flex-wrap gap-2 mt-4">
                     {profileTags.map(tag => (
-                        <button
+                        <TagPill
                             key={tag}
-                            onClick={() => {
-                                navigate(`/search?tag=${tag}`)
-                            }}
-                            className="px-4 py-2 rounded-full text-sm font-medium bg-sage-50 border border-sage-100 text-sage-700 shadow-soft transition hover:bg-sage-100 hover:shadow-botanical"
-                        >
-                            #{tag}
-                        </button>
+                            label={tag}
+                            size="sm"
+                            onClick={() => navigate(`/search?tag=${tag}`)}
+                        />
                     ))}
                     <div className="w-full max-w-xs">
                         <TagAutocomplete
@@ -693,35 +684,21 @@ const Profile = () => {
             )}
             <div className="relative z-10 p-4 max-w-2xl mx-auto space-y-8 pb-20">
                 <div>
-                    <div className="flex items-center justify-between mb-4">
-                        <h3 className="text-xl font-serif font-semibold text-charcoal-700">{searchQuery.trim() ? 'Your Lists' : 'Most Popular Lists'}</h3>
-                        {!searchQuery.trim() && (
-                        <button
-                            onClick={() => {
-                                const params = new URLSearchParams()
-                                if (selectedTags.length > 0) params.set('tags', selectedTags.join(','))
-                                if (sortBy) params.set('sort', sortBy)
-                                params.set('onlyMine', 'true')
-                                navigate(`/lists?${params.toString()}`)
-                            }}
-                            className="text-sm font-medium text-sage-700 hover:underline"
-                        >
-                            View All
-                        </button>
-                        )}
-                    </div>
+                    <Section title="Your Lists" action={
+                      <button onClick={() => { const params = new URLSearchParams(); if (selectedTags.length > 0) params.set('tags', selectedTags.join(',')); if (sortBy) params.set('sort', sortBy); params.set('onlyMine', 'true'); navigate(`/lists?${params.toString()}`) }} className="text-sm font-medium text-sage-700 hover:underline">View All</button>
+                    }>
                     <div className="space-y-4">
                         {visibleLists.map((list) => (
                             <div
                                 key={list.id}
                                 role="button"
                                 tabIndex={0}
-                                className="w-full text-left rounded-2xl shadow-botanical border border-linen-200 bg-white/98 flex flex-col md:flex-row gap-4 overflow-hidden transition hover:shadow-cozy hover:-translate-y-1 focus:outline-none focus:ring-2 focus:ring-sage-200"
+                                className="w-full text-left rounded-xl border border-linen-200 bg-white flex flex-col md:flex-row gap-4 overflow-hidden transition hover:bg-linen-50 focus:outline-none"
                                                                     onClick={() => openListModal(list, 'profile')}
                                 aria-label={`Open list ${list.name}`}
                             >
                                 <div className="w-full md:w-40 h-28 md:h-auto flex-shrink-0 bg-linen-100">
-                                    <img src={list.coverImage} alt={list.name} className="w-full h-full object-cover rounded-l-2xl" loading="lazy" />
+                                    <img src={list.coverImage} alt={list.name} className="w-full h-full object-cover" loading="lazy" />
                                 </div>
                                 <div className="flex-1 p-4 flex flex-col justify-between">
                                     <div>
@@ -753,21 +730,16 @@ const Profile = () => {
                                         <p className="text-sm text-charcoal-500 mb-2 leading-relaxed break-words">{list.description}</p>
                                         <div className="flex flex-wrap gap-2 mb-2">
                                             {list.tags.filter(tag => tag !== 'auto-generated').map(tag => (
-                                                <button
+                                                <TagPill
                                                     key={tag}
-                                                    onClick={(e) => {
-                                                        e.stopPropagation()
-                                                        navigate(`/search?tag=${tag}`)
-                                                    }}
-                                                    className="px-3 py-1 rounded-full text-xs font-medium bg-sage-50 border border-sage-100 text-sage-700 transition hover:bg-sage-100 hover:shadow-botanical"
-                                                >
-                                                    #{tag}
-                                                </button>
+                                                    label={tag}
+                                                    onClick={(e) => { e.stopPropagation(); navigate(`/search?tag=${tag}`) }}
+                                                />
                                             ))}
                                         </div>
                                     </div>
                                     <div className="flex items-center gap-2 mt-2">
-                                        <img src={currentUser?.avatar || 'https://via.placeholder.com/150'} alt={currentUser?.name || 'User'} className="w-6 h-6 rounded-full border-2 border-white shadow-soft object-cover" loading="lazy" />
+                                        <img src={currentUser?.avatar || 'https://via.placeholder.com/150'} alt={currentUser?.name || 'User'} className="w-6 h-6 rounded-full object-cover" loading="lazy" />
                                         <span className="text-xs text-charcoal-500 font-medium">{currentUser?.name || 'User'}</span>
                                         <div className="ml-auto flex items-center gap-2">
                                             <button
@@ -822,11 +794,12 @@ const Profile = () => {
                             </div>
                         ))}
                     </div>
+                    </Section>
                     {visibleCount < sortedLists.length && (
                         <div className="mt-4 flex justify-center">
                             <button
                                 onClick={() => setVisibleCount(c => c + 6)}
-                                className="px-4 py-2 rounded-xl bg-linen-100 text-sage-700 border border-linen-200 hover:bg-linen-200 transition"
+                                className="px-4 py-2 rounded-xl bg-white text-sage-700 border border-linen-200 hover:bg-linen-50 transition"
                             >
                                 Load more
                             </button>
@@ -845,20 +818,12 @@ const Profile = () => {
                     )}
                 </div>
                 <div>
-                    <div className="flex items-center justify-between mb-4">
-                        <h3 className="text-xl font-serif font-semibold text-charcoal-700">Recent Activity</h3>
-                        {!searchQuery.trim() && (
-                            <button
-                                onClick={() => setShowAllActivity(prev => !prev)}
-                                className="text-sm font-medium text-sage-700 hover:underline"
-                            >
-                                {showAllActivity ? 'Show less' : 'See all recent activity'}
-                            </button>
-                        )}
-                    </div>
+                    <Section title="Recent Activity" action={!searchQuery.trim() ? (
+                      <button onClick={() => setShowAllActivity(prev => !prev)} className="text-sm font-medium text-sage-700 hover:underline">{showAllActivity ? 'Show less' : 'See all recent activity'}</button>
+                    ) : null}>
                     <div className="space-y-4">
                         {activityToShow.map((activity) => (
-                            <div key={activity.id} className="rounded-2xl shadow-soft border border-linen-200 bg-white/98 flex items-center gap-4 p-4 transition hover:shadow-cozy hover:-translate-y-1">
+                            <div key={activity.id} className="rounded-xl border border-linen-200 bg-white flex items-center gap-4 p-4 transition hover:bg-linen-50">
                                 <div className="w-12 h-12 rounded-xl bg-sage-100 flex items-center justify-center">
                                     <BookmarkIcon className="w-6 h-6 text-sage-500" />
                                 </div>
@@ -879,6 +844,7 @@ const Profile = () => {
                             </button>
                         )}
                     </div>
+                    </Section>
                 </div>
                 {!searchQuery.trim() && (
                 <div className="rounded-2xl shadow-soft border border-linen-200 p-6">

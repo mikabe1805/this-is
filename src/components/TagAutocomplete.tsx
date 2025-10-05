@@ -93,6 +93,8 @@ export default function TagAutocomplete({
     setTimeout(() => setShowDropdown(false), 150)
   }
 
+  const shouldShowPopular = showPopularTags && currentTags.length === 0
+
   return (
     <div className="relative">
       <div className="flex gap-2">
@@ -130,7 +132,7 @@ export default function TagAutocomplete({
         </div>
       )}
       
-      {showPopularTags && (
+      {shouldShowPopular && (
         <div className="mt-2">
           <p className="text-xs text-charcoal-500 mb-2">{popularLabel}:</p>
           <div className="flex flex-wrap gap-1">

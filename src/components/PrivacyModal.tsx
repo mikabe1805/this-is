@@ -1,5 +1,6 @@
 import { XMarkIcon, EyeIcon, EyeSlashIcon, UserGroupIcon } from '@heroicons/react/24/outline'
 import { useState } from 'react'
+import Button from './Button'
 
 interface PrivacyModalProps {
   isOpen: boolean
@@ -53,7 +54,7 @@ const PrivacyModal = ({ isOpen, onClose, currentPrivacy, onPrivacyChange, listNa
           <h2 className="text-xl font-serif font-semibold text-charcoal-800">Change Privacy</h2>
           <button
             onClick={handleClose}
-            className="p-2 rounded-xl text-charcoal-400 hover:text-charcoal-600 hover:bg-linen-100 transition"
+            className="btn-icon"
           >
             <XMarkIcon className="w-5 h-5" />
           </button>
@@ -124,21 +125,10 @@ const PrivacyModal = ({ isOpen, onClose, currentPrivacy, onPrivacyChange, listNa
 
         {/* Footer */}
         <div className="flex gap-3 p-6 border-t border-linen-200">
-          <button
-            type="button"
-            onClick={handleClose}
-            className="flex-1 py-3 px-4 rounded-xl border border-linen-200 text-charcoal-600 font-medium hover:bg-linen-50 transition"
-          >
-            Cancel
-          </button>
-          <button
-            type="button"
-            onClick={handleSubmit}
-            disabled={selectedPrivacy === currentPrivacy || isSubmitting}
-            className="flex-1 py-3 px-4 rounded-xl bg-gradient-to-r from-sage-500 to-gold-500 text-white font-medium hover:shadow-botanical disabled:opacity-50 disabled:cursor-not-allowed transition"
-          >
+          <Button variant="secondary" className="flex-1" type="button" onClick={handleClose}>Cancel</Button>
+          <Button className="flex-1" type="button" onClick={handleSubmit} disabled={selectedPrivacy === currentPrivacy || isSubmitting}>
             {isSubmitting ? 'Updating...' : 'Update Privacy'}
-          </button>
+          </Button>
         </div>
       </div>
     </div>

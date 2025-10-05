@@ -288,8 +288,8 @@ function AppContent() {
           </Routes>
         </div>
       ) : (
-        <div className="h-dvh bg-botanical-overlay">
-          <div className="max-w-md mx-auto bg-white/90 h-full shadow-crystal border border-white/30">
+        <div className="h-dvh bg-surface">
+          <div className="max-w-md mx-auto bg-white h-full shadow-crystal border border-linen-200">
             <div className="flex flex-col h-full">
               {/* Main Content Area */}
               <main className="flex-1 overflow-y-auto pb-28 overflow-x-hidden">

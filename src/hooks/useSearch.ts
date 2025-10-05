@@ -57,6 +57,19 @@ export const useSearch = () => {
       } else {
         results = await firebaseDataService.performSearch(query, mergedOptions);
       }
+      // Exclude current user from people results and clamp fields for readability
+      if (results && Array.isArray((results as any).users) && authUser) {
+        (results as any).users = (results as any).users.filter((u: any) => {
+          const item = 'item' in u ? u.item : u;
+          return item?.id !== authUser.id && item?.uid !== authUser.uid;
+        });
+      }
+      if (results && Array.isArray((results as any).places)) {
+        (results as any).places = (results as any).places.slice(0, 50);
+      }
+      if (results && Array.isArray((results as any).lists)) {
+        (results as any).lists = (results as any).lists.slice(0, 50);
+      }
       setDisplayResults(results);
     } catch (err) {
       console.error("Search failed:", err);

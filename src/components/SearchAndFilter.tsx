@@ -207,6 +207,17 @@ const SearchAndFilter: React.FC<SearchAndFilterProps> = ({
         distanceKm={distanceKm}
         setDistanceKm={setDistanceKm}
       />
+
+      {/* Close affordance when dropdown is open */}
+      {showDropdown && (
+        <button
+          aria-label="Close filters"
+          className="fixed top-4 right-4 z-[100000] w-9 h-9 rounded-full bg-white/90 shadow-soft border border-linen-200"
+          onClick={() => setShowDropdown(false)}
+        >
+          ✕
+        </button>
+      )}
     </div>
   )
 }
