@@ -1,0 +1,198 @@
+{
+  "events": [
+    {
+      "name": "user_signup",
+      "payload": {
+        "userId": "string",
+        "email": "string",
+        "displayName": "string",
+        "signupMethod": "string",
+        "timestamp": "string"
+      },
+      "fired_at": "src/contexts/AuthContext.tsx:42-76",
+      "description": "User registration event"
+    },
+    {
+      "name": "user_login",
+      "payload": {
+        "userId": "string",
+        "loginMethod": "string",
+        "timestamp": "string"
+      },
+      "fired_at": "src/contexts/AuthContext.tsx:90-102",
+      "description": "User authentication event"
+    },
+    {
+      "name": "place_visit",
+      "payload": {
+        "userId": "string",
+        "placeId": "string",
+        "placeName": "string",
+        "source": "string",
+        "timestamp": "string"
+      },
+      "fired_at": "src/pages/Search.tsx:315-349",
+      "description": "User visits a place/hub"
+    },
+    {
+      "name": "list_visit",
+      "payload": {
+        "userId": "string",
+        "listId": "string",
+        "listName": "string",
+        "source": "string",
+        "timestamp": "string"
+      },
+      "fired_at": "src/pages/Search.tsx:351-384",
+      "description": "User visits a list"
+    },
+    {
+      "name": "user_visit",
+      "payload": {
+        "userId": "string",
+        "targetUserId": "string",
+        "targetUserName": "string",
+        "source": "string",
+        "timestamp": "string"
+      },
+      "fired_at": "src/pages/Search.tsx:386-419",
+      "description": "User visits another user's profile"
+    },
+    {
+      "name": "place_save",
+      "payload": {
+        "userId": "string",
+        "placeId": "string",
+        "listId": "string",
+        "status": "string",
+        "timestamp": "string"
+      },
+      "fired_at": "src/services/firebaseDataService.ts:1544-1612",
+      "description": "User saves a place to a list"
+    },
+    {
+      "name": "list_create",
+      "payload": {
+        "userId": "string",
+        "listId": "string",
+        "listName": "string",
+        "privacy": "string",
+        "timestamp": "string"
+      },
+      "fired_at": "src/services/firebaseListService.ts:19-51",
+      "description": "User creates a new list"
+    },
+    {
+      "name": "post_create",
+      "payload": {
+        "userId": "string",
+        "postId": "string",
+        "hubId": "string",
+        "status": "string",
+        "timestamp": "string"
+      },
+      "fired_at": "src/services/firebasePostService.ts:14-52",
+      "description": "User creates a new post"
+    },
+    {
+      "name": "search_performed",
+      "payload": {
+        "userId": "string",
+        "query": "string",
+        "filters": "array",
+        "resultsCount": "number",
+        "timestamp": "string"
+      },
+      "fired_at": "src/hooks/useSearch.ts:40-80",
+      "description": "User performs a search"
+    },
+    {
+      "name": "hub_create",
+      "payload": {
+        "userId": "string",
+        "hubId": "string",
+        "hubName": "string",
+        "source": "string",
+        "timestamp": "string"
+      },
+      "fired_at": "src/services/firebaseDataService.ts:844-900",
+      "description": "User creates a new hub"
+    },
+    {
+      "name": "list_like",
+      "payload": {
+        "userId": "string",
+        "listId": "string",
+        "action": "string",
+        "timestamp": "string"
+      },
+      "fired_at": "src/services/firebaseListService.ts:19-51",
+      "description": "User likes/unlikes a list"
+    },
+    {
+      "name": "post_like",
+      "payload": {
+        "userId": "string",
+        "postId": "string",
+        "action": "string",
+        "timestamp": "string"
+      },
+      "fired_at": "src/services/firebasePostService.ts:14-52",
+      "description": "User likes/unlikes a post"
+    },
+    {
+      "name": "comment_post",
+      "payload": {
+        "userId": "string",
+        "postId": "string",
+        "commentId": "string",
+        "timestamp": "string"
+      },
+      "fired_at": "src/components/PostModal.tsx:137-152",
+      "description": "User posts a comment"
+    },
+    {
+      "name": "profile_edit",
+      "payload": {
+        "userId": "string",
+        "fieldsChanged": "array",
+        "timestamp": "string"
+      },
+      "fired_at": "src/pages/Profile.tsx:117-129",
+      "description": "User edits their profile"
+    },
+    {
+      "name": "settings_change",
+      "payload": {
+        "userId": "string",
+        "setting": "string",
+        "value": "string",
+        "timestamp": "string"
+      },
+      "fired_at": "src/pages/Settings.tsx",
+      "description": "User changes a setting"
+    }
+  ],
+  "analytics_wrapper": {
+    "function": "firebaseDataService.trackUserInteraction",
+    "file": "src/services/firebaseDataService.ts",
+    "description": "Wrapper function for tracking user interactions"
+  },
+  "callers": [
+    "src/pages/Search.tsx:315-349",
+    "src/pages/Search.tsx:351-384", 
+    "src/pages/Search.tsx:386-419",
+    "src/services/firebaseDataService.ts:1544-1612",
+    "src/services/firebaseListService.ts:19-51",
+    "src/services/firebasePostService.ts:14-52",
+    "src/hooks/useSearch.ts:40-80",
+    "src/components/PostModal.tsx:137-152",
+    "src/pages/Profile.tsx:117-129"
+  ],
+  "gaps": [
+    "GAP: No error tracking events - should track errors and exceptions",
+    "GAP: No performance tracking - should track performance metrics",
+    "GAP: No A/B testing events - should track experiment participation",
+    "GAP: No conversion funnel events - should track user journey metrics"
+  ]
+}

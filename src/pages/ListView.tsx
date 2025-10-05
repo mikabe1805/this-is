@@ -19,6 +19,9 @@ import { firebaseDataService } from '../services/firebaseDataService';
 import { useAuth } from '../contexts/AuthContext'
 import AdvancedFiltersDrawer from '../components/AdvancedFiltersDrawer'
 import { useFilters } from '../contexts/FiltersContext'
+import { PageHeader } from '../components/primitives/PageHeader'
+import { ActionBar } from '../components/primitives/ActionBar'
+import { CardShell } from '../components/primitives/CardShell'
 
 const ListView = () => {
   const { id } = useParams<{ id: string }>()
@@ -427,106 +430,86 @@ const ListView = () => {
         <div className="absolute inset-0 bg-gradient-to-br from-gold-50/60 via-linen-100/80 to-sage-100/70 opacity-80"></div>
         <div className="absolute inset-0 bg-gradient-radial from-transparent via-transparent to-charcoal-900/10"></div>
       </div>
-      {/* Header: back arrow, cover image, toolkit, tags */}
-      <div className="relative z-10">
-        <div className="flex items-center px-4 pt-4 pb-2">
+      {/* Header */}
+      <PageHeader
+        coverUrl={list.coverImage}
+        title={list.name}
+        subtitle={`by ${creatorName}`}
+        rightActions={
           <button 
             onClick={() => { if (window.history.length > 1) navigate(-1); else handleBack() }}
-            className="flex items-center text-sage-700 hover:text-sage-900 transition-colors"
+            className="w-10 h-10 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center hover:bg-white/30 transition-colors"
             aria-label="Go back"
           >
-            <ArrowLeftIcon className="w-6 h-6" />
+            <ArrowLeftIcon className="w-5 h-5 text-white" />
           </button>
-          <div className="flex-1 flex items-center justify-center">
-            <h1 className="text-lg font-serif font-semibold text-charcoal-800 text-center w-full truncate">{list.name} by {creatorName}</h1>
+        }
+      />
+
+      {/* List Info */}
+      <div className="relative z-10 p-4 space-y-4">
+        <CardShell variant="solid" className="p-4">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <button 
+                onClick={handleLike}
+                className={`p-2 rounded-lg transition ${
+                  isLiked 
+                    ? 'bg-moss-100 text-moss-600' 
+                    : 'bg-bark-100 text-bark-600 hover:bg-bark-200'
+                }`}
+              >
+                <HeartIcon className={`w-5 h-5 ${isLiked ? 'fill-current' : ''}`} />
+              </button>
+              <button 
+                onClick={handleSaveList}
+                className={`p-2 rounded-lg transition ${
+                  isSaved 
+                    ? 'bg-moss-100 text-moss-600' 
+                    : 'bg-bark-100 text-bark-600 hover:bg-bark-200'
+                }`}
+              >
+                <BookmarkIcon className={`w-5 h-5 ${isSaved ? 'fill-current' : ''}`} />
+              </button>
+              <button className="p-2 rounded-lg bg-bark-100 text-bark-600 hover:bg-bark-200 transition">
+                <ShareIcon className="w-5 h-5" />
+              </button>
+              <button
+                onClick={() => setShowMapModal(true)}
+                className="p-2 rounded-lg bg-bark-100 text-bark-600 hover:bg-bark-200 transition"
+                aria-label="View all on map"
+              >
+                <MapIcon className="w-5 h-5" />
+              </button>
+            </div>
+            {isOwner && (
+              <button
+                ref={listMenuButtonRef}
+                onClick={() => setShowListMenu(true)}
+                className="p-2 rounded-lg bg-bark-100 text-bark-600 hover:bg-bark-200 transition"
+              >
+                <EllipsisHorizontalIcon className="w-5 h-5" />
+              </button>
+            )}
           </div>
-          {isOwner && (
-            <button
-              ref={listMenuButtonRef}
-              onClick={() => setShowListMenu(true)}
-              className="w-8 h-8 bg-linen-100 rounded-full flex items-center justify-center hover:bg-linen-200 transition-colors"
-            >
-              <EllipsisHorizontalIcon className="w-5 h-5 text-charcoal-600" />
-            </button>
-          )}
-        </div>
-        {/* Cover image */}
-        {list.coverImage && (
-          <div ref={bannerRef} className="w-full h-56 sm:h-64 md:h-72 bg-gradient-to-br from-sage-200 to-gold-200 relative overflow-hidden">
-            <img
-              src={list.coverImage}
-              alt={list.name}
-              className="w-full h-full object-cover will-change-transform"
-              loading="lazy"
-              style={{ transform: `translateY(${Math.min(scrollY * 0.15, 40)}px) scale(1.05)` }}
-              onClick={() => setShowFullImage(true)}
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-black/5 to-transparent backdrop-blur-[1px]"></div>
-            <div className="absolute inset-0 border border-white/20"></div>
-            {/* Tap to expand hint */}
-            <div className="absolute bottom-2 right-2 text-xs bg-white/60 backdrop-blur-sm text-charcoal-700 px-2 py-1 rounded-full border border-white/70">Tap to view</div>
+          
+          <div className="flex flex-wrap gap-2 mb-3">
+            {list.tags.map((tag) => (
+              <span
+                key={tag}
+                className="px-3 py-1 bg-moss-100 text-moss-700 text-sm rounded-full border border-moss-200"
+              >
+                #{tag}
+              </span>
+            ))}
           </div>
-        )}
-        {/* Toolkit */}
-        <div className="flex items-center justify-between gap-2 px-4 py-3">
-          <button
-            className="btn-icon bg-gradient-to-r from-sage-500 to-gold-400 text-white border-2 border-sage-200 focus:outline-none focus:ring-2 focus:ring-sage-300"
-            onClick={() => setShowMapModal(true)}
-            aria-label="View all on map"
-            title="View all on map"
-          >
-            <MapIcon className="w-6 h-6" />
-          </button>
-          <button className="btn-icon bg-sage-100 hover:bg-sage-200">
-            <ShareIcon className="w-5 h-5 text-sage-600" />
-          </button>
-          <button 
-            onClick={handleLike}
-            className={`btn-icon transition ${
-              isLiked 
-                ? 'bg-gold-100' 
-                : 'bg-sage-100 hover:bg-sage-200'
-            }`}
-          >
-            <HeartIcon className={`w-5 h-5 ${isLiked ? 'text-gold-600 fill-current' : 'text-sage-600'}`} />
-          </button>
-          {isOwner ? (
-            <PlusDropdown 
-          onCreatePost={handleCreatePost} 
-          onSaveHub={handleSaveHub} 
-          onEmbedFrom={handleEmbedFrom}
-          variant="list"
-        />
-          ) : (
-            <button 
-              onClick={handleSaveList}
-              className={`btn-icon transition ${
-                isSaved 
-                  ? 'bg-sage-100' 
-                  : 'bg-sage-100 hover:bg-sage-200'
-              }`}
-            >
-              <BookmarkIcon className={`w-5 h-5 ${isSaved ? 'text-sage-600 fill-current' : 'text-sage-600'}`} />
-            </button>
-          )}
-        </div>
-        {/* Tags */}
-        <div className="flex flex-wrap gap-2 px-4 pb-2">
-          {list.tags.map((tag) => (
-            <span
-              key={tag}
-              className="px-3 py-1 bg-sage-100 text-sage-700 text-sm rounded-full border border-sage-200"
-            >
-              #{tag}
-            </span>
-          ))}
-        </div>
-        {/* List meta */}
-        <div className="flex items-center gap-4 text-sm text-charcoal-500 px-4 pb-4">
-          <span>{sortedPlaces.length} places</span>
-          <span>•</span>
-          <span>Updated {new Date(list.updatedAt).toLocaleDateString()}</span>
-        </div>
+          
+          <div className="flex items-center gap-4 text-sm text-bark-500">
+            <span>{sortedPlaces.length} places</span>
+            <span>•</span>
+            <span>Updated {new Date(list.updatedAt).toLocaleDateString()}</span>
+          </div>
+        </CardShell>
       </div>
 
       {/* Search and Filter */}
@@ -890,6 +873,53 @@ const ListView = () => {
         listName={list.name}
       />
       <AdvancedFiltersDrawer isOpen={showAdvanced} onClose={()=> setShowAdvanced(false)} onApply={()=>{/* derived filtering applies automatically */}} />
+
+      {/* Action Bar */}
+      <ActionBar
+        primary={
+          isOwner ? (
+            <PlusDropdown 
+              onCreatePost={handleCreatePost} 
+              onSaveHub={handleSaveHub} 
+              onEmbedFrom={handleEmbedFrom}
+              variant="list"
+            />
+          ) : (
+            <button
+              onClick={handleSaveList}
+              className={`w-full py-3 px-4 rounded-xl font-semibold transition ${
+                isSaved 
+                  ? 'bg-moss-500 text-white' 
+                  : 'bg-bark-100 text-bark-700 hover:bg-bark-200'
+              }`}
+            >
+              {isSaved ? 'Saved' : 'Save List'}
+            </button>
+          )
+        }
+        secondary={[
+          <button
+            key="like"
+            onClick={handleLike}
+            className={`flex items-center justify-center gap-2 py-3 px-4 rounded-xl font-medium transition ${
+              isLiked 
+                ? 'bg-moss-100 text-moss-700' 
+                : 'bg-bark-100 text-bark-700 hover:bg-bark-200'
+            }`}
+          >
+            <HeartIcon className={`w-4 h-4 ${isLiked ? 'fill-current' : ''}`} />
+            {isLiked ? 'Liked' : 'Like'}
+          </button>,
+          <button
+            key="map"
+            onClick={() => setShowMapModal(true)}
+            className="flex items-center justify-center gap-2 bg-bark-100 text-bark-700 py-3 px-4 rounded-xl font-medium hover:bg-bark-200 transition"
+          >
+            <MapIcon className="w-4 h-4" />
+            Map
+          </button>
+        ]}
+      />
     </div>
   )
 }

@@ -21,7 +21,7 @@ import ImageCarousel from '../components/ImageCarousel'
 import CreateHubModal from '../components/CreateHubModal'
 import Card from '../components/Card'
 import Section from '../components/Section'
-import TagPill from '../components/TagPill'
+import { CardShell } from '../components/primitives/CardShell'
 
 // BotanicalAccent removed for a cleaner, less decorative header
 
@@ -917,7 +917,7 @@ const Home = () => {
                                     onClick={() => handleActivityClick(activity)}
                                     className="w-full text-left flex flex-col gap-2 overflow-hidden"
                                 >
-                                    <Card interactive className="p-4">
+                                    <CardShell variant="solid" className="p-4">
                                     <div className="flex items-start gap-4">
                                         <img
                                             src={activity.user.avatar}
@@ -988,7 +988,7 @@ const Home = () => {
                                             </div>
                                         </div>
                                     </div>
-                                    </Card>
+                                    </CardShell>
                                 </button>
                             ))
                             )
@@ -1064,10 +1064,11 @@ const Home = () => {
                             return (
                                 <>
                                 {recentCreatedHub && (
-                                  <div
+                                  <CardShell
                                     key={`recent-${recentCreatedHub.id}`}
+                                    variant="solid"
                                     onClick={() => openHubModal(recentCreatedHub, 'home-discovery-feed')}
-                                    className="w-full bg-white/98 rounded-2xl shadow-botanical border border-linen-200 p-5 hover:shadow-cozy hover:-translate-y-1 transition-all duration-300 text-left flex flex-col gap-2 overflow-hidden cursor-pointer"
+                                    className="w-full p-5 hover:shadow-cozy hover:-translate-y-1 transition-all duration-300 text-left flex flex-col gap-2 overflow-hidden cursor-pointer"
                                   >
                                     <div className="flex items-start gap-4">
                                       <img src={recentCreatedHub.mainImage || '/assets/leaf.png'} alt={recentCreatedHub.name} className="w-16 h-16 rounded-xl object-cover border-2 border-white shadow-soft" />
@@ -1078,7 +1079,7 @@ const Home = () => {
                                         <p className="text-cozy-sub mb-3">{recentCreatedHub.location?.address}</p>
                                       </div>
                                     </div>
-                                  </div>
+                                  </CardShell>
                                 )}
                                 {filtered.map((item) => (
                                 <div
@@ -1086,7 +1087,7 @@ const Home = () => {
                                     onClick={() => handleDiscoveryClick(item)}
                                     className="w-full text-left flex flex-col gap-2 overflow-hidden cursor-pointer"
                                 >
-                                    <Card interactive className="p-4">
+                                    <CardShell variant="solid" className="p-4">
                                     <div className="flex items-start gap-4">
                                         <img
                                             src={item.image}
@@ -1197,7 +1198,7 @@ const Home = () => {
                                             </div>
                                         </div>
                                     </div>
-                                    </Card>
+                                    </CardShell>
                                 </div>
                                 ))}
                                 <div className="mt-8">
@@ -1224,10 +1225,10 @@ const Home = () => {
                                               ].filter(Boolean).join(' · ')
                                               const images = Array.isArray(item.images) && item.images.length > 0 ? item.images : (item.mainImage ? [item.mainImage] : [])
                                               return (
-                                                <div
+                                                <CardShell
                                                   key={item.id}
-                                                  className="relative w-full rounded-3xl shadow-xl border border-white/30 ring-1 ring-white/50 overflow-hidden"
-                                                  style={{ background: 'linear-gradient(145deg, rgba(248,252,255,0.9), rgba(221,236,255,0.65))', backdropFilter: 'blur(28px) saturate(1.32)' }}
+                                                  variant="glass"
+                                                  className="relative w-full overflow-hidden"
                                                 >
                                                   {/* liquid glass highlights */}
                                                   <div className="pointer-events-none absolute -top-20 left-6 w-56 h-56 rounded-full bg-white/70 blur-3xl opacity-70" />
@@ -1285,7 +1286,7 @@ const Home = () => {
                                                      </button>
                                     </div>
                                 </div>
-                                                 </div>
+                                                 </CardShell>
                                               )
                                             })}
                                           </div>

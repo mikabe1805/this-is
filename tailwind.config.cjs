@@ -23,7 +23,56 @@ module.exports = {
             return [colorMap[key] || key, value];
           })
         ),
-        // Earthy, botanical, cozy palette
+        // Cozy Glass earthy palette
+        bark: {
+          50: "#F7F5F2",
+          100: "#EEE9E2", 
+          200: "#D9CEC4",
+          300: "#C6B7A9",
+          400: "#9E8F82",
+          500: "#6F6356",
+          600: "#594F45",
+          700: "#443C35",
+          800: "#312B27",
+          900: "#1F1C1A"
+        },
+        moss: {
+          50: "#F3F7F4",
+          100: "#E6EFE8",
+          200: "#C7DECC",
+          300: "#A7CCB1",
+          400: "#6EAA83",
+          500: "#4B8F67",
+          600: "#3D7554",
+          700: "#315D44",
+          800: "#274A36",
+          900: "#1D382A"
+        },
+        sand: {
+          50: "#FFF9F1",
+          100: "#FFF2E1",
+          200: "#F7E2C1",
+          300: "#E6C79C",
+          400: "#D9B582",
+          500: "#C49A5E"
+        },
+        stone: {
+          50: "#FAFAFA",
+          100: "#F4F4F5",
+          200: "#E4E4E7",
+          300: "#D4D4D8",
+          400: "#A1A1AA",
+          500: "#71717A",
+          600: "#52525B",
+          700: "#3F3F46",
+          800: "#27272A",
+          900: "#18181B"
+        },
+        accent: {
+          DEFAULT: "#4B8F67",
+          fg: "#FFFFFF"
+        },
+        // Legacy colors for compatibility
         linen: {
           50: '#FAF8F4', // creamy white
           100: '#F5F3EE',
@@ -120,7 +169,6 @@ module.exports = {
           800: '#9B2C1F',
           900: '#7B2418',
         },
-        // Remove cartoonish/saturated colors
       },
       fontFamily: {
         serif: ["'DM Serif Display'", 'Georgia', 'serif'],
@@ -129,6 +177,8 @@ module.exports = {
         handwriting: ["'Caveat'", 'cursive'],
       },
       boxShadow: {
+        soft: "0 8px 24px rgba(0,0,0,.08)",
+        inset: "inset 0 0 0 1px rgba(0,0,0,.06)",
         'soft': '0 2px 12px 0 rgba(60, 50, 30, 0.07)',
         'cozy': '0 4px 24px 0 rgba(120, 100, 60, 0.10)',
         'botanical': '0 8px 32px 0 rgba(90, 110, 80, 0.10)',
@@ -145,6 +195,9 @@ module.exports = {
         'botanical-overlay': "linear-gradient(120deg, rgba(246,247,246,0.95) 60%, rgba(167, 191, 167, 0.08) 100%)",
       },
       borderRadius: {
+        lg: "12px",
+        xl: "16px", 
+        "2xl": "24px",
         xl: '1.25rem',
         pill: '9999px',
         'scrapbook': '1.5rem',

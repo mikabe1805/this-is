@@ -1,5 +1,5 @@
 import type { Hub, Post, List } from '../types/index.js'
-import { MapPinIcon, HeartIcon, BookmarkIcon, PlusIcon, ShareIcon, CameraIcon, ChatBubbleLeftIcon, ArrowRightIcon, ArrowLeftIcon, MagnifyingGlassIcon } from '@heroicons/react/24/outline'
+import { MapPinIcon, HeartIcon, BookmarkIcon, PlusIcon, ShareIcon, CameraIcon, ChatBubbleLeftIcon, ArrowLeftIcon, MagnifyingGlassIcon } from '@heroicons/react/24/outline'
 import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import CreatePost from '../components/CreatePost'
@@ -11,6 +11,9 @@ import type { Place } from '../types/index.js'
 import { useNavigation } from '../contexts/NavigationContext.tsx'
 import { useAuth } from '../contexts/AuthContext.tsx'
 import { firebaseDataService } from '../services/firebaseDataService.js'
+import { PageHeader } from '../components/primitives/PageHeader'
+import { ActionBar } from '../components/primitives/ActionBar'
+import { CardShell } from '../components/primitives/CardShell'
 
 const PlaceHub = () => {
   const { goBack } = useNavigation()
@@ -196,9 +199,6 @@ const PlaceHub = () => {
     goBack()
   }
 
-  const handleShare = () => {
-    setShowShareModal(true)
-  }
 
   const handleViewAllLists = () => {
     if (id) {
@@ -399,8 +399,11 @@ const PlaceHub = () => {
         />
       </div>
       {/* Header */}
-      <div className="relative z-10 bg-white/98 backdrop-blur-md border-b border-linen-200 px-6 py-4 shadow-soft">
-        <div className="flex items-center justify-between mb-4">
+      <PageHeader
+        coverUrl={hub?.mainImage}
+        title={hub?.name || ''}
+        subtitle={hub?.location?.address}
+        rightActions={
           <button 
             onClick={() => {
               if (window.history.length > 1) {
@@ -409,177 +412,81 @@ const PlaceHub = () => {
                 handleBack()
               }
             }}
-            className="w-10 h-10 bg-gradient-to-br from-sage-100 to-sage-200 rounded-full flex items-center justify-center shadow-soft hover:shadow-botanical transition-all duration-300 transform hover:scale-105"
+            className="w-10 h-10 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center hover:bg-white/30 transition-colors"
             aria-label="Go back"
           >
-            <ArrowLeftIcon className="w-5 h-5 text-sage-600" />
+            <ArrowLeftIcon className="w-5 h-5 text-white" />
           </button>
-          <h1 className="text-xl font-serif font-semibold text-charcoal-700">{hub?.name || ''}</h1>
-          <button 
-            onClick={handleShare}
-            className="w-10 h-10 bg-gradient-to-br from-gold-100 to-gold-200 rounded-full flex items-center justify-center shadow-soft hover:shadow-botanical transition-all duration-300 transform hover:scale-105"
-          >
-            <ShareIcon className="w-5 h-5 text-gold-600" />
-          </button>
-        </div>
-      </div>
+        }
+      />
 
-      <div className="relative z-10 p-4 space-y-4 max-w-2xl mx-auto">
-        {/* Main Images */}
-        <div className="bg-white/98 backdrop-blur-md rounded-2xl overflow-hidden shadow-botanical border border-linen-200 transition-all duration-300 hover:shadow-cozy hover:-translate-y-1">
-          <div className="h-96 bg-gradient-to-br from-linen-200 to-sage-200 relative overflow-hidden">
-            <img
-              src={hub.mainImage || '/assets/leaf.png'}
-              alt={hub.name}
-              className="w-full h-full object-cover"
-              loading="lazy"
-              onError={(e) => {
-                e.currentTarget.src = '/assets/leaf.png';
-              }}
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-black/10 to-transparent backdrop-blur-[1px]" />
-            <div className="absolute inset-0 border border-white/20" />
-            
-            {/* Text overlay with enhanced background for better readability */}
-            <div className="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-black/90 via-black/70 to-transparent">
-              <h2 className="text-4xl font-bold text-white mb-4 drop-shadow-lg font-serif">{hub.name}</h2>
-              <div className="flex items-center text-white text-lg mb-4">
-                <MapPinIcon className="w-6 h-6 mr-3" />
-                {hub.location.address}
-              </div>
-              <div className="flex items-center gap-4">
-                <span className="px-4 py-2 bg-white/30 backdrop-blur-sm rounded-full text-white text-sm font-semibold border border-white/20">
-                  {posts.length} posts
-                </span>
-                <span className="px-4 py-2 bg-white/30 backdrop-blur-sm rounded-full text-white text-sm font-semibold border border-white/20">
-                  {(hub?.tags || [])[0] || 'Popular'}
-                </span>
-              </div>
-            </div>
+      <div className="relative z-10 p-4 space-y-4 max-w-2xl mx-auto pb-24">
+        {/* About Section */}
+        <CardShell variant="solid" className="p-6">
+          <h2 className="text-2xl font-serif font-bold text-bark-900 mb-4">{hub.name}</h2>
+          <p className="text-bark-600 text-sm mb-4 leading-relaxed">{hub?.description || ''}</p>
+          <div className="flex flex-wrap gap-2 mb-4">
+            {(hub?.tags || []).map(tag => (
+              <span key={tag} className="px-3 py-1 text-xs rounded-full bg-moss-100 text-moss-700 font-medium border border-moss-200">#{tag}</span>
+            ))}
           </div>
-          <div className="p-6">
-            <p className="text-charcoal-600 text-sm mb-4 leading-relaxed">{hub?.description || ''}</p>
-            <div className="flex flex-wrap gap-2 mb-4">
-              {(hub?.tags || []).map(tag => (
-                <span key={tag} className="px-3 py-1 text-xs rounded-full bg-sage-100 text-sage-700 font-medium border border-sage-200">#{tag}</span>
-              ))}
-            </div>
-            
-            {/* Action Buttons - Matching HubModal Style */}
-            <div className="grid grid-cols-3 gap-3 mb-8">
-              <a 
-                href={hub.googleMapsUrl} 
-                target="_blank" 
-                rel="noopener noreferrer" 
-                className="flex-1 flex items-center justify-center gap-2 bg-gradient-to-r from-[#B08968] to-[#9A7B5A] text-[#FEF6E9] px-3 py-3 rounded-xl text-sm font-semibold shadow-lg border border-[#9A7B5A]/30 active:scale-95 transition-all duration-200"
-              >
-                <MapPinIcon className="w-4 h-4" />
-                <span className="hidden sm:inline">Directions</span>
-                <ArrowRightIcon className="w-3 h-3" />
-              </a>
-              <button 
-                onClick={handleCreatePost}
-                className="flex-1 flex items-center justify-center gap-2 bg-gradient-to-r from-[#D4A574] to-[#B08968] text-[#FEF6E9] px-3 py-3 rounded-xl text-sm font-semibold shadow-lg border border-[#B08968]/30 active:scale-95 transition-all duration-200"
-              >
-                <PlusIcon className="w-4 h-4" />
-                <span className="hidden sm:inline">Add Post</span>
-              </button>
-              <button 
-                onClick={() => handleSaveToPlace({
-                  id: hub.id,
-                  name: hub.name,
-                  address: hub.location.address,
-                  tags: hub.tags,
-                  posts: hub.posts,
-                  savedCount: 0,
-                  createdAt: new Date().toISOString()
-                })}
-                className="flex-1 flex items-center justify-center gap-2 bg-gradient-to-r from-[#C17F59] to-[#B08968] text-[#FEF6E9] px-3 py-3 rounded-xl text-sm font-semibold shadow-lg border border-[#B08968]/30 active:scale-95 transition-all duration-200"
-              >
-                <BookmarkIcon className="w-4 h-4" />
-                <span className="hidden sm:inline">Save</span>
-              </button>
-            </div>
-          </div>
-        </div>
+        </CardShell>
 
-        {/* Tabs - Matching HubModal Style */}
-        <div className="bg-[#E8D4C0]/25 backdrop-blur-sm rounded-xl p-2 shadow-lg border border-[#E8D4C0]/50 mb-8">
+        {/* Tabs */}
+        <CardShell variant="solid" className="p-2">
           <div className="flex gap-2">
             <button
               onClick={() => setTab('overview')}
-              className={`flex-1 py-3 px-4 rounded-lg font-serif font-semibold text-sm transition-all duration-300 ${
+              className={`flex-1 py-3 px-4 rounded-lg font-semibold text-sm transition-all duration-300 ${
                 tab === 'overview' 
-                  ? 'bg-gradient-to-r from-[#B08968] to-[#9A7B5A] text-[#FEF6E9] shadow-lg transform scale-102' 
-                  : 'text-[#7A5D3F] bg-[#FEF6E9]/70'
+                  ? 'bg-moss-500 text-white shadow-soft' 
+                  : 'text-bark-700 bg-bark-100 hover:bg-bark-200'
               }`}
             >
               Overview
             </button>
             <button
               onClick={() => setTab('posts')}
-              className={`flex-1 py-3 px-4 rounded-lg font-serif font-semibold text-sm transition-all duration-300 ${
+              className={`flex-1 py-3 px-4 rounded-lg font-semibold text-sm transition-all duration-300 ${
                 tab === 'posts' 
-                  ? 'bg-gradient-to-r from-[#B08968] to-[#9A7B5A] text-[#FEF6E9] shadow-lg transform scale-102' 
-                  : 'text-[#7A5D3F] bg-[#FEF6E9]/70'
+                  ? 'bg-moss-500 text-white shadow-soft' 
+                  : 'text-bark-700 bg-bark-100 hover:bg-bark-200'
               }`}
             >
               Posts ({posts.length})
             </button>
           </div>
-        </div>
+        </CardShell>
 
         {/* Tab Content */}
         {tab === 'overview' && (
           <div className="space-y-4 pb-6">
             {/* Popular Lists */}
-            <div className="bg-[#E8D4C0]/20 backdrop-blur-sm rounded-xl p-4 border border-[#E8D4C0]/40 shadow-lg relative">
-              {/* Mobile-optimized floating leaf accent */}
-              <img
-                src="/assets/leaf.png"
-                alt=""
-                className="absolute top-1 sm:top-2 right-2 sm:right-3 w-6 h-6 sm:w-7 sm:h-7 md:w-8 md:h-8 opacity-15 sm:opacity-18 md:opacity-20 pointer-events-none transition-transform duration-300"
-                style={{
-                  transform: 'rotate(15deg) scale(0.7)',
-                  filter: 'brightness(0.9) contrast(0.8) saturate(1.1) hue-rotate(5deg)'
-                }}
-              />
-              <h3 className="text-lg font-serif font-semibold text-[#5D4A2E] mb-3">Lists Featuring This Place</h3>
+            <CardShell variant="solid" className="p-4">
+              <h3 className="text-lg font-semibold text-bark-900 mb-3">Lists Featuring This Place</h3>
               {hub.lists && hub.lists.length > 0 ? (
                 <div className="space-y-2">
                   {hub.lists.slice(0, 3).map(list => (
-                    <div key={list.id} className="text-[#7A5D3F] font-serif text-sm">- {list.name}</div>
+                    <div key={list.id} className="text-bark-600 text-sm">- {list.name}</div>
                   ))}
                 </div>
               ) : (
-                <div className="italic text-[#7A5D3F] font-serif text-sm">No public lists feature this place yet.</div>
+                <div className="italic text-bark-500 text-sm">No public lists feature this place yet.</div>
               )}
               <button 
                 onClick={handleViewAllLists}
-                className="mt-3 text-[#B08968] text-sm font-medium font-serif"
+                className="mt-3 text-moss-600 text-sm font-medium hover:text-moss-700"
               >
                 See All
               </button>
-            </div>
-
-
+            </CardShell>
 
             {/* Comments Section */}
-            <div className="bg-[#E8D4C0]/20 backdrop-blur-sm rounded-xl p-4 border border-[#E8D4C0]/40 shadow-lg relative">
-              {/* Mobile-optimized floating leaf accent */}
-              <img
-                src="/assets/leaf.png"
-                alt=""
-                className="absolute bottom-1 sm:bottom-2 right-1 sm:right-2 w-5 h-5 sm:w-6 sm:h-6 md:w-7 md:h-7 opacity-12 sm:opacity-15 md:opacity-18 pointer-events-none transition-transform duration-300"
-                style={{
-                  transform: 'rotate(30deg) scale(0.6)',
-                  filter: 'brightness(0.9) contrast(0.9) saturate(1.1) hue-rotate(2deg)'
-                }}
-              />
-              <h3 className="text-lg font-serif font-semibold text-[#5D4A2E] mb-4">What people are saying</h3>
-              <div className="italic text-[#7A5D3F] font-serif text-sm">"The cold brew here is absolutely divine!"</div>
+            <CardShell variant="solid" className="p-4">
+              <h3 className="text-lg font-semibold text-bark-900 mb-4">What people are saying</h3>
+              <div className="italic text-bark-600 text-sm">"The cold brew here is absolutely divine!"</div>
               {/* TODO: Add real comments */}
-            </div>
+            </CardShell>
           </div>
         )}
         {tab === 'posts' && (
@@ -757,6 +664,46 @@ const PlaceHub = () => {
         url={window.location.href}
         image={hub.mainImage}
         type="place"
+      />
+
+      {/* Action Bar */}
+      <ActionBar
+        primary={
+          <button
+            onClick={() => handleSaveToPlace({
+              id: hub.id,
+              name: hub.name,
+              address: hub.location.address,
+              tags: hub.tags,
+              posts: hub.posts,
+              savedCount: 0,
+              createdAt: new Date().toISOString()
+            })}
+            className="w-full bg-moss-500 text-white py-3 px-4 rounded-xl font-semibold hover:bg-moss-600 transition-colors"
+          >
+            Save
+          </button>
+        }
+        secondary={[
+          <button
+            key="add-post"
+            onClick={handleCreatePost}
+            className="flex items-center justify-center gap-2 bg-bark-100 text-bark-700 py-3 px-4 rounded-xl font-medium hover:bg-bark-200 transition-colors"
+          >
+            <PlusIcon className="w-4 h-4" />
+            Add Post
+          </button>,
+          <a
+            key="directions"
+            href={hub.googleMapsUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center justify-center gap-2 bg-bark-100 text-bark-700 py-3 px-4 rounded-xl font-medium hover:bg-bark-200 transition-colors"
+          >
+            <MapPinIcon className="w-4 h-4" />
+            Directions
+          </a>
+        ]}
       />
     </div>
   )

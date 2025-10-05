@@ -1,0 +1,22 @@
+{
+  "routes": [
+    { "path": "/", "element": "Home", "handler": "src/pages/Home.tsx", "definition": "src/App.tsx:296-299" },
+    { "path": "/home", "element": "Home", "handler": "src/pages/Home.tsx", "definition": "src/App.tsx:296-301" },
+    { "path": "/profile", "element": "Profile", "handler": "src/pages/Profile.tsx", "definition": "src/App.tsx:299-301" },
+    { "path": "/profile/edit", "element": "EditProfile", "handler": "src/pages/EditProfile.tsx", "definition": "src/App.tsx:300-301" },
+    { "path": "/profile/following", "element": "Following", "handler": "src/pages/Following.tsx", "definition": "src/App.tsx:301-302" },
+    { "path": "/settings", "element": "Settings", "handler": "src/pages/Settings.tsx", "definition": "src/App.tsx:302-303" },
+    { "path": "/search", "element": "Search", "handler": "src/pages/Search.tsx", "definition": "src/App.tsx:303-304" },
+    { "path": "/list/:id", "element": "ListView", "handler": "src/pages/ListView.tsx", "definition": "src/App.tsx:304-305" },
+    { "path": "/lists", "element": "ViewAllLists", "handler": "src/pages/ViewAllLists.tsx", "definition": "src/App.tsx:305-306" },
+    { "path": "/favorites", "element": "SavedLists", "handler": "src/pages/SavedLists.tsx", "definition": "src/App.tsx:306-307" },
+    { "path": "/place/:id", "element": "PlaceHub", "handler": "src/pages/PlaceHub.tsx", "definition": "src/App.tsx:307-308" },
+    { "path": "/user/:userId", "element": "UserProfile", "handler": "src/pages/UserProfile.tsx", "definition": "src/App.tsx:308-309" },
+    { "path": "/demo", "element": "Demo", "handler": "src/pages/Demo.tsx", "definition": "src/App.tsx:309-310" },
+    { "path": "/search-demo", "element": "EnhancedSearchDemo", "handler": "src/components/EnhancedSearchDemo.tsx", "definition": "src/App.tsx:265-272,279-283" },
+    { "path": "/seed-database", "element": "DatabaseSeeder", "handler": "src/components/DatabaseSeeder.tsx", "definition": "src/App.tsx:285-289" },
+    { "path": "/reels", "element": "Reels", "handler": "src/pages/Reels.tsx", "definition": "src/App.tsx:265-267" }
+  ],
+  "auth_gate": { "guard": "!currentUser => <Auth />", "location": "src/App.tsx:255-258" },
+  "router_bootstrap": { "location": "src/main.tsx:3,9-11" }
+}

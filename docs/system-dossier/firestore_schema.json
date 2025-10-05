@@ -1,0 +1,225 @@
+{
+  "collections": {
+    "users": {
+      "path": "users/{uid}",
+      "documentShape": {
+        "uid": "string",
+        "email": "string", 
+        "displayName": "string",
+        "photoURL": "string?",
+        "bio": "string?",
+        "location": "string?",
+        "website": "string?",
+        "followersCount": "number",
+        "followingCount": "number", 
+        "influenceScore": "number",
+        "createdAt": "timestamp",
+        "updatedAt": "timestamp"
+      },
+      "requiredFields": ["uid", "email", "displayName", "followersCount", "followingCount", "influenceScore", "createdAt", "updatedAt"],
+      "indexes": ["users_uid", "users_influenceScore"],
+      "securityRules": "firestore.rules:1-141",
+      "citations": {
+        "definition": "src/types/index.ts:1-11",
+        "usage": "src/contexts/AuthContext.tsx:42-76, src/services/firebaseDataService.ts:844-900"
+      }
+    },
+    "hubs": {
+      "path": "hubs/{hubId}",
+      "documentShape": {
+        "id": "string",
+        "name": "string",
+        "description": "string", 
+        "address": "string",
+        "coordinates": "object",
+        "googlePlaceId": "string?",
+        "imageUrl": "string?",
+        "category": "string?",
+        "phoneNumber": "string?",
+        "website": "string?",
+        "rating": "number?",
+        "priceLevel": "number?",
+        "postsCount": "number",
+        "followersCount": "number",
+        "createdAt": "timestamp",
+        "updatedAt": "timestamp"
+      },
+      "requiredFields": ["id", "name", "description", "address", "coordinates", "postsCount", "followersCount", "createdAt", "updatedAt"],
+      "indexes": ["hubs_googlePlaceId", "hubs_coordinates", "hubs_postsCount"],
+      "securityRules": "firestore.rules:1-141",
+      "citations": {
+        "definition": "src/types/index.ts:122-137",
+        "usage": "src/services/firebaseDataService.ts:844-900, functions/src/content-enrichment.ts:62-71"
+      }
+    },
+    "posts": {
+      "path": "posts/{postId}",
+      "documentShape": {
+        "id": "string",
+        "userId": "string",
+        "hubId": "string", 
+        "title": "string",
+        "description": "string",
+        "images": "array",
+        "location": "string?",
+        "tags": "array",
+        "status": "string",
+        "privacy": "string",
+        "likesCount": "number",
+        "commentsCount": "number",
+        "createdAt": "timestamp",
+        "updatedAt": "timestamp"
+      },
+      "requiredFields": ["id", "userId", "hubId", "title", "description", "images", "tags", "status", "privacy", "likesCount", "commentsCount", "createdAt", "updatedAt"],
+      "indexes": ["posts_userId", "posts_hubId", "posts_status", "posts_createdAt"],
+      "securityRules": "firestore.rules:1-141",
+      "citations": {
+        "definition": "src/types/index.ts:30-49",
+        "usage": "src/services/firebasePostService.ts:14-52, functions/src/content-enrichment.ts:62-71"
+      }
+    },
+    "lists": {
+      "path": "lists/{listId}",
+      "documentShape": {
+        "id": "string",
+        "userId": "string",
+        "name": "string",
+        "description": "string",
+        "imageUrl": "string?",
+        "places": "array",
+        "privacy": "string",
+        "followersCount": "number",
+        "placesCount": "number",
+        "createdAt": "timestamp",
+        "updatedAt": "timestamp"
+      },
+      "requiredFields": ["id", "userId", "name", "description", "places", "privacy", "followersCount", "placesCount", "createdAt", "updatedAt"],
+      "indexes": ["lists_userId", "lists_privacy", "lists_placesCount"],
+      "securityRules": "firestore.rules:1-141",
+      "citations": {
+        "definition": "src/types/index.ts:63-84",
+        "usage": "src/services/firebaseListService.ts:19-51, src/services/firebaseDataService.ts:1544-1612"
+      }
+    },
+    "places": {
+      "path": "places/{placeId}",
+      "documentShape": {
+        "id": "string",
+        "name": "string",
+        "address": "string",
+        "coordinates": "object",
+        "googlePlaceId": "string?",
+        "category": "string?",
+        "phoneNumber": "string?",
+        "website": "string?",
+        "rating": "number?",
+        "priceLevel": "number?",
+        "photos": "array",
+        "createdAt": "timestamp",
+        "updatedAt": "timestamp"
+      },
+      "requiredFields": ["id", "name", "address", "coordinates", "createdAt", "updatedAt"],
+      "indexes": ["places_googlePlaceId", "places_coordinates", "places_category"],
+      "securityRules": "firestore.rules:1-141",
+      "citations": {
+        "definition": "src/types/index.ts:13-28",
+        "usage": "src/services/firebaseDataService.ts:1544-1612, functions/src/places.ts:4-130"
+      }
+    },
+    "tags": {
+      "path": "tags/{tagId}",
+      "documentShape": {
+        "id": "string",
+        "name": "string",
+        "color": "string",
+        "postsCount": "number",
+        "createdAt": "timestamp"
+      },
+      "requiredFields": ["id", "name", "color", "postsCount", "createdAt"],
+      "indexes": ["tags_name", "tags_postsCount"],
+      "securityRules": "firestore.rules:1-141",
+      "citations": {
+        "definition": "src/types/index.ts:139-150",
+        "usage": "src/services/firebaseDataService.ts:844-900"
+      }
+    },
+    "saves": {
+      "path": "saves/{saveId}",
+      "documentShape": {
+        "id": "string",
+        "userId": "string",
+        "listId": "string",
+        "placeId": "string",
+        "status": "string",
+        "note": "string?",
+        "createdAt": "timestamp"
+      },
+      "requiredFields": ["id", "userId", "listId", "placeId", "status", "createdAt"],
+      "indexes": ["saves_userId", "saves_listId", "saves_placeId"],
+      "securityRules": "firestore.rules:1-141",
+      "citations": {
+        "usage": "src/services/firebaseDataService.ts:1544-1612"
+      }
+    },
+    "follows": {
+      "path": "follows/{followId}",
+      "documentShape": {
+        "id": "string",
+        "followerId": "string",
+        "followingId": "string",
+        "createdAt": "timestamp"
+      },
+      "requiredFields": ["id", "followerId", "followingId", "createdAt"],
+      "indexes": ["follows_followerId", "follows_followingId"],
+      "securityRules": "firestore.rules:1-141",
+      "citations": {
+        "usage": "src/contexts/AuthContext.tsx:42-76"
+      }
+    },
+    "likes": {
+      "path": "likes/{likeId}",
+      "documentShape": {
+        "id": "string",
+        "userId": "string",
+        "postId": "string",
+        "createdAt": "timestamp"
+      },
+      "requiredFields": ["id", "userId", "postId", "createdAt"],
+      "indexes": ["likes_userId", "likes_postId"],
+      "securityRules": "firestore.rules:1-141",
+      "citations": {
+        "usage": "src/services/firebasePostService.ts:14-52"
+      }
+    }
+  },
+  "subcollections": {
+    "userLists": {
+      "path": "users/{uid}/lists/{listId}",
+      "citations": "src/services/firebaseListService.ts:67-164"
+    },
+    "userPosts": {
+      "path": "users/{uid}/posts/{postId}",
+      "citations": "src/services/firebasePostService.ts:14-52"
+    },
+    "hubPosts": {
+      "path": "hubs/{hubId}/posts/{postId}",
+      "citations": "functions/src/content-enrichment.ts:62-71"
+    },
+    "listPlaces": {
+      "path": "lists/{listId}/places/{placeId}",
+      "citations": "src/services/firebaseListService.ts:67-164"
+    }
+  },
+  "indexes": {
+    "firestore.indexes.json": "1-181",
+    "citations": "firestore.indexes.json:1-181"
+  },
+  "securityRules": {
+    "firestore.rules": "1-141",
+    "citations": "firestore.rules:1-141"
+  },
+  "gaps": [
+    "GAP: Comments collection not found in codebase - should be defined as comments/{commentId} with fields: id, userId, postId, content, createdAt, updatedAt",
+    "GAP: Notifications collection not found in codebase - should be defined as notifications/{notificationId} with fields: id, userId, type, data, read, createdAt"
+  ]
+}

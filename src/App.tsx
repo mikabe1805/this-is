@@ -15,6 +15,7 @@ import EditProfile from './pages/EditProfile.tsx'
 import Following from './pages/Following.tsx'
 import Settings from './pages/Settings.tsx'
 import Search from './pages/Search.tsx'
+import Explore from './pages/Explore.tsx'
 import ListView from './pages/ListView.tsx'
 import ViewAllLists from './pages/ViewAllLists.tsx'
 import Favorites from './pages/SavedLists.tsx'
@@ -201,6 +202,8 @@ function AppContent() {
       setActiveTab('home')
     } else if (path === '/search') {
       setActiveTab('search')
+    } else if (path === '/explore') {
+      setActiveTab('explore')
     } else if (path === '/reels') {
       setActiveTab('favorites') // 'favorites' tab is now used for reels
     } else if (path === '/favorites') {
@@ -240,6 +243,9 @@ function AppContent() {
         break
       case 'search':
         navigate('/search')
+        break
+      case 'explore':
+        navigate('/explore')
         break
       case 'favorites':
         navigate('/reels') // Navigate to reels instead of favorites
@@ -301,6 +307,7 @@ function AppContent() {
                   <Route path="/profile/following" element={<Following />} />
                   <Route path="/settings" element={<Settings />} />
                   <Route path="/search" element={<Search />} />
+                  <Route path="/explore" element={<Explore />} />
                   <Route path="/list/:id" element={<ListView />} />
                   <Route path="/lists" element={<ViewAllLists />} />
                   <Route path="/favorites" element={<Favorites />} />
