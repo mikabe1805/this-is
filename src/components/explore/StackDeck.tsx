@@ -36,6 +36,10 @@ export function StackDeck({
   const [dragStart, setDragStart] = useState<{ x: number; y: number } | null>(null);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
+  const [showHint, setShowHint] = useState(() => {
+    // Show hint only if user hasn't seen it before
+    return !localStorage.getItem('explore_deck_hint_seen');
+  });
   const deckRef = useRef<HTMLDivElement>(null);
   const prefersReducedMotion = useRef(false);
 
@@ -66,6 +70,12 @@ export function StackDeck({
     const velocity = Math.abs(dragOffset.x) + Math.abs(dragOffset.y);
     
     if (Math.abs(dragOffset.x) > threshold || velocity > 100) {
+      // Hide hint after first interaction
+      if (showHint) {
+        setShowHint(false);
+        localStorage.setItem('explore_deck_hint_seen', 'true');
+      }
+      
       if (dragOffset.x > 0) {
         // Swipe right - go to previous
         setCurrentIndex(prev => Math.max(0, prev - 1));
@@ -78,6 +88,10 @@ export function StackDeck({
     if (Math.abs(dragOffset.y) > threshold && dragOffset.y < 0) {
       // Swipe up - quick save
       onQuickSave(items[currentIndex]);
+      if (showHint) {
+        setShowHint(false);
+        localStorage.setItem('explore_deck_hint_seen', 'true');
+      }
     }
     
     setDragStart(null);
@@ -106,6 +120,12 @@ export function StackDeck({
     const velocity = Math.abs(dragOffset.x) + Math.abs(dragOffset.y);
     
     if (Math.abs(dragOffset.x) > threshold || velocity > 100) {
+      // Hide hint after first interaction
+      if (showHint) {
+        setShowHint(false);
+        localStorage.setItem('explore_deck_hint_seen', 'true');
+      }
+      
       if (dragOffset.x > 0) {
         // Drag right - go to previous
         setCurrentIndex(prev => Math.max(0, prev - 1));
@@ -118,6 +138,10 @@ export function StackDeck({
     if (Math.abs(dragOffset.y) > threshold && dragOffset.y < 0) {
       // Drag up - quick save
       onQuickSave(items[currentIndex]);
+      if (showHint) {
+        setShowHint(false);
+        localStorage.setItem('explore_deck_hint_seen', 'true');
+      }
     }
     
     setDragStart(null);
@@ -126,6 +150,12 @@ export function StackDeck({
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
+    // Hide hint on any keyboard interaction
+    if (showHint) {
+      setShowHint(false);
+      localStorage.setItem('explore_deck_hint_seen', 'true');
+    }
+    
     switch (e.key) {
       case 'ArrowLeft':
         e.preventDefault();
@@ -207,6 +237,16 @@ export function StackDeck({
           transition: isDragging ? 'none' : 'transform 0.3s ease-out'
         }}
       />
+      
+      {/* First-time user hint */}
+      {showHint && currentIndex === 0 && (
+        <div className="absolute top-6 left-1/2 transform -translate-x-1/2 z-30 pointer-events-none">
+          <div className="bg-bark-900/60 backdrop-blur-sm text-white text-sm px-4 py-2 rounded-full flex items-center gap-2 animate-pulse">
+            <span>Swipe to browse</span>
+            <span className="text-lg">→</span>
+          </div>
+        </div>
+      )}
       
       {/* Instructions */}
       <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 text-center">

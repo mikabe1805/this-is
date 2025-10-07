@@ -856,30 +856,31 @@ const ListView = () => {
       {/* Map Tab */}
       {activeTab === 'map' && (
         <div className="relative z-10 p-4">
-          <CardShell variant="solid" className="overflow-hidden" style={{ height: '60vh' }}>
+          <CardShell variant="solid" className="overflow-hidden relative" style={{ height: '60vh' }}>
             <div className="w-full h-full bg-sand-100 flex items-center justify-center text-bark-500 font-semibold">
               [Interactive Map Placeholder]
               <br />
               <span className="text-sm font-normal">Click a marker to see details</span>
             </div>
+            
+            {/* Map Callout Card - Anchored inside map container */}
+            {mapCalloutPlace && (
+              <MapCalloutCard
+                place={{
+                  id: mapCalloutPlace.place.id,
+                  name: mapCalloutPlace.place.name,
+                  address: mapCalloutPlace.place.address,
+                  distance: '0.5 km',
+                  mainImage: (mapCalloutPlace.place as any).mainImage,
+                  tags: mapCalloutPlace.place.tags
+                }}
+                onSave={() => handleSaveToPlace(mapCalloutPlace.place)}
+                onAddPost={() => handleCreatePost()}
+                onClose={() => setMapCalloutPlace(null)}
+                anchoredToMap={true}
+              />
+            )}
           </CardShell>
-          
-          {/* Map Callout Card - Show when a place is selected on map */}
-          {mapCalloutPlace && (
-            <MapCalloutCard
-              place={{
-                id: mapCalloutPlace.place.id,
-                name: mapCalloutPlace.place.name,
-                address: mapCalloutPlace.place.address,
-                distance: '0.5 km',
-                mainImage: (mapCalloutPlace.place as any).mainImage,
-                tags: mapCalloutPlace.place.tags
-              }}
-              onSave={() => handleSaveToPlace(mapCalloutPlace.place)}
-              onAddPost={() => handleCreatePost()}
-              onClose={() => setMapCalloutPlace(null)}
-            />
-          )}
         </div>
       )}
       {/* Map Modal placeholder */}
