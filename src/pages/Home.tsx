@@ -1089,22 +1089,22 @@ const Home = () => {
                                         : item.description;
                                     
                                     return (
-                                    <div
-                                        key={item.id}
-                                        onClick={() => handleDiscoveryClick(item)}
+                                <div
+                                    key={item.id}
+                                    onClick={() => handleDiscoveryClick(item)}
                                         className="w-full text-left cursor-pointer"
-                                    >
-                                        <CardShell variant="panel" className="p-3">
+                                >
+                                        <CardShell variant="solid" className="p-3">
                                             <div className="flex items-center gap-3">
                                                 {/* Thumbnail */}
-                                                <img
-                                                    src={item.image}
-                                                    alt={item.title}
+                                        <img
+                                            src={item.image}
+                                            alt={item.title}
                                                     className="w-14 h-14 rounded-xl object-cover flex-shrink-0"
-                                                    onError={(e)=>{ (e.currentTarget as HTMLImageElement).src = '/assets/leaf.png' }}
-                                                />
+                                            onError={(e)=>{ (e.currentTarget as HTMLImageElement).src = '/assets/leaf.png' }}
+                                        />
                                                 {/* Content */}
-                                                <div className="flex-1 min-w-0">
+                                        <div className="flex-1 min-w-0">
                                                     <h3 className="font-semibold text-bark-900 leading-tight truncate mb-1">
                                                         {item.title}
                                                     </h3>
@@ -1129,30 +1129,30 @@ const Home = () => {
                                                     >
                                                         {(item.item as List).likedBy?.includes(currentUser!.id) ? <HeartIconSolid className="w-5 h-5 text-red-500" /> : <HeartIcon className="w-5 h-5 text-bark-600" />}
                                                     </button>
-                                                    <button
-                                                        onClick={e => {
-                                                            e.stopPropagation();
-                                                            handleSaveToPlace(item.item as Place);
-                                                        }}
+                                                            <button
+                                                                onClick={e => {
+                                                                    e.stopPropagation();
+                                                                    handleSaveToPlace(item.item as Place);
+                                                                }}
                                                         className="p-2 hover:bg-bark-100 rounded-full transition-colors"
                                                         aria-label={`Save ${item.title} to list`}
-                                                    >
+                                                            >
                                                         <BookmarkIcon className="w-5 h-5 text-bark-600" />
-                                                    </button>
-                                                    <button
-                                                        onClick={e => {
-                                                            e.stopPropagation();
+                                                            </button>
+                                                            <button
+                                                                onClick={e => {
+                                                                    e.stopPropagation();
                                                             handleCreatePost(item.type === 'list' ? item.id : undefined, item.type === 'hub' ? item.item : undefined);
-                                                        }}
+                                                                }}
                                                         className="p-2 hover:bg-bark-100 rounded-full transition-colors"
                                                         aria-label={`Add post for ${item.title}`}
-                                                    >
+                                                            >
                                                         <PlusIcon className="w-5 h-5 text-bark-600" />
-                                                    </button>
-                                                </div>
-                                            </div>
-                                        </CardShell>
+                                                            </button>
+                                        </div>
                                     </div>
+                                    </CardShell>
+                                </div>
                                     );
                                 })}
                                 
@@ -1177,12 +1177,12 @@ const Home = () => {
                                       const item = suggestedGoogle.find(g => g.id === hub.id);
                                       if (item) {
                                         setCreateHubSeed({
-                                          name: item.name,
-                                          address: item.address,
-                                          coordinates: item.coordinates,
-                                          images: item.images,
-                                          mainImage: item.mainImage,
-                                          description: item.description
+                                                         name: item.name,
+                                                         address: item.address,
+                                                         coordinates: item.coordinates,
+                                                         images: item.images,
+                                                         mainImage: item.mainImage,
+                                                         description: item.description
                                         });
                                         setShowCreateHubModal(true);
                                       }
@@ -1194,87 +1194,6 @@ const Home = () => {
                                   />
                                 ) : null}
 
-                                {/* Old suggested hubs section - keeping for reference but hidden */}
-                                {false && suggestedGoogle.slice(0, 8).map((item) => {
-                                              const price = typeof item.priceLevel === 'number' ? '$'.repeat(Math.max(1, Math.min(4, item.priceLevel))) : ''
-                                              const ratingAndCount = typeof item.rating === 'number'
-                                                ? `${item.rating.toFixed(1)} ★${typeof item.userRatingsTotal === 'number' ? ` (${item.userRatingsTotal})` : ''}`
-                                                : ''
-                                              const meta = [
-                                                ratingAndCount,
-                                                price,
-                                                item.openNow ? 'Open now' : ''
-                                              ].filter(Boolean).join(' · ')
-                                              const images = Array.isArray(item.images) && item.images.length > 0 ? item.images : (item.mainImage ? [item.mainImage] : [])
-                                              return (
-                                                <CardShell
-                                                  key={item.id}
-                                                  variant="glass"
-                                                  className="relative w-full overflow-hidden"
-                                                >
-                                                  {/* liquid glass highlights */}
-                                                  <div className="pointer-events-none absolute -top-20 left-6 w-56 h-56 rounded-full bg-white/70 blur-3xl opacity-70" />
-                                                  <div className="pointer-events-none absolute -bottom-24 right-8 w-52 h-52 rounded-full bg-blue-200/70 blur-3xl opacity-70" />
-                                                  <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-white/20 via-transparent to-blue-200/20" />
-                                                  {/* sweeping glare */}
-                                                  <div className="pointer-events-none absolute -top-10 -left-20 w-[160%] h-14 bg-gradient-to-r from-white/10 via-white/70 to-white/10 opacity-60 blur-xl transform -rotate-6" />
-                                                  {/* bottom refraction */}
-                                                  <div className="pointer-events-none absolute bottom-2 left-1/2 -translate-x-1/2 w-2/3 h-10 rounded-full bg-white/15 blur-md" />
- 
-                                                   {/* top media */}
-                                                   <div className="w-full h-40 bg-gradient-to-br from-blue-200/30 to-blue-100/20 relative">
-                                                     {images.length > 1 ? (
-                                                       <ImageCarousel images={images} className="h-40 w-full" />
-                                                     ) : (
-                                                       <img src={(images[0] || item.mainImage || '/assets/leaf.png')} alt={item.name} className="absolute inset-0 w-full h-full object-cover" />
-                                                     )}
-                                                     <div className="absolute inset-x-0 top-0 h-12 bg-gradient-to-b from-black/25 to-transparent" />
-                                            </div>
- 
-                                                   {/* content */}
-                                                   <div className="p-4 relative">
-                                                     {/* subtle inner panel to amplify glass */}
-                                                     <div className="absolute inset-2 rounded-2xl bg-white/18 border border-white/30 shadow-inner pointer-events-none" />
-                                                     <div className="relative">
-                                                       <h3 className="font-semibold text-blue-900 text-base text-center line-clamp-2">{item.name}</h3>
-                                                       {/* full address toggle for mobile */}
-                                                       <button onClick={(e)=>{ e.stopPropagation(); const el = (e.currentTarget.nextSibling as HTMLElement); if (el) { el.classList.toggle('line-clamp-1'); el.classList.toggle('line-clamp-none'); } }} className="block w-full text-blue-700 text-xs text-center mt-1">
-                                                         {(() => { const parts = String(item.address||'').split(',').map((s:string)=>s.trim()).filter(Boolean); const street = parts[0] || ''; const city = parts[1] || ''; const short = [street, city].filter(Boolean).join(', '); return short || item.description })()}
-                                                       </button>
-                                                       <p className="text-blue-700 text-[11px] text-center mt-1 line-clamp-1">{item.address || ''}</p>
-                                                       {meta && <p className="text-blue-900/80 text-[11px] text-center mt-2">{meta}</p>}
-                                                       {item.description && <p className="text-blue-900/80 text-[11px] leading-snug text-center line-clamp-3 mt-2">{item.description}</p>}
-                                                   {/* type chips */}
-                                                   {Array.isArray(item.tags) && item.tags.length > 0 && (
-                                                     <div className="mt-2 flex flex-wrap justify-center gap-1">
-                                                       {item.tags.filter((t: string) => !['establishment','point_of_interest'].includes(t)).slice(0,6).map((t: string, idx: number) => (
-                                                         <span key={idx} className="px-2 py-0.5 rounded-full bg-white/55 border border-white/40 text-[10px] text-blue-900/80">{t.replace(/_/g,' ')}</span>
-                                                       ))}
-                                        </div>
-                                                   )}
- 
-                                                     <button
-                                                       onClick={(e) => { e.stopPropagation(); setCreateHubSeed({
-                                                         name: item.name,
-                                                         address: item.address,
-                                                         coordinates: item.coordinates,
-                                                         images: item.images,
-                                                         mainImage: item.mainImage,
-                                                         description: item.description
-                                                       }); setShowCreateHubModal(true) }}
-                                                       className="mt-3 w-full btn-primary active:scale-95"
-                                                     >
-                                                       Create Hub
-                                                     </button>
-                                    </div>
-                                </div>
-                                                 </CardShell>
-                                              )
-                                            })}
-                                          </div>
-                        )}
-                                    </Section>
-                                </div>
                                 </>
                             )
                         })()}
