@@ -5,7 +5,7 @@ import {
   MapIcon,
   ChevronRightIcon
 } from '@heroicons/react/24/outline';
-import { CardShell } from '../components/primitives/CardShell';
+import CardShell from '../components/ui/CardShell';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigation } from '../contexts/NavigationContext';
 import { firebaseDataService } from '../services/firebaseDataService';
@@ -240,10 +240,10 @@ const SearchV2 = () => {
                         }}
                       />
                       <div className="flex-1 min-w-0">
-                        <h3 className="font-semibold text-stone-900 leading-tight mb-1">
+                        <h3 className="font-semibold text-bark-900 leading-tight mb-1">
                           {hub.name}
                         </h3>
-                        <p className="text-stone-600 text-sm flex items-center gap-1 truncate">
+                        <p className="text-bark-600 text-sm flex items-center gap-1 truncate">
                           <span>📍</span>
                           {hub.address}
                         </p>
@@ -295,13 +295,13 @@ const SearchV2 = () => {
                         }}
                       />
                       <div className="flex-1 min-w-0">
-                        <h3 className="font-semibold text-stone-900 leading-tight mb-1">
+                        <h3 className="font-semibold text-bark-900 leading-tight mb-1">
                           {list.name}
                         </h3>
-                        <p className="text-stone-600 text-sm line-clamp-2">
+                        <p className="text-bark-600 text-sm line-clamp-2">
                           {list.description || 'No description'}
                         </p>
-                        <p className="text-stone-500 text-xs mt-1">
+                        <p className="text-bark-600 text-xs mt-1">
                           {list.placeIds?.length || 0} places
                         </p>
                       </div>
@@ -340,10 +340,10 @@ const SearchV2 = () => {
                         className="w-12 h-12 rounded-full object-cover flex-shrink-0"
                       />
                       <div className="flex-1 min-w-0">
-                        <h3 className="font-semibold text-stone-900 leading-tight">
+                        <h3 className="font-semibold text-bark-900 leading-tight">
                           {person.name}
                         </h3>
-                        <p className="text-stone-600 text-sm">
+                        <p className="text-bark-600 text-sm">
                           @{person.username}
                         </p>
                       </div>
@@ -352,7 +352,7 @@ const SearchV2 = () => {
                           e.stopPropagation();
                           // TODO: Follow user
                         }}
-                        className="px-4 py-2 rounded-full bg-moss-500 text-white text-sm font-medium hover:bg-moss-600 transition-colors"
+                        className="pill pill--primary"
                         aria-label={`Follow ${person.name}`}
                       >
                         Follow
@@ -392,24 +392,24 @@ const SearchV2 = () => {
                       }}
                     />
                     <div className="flex-1 min-w-0">
-                      <h3 className="font-semibold text-stone-900 leading-tight mb-1">
+                      <h3 className="font-semibold text-bark-900 leading-tight mb-1">
                         {hub.name}
                       </h3>
-                      <p className="text-stone-600 text-sm flex items-center gap-1 truncate">
+                      <p className="text-bark-600 text-sm flex items-center gap-1 truncate">
                         <span>📍</span>
                         {hub.address}
                       </p>
                       <div className="flex gap-2 mt-3">
                         <button
                           onClick={() => openHubModal(hub.id)}
-                          className="flex-1 px-3 py-2 rounded-full bg-bark-100 text-bark-700 text-sm font-medium hover:bg-bark-200 transition-colors"
+                          className="pill pill--quiet flex-1"
                           aria-label={`View ${hub.name}`}
                         >
                           View
                         </button>
                         <button
                           onClick={() => handleAddToTags(hub)}
-                          className="flex-1 px-3 py-2 rounded-full bg-bark-100 text-bark-700 text-sm font-medium hover:bg-bark-200 transition-colors"
+                          className="pill pill--quiet flex-1"
                           aria-label="Add to your tags"
                         >
                           Add to tags
