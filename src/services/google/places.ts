@@ -75,6 +75,12 @@ export function beginPlacesSession() {
     return;
   }
   
+  // Check if Google Maps API is loaded before creating session token
+  if (!window.google?.maps?.places) {
+    console.warn('⚠️ Google Maps API not loaded yet, skipping session creation');
+    return;
+  }
+  
   sessionToken = new google.maps.places.AutocompleteSessionToken();
   autocompleteCallCount = 0;
   
@@ -132,6 +138,13 @@ export async function getPredictions(
 
     autocompleteDebounceTimer = setTimeout(async () => {
       try {
+        // Check if Google Maps API is loaded
+        if (!window.google?.maps?.places) {
+          console.warn('⚠️ Google Maps API not loaded, cannot get predictions');
+          resolve([]);
+          return;
+        }
+        
         const svc = new google.maps.places.AutocompleteService();
         
         autocompleteCallCount++;
@@ -195,6 +208,12 @@ export async function getPlaceDetails(placeId: string): Promise<any> {
       cached: true
     });
     return cached;
+  }
+
+  // Check if Google Maps API is loaded
+  if (!window.google?.maps?.places) {
+    console.warn('⚠️ Google Maps API not loaded, cannot get place details');
+    return MOCK_PLACE_DETAILS;
   }
 
   // Make API call with BASIC_FIELDS only
