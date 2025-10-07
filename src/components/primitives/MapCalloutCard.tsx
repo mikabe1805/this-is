@@ -17,11 +17,17 @@ export interface MapCalloutCardProps {
   onSave?: () => void;
   onAddPost?: () => void;
   onClose?: () => void;
+  /** If true, positions absolutely within map container. Default: fixed to viewport */
+  anchoredToMap?: boolean;
 }
 
-export function MapCalloutCard({ place, onSave, onAddPost, onClose }: MapCalloutCardProps) {
+export function MapCalloutCard({ place, onSave, onAddPost, onClose, anchoredToMap = false }: MapCalloutCardProps) {
+  const positionClass = anchoredToMap 
+    ? "absolute left-3 right-3 bottom-3 z-10" 
+    : "fixed bottom-20 left-4 right-4 z-30 max-w-screen-sm mx-auto";
+  
   return (
-    <div className="fixed bottom-20 left-4 right-4 z-30 max-w-screen-sm mx-auto">
+    <div className={positionClass}>
       <CardShell variant="glass" className="overflow-hidden">
         <div className="flex gap-3">
           {/* Thumbnail */}

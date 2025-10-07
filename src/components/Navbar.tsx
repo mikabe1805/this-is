@@ -1,7 +1,8 @@
-import { HomeIcon, MagnifyingGlassIcon, PhotoIcon, UserIcon, GlobeAltIcon } from '@heroicons/react/24/outline'
-import { HomeIcon as HomeIconSolid, MagnifyingGlassIcon as MagnifyingGlassIconSolid, PhotoIcon as PhotoIconSolid, UserIcon as UserIconSolid, GlobeAltIcon as GlobeAltIconSolid } from '@heroicons/react/24/solid'
+import { HomeIcon, MagnifyingGlassIcon, UserIcon, GlobeAltIcon } from '@heroicons/react/24/outline'
+import { HomeIcon as HomeIconSolid, MagnifyingGlassIcon as MagnifyingGlassIconSolid, UserIcon as UserIconSolid, GlobeAltIcon as GlobeAltIconSolid } from '@heroicons/react/24/solid'
 import PlusDropdown from './PlusDropdown'
 import { useEffect, useRef } from 'react'
+import { featureFlags } from '../config/featureFlags'
 
 interface NavbarProps {
   activeTab: string
@@ -12,11 +13,12 @@ interface NavbarProps {
 
 const Navbar = ({ activeTab, setActiveTab, onCreatePost, onEmbedFrom }: NavbarProps) => {
   const navRef = useRef<HTMLElement>(null);
+  
+  // Build tabs array dynamically based on feature flags
   const tabs = [
     { id: 'home', label: 'Home', icon: HomeIcon, activeIcon: HomeIconSolid },
     { id: 'search', label: 'Search', icon: MagnifyingGlassIcon, activeIcon: MagnifyingGlassIconSolid },
     { id: 'explore', label: 'Explore', icon: GlobeAltIcon, activeIcon: GlobeAltIconSolid },
-    { id: 'favorites', label: 'Reels', icon: PhotoIcon, activeIcon: PhotoIconSolid },
     { id: 'profile', label: 'Profile', icon: UserIcon, activeIcon: UserIconSolid },
   ]
 

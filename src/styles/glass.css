@@ -45,6 +45,12 @@
 }
 
 /* Variants */
+.glass--light::before {
+  background:
+    radial-gradient(110% 70% at 0% 0%,   hsla(35, 95%, 60%, 0.08), transparent 58%),
+    radial-gradient(90%  60% at 100% 100%, hsla(160, 30%, 45%, 0.06), transparent 52%);
+}
+
 .glass-strong {
   background: rgba(255, 255, 255, 0.20);
   backdrop-filter: blur(16px);

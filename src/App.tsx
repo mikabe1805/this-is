@@ -15,11 +15,13 @@ import EditProfile from './pages/EditProfile.tsx'
 import Following from './pages/Following.tsx'
 import Settings from './pages/Settings.tsx'
 import Search from './pages/Search.tsx'
+import SearchV2 from './pages/SearchV2.tsx'
 import Explore from './pages/Explore.tsx'
 import ListView from './pages/ListView.tsx'
 import ViewAllLists from './pages/ViewAllLists.tsx'
 import Favorites from './pages/SavedLists.tsx'
 import Reels from './pages/Reels.tsx'
+import { featureFlags } from './config/featureFlags'
 import PlaceHub from './pages/PlaceHub.tsx'
 import UserProfile from './pages/UserProfile.tsx'
 import Demo from './pages/Demo.tsx'
@@ -269,7 +271,25 @@ function AppContent() {
       {location.pathname === '/reels' ? (
         <div className="relative h-screen w-screen">
           <Routes>
-            <Route path="/reels" element={<Reels />} />
+            {/* Reels route - quarantined behind feature flag */}
+            {featureFlags.keep_reels_route && (
+              <Route path="/reels" element={
+                <div className="min-h-screen bg-bark-50 p-8 text-center">
+                  <div className="max-w-md mx-auto mt-12 panel p-6">
+                    <h1 className="text-2xl font-bold text-stone-900 mb-2">⚠️ Deprecated</h1>
+                    <p className="text-stone-600 mb-4">
+                      Reels has been replaced by Explore Deck.
+                    </p>
+                    <button
+                      onClick={() => window.location.href = '/explore'}
+                      className="px-6 py-3 bg-moss-500 text-white rounded-xl font-medium hover:bg-moss-600 transition-colors"
+                    >
+                      Go to Explore
+                    </button>
+                  </div>
+                </div>
+              } />
+            )}
           </Routes>
           {/* Navbar for Reels - positioned absolutely to ensure visibility */}
           <div className="absolute bottom-0 left-0 right-0 z-[1002]">
@@ -306,7 +326,7 @@ function AppContent() {
                   <Route path="/profile/edit" element={<EditProfile />} />
                   <Route path="/profile/following" element={<Following />} />
                   <Route path="/settings" element={<Settings />} />
-                  <Route path="/search" element={<Search />} />
+                  <Route path="/search" element={featureFlags.search_v2 ? <SearchV2 /> : <Search />} />
                   <Route path="/explore" element={<Explore />} />
                   <Route path="/list/:id" element={<ListView />} />
                   <Route path="/lists" element={<ViewAllLists />} />

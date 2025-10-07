@@ -18,10 +18,11 @@
 - **ActionBar**: Fixed bottom bar with primary/secondary actions, safe-area insets
 
 ### Page-Level Changes
-- **Home**: Uses CardShell (solid) for all sections; no text on photos
-- **Explore**: Glass cards with inline actions; segmented controls
-- **Hub**: PageHeader with glass toolbar; solid panel sections; ActionBar with Save/Add Post/Directions
-- **List**: PageHeader; scoped search; tabs (Overview/Places/Posts/Map); ActionBar
+- **Home**: Uses CardShell (solid) for all sections; no text on photos; skeleton loaders
+- **Explore**: Deck view (ON by default); glass--light cards; gesture + keyboard navigation; list toggle available
+- **Hub**: PageHeader with glass toolbar; solid panel sections; ActionBar; skeleton loaders; all aria-labels
+- **List**: PageHeader; scoped search; tabs (Overview/Places/Posts/Map); ActionBar; anchored map callout
+- **Search v2**: Multi-bucket layout (Hubs/Lists/People/Recommended); glass hubs, solid lists; tag filters; no duplicate addresses
 
 ---
 
@@ -42,25 +43,27 @@
 - [x] Text not directly on photos
 
 #### Explore (`/explore`)
-- [x] Uses CardShell (glass variant)
+- [x] Uses CardShell (glass variant with glass--light)
 - [x] Segmented control for Nearby/Following/Discover
-- [ ] Stack deck view (behind feature flag `explore_stacks`)
+- [x] Stack deck view (ON by default via `explore_stacks` flag)
 - [x] Inline actions on cards
+- [x] Gesture support (swipe right=prev, up=save, left=next)
+- [x] Keyboard navigation (arrow keys, Enter, Space)
 
 #### Hub (`/hub/:id`)
 - [x] PageHeader with cover image + scrim + glass toolbar
 - [x] ActionBar with Save (primary), Add Post + Directions (secondary)
 - [x] Solid panel sections for About/Tags/Lists/Posts
 - [x] All icon buttons have aria-label
-- [ ] Add skeleton loaders for hero and first section
+- [x] Skeleton loaders for hero and first section
 
 #### List (`/list/:id`)
 - [x] PageHeader with cover image
-- [ ] Scoped SearchBar ("Search within this list…") with 400ms debounce
-- [ ] Tabs: Overview | Places | Posts | Map
-- [ ] Map tab with glass CalloutCard
+- [x] Scoped SearchBar ("Search within this list…") with 400ms debounce
+- [x] Tabs: Overview | Places | Posts | Map
+- [x] Map tab with glass CalloutCard (anchored to map)
 - [x] ActionBar with proper positioning
-- [ ] Empty states for each tab
+- [x] Empty states for each tab
 
 ---
 
@@ -74,6 +77,8 @@ See `/docs/ui-status/screenshots/` for visual reference:
 - `home.png` - Home feed (Popular Nearby, Trending Tags, Lists You Might Like)
 - `hub.png` - Hub detail page (PageHeader, ActionBar, solid sections)
 - `list.png` - List view page (PageHeader, search, place cards)
+
+---
 
 ---
 

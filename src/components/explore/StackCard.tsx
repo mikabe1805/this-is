@@ -41,7 +41,7 @@ export function StackCard({
       <CardShell
         variant="glass"
         onClick={() => onItemClick(item)}
-        className="h-full w-full cursor-pointer hover:shadow-soft transition-all duration-200"
+        className="glass--light h-full w-full cursor-pointer hover:shadow-soft transition-all duration-200"
       >
         <div className="flex flex-col h-full">
           {/* Image */}
