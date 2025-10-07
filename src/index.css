@@ -1,4 +1,6 @@
 @import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital,wght@0,400;1,400&family=Inter:wght@400;500;700&display=swap');
+@import './theme/tokens.css';
+@import './styles/cozy-glass.css';
 @import './styles/glass.css';
 @tailwind base;
 @tailwind components;

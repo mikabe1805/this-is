@@ -1,0 +1,73 @@
+/* Cozy Glass Primitive Classes
+ * Reusable everywhere - compose, don't customize
+ */
+
+.panel {
+  /* solid content blocks */
+  background: var(--bark-50);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-soft), var(--inner-hairline);
+}
+
+.glass {
+  position: relative;
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-soft), var(--inner-hairline);
+}
+
+.glass::before {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  pointer-events: none;
+  border-radius: inherit;
+  background:
+    radial-gradient(110% 70% at 0% 0%, var(--glass-sun-a), transparent 58%),
+    radial-gradient(90% 60% at 100% 100%, var(--glass-sun-b), transparent 52%);
+}
+
+.scrim {
+  background: var(--scrim);
+}
+
+/* Quiet pill button used across cards/callouts */
+.pill {
+  height: 40px;
+  border-radius: 999px;
+  padding: 0 16px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  box-shadow: var(--inner-hairline);
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.pill--primary {
+  background: var(--moss-600);
+  color: white;
+}
+
+.pill--primary:hover {
+  background: var(--moss-500);
+}
+
+.pill--quiet {
+  background: rgba(255, 255, 255, .60);
+  color: var(--bark-700);
+}
+
+.pill--quiet:hover {
+  background: rgba(255, 255, 255, .80);
+}
+
+/* Ensure tap targets meet 44x44 minimum */
+.pill {
+  min-width: 44px;
+  min-height: 44px;
+}
+

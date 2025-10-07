@@ -1,0 +1,32 @@
+/* Cozy Earthy Glass Design Tokens
+ * Single source of truth for the entire design system
+ */
+
+:root {
+  /* Earthy palette */
+  --bark-50: #F7F5F2;   /* background */
+  --bark-900: #1F1C1A;  /* headings/body */
+  --bark-700: #3B342F;  /* body text on light */
+  --bark-600: #4B413B;  /* secondary text */
+
+  --moss-600: #4A8F67;  /* primary accent */
+  --moss-500: #5BA679;
+
+  --sand-500: #C49A5E;  /* warmth highlight */
+  --sand-400: #D6B27C;
+
+  /* Radii & elevation */
+  --radius-xl: 16px;
+  --shadow-soft: 0 8px 24px rgba(0, 0, 0, .08);
+  --inner-hairline: inset 0 0 0 1px rgba(0, 0, 0, .06);
+
+  /* Glass parameters */
+  --glass-bg: rgba(255, 255, 255, .10);
+  --glass-blur: 8px;
+  --glass-sun-a: hsla(35, 95%, 60%, .08);
+  --glass-sun-b: hsla(160, 30%, 45%, .06);
+
+  /* Scrim for hero text on photos */
+  --scrim: linear-gradient(to bottom, rgba(0, 0, 0, .45), rgba(0, 0, 0, .10));
+}
+

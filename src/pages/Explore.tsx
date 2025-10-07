@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { HeartIcon, BookmarkIcon, ShareIcon, PlusIcon } from '@heroicons/react/24/outline';
 import { HeartIcon as HeartIconSolid } from '@heroicons/react/24/solid';
-import { CardShell } from '../components/primitives/CardShell';
+import CardShell from '../components/ui/CardShell';
 import { StackDeck } from '../components/explore/StackDeck';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigation } from '../contexts/NavigationContext';
@@ -247,13 +247,13 @@ const Explore = () => {
                     </div>
                     
                     <div className="flex-1 min-w-0">
-                      <h3 className="font-semibold text-stone-900 leading-tight mb-1">
+                      <h3 className="font-semibold text-bark-900 leading-tight mb-1">
                         {item.title}
                       </h3>
                       {/* Single one-line address meta */}
                       {item.location && (
-                        <p className="text-stone-600 text-sm flex items-center gap-1 truncate">
-                          <span className="text-stone-400">📍</span>
+                        <p className="text-bark-600 text-sm flex items-center gap-1 truncate">
+                          <span className="text-bark-600">📍</span>
                           {item.location}
                         </p>
                       )}
@@ -272,15 +272,15 @@ const Explore = () => {
                         e.stopPropagation();
                         handleLike(item);
                       }}
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-bark-100 hover:bg-bark-200 transition-colors text-sm"
+                      className="pill pill--quiet flex items-center gap-1.5"
                       aria-label={item.isLiked ? 'Unlike' : 'Like'}
                     >
                       {item.isLiked ? (
                         <HeartIconSolid className="w-4 h-4 text-red-500" />
                       ) : (
-                        <HeartIcon className="w-4 h-4 text-stone-600" />
+                        <HeartIcon className="w-4 h-4" />
                       )}
-                      <span className="text-xs text-stone-600 font-medium">{item.likes || 0}</span>
+                      <span className="text-xs font-medium">{item.likes || 0}</span>
                     </button>
                     
                     <button
@@ -288,10 +288,10 @@ const Explore = () => {
                         e.stopPropagation();
                         handleSave(item);
                       }}
-                      className="p-2 rounded-full bg-bark-100 hover:bg-bark-200 transition-colors"
+                      className="pill pill--quiet"
                       aria-label="Save to list"
                     >
-                      <BookmarkIcon className="w-4 h-4 text-stone-600" />
+                      <BookmarkIcon className="w-4 h-4" />
                     </button>
                     
                     <button
@@ -299,10 +299,10 @@ const Explore = () => {
                         e.stopPropagation();
                         handleShare(item);
                       }}
-                      className="p-2 rounded-full bg-bark-100 hover:bg-bark-200 transition-colors"
+                      className="pill pill--quiet"
                       aria-label="Share"
                     >
-                      <ShareIcon className="w-4 h-4 text-stone-600" />
+                      <ShareIcon className="w-4 h-4" />
                     </button>
                     
                     <button
@@ -310,10 +310,10 @@ const Explore = () => {
                         e.stopPropagation();
                         handleAddPost(item);
                       }}
-                      className="p-2 rounded-full bg-bark-100 hover:bg-bark-200 transition-colors"
+                      className="pill pill--quiet"
                       aria-label="Add post"
                     >
-                      <PlusIcon className="w-4 h-4 text-stone-600" />
+                      <PlusIcon className="w-4 h-4" />
                     </button>
                   </div>
                 </div>
