@@ -2,8 +2,12 @@
  * Update UI snapshot document with current status
  */
 
-const fs = require('fs');
-const path = require('path');
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const SNAPSHOT_PATH = path.join(__dirname, '../../docs/ui-status/SNAPSHOT.md');
 const A11Y_PATH = path.join(__dirname, '../../docs/ui-status/a11y_report.md');
@@ -75,9 +79,7 @@ function getPageDescription(pageName) {
 }
 
 // Run if called directly
-if (require.main === module) {
-  updateSnapshot();
-}
+updateSnapshot();
 
-module.exports = { updateSnapshot };
+export { updateSnapshot };
 

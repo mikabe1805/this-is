@@ -1,6 +1,6 @@
 # UI Status Snapshot
 
-*Last updated: [AUTO-GENERATED]*
+*Last updated: Oct 6, 2025, 09:12 PM EDT*
 
 ---
 
@@ -66,12 +66,16 @@
 
 ## 📊 Screenshots
 
+**Status**: ✅ 4 screenshots captured
+
 See `/docs/ui-status/screenshots/` for visual reference:
 
-- `home.png` - Home feed (Popular Nearby, Trending Tags, Lists You Might Like)
 - `explore.png` - Explore page (Nearby tab, glass cards)
+- `home.png` - Home feed (Popular Nearby, Trending Tags, Lists You Might Like)
 - `hub.png` - Hub detail page (PageHeader, ActionBar, solid sections)
 - `list.png` - List view page (PageHeader, search, place cards)
+
+---
 
 ---
 

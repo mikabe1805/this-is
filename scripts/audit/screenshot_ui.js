@@ -3,8 +3,12 @@
  * Uses Playwright if installed, otherwise creates placeholders
  */
 
-const fs = require('fs');
-const path = require('path');
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const SCREENSHOT_DIR = path.join(__dirname, '../../docs/ui-status/screenshots');
 const PAGES = [
@@ -23,7 +27,7 @@ async function captureScreenshots() {
   // Check if Playwright is installed
   let playwright;
   try {
-    playwright = require('playwright');
+    playwright = await import('playwright');
   } catch (e) {
     console.log('⚠️  Playwright not installed. Creating placeholder screenshots...');
     createPlaceholders();
@@ -132,12 +136,10 @@ Or capture manually:
 }
 
 // Run if called directly
-if (require.main === module) {
-  captureScreenshots().catch(error => {
-    console.error('Screenshot capture failed:', error);
-    process.exit(1);
-  });
-}
+captureScreenshots().catch(error => {
+  console.error('Screenshot capture failed:', error);
+  process.exit(1);
+});
 
-module.exports = { captureScreenshots };
+export { captureScreenshots };
 
