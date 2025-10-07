@@ -79,6 +79,10 @@ See `/docs/ui-status/screenshots/` for visual reference:
 
 ---
 
+---
+
+---
+
 ## 🎨 Design Principles
 
 ### Cozy, Usable, Pretty

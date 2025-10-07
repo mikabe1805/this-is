@@ -88,6 +88,32 @@ export function AuthProvider({ children }: AuthProviderProps) {
   }
 
       useEffect(() => {
+        // Check for screenshot/demo mode (for automated testing/screenshots)
+        const isScreenshotMode = localStorage.getItem('__screenshot_mode') === 'true' || 
+                                 new URLSearchParams(window.location.search).get('screenshot') === 'true';
+        
+        if (isScreenshotMode) {
+          // Create a mock user for screenshot mode
+          const mockUser: User = {
+            id: 'screenshot-user-id',
+            name: 'Demo User',
+            username: 'demo',
+            email: 'demo@thisisdemo.app',
+            avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=demo',
+            bio: 'Demo user for screenshots',
+            influences: 42,
+            tags: ['coffee', 'cozy', 'exploring'],
+            location: 'San Francisco, CA',
+            followers: [],
+            following: [],
+            createdAt: new Date().toISOString()
+          };
+          setCurrentUser(mockUser);
+          setLoading(false);
+          return;
+        }
+
+        // Normal Firebase auth flow
         const unsubscribe = onAuthStateChanged(auth, async (user) => {
             if (user) {
               const appUser = await firebaseDataService.getCurrentUser(user.uid);

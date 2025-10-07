@@ -51,26 +51,9 @@ async function captureScreenshots() {
       const url = `http://localhost:5173${page.url}`;
       console.log(`  → Capturing ${page.name} from ${url}`);
       
-      // Set mock authentication in localStorage before navigating
-      await browserPage.goto('http://localhost:5173', { waitUntil: 'domcontentloaded' });
-      await browserPage.evaluate(() => {
-        // Mock Firebase auth user
-        const mockUser = {
-          uid: 'screenshot-user-id',
-          email: 'screenshot@thisisdemo.app',
-          displayName: 'Demo User',
-          photoURL: 'https://api.dicebear.com/7.x/avataaars/svg?seed=screenshot'
-        };
-        
-        // Set auth state in localStorage (mimics Firebase persistence)
-        localStorage.setItem('firebase:authUser', JSON.stringify(mockUser));
-        
-        // Set a flag that this is a screenshot session
-        localStorage.setItem('__screenshot_mode', 'true');
-      });
-      
-      // Now navigate to the actual page
-      await browserPage.goto(url, { waitUntil: 'networkidle' });
+      // Navigate with screenshot mode query parameter
+      const screenshotUrl = `${url}${url.includes('?') ? '&' : '?'}screenshot=true`;
+      await browserPage.goto(screenshotUrl, { waitUntil: 'networkidle' });
       
       // Wait for content to load
       await browserPage.waitForTimeout(1000);
