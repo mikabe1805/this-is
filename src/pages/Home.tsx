@@ -22,6 +22,7 @@ import CreateHubModal from '../components/CreateHubModal'
 import Card from '../components/Card'
 import Section from '../components/Section'
 import { CardShell } from '../components/primitives/CardShell'
+import { SuggestedHubsRail } from '../components/home/SuggestedHubsRail'
 
 // BotanicalAccent removed for a cleaner, less decorative header
 
@@ -1201,19 +1202,47 @@ const Home = () => {
                                     </CardShell>
                                 </div>
                                 ))}
-                                <div className="mt-8">
-                                    <Section title="Suggested Hubs" action={
-                                      <button onClick={async()=>{ await loadSuggested(true) }} className="btn-secondary text-blue-700 text-sm" disabled={isLoadingSuggested}>{isLoadingSuggested ? 'Loading…' : 'Refresh'}</button>
-                                    }>
-                                    {isLoadingSuggested ? (
-                                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-                                        {Array.from({ length: 6 }).map((_, i) => (
-                                          <Card key={i} className="h-60 animate-pulse" />
-                                        ))}
-                                      </div>
-                                    ) : (
-                                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-                                        {suggestedGoogle.slice(0, 8).map((item) => {
+                                
+                                {/* Suggested Hubs Rail */}
+                                {suggestedGoogle.length > 0 || isLoadingSuggested ? (
+                                  <SuggestedHubsRail
+                                    suggestions={suggestedGoogle.slice(0, 12).map((item) => ({
+                                      id: item.id,
+                                      name: item.name,
+                                      address: item.address || '',
+                                      photoUrl: item.mainImage,
+                                      reason: item.tags?.[0],
+                                      exists: false, // TODO: Check if hub exists in DB
+                                      placeId: item.placeId
+                                    }))}
+                                    onRefresh={async () => await loadSuggested(true)}
+                                    onOpen={(hub) => {
+                                      // TODO: Navigate to existing hub
+                                      console.log('Open hub:', hub);
+                                    }}
+                                    onCreate={(hub) => {
+                                      const item = suggestedGoogle.find(g => g.id === hub.id);
+                                      if (item) {
+                                        setCreateHubSeed({
+                                          name: item.name,
+                                          address: item.address,
+                                          coordinates: item.coordinates,
+                                          images: item.images,
+                                          mainImage: item.mainImage,
+                                          description: item.description
+                                        });
+                                        setShowCreateHubModal(true);
+                                      }
+                                    }}
+                                    onNotInterested={(hubId) => {
+                                      setSuggestedGoogle(prev => prev.filter(g => g.id !== hubId));
+                                    }}
+                                    isLoading={isLoadingSuggested}
+                                  />
+                                ) : null}
+
+                                {/* Old suggested hubs section - keeping for reference but hidden */}
+                                {false && suggestedGoogle.slice(0, 8).map((item) => {
                                               const price = typeof item.priceLevel === 'number' ? '$'.repeat(Math.max(1, Math.min(4, item.priceLevel))) : ''
                                               const ratingAndCount = typeof item.rating === 'number'
                                                 ? `${item.rating.toFixed(1)} ★${typeof item.userRatingsTotal === 'number' ? ` (${item.userRatingsTotal})` : ''}`
