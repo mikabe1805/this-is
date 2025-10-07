@@ -1082,126 +1082,79 @@ const Home = () => {
                                     </div>
                                   </CardShell>
                                 )}
-                                {filtered.map((item) => (
-                                <div
-                                    key={item.id}
-                                    onClick={() => handleDiscoveryClick(item)}
-                                    className="w-full text-left flex flex-col gap-2 overflow-hidden cursor-pointer"
-                                >
-                                    <CardShell variant="solid" className="p-4">
-                                    <div className="flex items-start gap-4">
-                                        <img
-                                            src={item.image}
-                                            alt={item.title}
-                                            className="w-16 h-16 rounded-lg object-cover"
-                                            onError={(e)=>{ (e.currentTarget as HTMLImageElement).src = '/assets/leaf.png' }}
-                                        />
-                                        <div className="flex-1 min-w-0">
-                                            <div className="flex items-start justify-between mb-2">
-                                                <h3 className="text-cozy-title line-clamp-2">{item.title}</h3>
-                                                <div className="flex items-center gap-1 ml-2">
+                                {filtered.map((item) => {
+                                    // Extract single address line
+                                    const address = item.type === 'hub' && (item.item as any)?.address
+                                        ? (item.item as any).address.split(',').slice(0, 2).join(',').trim()
+                                        : item.description;
+                                    
+                                    return (
+                                    <div
+                                        key={item.id}
+                                        onClick={() => handleDiscoveryClick(item)}
+                                        className="w-full text-left cursor-pointer"
+                                    >
+                                        <CardShell variant="panel" className="p-3">
+                                            <div className="flex items-center gap-3">
+                                                {/* Thumbnail */}
+                                                <img
+                                                    src={item.image}
+                                                    alt={item.title}
+                                                    className="w-14 h-14 rounded-xl object-cover flex-shrink-0"
+                                                    onError={(e)=>{ (e.currentTarget as HTMLImageElement).src = '/assets/leaf.png' }}
+                                                />
+                                                {/* Content */}
+                                                <div className="flex-1 min-w-0">
+                                                    <h3 className="font-semibold text-bark-900 leading-tight truncate mb-1">
+                                                        {item.title}
+                                                    </h3>
+                                                    <p className="text-bark-600 text-sm truncate">
+                                                        {address}
+                                                    </p>
+                                                    {item.type === 'list' && item.places && (
+                                                        <span className="inline-block mt-1 text-xs text-bark-600">
+                                                            {item.places} places
+                                                        </span>
+                                                    )}
+                                                </div>
+                                                {/* Actions */}
+                                                <div className="flex items-center gap-1">
                                                     <button
                                                         onClick={e => {
                                                             e.stopPropagation();
                                                             handleLikeItem(item.id, item.type);
                                                         }}
-                                                        className="p-1.5 rounded-full bg-sage-50 text-sage-600 hover:bg-sage-100 transition"
-                                                        title="Like"
+                                                        className="p-2 hover:bg-bark-100 rounded-full transition-colors"
+                                                        aria-label={`${(item.item as List).likedBy?.includes(currentUser!.id) ? 'Unlike' : 'Like'} ${item.title}`}
                                                     >
-                                                        {(item.item as List).likedBy?.includes(currentUser!.id) ? <HeartIconSolid className="w-4 h-4 text-red-500" /> : <HeartIcon className="w-4 h-4" />}
+                                                        {(item.item as List).likedBy?.includes(currentUser!.id) ? <HeartIconSolid className="w-5 h-5 text-red-500" /> : <HeartIcon className="w-5 h-5 text-bark-600" />}
                                                     </button>
-                                                    {item.type === 'list' && (
-                                                        <>
-                                                            <button
-                                                                onClick={e => {
-                                                                    e.stopPropagation();
-                                                                    handleSaveToPlace(item.item as Place);
-                                                                }}
-                                                                className="p-1.5 rounded-full bg-gold-50 text-gold-600 hover:bg-gold-100 transition"
-                                                                title="Save to list"
-                                                            >
-                                                                <BookmarkIcon className="w-4 h-4" />
-                                                            </button>
-                                                            <button
-                                                                onClick={e => {
-                                                                    e.stopPropagation();
-                                                                    handleCreatePost(item.id);
-                                                                }}
-                                                                className="p-1.5 rounded-full bg-sage-50 text-sage-600 hover:bg-gold-100 transition"
-                                                                title="Create post"
-                                                            >
-                                                                <PlusIcon className="w-4 h-4" />
-                                                            </button>
-                                                        </>
-                                                    )}
-                                                    {item.type === 'hub' && (
-                                                        <>
-                                                            <button
-                                                                onClick={e => {
-                                                                    e.stopPropagation();
-                                                                    handleSaveToPlace(item.item as Place);
-                                                                }}
-                                                                className="p-1.5 rounded-full bg-gold-50 text-gold-600 hover:bg-gold-100 transition"
-                                                                title="Save to list"
-                                                            >
-                                                                <BookmarkIcon className="w-4 h-4" />
-                                                            </button>
-                                                            {(item.item as any).source === 'google' && (
-                                                                <button
-                                                                    onClick={async e => {
-                                                                        e.stopPropagation();
-                                                                        const place = item.item as Place
-                                                                        const coords = place.coordinates || { lat: 0, lng: 0 }
-                                                                        try {
-                                                                            const hubId = await firebaseDataService.createHub({ name: place.name, address: place.address || '', description: '', coordinates: coords })
-                                                                            const mapsUrl = coords.lat && coords.lng ? `https://www.google.com/maps/search/?api=1&query=${coords.lat},${coords.lng}` : (place.address ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(place.address)}` : '')
-                                                                            const newHub: Hub = { ...(place as any), id: hubId, name: place.name, description: '', tags: place.tags, images: [], location: { address: place.address, lat: coords.lat, lng: coords.lng }, googleMapsUrl: mapsUrl, mainImage: (place as any).mainImage || '', posts: [], lists: [] }
-                                                                            openHubModal(newHub, 'home-discovery-feed')
-                                                                        } catch (err) {
-                                                                            console.error('Failed to create hub from suggestion', err)
-                                                                        }
-                                                                    }}
-                                                                    className="p-1.5 rounded-full bg-sage-100 text-sage-700 hover:bg-sage-200 transition"
-                                                                    title="Create hub"
-                                                                >
-                                                                    <PlusIcon className="w-4 h-4" />
-                                                                </button>
-                                                            )}
-                                                            <button
-                                                                onClick={e => {
-                                                                    e.stopPropagation();
-                                                                    handleCreatePost(undefined, item.item);
-                                                                }}
-                                                                className="p-1.5 rounded-full bg-sage-50 text-sage-600 hover:bg-gold-100 transition"
-                                                                title="Create post"
-                                                            >
-                                                                <PlusIcon className="w-4 h-4" />
-                                                            </button>
-                                                        </>
-                                                    )}
+                                                    <button
+                                                        onClick={e => {
+                                                            e.stopPropagation();
+                                                            handleSaveToPlace(item.item as Place);
+                                                        }}
+                                                        className="p-2 hover:bg-bark-100 rounded-full transition-colors"
+                                                        aria-label={`Save ${item.title} to list`}
+                                                    >
+                                                        <BookmarkIcon className="w-5 h-5 text-bark-600" />
+                                                    </button>
+                                                    <button
+                                                        onClick={e => {
+                                                            e.stopPropagation();
+                                                            handleCreatePost(item.type === 'list' ? item.id : undefined, item.type === 'hub' ? item.item : undefined);
+                                                        }}
+                                                        className="p-2 hover:bg-bark-100 rounded-full transition-colors"
+                                                        aria-label={`Add post for ${item.title}`}
+                                                    >
+                                                        <PlusIcon className="w-5 h-5 text-bark-600" />
+                                                    </button>
                                                 </div>
                                             </div>
-                                            <p className="text-sage-700 text-sm mb-3">
-                                                {item.type === 'hub' && (item.item as any)?.address
-                                                  ? ((item.item as any).address as string).split(',').slice(-2).join(', ').trim() || (item.item as any).address
-                                                  : item.description}
-                                            </p>
-                                            <div className="flex items-center gap-2 flex-wrap">
-                                                {item.owner && (
-                                                    <span className="text-xs text-sage-500">by {item.owner}</span>
-                                                )}
-                                                {item.type === 'list' && (
-                                                    <span className="text-xs bg-sage-100 text-sage-600 px-2 py-0.5 rounded-full">
-                                                        {item.places} places
-                                                    </span>
-                                                )}
-                                                {/* Hide saved-count badge per UX feedback */}
-                                            </div>
-                                        </div>
+                                        </CardShell>
                                     </div>
-                                    </CardShell>
-                                </div>
-                                ))}
+                                    );
+                                })}
                                 
                                 {/* Suggested Hubs Rail */}
                                 {suggestedGoogle.length > 0 || isLoadingSuggested ? (
