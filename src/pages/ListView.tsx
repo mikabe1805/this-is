@@ -1,5 +1,5 @@
 import type { List, ListPlace, Hub, Place } from '../types/index.js'
-import { MapPinIcon, HeartIcon, BookmarkIcon, ShareIcon, EllipsisHorizontalIcon, ArrowLeftIcon, StarIcon, MapIcon } from '@heroicons/react/24/outline'
+import { MapPinIcon, HeartIcon, BookmarkIcon, ShareIcon, EllipsisHorizontalIcon, ArrowLeftIcon, StarIcon, MapIcon, MagnifyingGlassIcon, CameraIcon } from '@heroicons/react/24/outline'
 import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useNavigation } from '../contexts/NavigationContext.tsx'
@@ -22,6 +22,7 @@ import { useFilters } from '../contexts/FiltersContext'
 import { PageHeader } from '../components/primitives/PageHeader'
 import { ActionBar } from '../components/primitives/ActionBar'
 import { CardShell } from '../components/primitives/CardShell'
+import { MapCalloutCard } from '../components/primitives/MapCalloutCard'
 
 const ListView = () => {
   const { id } = useParams<{ id: string }>()
@@ -55,9 +56,13 @@ const ListView = () => {
     onConfirm: () => {}
   })
   const listMenuButtonRef = useRef<HTMLButtonElement>(null)
+  const [activeTab, setActiveTab] = useState<'overview' | 'places' | 'posts' | 'map'>('places')
+  const [mapCalloutPlace, setMapCalloutPlace] = useState<ListPlace | null>(null)
+  const searchDebounceRef = useRef<NodeJS.Timeout | null>(null)
   
   // Search and filter state
   const [searchQuery, setSearchQuery] = useState('')
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('')
   const [sortBy, setSortBy] = useState('popular')
   const [activeFilters, setActiveFilters] = useState<string[]>([])
   const [selectedTags, setSelectedTags] = useState<string[]>([])
@@ -85,6 +90,22 @@ const ListView = () => {
 
   // Sync selectedTags with global FiltersContext
   useEffect(()=>{ setSelectedTags(filters.tags || []) }, [filters.tags])
+
+  // Debounce search query
+  useEffect(() => {
+    if (searchDebounceRef.current) {
+      clearTimeout(searchDebounceRef.current);
+    }
+    searchDebounceRef.current = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery);
+    }, 400);
+    
+    return () => {
+      if (searchDebounceRef.current) {
+        clearTimeout(searchDebounceRef.current);
+      }
+    };
+  }, [searchQuery])
 
   // Load recommendations for this list based on its tags
   useEffect(() => {
@@ -171,9 +192,9 @@ const ListView = () => {
 
   // Filter and sort places
   const filteredPlaces = listPlaces.filter(place => {
-    // Search filter
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase()
+    // Search filter (using debounced query)
+    if (debouncedSearchQuery) {
+      const query = debouncedSearchQuery.toLowerCase()
       const matchesName = place.place.name.toLowerCase().includes(query)
       const matchesAddress = place.place.address.toLowerCase().includes(query)
       const matchesTags = place.place.tags.some(tag => tag.toLowerCase().includes(query))
@@ -448,6 +469,62 @@ const ListView = () => {
 
       {/* List Info */}
       <div className="relative z-10 p-4 space-y-4">
+        {/* Tabs */}
+        <CardShell variant="solid" className="p-2">
+          <div className="flex gap-2 overflow-x-auto no-scrollbar">
+            <button
+              onClick={() => setActiveTab('overview')}
+              className={`flex-shrink-0 py-2 px-4 rounded-lg font-semibold text-sm transition-all ${
+                activeTab === 'overview' 
+                  ? 'bg-moss-500 text-white shadow-soft' 
+                  : 'text-bark-700 bg-bark-100 hover:bg-bark-200'
+              }`}
+              aria-label="View overview tab"
+              aria-pressed={activeTab === 'overview'}
+            >
+              Overview
+            </button>
+            <button
+              onClick={() => setActiveTab('places')}
+              className={`flex-shrink-0 py-2 px-4 rounded-lg font-semibold text-sm transition-all ${
+                activeTab === 'places' 
+                  ? 'bg-moss-500 text-white shadow-soft' 
+                  : 'text-bark-700 bg-bark-100 hover:bg-bark-200'
+              }`}
+              aria-label="View places tab"
+              aria-pressed={activeTab === 'places'}
+            >
+              Places ({sortedPlaces.length})
+            </button>
+            <button
+              onClick={() => setActiveTab('posts')}
+              className={`flex-shrink-0 py-2 px-4 rounded-lg font-semibold text-sm transition-all ${
+                activeTab === 'posts' 
+                  ? 'bg-moss-500 text-white shadow-soft' 
+                  : 'text-bark-700 bg-bark-100 hover:bg-bark-200'
+              }`}
+              aria-label="View posts tab"
+              aria-pressed={activeTab === 'posts'}
+            >
+              Posts
+            </button>
+            <button
+              onClick={() => setActiveTab('map')}
+              className={`flex-shrink-0 py-2 px-4 rounded-lg font-semibold text-sm transition-all ${
+                activeTab === 'map' 
+                  ? 'bg-moss-500 text-white shadow-soft' 
+                  : 'text-bark-700 bg-bark-100 hover:bg-bark-200'
+              }`}
+              aria-label="View map tab"
+              aria-pressed={activeTab === 'map'}
+            >
+              Map
+            </button>
+          </div>
+        </CardShell>
+
+        {/* List Info - Only show in overview tab */}
+        {activeTab === 'overview' && (
         <CardShell variant="solid" className="p-4">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
@@ -510,9 +587,38 @@ const ListView = () => {
             <span>Updated {new Date(list.updatedAt).toLocaleDateString()}</span>
           </div>
         </CardShell>
+        )}
+
+        {/* Description - Only show in overview tab */}
+        {activeTab === 'overview' && list.description && (
+          <CardShell variant="solid" className="p-4">
+            <h3 className="text-sm font-semibold text-bark-900 mb-2">Description</h3>
+            <p className="text-bark-700 text-sm leading-relaxed">{list.description}</p>
+          </CardShell>
+        )}
       </div>
 
-      {/* Search and Filter */}
+      {/* Scoped Search - Only show in places tab */}
+      {activeTab === 'places' && (
+      <div className="relative z-10 px-4 pb-4">
+        <div className="panel p-3">
+          <div className="relative">
+            <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-bark-500" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search within this list..."
+              className="w-full pl-10 pr-4 py-2 rounded-xl border border-bark-200 bg-white text-bark-900 placeholder-bark-500 focus:outline-none focus:ring-2 focus:ring-moss-500 focus:border-transparent"
+              aria-label="Search places in this list"
+            />
+          </div>
+        </div>
+      </div>
+      )}
+
+      {/* Search and Filter - Original position, only show when not in specific tab views */}
+      {false && (
       <div className="relative z-10 px-4 pb-4">
         <form onSubmit={(e) => { e.preventDefault(); /* search is applied in-place via searchQuery state */ }}>
           <SearchAndFilter
@@ -534,9 +640,10 @@ const ListView = () => {
           />
         </form>
       </div>
+      )}
 
-      {/* Recommended for your list */}
-      {recommended.length > 0 && (
+      {/* Recommended for your list - Only show in overview tab */}
+      {activeTab === 'overview' && recommended.length > 0 && (
         <div className="relative z-10 px-4 pb-2">
           <h3 className="text-lg font-serif font-semibold text-charcoal-800 mb-2">Recommended for your list</h3>
           <div className="space-y-2">
@@ -555,6 +662,17 @@ const ListView = () => {
               </div>
             ))}
           </div>
+        </div>
+      )}
+
+      {/* Empty state for overview tab */}
+      {activeTab === 'overview' && sortedPlaces.length === 0 && (
+        <div className="relative z-10 px-4">
+          <CardShell variant="solid" className="p-8 text-center">
+            <BookmarkIcon className="w-16 h-16 text-bark-300 mx-auto mb-4" />
+            <h3 className="text-lg font-serif font-semibold text-bark-800 mb-2">Empty List</h3>
+            <p className="text-bark-600 mb-4">Start adding places to build your list</p>
+          </CardShell>
         </div>
       )}
 
@@ -593,7 +711,8 @@ const ListView = () => {
         </div>
       )}
 
-      {/* Main Content: places */}
+      {/* Main Content: places - Only show in places tab */}
+      {activeTab === 'places' && (
       <div className="relative z-10 p-4 space-y-8 max-w-2xl mx-auto">
         {sortedPlaces.map((listPlace) => (
           <div
@@ -721,6 +840,48 @@ const ListView = () => {
           </div>
         )}
       </div>
+      )}
+
+      {/* Posts Tab */}
+      {activeTab === 'posts' && (
+        <div className="relative z-10 p-4">
+          <CardShell variant="solid" className="p-8 text-center">
+            <CameraIcon className="w-16 h-16 text-bark-300 mx-auto mb-4" />
+            <h3 className="text-lg font-serif font-semibold text-bark-800 mb-2">No Posts Yet</h3>
+            <p className="text-bark-600 mb-4">Posts from places in this list will appear here</p>
+          </CardShell>
+        </div>
+      )}
+
+      {/* Map Tab */}
+      {activeTab === 'map' && (
+        <div className="relative z-10 p-4">
+          <CardShell variant="solid" className="overflow-hidden" style={{ height: '60vh' }}>
+            <div className="w-full h-full bg-sand-100 flex items-center justify-center text-bark-500 font-semibold">
+              [Interactive Map Placeholder]
+              <br />
+              <span className="text-sm font-normal">Click a marker to see details</span>
+            </div>
+          </CardShell>
+          
+          {/* Map Callout Card - Show when a place is selected on map */}
+          {mapCalloutPlace && (
+            <MapCalloutCard
+              place={{
+                id: mapCalloutPlace.place.id,
+                name: mapCalloutPlace.place.name,
+                address: mapCalloutPlace.place.address,
+                distance: '0.5 km',
+                mainImage: (mapCalloutPlace.place as any).mainImage,
+                tags: mapCalloutPlace.place.tags
+              }}
+              onSave={() => handleSaveToPlace(mapCalloutPlace.place)}
+              onAddPost={() => handleCreatePost()}
+              onClose={() => setMapCalloutPlace(null)}
+            />
+          )}
+        </div>
+      )}
       {/* Map Modal placeholder */}
       {showMapModal && (
         <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/30">

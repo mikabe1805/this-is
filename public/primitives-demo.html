@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Primitives Demo - this.is</title>
+  <link rel="stylesheet" href="/tailwind.css">
+  <style>
+    /* Import glass utilities */
+    .panel{background:#F7F5F2;border-radius:16px;box-shadow:0 8px 24px rgba(0,0,0,.08);border:1px solid rgba(255,255,255,.55);}
+    .glass{position:relative;background:rgba(255,255,255,.10);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
+      border-radius:16px;box-shadow:0 8px 24px rgba(0,0,0,.08), inset 0 0 0 1px rgba(0,0,0,.06);}
+    .glass::before{content:"";position:absolute;inset:-1px;pointer-events:none;border-radius:inherit;
+      background:radial-gradient(120% 80% at 0% 0%, hsla(35,95%,60%,.18), transparent 60%),
+                 radial-gradient(100% 70% at 100% 100%, hsla(160,30%,45%,.10), transparent 55%);}
+    .scrim{background:linear-gradient(to bottom, rgba(0,0,0,0), rgba(0,0,0,.45));}
+    :focus-visible{outline:2px solid #4B8F67; outline-offset:2px;}
+    
+    /* Utility colors */
+    .bg-bark-50 { background-color: #F7F5F2; }
+    .bg-moss-500 { background-color: #4B8F67; }
+    .bg-moss-100 { background-color: #E6EFE8; }
+    .text-white { color: #FFFFFF; }
+    .text-bark-900 { color: #1F1C1A; }
+    .text-bark-700 { color: #443C35; }
+    .text-moss-700 { color: #315D44; }
+  </style>
+</head>
+<body class="bg-bark-50 min-h-screen">
+  <!-- Demo Container -->
+  <div class="max-w-screen-sm mx-auto p-4 space-y-8 pb-32">
+    <h1 class="text-3xl font-bold text-bark-900 mb-2">Primitives Demo</h1>
+    <p class="text-bark-700 mb-8">Visual reference for this.is UI components</p>
+
+    <!-- CardShell - Solid Variant -->
+    <section>
+      <h2 class="text-xl font-semibold text-bark-900 mb-3">CardShell (Solid)</h2>
+      <div class="panel p-4">
+        <h3 class="text-lg font-semibold text-bark-900 mb-2">Solid Card Title</h3>
+        <p class="text-bark-700 text-sm mb-3">This is a solid panel card with the warm bark-50 background, soft shadow, and rounded corners. Used for content sections that need high contrast.</p>
+        <div class="flex gap-2">
+          <span class="px-3 py-1 text-xs rounded-full bg-moss-100 text-moss-700">#cozy</span>
+          <span class="px-3 py-1 text-xs rounded-full bg-moss-100 text-moss-700">#coffee</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- CardShell - Glass Variant -->
+    <section>
+      <h2 class="text-xl font-semibold text-bark-900 mb-3">CardShell (Glass)</h2>
+      <div 
+        class="relative p-6 rounded-2xl overflow-hidden"
+        style="background: linear-gradient(135deg, #FEE8C7 0%, #E8D4C0 100%);"
+      >
+        <div class="glass p-4">
+          <h3 class="text-lg font-semibold text-bark-900 mb-2">Glass Card Title</h3>
+          <p class="text-bark-700 text-sm mb-3">This is a glass card with backdrop blur, subtle gradients (warm amber + cool moss), and a soft inset border. Perfect for overlays and floating content.</p>
+          <button class="px-4 py-2 bg-moss-500 text-white rounded-xl text-sm font-semibold">Action Button</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- PageHeader -->
+    <section>
+      <h2 class="text-xl font-semibold text-bark-900 mb-3">PageHeader</h2>
+      <div class="relative w-full rounded-b-2xl overflow-hidden">
+        <div class="relative h-44 w-full">
+          <img 
+            src="https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?w=800&h=400&fit=crop" 
+            alt="Cover" 
+            class="w-full h-full object-cover"
+          />
+          <div class="scrim absolute inset-0"></div>
+          <div class="absolute bottom-3 left-3 right-3 glass p-3 flex items-center justify-between">
+            <div>
+              <h1 class="text-lg font-semibold text-white">Sunny Coffee</h1>
+              <div class="text-white/90 text-sm">123 Main Street, San Francisco</div>
+            </div>
+            <div class="flex gap-2">
+              <button 
+                class="w-10 h-10 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center hover:bg-white/30 transition-colors"
+                aria-label="Back"
+              >
+                ←
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ActionBar -->
+    <section>
+      <h2 class="text-xl font-semibold text-bark-900 mb-3">ActionBar</h2>
+      <p class="text-bark-700 text-sm mb-4">Fixed bottom bar (shown below at page bottom)</p>
+    </section>
+
+    <!-- Color Palette -->
+    <section>
+      <h2 class="text-xl font-semibold text-bark-900 mb-3">Color Palette</h2>
+      <div class="space-y-3">
+        <div class="flex items-center gap-3">
+          <div class="w-12 h-12 rounded-lg" style="background: #F7F5F2;"></div>
+          <div>
+            <div class="font-semibold text-bark-900">bark-50</div>
+            <div class="text-sm text-bark-700">#F7F5F2 (backgrounds)</div>
+          </div>
+        </div>
+        <div class="flex items-center gap-3">
+          <div class="w-12 h-12 rounded-lg" style="background: #1F1C1A;"></div>
+          <div>
+            <div class="font-semibold text-bark-900">bark-900</div>
+            <div class="text-sm text-bark-700">#1F1C1A (body text)</div>
+          </div>
+        </div>
+        <div class="flex items-center gap-3">
+          <div class="w-12 h-12 rounded-lg" style="background: #4B8F67;"></div>
+          <div>
+            <div class="font-semibold text-bark-900">moss-500</div>
+            <div class="text-sm text-bark-700">#4B8F67 (accent)</div>
+          </div>
+        </div>
+        <div class="flex items-center gap-3">
+          <div class="w-12 h-12 rounded-lg" style="background: #C49A5E;"></div>
+          <div>
+            <div class="font-semibold text-bark-900">sand-500</div>
+            <div class="text-sm text-bark-700">#C49A5E (warmth)</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Typography -->
+    <section>
+      <h2 class="text-xl font-semibold text-bark-900 mb-3">Typography</h2>
+      <div class="panel p-4 space-y-2">
+        <h1 class="text-3xl font-bold text-bark-900">Heading 1</h1>
+        <h2 class="text-2xl font-semibold text-bark-900">Heading 2</h2>
+        <h3 class="text-xl font-semibold text-bark-900">Heading 3</h3>
+        <p class="text-bark-900">Body text (bark-900) - High contrast for readability</p>
+        <p class="text-bark-700">Secondary text (bark-700) - Medium contrast</p>
+        <p class="text-bark-500">Tertiary text (bark-500) - Low contrast</p>
+      </div>
+    </section>
+
+    <!-- Buttons -->
+    <section>
+      <h2 class="text-xl font-semibold text-bark-900 mb-3">Buttons</h2>
+      <div class="panel p-4 space-y-3">
+        <button class="w-full bg-moss-500 text-white py-3 px-4 rounded-xl font-semibold hover:bg-moss-600 transition-colors">
+          Primary Action
+        </button>
+        <button class="w-full bg-bark-100 text-bark-700 py-3 px-4 rounded-xl font-medium hover:bg-bark-200 transition-colors" style="background: #EEE9E2;">
+          Secondary Action
+        </button>
+        <button class="w-full border-2 border-bark-300 text-bark-700 py-3 px-4 rounded-xl font-medium hover:bg-bark-50 transition-colors" style="border-color: #C6B7A9;">
+          Tertiary Action
+        </button>
+      </div>
+    </section>
+  </div>
+
+  <!-- ActionBar (Fixed Bottom) -->
+  <div class="fixed bottom-0 left-0 right-0 z-40 bg-bark-50 backdrop-blur p-3 pt-2" style="background: rgba(247,245,242,0.9);">
+    <div class="max-w-screen-sm mx-auto flex gap-2">
+      <div class="flex-1">
+        <button class="w-full bg-moss-500 text-white py-3 px-4 rounded-xl font-semibold hover:bg-moss-600 transition-colors">
+          Save
+        </button>
+      </div>
+      <div>
+        <button class="bg-bark-100 text-bark-700 py-3 px-4 rounded-xl font-medium hover:bg-bark-200 transition-colors" style="background: #EEE9E2;">
+          Add Post
+        </button>
+      </div>
+      <div>
+        <button class="bg-bark-100 text-bark-700 py-3 px-4 rounded-xl font-medium hover:bg-bark-200 transition-colors" style="background: #EEE9E2;">
+          Directions
+        </button>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
+

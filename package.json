@@ -21,7 +21,8 @@
     "status:screens": "node scripts/audit/screenshot_pages.js",
     "status:screens:placeholder": "node scripts/audit/create_placeholder_screenshots.js",
     "status:update": "npm run audit:places && node scripts/audit/update_readme.js",
-    "status:pr": "npm run status:update && node scripts/audit/generate_pr_summary.js"
+    "status:pr": "npm run status:update && node scripts/audit/generate_pr_summary.js",
+    "status:ui": "node scripts/audit/screenshot_ui.js && node scripts/audit/update_ui_snapshot.js"
   },
   "dependencies": {
     "@heroicons/react": "^2.2.0",

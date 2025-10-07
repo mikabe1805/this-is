@@ -14,6 +14,7 @@ import { firebaseDataService } from '../services/firebaseDataService.js'
 import { PageHeader } from '../components/primitives/PageHeader'
 import { ActionBar } from '../components/primitives/ActionBar'
 import { CardShell } from '../components/primitives/CardShell'
+import { SkeletonHero, SkeletonCard } from '../components/primitives/SkeletonLoader'
 
 const PlaceHub = () => {
   const { goBack } = useNavigation()
@@ -284,10 +285,28 @@ const PlaceHub = () => {
   // Loading state
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-[#FEF6E9] via-[#FBF0D9] to-[#F7E8CC] flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin h-12 w-12 border-4 border-[#E17373] border-t-transparent rounded-full mx-auto mb-4"></div>
-          <p className="text-[#8B7355] text-lg">Loading place details...</p>
+      <div className="min-h-full bg-gradient-to-br from-[#FEF6E9] via-[#FBF0D9] to-[#F7E8CC] relative overflow-hidden overflow-x-hidden">
+        {/* Botanical Accents - same as main view */}
+        <div className="absolute inset-0 pointer-events-none z-0 overflow-hidden">
+          <div className="absolute bottom-0 left-0 h-full w-12 sm:w-14 md:w-16 pointer-events-none">
+            <img
+              src="/assets/leaf2.png"
+              alt=""
+              className="absolute bottom-0 left-0 h-full w-full object-contain opacity-8 sm:opacity-10 pointer-events-none blur-[0.5px] sm:blur-[0.3px]"
+              style={{
+                transform: 'scaleY(1.2) translateY(-12%) rotate(-5deg)',
+                filter: 'brightness(0.8) contrast(0.9) saturate(1.1) hue-rotate(5deg)'
+              }}
+            />
+          </div>
+        </div>
+        {/* Hero Skeleton */}
+        <SkeletonHero />
+        {/* Content Skeleton */}
+        <div className="relative z-10 p-4 space-y-4 max-w-2xl mx-auto pb-24">
+          <SkeletonCard variant="solid" />
+          <SkeletonCard variant="solid" />
+          <SkeletonCard variant="solid" />
         </div>
       </div>
     )
@@ -442,6 +461,8 @@ const PlaceHub = () => {
                   ? 'bg-moss-500 text-white shadow-soft' 
                   : 'text-bark-700 bg-bark-100 hover:bg-bark-200'
               }`}
+              aria-label="View overview tab"
+              aria-pressed={tab === 'overview'}
             >
               Overview
             </button>
@@ -452,6 +473,8 @@ const PlaceHub = () => {
                   ? 'bg-moss-500 text-white shadow-soft' 
                   : 'text-bark-700 bg-bark-100 hover:bg-bark-200'
               }`}
+              aria-label="View posts tab"
+              aria-pressed={tab === 'posts'}
             >
               Posts ({posts.length})
             </button>
@@ -476,6 +499,7 @@ const PlaceHub = () => {
               <button 
                 onClick={handleViewAllLists}
                 className="mt-3 text-moss-600 text-sm font-medium hover:text-moss-700"
+                aria-label="View all lists featuring this place"
               >
                 See All
               </button>
@@ -545,6 +569,7 @@ const PlaceHub = () => {
                       className={`flex items-center space-x-1 ${
                         likedPosts.has(post.id) ? 'text-[#C17F59]' : 'text-[#8B7355]'
                       } hover:text-[#C17F59] transition-colors`}
+                      aria-label={likedPosts.has(post.id) ? "Unlike post" : "Like post"}
                     >
                       <HeartIcon className={`w-5 h-5 ${likedPosts.has(post.id) ? 'fill-current' : ''}`} />
                       <span className="text-sm font-medium">{post.likes}</span>
@@ -552,6 +577,7 @@ const PlaceHub = () => {
                     <button
                       onClick={() => handleViewComments(post)}
                       className="flex items-center space-x-1 text-[#8B7355] hover:text-[#7A5D3F] transition-colors"
+                      aria-label="View comments"
                     >
                       <ChatBubbleLeftIcon className="w-5 h-5" />
                       <span className="text-sm font-medium">{post.comments?.length || 0}</span>
@@ -563,12 +589,14 @@ const PlaceHub = () => {
                       className={`p-2 rounded-full ${
                         savedPosts.has(post.id) ? 'bg-[#B08968]/25 text-[#B08968]' : 'bg-[#E8D4C0]/50 text-[#8B7355]'
                       } hover:bg-[#B08968]/35 transition-colors`}
+                      aria-label={savedPosts.has(post.id) ? "Remove from saved" : "Save post"}
                     >
                       <BookmarkIcon className={`w-4 h-4 ${savedPosts.has(post.id) ? 'fill-current' : ''}`} />
                     </button>
                     <button
                       onClick={() => handleReply(post)}
                       className="p-2 rounded-full bg-[#E8D4C0]/50 text-[#8B7355] hover:bg-[#E8D4C0]/70 transition-colors"
+                      aria-label="Reply to post"
                     >
                       <ShareIcon className="w-4 h-4" />
                     </button>
@@ -586,6 +614,7 @@ const PlaceHub = () => {
                 <button
                   onClick={handleCreatePost}
                   className="bg-gradient-to-r from-[#D4A574] to-[#B08968] text-[#FEF6E9] px-4 py-2 rounded-xl text-sm font-semibold shadow-lg border border-[#B08968]/30 active:scale-95 transition-all duration-200"
+                  aria-label="Create a new post"
                 >
                   <PlusIcon className="w-4 h-4 mr-1 inline" />
                   Add Post
@@ -680,6 +709,7 @@ const PlaceHub = () => {
               createdAt: new Date().toISOString()
             })}
             className="w-full bg-moss-500 text-white py-3 px-4 rounded-xl font-semibold hover:bg-moss-600 transition-colors"
+            aria-label="Save this place to your lists"
           >
             Save
           </button>
@@ -689,6 +719,7 @@ const PlaceHub = () => {
             key="add-post"
             onClick={handleCreatePost}
             className="flex items-center justify-center gap-2 bg-bark-100 text-bark-700 py-3 px-4 rounded-xl font-medium hover:bg-bark-200 transition-colors"
+            aria-label="Add a post about this place"
           >
             <PlusIcon className="w-4 h-4" />
             Add Post
@@ -699,6 +730,7 @@ const PlaceHub = () => {
             target="_blank"
             rel="noopener noreferrer"
             className="flex items-center justify-center gap-2 bg-bark-100 text-bark-700 py-3 px-4 rounded-xl font-medium hover:bg-bark-200 transition-colors"
+            aria-label="Get directions to this place"
           >
             <MapPinIcon className="w-4 h-4" />
             Directions
