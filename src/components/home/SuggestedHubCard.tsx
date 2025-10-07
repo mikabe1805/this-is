@@ -1,5 +1,5 @@
 import { EllipsisHorizontalIcon } from '@heroicons/react/24/outline';
-import { CardShell } from '../primitives/CardShell';
+import CardShell from '../ui/CardShell';
 import { useState } from 'react';
 
 interface SuggestedHubCardProps {
@@ -59,7 +59,7 @@ export function SuggestedHubCard({
         {exists ? (
           <button
             onClick={onOpen}
-            className="px-4 py-2 bg-moss-500 text-white rounded-full text-sm font-medium hover:bg-moss-600 transition-colors"
+            className="pill pill--primary"
             aria-label="Open hub"
           >
             Open
@@ -67,7 +67,7 @@ export function SuggestedHubCard({
         ) : (
           <button
             onClick={onCreate}
-            className="px-4 py-2 bg-moss-500 text-white rounded-full text-sm font-medium hover:bg-moss-600 transition-colors"
+            className="pill pill--primary"
             aria-label="Create hub"
           >
             Create Hub
@@ -75,7 +75,7 @@ export function SuggestedHubCard({
         )}
         <button
           onClick={onNotInterested}
-          className="px-3 py-2 bg-bark-100 text-bark-700 rounded-full text-sm font-medium hover:bg-bark-200 transition-colors"
+          className="pill pill--quiet"
           aria-label="Not interested"
         >
           Not interested

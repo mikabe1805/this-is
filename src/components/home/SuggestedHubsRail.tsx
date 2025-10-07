@@ -70,7 +70,7 @@ export function SuggestedHubsRail({
         <button
           onClick={onRefresh}
           disabled={isLoading}
-          className="flex items-center gap-1 px-3 py-1.5 bg-bark-100 text-bark-700 rounded-full text-sm font-medium hover:bg-bark-200 transition-colors disabled:opacity-50"
+          className="pill pill--quiet flex items-center gap-1 disabled:opacity-50"
           aria-label="Refresh suggestions"
         >
           <ArrowPathIcon className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
