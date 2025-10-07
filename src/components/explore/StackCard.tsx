@@ -1,7 +1,7 @@
 import React from 'react';
 import { HeartIcon, BookmarkIcon, ShareIcon, PlusIcon } from '@heroicons/react/24/outline';
 import { HeartIcon as HeartIconSolid } from '@heroicons/react/24/solid';
-import { CardShell } from '../primitives/CardShell';
+import CardShell from '../ui/CardShell';
 
 interface StackCardProps {
   item: {
@@ -97,15 +97,15 @@ export function StackCard({
                   e.stopPropagation();
                   onLike(item);
                 }}
-                className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-bark-100 hover:bg-bark-200 transition-colors"
+                className="pill pill--quiet flex items-center gap-1"
                 aria-label={item.isLiked ? 'Unlike' : 'Like'}
               >
                 {item.isLiked ? (
                   <HeartIconSolid className="w-4 h-4 text-red-500" />
                 ) : (
-                  <HeartIcon className="w-4 h-4 text-bark-600" />
+                  <HeartIcon className="w-4 h-4" />
                 )}
-                <span className="text-xs text-bark-600">{item.likes || 0}</span>
+                <span className="text-xs font-medium">{item.likes || 0}</span>
               </button>
               
               <button
@@ -113,10 +113,10 @@ export function StackCard({
                   e.stopPropagation();
                   onShare(item);
                 }}
-                className="p-1.5 rounded-lg bg-bark-100 hover:bg-bark-200 transition-colors"
+                className="pill pill--quiet"
                 aria-label="Share"
               >
-                <ShareIcon className="w-4 h-4 text-bark-600" />
+                <ShareIcon className="w-4 h-4" />
               </button>
               
               <button
@@ -124,10 +124,10 @@ export function StackCard({
                   e.stopPropagation();
                   onAddPost(item);
                 }}
-                className="p-1.5 rounded-lg bg-bark-100 hover:bg-bark-200 transition-colors"
+                className="pill pill--quiet"
                 aria-label="Add Post"
               >
-                <PlusIcon className="w-4 h-4 text-bark-600" />
+                <PlusIcon className="w-4 h-4" />
               </button>
             </div>
           </div>
