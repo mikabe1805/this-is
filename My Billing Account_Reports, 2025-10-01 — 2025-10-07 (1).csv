@@ -1,0 +1,143 @@
+Date,Service description,Service ID,SKU description,SKU ID,Usage amount,Usage unit,Cost ($),Savings programs ($),Other savings ($),Unrounded subtotal ($),Subtotal ($)
+2025-10-07,Artifact Registry,149C-F9EC-3994,Artifact Registry Storage,8502-299A-ABAF,0.001,gibibyte month,0.00,0.00,0.00,0.000000,0.00
+2025-10-07,Cloud Scheduler,1F14-4801-0E16,Jobs,A5D6-43A2-28A7,2,count,0.00,0.00,0.00,0.000000,0.00
+2025-10-07,Firebase Hosting,2662-232A-AC11,Outgoing Bandwidth,5DF2-5F92-77F0,0,gibibyte,0.00,0.00,0.00,0.000000,0.00
+2025-10-07,Firebase Hosting,2662-232A-AC11,Storage,6B36-F770-533F,0,gibibyte month,0.00,0.00,0.00,0.000000,0.00
+2025-10-07,Secret Manager,EE82-7A5E-871C,Secret version replica storage,7756-ADEF-84F4,0.046,month,0.00,0.00,0.00,0.000000,0.00
+2025-10-06,Places API,213C-9623-1402,Places Details,FC5C-DF28-543F,"2,835",count,45.15,0.00,0.00,45.152000,45.15
+2025-10-06,Places API,213C-9623-1402,Places Photo,81E7-85D0-58A7,"3,051",count,21.36,0.00,0.00,21.357000,21.36
+2025-10-06,Places API,213C-9623-1402,Atmosphere Data,D63D-5CC5-302A,"3,072",count,15.36,0.00,0.00,15.360000,15.36
+2025-10-06,Places API,213C-9623-1402,Contact Data,F095-CD01-81B2,"3,072",count,9.22,0.00,0.00,9.216000,9.22
+2025-10-06,Geocoding API,0AC2-4B25-C429,Geocoding,BAC8-4E68-E261,20,count,0.00,0.00,0.00,0.000000,0.00
+2025-10-06,Artifact Registry,149C-F9EC-3994,Artifact Registry Network Internet Egress North America to North America,108E-9EAE-92D9,0,gibibyte,0.00,0.00,0.00,0.000000,0.00
+2025-10-06,Artifact Registry,149C-F9EC-3994,Artifact Registry Storage,8502-299A-ABAF,0.003,gibibyte month,0.00,0.00,0.00,0.000000,0.00
+2025-10-06,Cloud Scheduler,1F14-4801-0E16,Jobs,A5D6-43A2-28A7,2,count,0.00,0.00,0.00,0.000000,0.00
+2025-10-06,Places API,213C-9623-1402,Places - Nearby Search,6B23-8A17-D29D,237,count,0.00,0.00,0.00,0.000000,0.00
+2025-10-06,Places API,213C-9623-1402,Basic Data,75D4-C522-326B,"3,072",count,0.00,0.00,0.00,0.000000,0.00
+2025-10-06,Firebase Hosting,2662-232A-AC11,Outgoing Bandwidth,5DF2-5F92-77F0,0.008,gibibyte,0.00,0.00,0.00,0.000000,0.00
+2025-10-06,Firebase Hosting,2662-232A-AC11,Storage,6B36-F770-533F,0.085,gibibyte month,0.00,0.00,0.00,0.000000,0.00
+2025-10-06,Cloud Run Functions,29E7-DA93-CA13,Cloud Run Functions Network Internet Data Transfer Out North America to North America,40B8-0628-A00F,0.011,gibibyte,0.00,0.00,0.00,0.000000,0.00
+2025-10-06,Cloud Run Functions,29E7-DA93-CA13,Cloud Run Functions GOOGLE-API Data Transfer Out,6D32-700C-60C3,0,gibibyte,0.00,0.00,0.00,0.000000,0.00
+2025-10-06,Cloud Run Functions,29E7-DA93-CA13,Cloud Run functions Memory (Request-based billing) in us-central1,769A-FA0B-B049,34.65,gibibyte second,0.00,0.00,-0.00,0.000000,0.00
+2025-10-06,Cloud Run Functions,29E7-DA93-CA13,Cloud Run Functions Invocations,92DF-0F0E-630F,388,count,0.00,0.00,0.00,0.000000,0.00
+2025-10-06,Cloud Run Functions,29E7-DA93-CA13,Cloud Run functions CPU (Request-based billing) in us-central1,AD70-830E-0384,233.74,second,0.01,0.00,-0.01,0.000000,0.00
+2025-10-06,Cloud Logging,5490-F7B7-8DF6,Log Storage cost,143F-A1B0-E0BE,0.002,gibibyte,0.00,0.00,0.00,0.000000,0.00
+2025-10-06,Firebase App Hosting,825D-BF56-C188,Firebase App Hosting -- Uncached Response Bytes (from BRU),2DA4-83D6-7E6D,0,gibibyte,0.00,0.00,-0.00,0.000000,0.00
+2025-10-06,Firebase App Hosting,825D-BF56-C188,Firebase App Hosting -- Uncached Response Bytes (from TPE),4072-8CE2-F75C,0,gibibyte,0.00,0.00,-0.00,0.000000,0.00
+2025-10-06,Firebase App Hosting,825D-BF56-C188,Firebase App Hosting -- Uncached Response Bytes (from CBF),C509-11B9-542B,0,gibibyte,0.00,0.00,0.00,0.000000,0.00
+2025-10-06,Cloud Build,8B5D-EF7D-EB12,Build time e2-standard-2,A464-9020-6404,0.95,minute,0.00,0.00,0.00,0.000000,0.00
+2025-10-06,Cloud Storage,95FF-2EF5-5EA1,Download Worldwide Destinations (excluding Asia & Australia),22EB-AAE8-FBCD,0.005,gibibyte,0.00,0.00,0.00,0.000000,0.00
+2025-10-06,Cloud Storage,95FF-2EF5-5EA1,Regional Standard Class B Operations,7870-010B-2763,16,count,0.00,0.00,0.00,0.000000,0.00
+2025-10-06,Cloud Pub/Sub,A1E8-BE35-7EBC,Message Delivery Basic,027D-B6C7-CCA2,0,tebibyte,0.00,0.00,0.00,0.000000,0.00
+2025-10-06,Cloud Pub/Sub,A1E8-BE35-7EBC,Intra-region data delivery,460A-7826-0471,0,gibibyte,0.00,0.00,0.00,0.000000,0.00
+2025-10-06,Secret Manager,EE82-7A5E-871C,Secret version replica storage,7756-ADEF-84F4,0.226,month,0.00,0.00,0.00,0.000000,0.00
+2025-10-06,App Engine,F17B-412E-CB64,Cloud Firestore Internet Data Transfer Out from the Americas to the Americas,32AE-2ECD-3D23,0.001,gibibyte,0.00,0.00,0.00,0.000000,0.00
+2025-10-06,App Engine,F17B-412E-CB64,Cloud Firestore Entity Writes,4BFF-324E-4B50,16,count,0.00,0.00,0.00,0.000000,0.00
+2025-10-06,App Engine,F17B-412E-CB64,Cloud Firestore Storage,5C80-18C6-21C5,0.002,gibibyte month,0.00,0.00,0.00,0.000000,0.00
+2025-10-06,App Engine,F17B-412E-CB64,Cloud Firestore Small Ops,6949-BBE8-AD90,17,count,0.00,0.00,0.00,0.000000,0.00
+2025-10-06,App Engine,F17B-412E-CB64,Cloud Firestore Entity Deletes,E2D4-11D8-16C0,700,count,0.00,0.00,0.00,0.000000,0.00
+2025-10-06,App Engine,F17B-412E-CB64,Cloud Firestore Read Ops,FF6D-2156-62C2,"2,398",count,0.00,0.00,0.00,0.000000,0.00
+2025-10-05,Places API,213C-9623-1402,Places Photo,81E7-85D0-58A7,850,count,5.95,0.00,0.00,5.950000,5.95
+2025-10-05,Places API,213C-9623-1402,Atmosphere Data,D63D-5CC5-302A,793,count,3.96,0.00,0.00,3.965000,3.96
+2025-10-05,Places API,213C-9623-1402,Contact Data,F095-CD01-81B2,793,count,2.38,0.00,0.00,2.379000,2.38
+2025-10-05,Artifact Registry,149C-F9EC-3994,Artifact Registry Storage,8502-299A-ABAF,0.003,gibibyte month,0.00,0.00,0.00,0.000000,0.00
+2025-10-05,Cloud Scheduler,1F14-4801-0E16,Jobs,A5D6-43A2-28A7,2,count,0.00,0.00,0.00,0.000000,0.00
+2025-10-05,Places API,213C-9623-1402,Places - Nearby Search,6B23-8A17-D29D,61,count,0.00,0.00,0.00,0.000000,0.00
+2025-10-05,Places API,213C-9623-1402,Basic Data,75D4-C522-326B,793,count,0.00,0.00,0.00,0.000000,0.00
+2025-10-05,Places API,213C-9623-1402,Places Details,FC5C-DF28-543F,732,count,0.00,0.00,0.00,0.000000,0.00
+2025-10-05,Firebase Hosting,2662-232A-AC11,Storage,6B36-F770-533F,0.088,gibibyte month,0.00,0.00,0.00,0.000000,0.00
+2025-10-05,Cloud Run Functions,29E7-DA93-CA13,Cloud Run Functions Network Internet Data Transfer Out North America to North America,40B8-0628-A00F,0.003,gibibyte,0.00,0.00,0.00,0.000000,0.00
+2025-10-05,Cloud Run Functions,29E7-DA93-CA13,Cloud Run functions Memory (Request-based billing) in us-central1,769A-FA0B-B049,7.175,gibibyte second,0.00,0.00,-0.00,0.000000,0.00
+2025-10-05,Cloud Run Functions,29E7-DA93-CA13,Cloud Run Functions Invocations,92DF-0F0E-630F,76,count,0.00,0.00,0.00,0.000000,0.00
+2025-10-05,Cloud Run Functions,29E7-DA93-CA13,Cloud Run functions CPU (Request-based billing) in us-central1,AD70-830E-0384,50.434,second,0.00,0.00,-0.00,0.000000,0.00
+2025-10-05,Cloud Logging,5490-F7B7-8DF6,Log Storage cost,143F-A1B0-E0BE,0,gibibyte,0.00,0.00,0.00,0.000000,0.00
+2025-10-05,Firebase App Hosting,825D-BF56-C188,Firebase App Hosting -- Uncached Response Bytes (from TLV),031C-62A1-56B8,0,gibibyte,0.00,0.00,-0.00,0.000000,0.00
+2025-10-05,Cloud Storage,95FF-2EF5-5EA1,Download Worldwide Destinations (excluding Asia & Australia),22EB-AAE8-FBCD,0.006,gibibyte,0.00,0.00,0.00,0.000000,0.00
+2025-10-05,Cloud Storage,95FF-2EF5-5EA1,Regional Standard Class B Operations,7870-010B-2763,35,count,0.00,0.00,0.00,0.000000,0.00
+2025-10-05,Cloud Storage,95FF-2EF5-5EA1,Standard Storage US Regional,E5F0-6A5D-7BAD,0.014,gibibyte month,0.00,0.00,0.00,0.000000,0.00
+2025-10-05,Secret Manager,EE82-7A5E-871C,Secret version replica storage,7756-ADEF-84F4,0.226,month,0.00,0.00,0.00,0.000000,0.00
+2025-10-05,App Engine,F17B-412E-CB64,Cloud Firestore Internet Data Transfer Out from the Americas to the Americas,32AE-2ECD-3D23,0,gibibyte,0.00,0.00,0.00,0.000000,0.00
+2025-10-05,App Engine,F17B-412E-CB64,Cloud Firestore Entity Writes,4BFF-324E-4B50,8,count,0.00,0.00,0.00,0.000000,0.00
+2025-10-05,App Engine,F17B-412E-CB64,Cloud Firestore Storage,5C80-18C6-21C5,0.002,gibibyte month,0.00,0.00,0.00,0.000000,0.00
+2025-10-05,App Engine,F17B-412E-CB64,Cloud Firestore Read Ops,FF6D-2156-62C2,276,count,0.00,0.00,0.00,0.000000,0.00
+2025-10-04,Places API,213C-9623-1402,Places Photo,81E7-85D0-58A7,"2,192",count,15.34,0.00,0.00,15.344000,15.34
+2025-10-04,Places API,213C-9623-1402,Atmosphere Data,D63D-5CC5-302A,"1,816",count,9.08,0.00,0.00,9.080000,9.08
+2025-10-04,Places API,213C-9623-1402,Contact Data,F095-CD01-81B2,"1,816",count,5.45,0.00,0.00,5.448000,5.45
+2025-10-04,Artifact Registry,149C-F9EC-3994,Artifact Registry Network Internet Egress North America to North America,108E-9EAE-92D9,0,gibibyte,0.00,0.00,0.00,0.000000,0.00
+2025-10-04,Artifact Registry,149C-F9EC-3994,Artifact Registry Storage,8502-299A-ABAF,0.001,gibibyte month,0.00,0.00,0.00,0.000000,0.00
+2025-10-04,Cloud Scheduler,1F14-4801-0E16,Jobs,A5D6-43A2-28A7,2,count,0.00,0.00,0.00,0.000000,0.00
+2025-10-04,Places API,213C-9623-1402,Places - Nearby Search,6B23-8A17-D29D,150,count,0.00,0.00,0.00,0.000000,0.00
+2025-10-04,Places API,213C-9623-1402,Basic Data,75D4-C522-326B,"1,816",count,0.00,0.00,0.00,0.000000,0.00
+2025-10-04,Places API,213C-9623-1402,Places - Text Search,E95A-86C7-7F47,13,count,0.00,0.00,0.00,0.000000,0.00
+2025-10-04,Places API,213C-9623-1402,Places Details,FC5C-DF28-543F,"1,653",count,0.00,0.00,0.00,0.000000,0.00
+2025-10-04,Firebase Hosting,2662-232A-AC11,Storage,6B36-F770-533F,0.088,gibibyte month,0.00,0.00,0.00,0.000000,0.00
+2025-10-04,Cloud Run Functions,29E7-DA93-CA13,Cloud Run Functions Network Internet Data Transfer Out North America to North America,40B8-0628-A00F,0.006,gibibyte,0.00,0.00,0.00,0.000000,0.00
+2025-10-04,Cloud Run Functions,29E7-DA93-CA13,Cloud Run functions Memory (Request-based billing) in us-central1,769A-FA0B-B049,24.125,gibibyte second,0.00,0.00,-0.00,0.000000,0.00
+2025-10-04,Cloud Run Functions,29E7-DA93-CA13,Cloud Run Functions Invocations,92DF-0F0E-630F,210,count,0.00,0.00,0.00,0.000000,0.00
+2025-10-04,Cloud Run Functions,29E7-DA93-CA13,Cloud Run functions CPU (Request-based billing) in us-central1,AD70-830E-0384,154.212,second,0.00,0.00,-0.00,0.000000,0.00
+2025-10-04,Cloud Logging,5490-F7B7-8DF6,Log Storage cost,143F-A1B0-E0BE,0.001,gibibyte,0.00,0.00,0.00,0.000000,0.00
+2025-10-04,Cloud Build,8B5D-EF7D-EB12,Build time e2-standard-2,A464-9020-6404,1.383,minute,0.00,0.00,0.00,0.000000,0.00
+2025-10-04,Cloud Storage,95FF-2EF5-5EA1,Download Worldwide Destinations (excluding Asia & Australia),22EB-AAE8-FBCD,0.002,gibibyte,0.00,0.00,0.00,0.000000,0.00
+2025-10-04,Cloud Storage,95FF-2EF5-5EA1,Regional Standard Class A Operations,4DBF-185F-A415,2,count,0.00,0.00,0.00,0.000000,0.00
+2025-10-04,Cloud Storage,95FF-2EF5-5EA1,Regional Standard Class B Operations,7870-010B-2763,41,count,0.00,0.00,0.00,0.000000,0.00
+2025-10-04,Cloud Storage,95FF-2EF5-5EA1,Standard Storage US Regional,E5F0-6A5D-7BAD,0.013,gibibyte month,0.00,0.00,0.00,0.000000,0.00
+2025-10-04,Cloud Pub/Sub,A1E8-BE35-7EBC,Message Delivery Basic,027D-B6C7-CCA2,0,tebibyte,0.00,0.00,0.00,0.000000,0.00
+2025-10-04,Cloud Pub/Sub,A1E8-BE35-7EBC,Intra-region data delivery,460A-7826-0471,0,gibibyte,0.00,0.00,0.00,0.000000,0.00
+2025-10-04,Secret Manager,EE82-7A5E-871C,Secret version replica storage,7756-ADEF-84F4,0.226,month,0.00,0.00,0.00,0.000000,0.00
+2025-10-04,App Engine,F17B-412E-CB64,Cloud Firestore Internet Data Transfer Out from the Americas to the Americas,32AE-2ECD-3D23,0.001,gibibyte,0.00,0.00,0.00,0.000000,0.00
+2025-10-04,App Engine,F17B-412E-CB64,Cloud Firestore Entity Writes,4BFF-324E-4B50,29,count,0.00,0.00,0.00,0.000000,0.00
+2025-10-04,App Engine,F17B-412E-CB64,Cloud Firestore Storage,5C80-18C6-21C5,0.002,gibibyte month,0.00,0.00,0.00,0.000000,0.00
+2025-10-04,App Engine,F17B-412E-CB64,Cloud Firestore Read Ops,FF6D-2156-62C2,592,count,0.00,0.00,0.00,0.000000,0.00
+2025-10-03,Places API,213C-9623-1402,Places Photo,81E7-85D0-58A7,"2,990",count,13.93,0.00,0.00,13.930000,13.93
+2025-10-03,Places API,213C-9623-1402,Atmosphere Data,D63D-5CC5-302A,"2,639",count,8.20,0.00,0.00,8.195000,8.20
+2025-10-03,Places API,213C-9623-1402,Contact Data,F095-CD01-81B2,"2,639",count,4.92,0.00,0.00,4.917000,4.92
+2025-10-03,Cloud Scheduler,1F14-4801-0E16,Jobs,A5D6-43A2-28A7,2,count,0.00,0.00,0.00,0.000000,0.00
+2025-10-03,Places API,213C-9623-1402,Places - Nearby Search,6B23-8A17-D29D,203,count,0.00,0.00,0.00,0.000000,0.00
+2025-10-03,Places API,213C-9623-1402,Basic Data,75D4-C522-326B,"2,639",count,0.00,0.00,0.00,0.000000,0.00
+2025-10-03,Places API,213C-9623-1402,Places Details,FC5C-DF28-543F,"2,436",count,0.00,0.00,0.00,0.000000,0.00
+2025-10-03,Firebase Hosting,2662-232A-AC11,Outgoing Bandwidth,5DF2-5F92-77F0,0.175,gibibyte,0.00,0.00,0.00,0.000000,0.00
+2025-10-03,Firebase Hosting,2662-232A-AC11,Storage,6B36-F770-533F,0.088,gibibyte month,0.00,0.00,0.00,0.000000,0.00
+2025-10-03,Cloud Run Functions,29E7-DA93-CA13,Cloud Run Functions Network Internet Data Transfer Out North America to North America,40B8-0628-A00F,0.01,gibibyte,0.00,0.00,0.00,0.000000,0.00
+2025-10-03,Cloud Run Functions,29E7-DA93-CA13,Cloud Run functions Memory (Request-based billing) in us-central1,769A-FA0B-B049,19.875,gibibyte second,0.00,0.00,-0.00,0.000000,0.00
+2025-10-03,Cloud Run Functions,29E7-DA93-CA13,Cloud Run Functions Invocations,92DF-0F0E-630F,268,count,0.00,0.00,0.00,0.000000,0.00
+2025-10-03,Cloud Run Functions,29E7-DA93-CA13,Cloud Run functions CPU (Request-based billing) in us-central1,AD70-830E-0384,128.625,second,0.00,0.00,-0.00,0.000000,0.00
+2025-10-03,Cloud Logging,5490-F7B7-8DF6,Log Storage cost,143F-A1B0-E0BE,0.001,gibibyte,0.00,0.00,0.00,0.000000,0.00
+2025-10-03,Firebase App Hosting,825D-BF56-C188,Firebase App Hosting -- Uncached Response Bytes (from YYZ),5F69-73B4-6053,0,gibibyte,0.00,0.00,-0.00,0.000000,0.00
+2025-10-03,Cloud Storage,95FF-2EF5-5EA1,Download Worldwide Destinations (excluding Asia & Australia),22EB-AAE8-FBCD,0.064,gibibyte,0.00,0.00,0.00,0.000000,0.00
+2025-10-03,Cloud Storage,95FF-2EF5-5EA1,Regional Standard Class B Operations,7870-010B-2763,254,count,0.00,0.00,0.00,0.000000,0.00
+2025-10-03,Cloud Storage,95FF-2EF5-5EA1,Standard Storage US Regional,E5F0-6A5D-7BAD,0.013,gibibyte month,0.00,0.00,0.00,0.000000,0.00
+2025-10-03,Secret Manager,EE82-7A5E-871C,Secret version replica storage,7756-ADEF-84F4,0.226,month,0.00,0.00,0.00,0.000000,0.00
+2025-10-03,App Engine,F17B-412E-CB64,Cloud Firestore Internet Data Transfer Out from the Americas to the Americas,32AE-2ECD-3D23,0.002,gibibyte,0.00,0.00,0.00,0.000000,0.00
+2025-10-03,App Engine,F17B-412E-CB64,Cloud Firestore Entity Writes,4BFF-324E-4B50,"1,145",count,0.00,0.00,0.00,0.000000,0.00
+2025-10-03,App Engine,F17B-412E-CB64,Cloud Firestore Storage,5C80-18C6-21C5,0.002,gibibyte month,0.00,0.00,0.00,0.000000,0.00
+2025-10-03,App Engine,F17B-412E-CB64,Cloud Firestore Read Ops,FF6D-2156-62C2,"1,382",count,0.00,0.00,0.00,0.000000,0.00
+2025-10-02,Cloud Scheduler,1F14-4801-0E16,Jobs,A5D6-43A2-28A7,2,count,0.00,0.00,0.00,0.000000,0.00
+2025-10-02,Firebase Hosting,2662-232A-AC11,Storage,6B36-F770-533F,0.088,gibibyte month,0.00,0.00,0.00,0.000000,0.00
+2025-10-02,Cloud Run Functions,29E7-DA93-CA13,Cloud Run functions Memory (Request-based billing) in us-central1,769A-FA0B-B049,2.7,gibibyte second,0.00,0.00,-0.00,0.000000,0.00
+2025-10-02,Cloud Run Functions,29E7-DA93-CA13,Cloud Run Functions Invocations,92DF-0F0E-630F,2,count,0.00,0.00,0.00,0.000000,0.00
+2025-10-02,Cloud Run Functions,29E7-DA93-CA13,Cloud Run functions CPU (Request-based billing) in us-central1,AD70-830E-0384,20.05,second,0.00,0.00,-0.00,0.000000,0.00
+2025-10-02,Cloud Logging,5490-F7B7-8DF6,Log Storage cost,143F-A1B0-E0BE,0,gibibyte,0.00,0.00,0.00,0.000000,0.00
+2025-10-02,Firebase App Hosting,825D-BF56-C188,Firebase App Hosting -- Uncached Response Bytes (from YYZ),5F69-73B4-6053,0,gibibyte,0.00,0.00,-0.00,0.000000,0.00
+2025-10-02,Cloud Storage,95FF-2EF5-5EA1,Standard Storage US Regional,E5F0-6A5D-7BAD,0.013,gibibyte month,0.00,0.00,0.00,0.000000,0.00
+2025-10-02,Secret Manager,EE82-7A5E-871C,Secret version replica storage,7756-ADEF-84F4,0.226,month,0.00,0.00,0.00,0.000000,0.00
+2025-10-02,App Engine,F17B-412E-CB64,Cloud Firestore Entity Writes,4BFF-324E-4B50,8,count,0.00,0.00,0.00,0.000000,0.00
+2025-10-02,App Engine,F17B-412E-CB64,Cloud Firestore Storage,5C80-18C6-21C5,0.002,gibibyte month,0.00,0.00,0.00,0.000000,0.00
+2025-10-02,App Engine,F17B-412E-CB64,Cloud Firestore Read Ops,FF6D-2156-62C2,39,count,0.00,0.00,0.00,0.000000,0.00
+2025-10-01,Cloud Scheduler,1F14-4801-0E16,Jobs,A5D6-43A2-28A7,2,count,0.00,0.00,0.00,0.000000,0.00
+2025-10-01,Firebase Hosting,2662-232A-AC11,Storage,6B36-F770-533F,0.088,gibibyte month,0.00,0.00,0.00,0.000000,0.00
+2025-10-01,Cloud Run Functions,29E7-DA93-CA13,Cloud Run functions Memory (Request-based billing) in us-central1,769A-FA0B-B049,2.225,gibibyte second,0.00,0.00,-0.00,0.000000,0.00
+2025-10-01,Cloud Run Functions,29E7-DA93-CA13,Cloud Run Functions Invocations,92DF-0F0E-630F,2,count,0.00,0.00,0.00,0.000000,0.00
+2025-10-01,Cloud Run Functions,29E7-DA93-CA13,Cloud Run functions CPU (Request-based billing) in us-central1,AD70-830E-0384,16.65,second,0.00,0.00,-0.00,0.000000,0.00
+2025-10-01,Cloud Logging,5490-F7B7-8DF6,Log Storage cost,143F-A1B0-E0BE,0,gibibyte,0.00,0.00,0.00,0.000000,0.00
+2025-10-01,Firebase App Hosting,825D-BF56-C188,Firebase App Hosting -- Uncached Response Bytes (from PHX),0D0B-D0AA-BF81,0,gibibyte,0.00,0.00,-0.00,0.000000,0.00
+2025-10-01,Firebase App Hosting,825D-BF56-C188,Firebase App Hosting -- Uncached Response Bytes (from QRO),3C56-CF2C-DFA3,0,gibibyte,0.00,0.00,-0.00,0.000000,0.00
+2025-10-01,Firebase App Hosting,825D-BF56-C188,Firebase App Hosting -- Uncached Response Bytes (from YYZ),5F69-73B4-6053,0,gibibyte,0.00,0.00,-0.00,0.000000,0.00
+2025-10-01,Firebase App Hosting,825D-BF56-C188,Firebase App Hosting -- Uncached Response Bytes (from CBF),C509-11B9-542B,0,gibibyte,0.00,0.00,-0.00,0.000000,0.00
+2025-10-01,Cloud Storage,95FF-2EF5-5EA1,Standard Storage US Regional,E5F0-6A5D-7BAD,0.013,gibibyte month,0.00,0.00,0.00,0.000000,0.00
+2025-10-01,Secret Manager,EE82-7A5E-871C,Secret version replica storage,7756-ADEF-84F4,0.226,month,0.00,0.00,0.00,0.000000,0.00
+2025-10-01,App Engine,F17B-412E-CB64,Cloud Firestore Entity Writes,4BFF-324E-4B50,8,count,0.00,0.00,0.00,0.000000,0.00
+2025-10-01,App Engine,F17B-412E-CB64,Cloud Firestore Storage,5C80-18C6-21C5,0.002,gibibyte month,0.00,0.00,0.00,0.000000,0.00
+2025-10-01,App Engine,F17B-412E-CB64,Cloud Firestore Read Ops,FF6D-2156-62C2,39,count,0.00,0.00,0.00,0.000000,0.00
+,,,,,,,,Subtotal,160.293000,160.29
+,,,,,,,,Tax,0.000000,0.00
+,,,,,,,,Total,160.293000,160.29

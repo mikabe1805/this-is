@@ -71,51 +71,37 @@ export const suggestPlaces = onRequest({ cors: true }, async (req, res) => {
     }
 
     const baseResults = ((data && data.results) ? data.results : []).slice(0, limit)
-    // Enrich top results with Details for images/summary and maps URL
-    const enriched: Record<string, any> = {}
-    try {
-      const detailsCap = Math.min(baseResults.length, Math.min(16, Number(limit) || 12))
-      await Promise.all(baseResults.slice(0, detailsCap).map(async (p: any) => {
-        const detailsUrl = new URL('https://maps.googleapis.com/maps/api/place/details/json')
-        detailsUrl.searchParams.set('place_id', p.place_id)
-        detailsUrl.searchParams.set('fields', 'place_id,formatted_address,editorial_summary,photos,url,website,rating,user_ratings_total')
-        detailsUrl.searchParams.set('key', key)
-        const rd = await fetch(detailsUrl.toString())
-        if (!rd.ok) return
-        const dd: any = await rd.json()
-        if (dd?.result) enriched[p.place_id] = dd.result
-      }))
-    } catch (e) {
-      logger.warn('Details enrichment failed', e)
-    }
+    // COST OPTIMIZATION: Skip Details enrichment entirely
+    // Nearby/Text Search already provides: name, address, photos, rating, geometry
+    // Only request Details when user clicks on a specific place (client-side)
+    // Note: Removed Details calls to save $0.015 per place
+    // Client can request Details on-demand with BASIC_FIELDS only ($0 cost)
 
     const results = baseResults.map((p: any) => {
+      // Nearby/Text Search provides: name, address, photos, rating, geometry, types
+      // No Details call needed - saves $0.015 per place!
       const photoRef = Array.isArray(p.photos) && p.photos[0]?.photo_reference
-      // Use a safer photo URL: prefer 'maxheight' and add 'sensor=false' to be explicit; avoid oversized widths
       const photoUrl = photoRef ? `https://maps.googleapis.com/maps/api/place/photo?maxheight=540&photo_reference=${photoRef}&sensor=false&key=${key}` : ''
-      const det = enriched[p.place_id] || {}
-      const extraPhotos = Array.isArray(det.photos) ? det.photos.slice(0, 6).map((ph: any) => `https://maps.googleapis.com/maps/api/place/photo?maxheight=540&photo_reference=${ph.photo_reference}&sensor=false&key=${key}`) : []
-      // Prefer details photos first; fall back to Nearby photo if details missing
-      const allImages: string[] = (extraPhotos.length > 0 ? extraPhotos : (photoUrl ? [photoUrl] : [])).filter(Boolean)
-      const main = allImages[0] || photoUrl || ''
-      const mapsUrl = det.url || `https://www.google.com/maps/search/?api=1&query=place_id:${p.place_id}`
+      const allImages: string[] = (photoUrl ? [photoUrl] : []).filter(Boolean)
+      const mapsUrl = `https://www.google.com/maps/search/?api=1&query=place_id:${p.place_id}`
+      
       return {
         id: p.place_id,
         placeId: p.place_id,
         name: p.name,
-        address: det.formatted_address || p.formatted_address || p.vicinity || '',
+        address: p.formatted_address || p.vicinity || '',
         coordinates: { lat: p.geometry?.location?.lat, lng: p.geometry?.location?.lng },
         category: Array.isArray(p.types) && p.types.length > 0 ? p.types[0] : 'place',
         tags: Array.isArray(p.types) ? p.types.slice(0, 6) : [],
-        mainImage: main,
+        mainImage: photoUrl || '',
         images: allImages,
         savedCount: 0,
         source: 'google',
-        rating: typeof (det.rating ?? p.rating) === 'number' ? (det.rating ?? p.rating) : undefined,
-        userRatingsTotal: typeof (det.user_ratings_total ?? p.user_ratings_total) === 'number' ? (det.user_ratings_total ?? p.user_ratings_total) : undefined,
+        rating: typeof p.rating === 'number' ? p.rating : undefined,
+        userRatingsTotal: typeof p.user_ratings_total === 'number' ? p.user_ratings_total : undefined,
         priceLevel: typeof p.price_level === 'number' ? p.price_level : undefined,
-        description: det.editorial_summary?.overview || '',
-        website: det.website || '',
+        description: '', // Not included in Nearby/Text Search (would require premium Details call)
+        website: '', // Not included in Nearby/Text Search (would require premium Details call)
         googleMapsUrl: mapsUrl,
         openNow: p.opening_hours?.open_now === true
       }
