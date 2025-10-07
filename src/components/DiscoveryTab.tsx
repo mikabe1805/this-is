@@ -19,6 +19,7 @@ import {
 import { firebaseDataService } from '../services/firebaseDataService.js'
 import { doc, onSnapshot } from 'firebase/firestore'
 import { db } from '../firebase/config'
+import SafeImage from './ui/SafeImage'
 
 const DiscoveryTab = () => {
   const { 
@@ -850,7 +851,7 @@ const DiscoveryTab = () => {
                   <div className="flex">
                     {list.coverImage && (
                       <div className="w-24 h-24 bg-linen-100 flex-shrink-0">
-                        <img src={list.coverImage} alt={list.name} className="w-full h-full object-cover" />
+                        <SafeImage src={list.coverImage} alt={list.name} className="w-full h-full object-cover" />
                       </div>
                     )}
                     <div className="flex-1 p-4 flex flex-col justify-between">

@@ -9,6 +9,7 @@ import { formatTimestamp } from '../utils/dateUtils.ts'
 import ImageCarousel from './ImageCarousel.tsx'
 import { firebaseDataService } from '../services/firebaseDataService.ts'
 import TagPill from './TagPill'
+import SafeImage from './ui/SafeImage'
 
 interface HubModalProps {
   hub: Hub
@@ -277,11 +278,10 @@ const HubModal = ({ hub, isOpen, onClose, onAddPost, onSave, onShare, onOpenFull
         
           {/* Header with image */}
         <div className="relative h-64 bg-gradient-to-br from-[#D4A574] via-[#C17F59] to-[#A67C52] overflow-hidden">
-          <img
+          <SafeImage
             src={hub?.mainImage || '/assets/leaf.png'}
             alt={hub?.name || 'Hub'}
             className="w-full h-full object-cover"
-            onError={(e) => { (e.currentTarget as HTMLImageElement).src = '/assets/leaf.png' }}
           />
           {/* Enhanced gradient overlay */}
           <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
@@ -507,7 +507,7 @@ const HubModal = ({ hub, isOpen, onClose, onAddPost, onSave, onShare, onOpenFull
                           onClick={() => handleListClick(list)}
                         >
                           {list.coverImage && (
-                            <img src={list.coverImage} alt={list.name} className="w-12 h-12 rounded-lg object-cover border border-[#E8D4C0]/50 shadow-sm" />
+                            <SafeImage src={list.coverImage} alt={list.name} className="w-12 h-12 rounded-lg object-cover border border-[#E8D4C0]/50 shadow-sm" />
                           )}
                           <div className="flex-1 min-w-0">
                             <h4 className="font-serif font-semibold text-[#5D4A2E] truncate">{list.name}</h4>
@@ -549,7 +549,7 @@ const HubModal = ({ hub, isOpen, onClose, onAddPost, onSave, onShare, onOpenFull
                           onClick={() => handleListClick(list)}
                         >
                           {list.coverImage && (
-                            <img src={list.coverImage} alt={list.name} className="w-12 h-12 rounded-lg object-cover border border-[#E8D4C0]/50 shadow-sm" />
+                            <SafeImage src={list.coverImage} alt={list.name} className="w-12 h-12 rounded-lg object-cover border border-[#E8D4C0]/50 shadow-sm" />
                           )}
                           <div className="flex-1 min-w-0">
                             <h4 className="font-serif font-semibold text-[#5D4A2E] truncate">{list.name}</h4>
@@ -585,13 +585,10 @@ const HubModal = ({ hub, isOpen, onClose, onAddPost, onSave, onShare, onOpenFull
                   <div className="space-y-3 mb-4">
                     {posts.flatMap(post => post?.comments || []).filter(comment => comment).slice(0, 2).map((comment) => (
                       <div key={comment.id} className="flex items-start gap-3 p-3 bg-[#fdf6e3] backdrop-blur-sm rounded-xl shadow-md border border-[#E8D4C0]/40">
-                        <img 
+                        <SafeImage 
                           src={comment?.userAvatar || '/assets/default-avatar.svg'} 
                           alt={comment?.username || 'User'} 
-                          className="w-10 h-10 rounded-lg object-cover border border-[#E8D4C0] shadow-sm flex-shrink-0" 
-                          onError={(e) => {
-                            e.currentTarget.src = '/assets/default-avatar.svg';
-                          }}
+                          className="w-10 h-10 rounded-lg object-cover border border-[#E8D4C0] shadow-sm flex-shrink-0"
                         />
                         <div className="flex-1">
                           <div className="flex items-center gap-2 mb-1">
@@ -646,13 +643,10 @@ const HubModal = ({ hub, isOpen, onClose, onAddPost, onSave, onShare, onOpenFull
                       onClick={() => handlePostClick(post)}
                     >
                       <div className="flex items-start space-x-3 mb-3">
-                        <img
+                        <SafeImage
                           src={post?.userAvatar || '/assets/default-avatar.svg'}
                           alt={post?.username || 'User'}
                           className="w-10 h-10 rounded-full object-cover border-2 border-white shadow-sm"
-                          onError={(e) => {
-                            e.currentTarget.src = '/assets/default-avatar.svg';
-                          }}
                         />
                         <div className="flex-1">
                           <div className="flex items-center space-x-2">
@@ -672,7 +666,7 @@ const HubModal = ({ hub, isOpen, onClose, onAddPost, onSave, onShare, onOpenFull
                               className="h-64"
                             />
                           ) : (
-                            <img
+                            <SafeImage
                               src={post.images[0]}
                               alt="Post"
                               className="w-full h-64 object-cover rounded-lg shadow-md"
