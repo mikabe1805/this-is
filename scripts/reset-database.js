@@ -4,17 +4,23 @@
  * USE WITH CAUTION - This cannot be undone!
  */
 
-import admin from 'firebase-admin';
-import { readFileSync } from 'fs';
+const admin = require('firebase-admin');
 
-// Initialize Firebase Admin
-const serviceAccount = JSON.parse(
-  readFileSync('./firebase-service-account.json', 'utf8')
-);
+// Initialize Firebase Admin (same pattern as existing scripts)
+const serviceAccount = process.env.FIREBASE_SERVICE_ACCOUNT_KEY 
+  ? JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY)
+  : null;
 
-admin.initializeApp({
-  credential: admin.credential.cert(serviceAccount)
-});
+if (!serviceAccount && !admin.apps.length) {
+  console.log('🔐 Using Firebase emulator or default credentials');
+  admin.initializeApp({
+    projectId: process.env.VITE_FIREBASE_PROJECT_ID || 'this-is-76332'
+  });
+} else if (serviceAccount) {
+  admin.initializeApp({
+    credential: admin.credential.cert(serviceAccount)
+  });
+}
 
 const db = admin.firestore();
 

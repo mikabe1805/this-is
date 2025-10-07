@@ -1,7 +1,6 @@
 {
   "name": "this-is-database-scripts",
   "version": "1.0.0",
-  "type": "module",
   "description": "Database management scripts for the this-is app",
   "scripts": {
     "seed": "node seed-database.js",
