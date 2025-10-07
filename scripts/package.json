@@ -14,7 +14,9 @@
     "backfill-tag-usage": "node seed-tags-usage.js",
     "normalize-places": "node normalize-places.js",
     "enrich-places": "node enrich-places-from-posts.js",
-    "cleanup-hubimage": "node cleanup-hubimage.js"
+    "cleanup-hubimage": "node cleanup-hubimage.js",
+    "clean-photos": "node clean-firebase-photos.js",
+    "reset-db": "node reset-database.js"
   },
   "dependencies": {
     "firebase-admin": "^12.0.0",
