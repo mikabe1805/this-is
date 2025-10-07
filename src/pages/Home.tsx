@@ -1006,17 +1006,17 @@ const Home = () => {
                         {isLoadingForYou ? (
                             <div className="space-y-4">
                               {/* skeleton loaders to keep user engaged */}
-                              {Array.from({ length: 4 }).map((_, i) => (
-                                <Card key={i} className="p-5 animate-pulse">
+                              {Array.from({ length: 3 }).map((_, i) => (
+                                <CardShell key={i} variant="solid" className="p-4 animate-pulse">
                                   <div className="flex items-start gap-4">
-                                    <div className="w-16 h-16 rounded-xl bg-linen-200" />
+                                    <div className="w-16 h-16 rounded-xl bg-bark-200" />
                                     <div className="flex-1 space-y-2">
-                                      <div className="h-4 bg-linen-200 rounded w-1/2" />
-                                      <div className="h-3 bg-linen-200 rounded w-3/4" />
-                                      <div className="h-3 bg-linen-200 rounded w-2/3" />
+                                      <div className="h-4 bg-bark-200 rounded w-1/2" />
+                                      <div className="h-3 bg-bark-200 rounded w-3/4" />
+                                      <div className="h-3 bg-bark-200 rounded w-2/3" />
                                     </div>
                                   </div>
-                                </Card>
+                                </CardShell>
                               ))}
                             </div>
                         ) : (() => {

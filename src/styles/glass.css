@@ -11,25 +11,26 @@
   border: 1px solid rgba(255, 255, 255, 0.55);
 }
 
-/* Glass effect with earthy warm glow */
+/* Glass effect with earthy warm glow - lighter/crisper */
 .glass {
   position: relative;
   background: rgba(255, 255, 255, 0.10);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   border-radius: 16px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08), inset 0 0 0 1px rgba(0, 0, 0, 0.06);
 }
 
-/* Sunlit gradient overlay */
+/* Sunlit gradient overlay - reduced opacity for clarity */
 .glass::before {
   content: "";
   position: absolute;
   inset: -1px;
   pointer-events: none;
   border-radius: inherit;
-  background: radial-gradient(120% 80% at 0% 0%, hsla(35, 95%, 60%, 0.18), transparent 60%),
-              radial-gradient(100% 70% at 100% 100%, hsla(160, 30%, 45%, 0.10), transparent 55%);
+  background:
+    radial-gradient(110% 70% at 0% 0%,   hsla(35, 95%, 60%, 0.10), transparent 58%),
+    radial-gradient(90%  60% at 100% 100%, hsla(160, 30%, 45%, 0.06), transparent 52%);
 }
 
 /* Dark gradient scrim for overlays on images */

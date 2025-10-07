@@ -225,90 +225,98 @@ const Explore = () => {
                 onClick={() => handleItemClick(item)}
                 className="p-4 cursor-pointer hover:shadow-soft transition-all duration-200"
               >
-                <div className="flex items-start gap-4">
-                  <div className="relative">
-                    <img
-                      src={item.image}
-                      alt={item.title}
-                      className="w-16 h-16 rounded-xl object-cover"
-                      onError={(e) => {
-                        (e.currentTarget as HTMLImageElement).src = '/assets/leaf.png';
-                      }}
-                    />
-                    {/* Badge for verified items */}
-                    {item.type === 'place' && Math.random() > 0.7 && (
-                      <div className="absolute -top-1 -right-1 bg-moss-500 text-white text-xs px-1.5 py-0.5 rounded-full font-medium">
-                        Verified
-                      </div>
-                    )}
-                  </div>
-                  
-                  <div className="flex-1 min-w-0">
-                    <h3 className="font-semibold text-bark-900 line-clamp-2 mb-1">
-                      {item.title}
-                    </h3>
-                    <p className="text-bark-600 text-sm line-clamp-2 mb-2">
-                      {item.description}
-                    </p>
-                    {item.location && (
-                      <p className="text-bark-500 text-xs mb-3">
-                        📍 {item.location}
-                      </p>
-                    )}
+                <div className="grid grid-rows-[auto,1fr,auto] gap-3">
+                  {/* Top row: Image + Title/Meta */}
+                  <div className="flex items-start gap-3">
+                    <div className="relative flex-shrink-0">
+                      <img
+                        src={item.image}
+                        alt={item.title}
+                        className="w-16 h-16 rounded-xl object-cover"
+                        onError={(e) => {
+                          (e.currentTarget as HTMLImageElement).src = '/assets/leaf.png';
+                        }}
+                      />
+                      {/* Badge for verified items - overlap 8px */}
+                      {item.type === 'place' && Math.random() > 0.7 && (
+                        <div className="absolute -top-2 -right-2 bg-moss-500 text-white text-xs px-2 py-0.5 rounded-full font-medium shadow-sm">
+                          Verified
+                        </div>
+                      )}
+                    </div>
                     
-                    {/* Action buttons */}
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleLike(item);
-                        }}
-                        className="flex items-center gap-1 px-2 py-1 rounded-lg bg-bark-100 hover:bg-bark-200 transition-colors"
-                        aria-label={item.isLiked ? 'Unlike' : 'Like'}
-                      >
-                        {item.isLiked ? (
-                          <HeartIconSolid className="w-4 h-4 text-red-500" />
-                        ) : (
-                          <HeartIcon className="w-4 h-4 text-bark-600" />
-                        )}
-                        <span className="text-xs text-bark-600">{item.likes || 0}</span>
-                      </button>
-                      
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleSave(item);
-                        }}
-                        className="p-1.5 rounded-lg bg-bark-100 hover:bg-bark-200 transition-colors"
-                        aria-label="Save"
-                      >
-                        <BookmarkIcon className="w-4 h-4 text-bark-600" />
-                      </button>
-                      
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleShare(item);
-                        }}
-                        className="p-1.5 rounded-lg bg-bark-100 hover:bg-bark-200 transition-colors"
-                        aria-label="Share"
-                      >
-                        <ShareIcon className="w-4 h-4 text-bark-600" />
-                      </button>
-                      
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleAddPost(item);
-                        }}
-                        className="p-1.5 rounded-lg bg-bark-100 hover:bg-bark-200 transition-colors"
-                        aria-label="Add Post"
-                      >
-                        <PlusIcon className="w-4 h-4 text-bark-600" />
-                      </button>
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-semibold text-stone-900 leading-tight mb-1">
+                        {item.title}
+                      </h3>
+                      {/* Single one-line address meta */}
+                      {item.location && (
+                        <p className="text-stone-600 text-sm flex items-center gap-1 truncate">
+                          <span className="text-stone-400">📍</span>
+                          {item.location}
+                        </p>
+                      )}
                     </div>
                   </div>
+                  
+                  {/* Middle content - let it expand naturally */}
+                  <div className="min-h-0">
+                    {/* Empty for now, could show tags or additional info */}
+                  </div>
+                  
+                  {/* Bottom row: Action buttons - aligned baseline */}
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleLike(item);
+                      }}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-bark-100 hover:bg-bark-200 transition-colors text-sm"
+                      aria-label={item.isLiked ? 'Unlike' : 'Like'}
+                    >
+                      {item.isLiked ? (
+                        <HeartIconSolid className="w-4 h-4 text-red-500" />
+                      ) : (
+                        <HeartIcon className="w-4 h-4 text-stone-600" />
+                      )}
+                      <span className="text-xs text-stone-600 font-medium">{item.likes || 0}</span>
+                    </button>
+                    
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleSave(item);
+                      }}
+                      className="p-2 rounded-full bg-bark-100 hover:bg-bark-200 transition-colors"
+                      aria-label="Save to list"
+                    >
+                      <BookmarkIcon className="w-4 h-4 text-stone-600" />
+                    </button>
+                    
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleShare(item);
+                      }}
+                      className="p-2 rounded-full bg-bark-100 hover:bg-bark-200 transition-colors"
+                      aria-label="Share"
+                    >
+                      <ShareIcon className="w-4 h-4 text-stone-600" />
+                    </button>
+                    
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleAddPost(item);
+                      }}
+                      className="p-2 rounded-full bg-bark-100 hover:bg-bark-200 transition-colors"
+                      aria-label="Add post"
+                    >
+                      <PlusIcon className="w-4 h-4 text-stone-600" />
+                    </button>
+                  </div>
                 </div>
+              </CardShell>
               </CardShell>
             ))}
           </div>

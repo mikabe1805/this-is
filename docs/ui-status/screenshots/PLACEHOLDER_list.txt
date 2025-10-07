@@ -1,0 +1,13 @@
+This is a placeholder for list.png
+
+To capture real screenshots:
+1. Install Playwright: npm install -D playwright
+2. Install browser: npx playwright install chromium
+3. Start dev server: npm run dev
+4. Run: npm run status:ui
+
+Or capture manually:
+1. Open http://localhost:5173 in Chrome
+2. Set viewport to 375x812 (iPhone X)
+3. Navigate to the list page
+4. Take screenshot and save as list.png in docs/ui-status/screenshots/

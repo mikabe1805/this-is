@@ -53,10 +53,13 @@ async function captureScreenshots() {
       
       // Navigate with screenshot mode query parameter
       const screenshotUrl = `${url}${url.includes('?') ? '&' : '?'}screenshot=true`;
-      await browserPage.goto(screenshotUrl, { waitUntil: 'networkidle' });
+      await browserPage.goto(screenshotUrl, { 
+        waitUntil: 'domcontentloaded',
+        timeout: 60000 
+      });
       
-      // Wait for content to load
-      await browserPage.waitForTimeout(1000);
+      // Wait for React to render and content to load
+      await browserPage.waitForTimeout(3000);
       
       // Take screenshot
       const outputPath = path.join(SCREENSHOT_DIR, `${page.name}.png`);
