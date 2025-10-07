@@ -19,7 +19,9 @@
     "setup": "npm run db:setup",
     "audit:places": "node scripts/audit/scan_places.js",
     "status:screens": "node scripts/audit/screenshot_pages.js",
-    "status:update": "npm run audit:places && node scripts/audit/update_readme.js"
+    "status:screens:placeholder": "node scripts/audit/create_placeholder_screenshots.js",
+    "status:update": "npm run audit:places && node scripts/audit/update_readme.js",
+    "status:pr": "npm run status:update && node scripts/audit/generate_pr_summary.js"
   },
   "dependencies": {
     "@heroicons/react": "^2.2.0",

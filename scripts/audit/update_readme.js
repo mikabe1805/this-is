@@ -60,7 +60,8 @@ ${audit ? `
 | Metric | Value |
 |--------|-------|
 | **Total API Findings** | ${audit.summary.total_findings} |
-| **Direct Usage (needs migration)** | ${audit.summary.direct_usage_count} ⚠️ |
+| **Implementation (places.ts)** | ${audit.summary.implementation_usage_count || 0} ✅ |
+| **Direct Usage (needs migration)** | ${audit.summary.direct_usage_count} ${audit.summary.direct_usage_count > 0 ? '⚠️' : '✅'} |
 | **Optimized Usage** | ${audit.summary.optimized_usage_count} ✅ |
 | **Audit Date** | ${new Date(audit.timestamp).toLocaleString()} |
 

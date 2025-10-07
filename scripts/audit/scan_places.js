@@ -197,7 +197,13 @@ function scanDirectory(dir, extensions = ['.ts', '.tsx', '.js', '.jsx']) {
 }
 
 function generateReport(entries) {
-  const direct_usages = entries.filter(e => e.kind === 'direct_usage');
+  // Separate implementation (in places.ts) from actual direct usage elsewhere
+  const implementation_usages = entries.filter(e => 
+    e.kind === 'direct_usage' && e.file.includes('services/google/places')
+  );
+  const direct_usages = entries.filter(e => 
+    e.kind === 'direct_usage' && !e.file.includes('services/google/places')
+  );
   const optimized_usages = entries.filter(e => e.kind === 'optimized');
   
   const by_kind = {};
@@ -211,9 +217,11 @@ function generateReport(entries) {
       total_findings: entries.length,
       by_kind,
       direct_usage_count: direct_usages.length,
+      implementation_usage_count: implementation_usages.length,
       optimized_usage_count: optimized_usages.length,
     },
     direct_usages,
+    implementation_usages,
     optimized_usages,
     findings: entries,
   };
@@ -242,6 +250,7 @@ console.log('\n✅ Audit complete!');
 console.log(`📄 Report saved to: ${outputPath}`);
 console.log('\n📊 Summary:');
 console.log(`  Total findings: ${report.summary.total_findings}`);
+console.log(`  Implementation (places.ts): ${report.summary.implementation_usage_count} ✅`);
 console.log(`  Direct API usage (needs migration): ${report.summary.direct_usage_count}`);
 console.log(`  Optimized usage: ${report.summary.optimized_usage_count}`);
 console.log('\n  Breakdown by kind:');
@@ -250,7 +259,10 @@ Object.entries(report.summary.by_kind).forEach(([kind, count]) => {
 });
 
 if (report.summary.direct_usage_count > 0) {
-  console.log('\n⚠️  WARNING: Found direct API usage that should be migrated to centralized service!');
+  console.log('\n⚠️  WARNING: Found direct API usage outside of centralized service!');
+  console.log('   These should be migrated to use src/services/google/places.ts');
   console.log('   See places_audit.json for details.');
+} else {
+  console.log('\n✅ All API usage goes through centralized service!');
 }
 

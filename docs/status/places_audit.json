@@ -1,5 +1,5 @@
 {
-  "timestamp": "2025-10-07T00:09:04.254Z",
+  "timestamp": "2025-10-07T00:13:18.377Z",
   "summary": {
     "total_findings": 10,
     "by_kind": {
@@ -7,10 +7,12 @@
       "direct_usage": 4,
       "mapsLoader": 2
     },
-    "direct_usage_count": 4,
+    "direct_usage_count": 0,
+    "implementation_usage_count": 4,
     "optimized_usage_count": 4
   },
-  "direct_usages": [
+  "direct_usages": [],
+  "implementation_usages": [
     {
       "file": "src/services/google/places.ts",
       "line": 75,
