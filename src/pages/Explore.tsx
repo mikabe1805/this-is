@@ -6,7 +6,7 @@ import { StackDeck } from '../components/explore/StackDeck';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigation } from '../contexts/NavigationContext';
 import { firebaseDataService } from '../services/firebaseDataService';
-import { getFlags } from '../services/featureFlags';
+import { featureFlags } from '../config/featureFlags';
 import type { Place, List, User } from '../types/index.js';
 
 interface ExploreItem {
@@ -27,25 +27,26 @@ const Explore = () => {
   const [activeTab, setActiveTab] = useState<'nearby' | 'following' | 'discover'>('discover');
   const [items, setItems] = useState<ExploreItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [viewMode, setViewMode] = useState<'list' | 'deck'>('list');
-  const [featureFlags, setFeatureFlags] = useState<{ explore_stacks?: boolean }>({});
+  
+  // Default to deck if flag is on, otherwise use localStorage preference or "list"
+  const [viewMode, setViewMode] = useState<'list' | 'deck'>(() => {
+    if (featureFlags.explore_stacks) {
+      const saved = localStorage.getItem('exploreMode') as 'list' | 'deck' | null;
+      return saved || 'deck';
+    }
+    return 'list';
+  });
+
+  // Persist view mode preference
+  useEffect(() => {
+    localStorage.setItem('exploreMode', viewMode);
+  }, [viewMode]);
 
   useEffect(() => {
     if (currentUser) {
       loadExploreItems();
     }
   }, [currentUser, activeTab]);
-
-  useEffect(() => {
-    const loadFeatureFlags = async () => {
-      const flags = await getFlags();
-      setFeatureFlags(flags);
-      if (flags.explore_stacks) {
-        setViewMode('deck');
-      }
-    };
-    loadFeatureFlags();
-  }, []);
 
   const loadExploreItems = async () => {
     setIsLoading(true);

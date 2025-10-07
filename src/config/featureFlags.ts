@@ -4,4 +4,4 @@ export const featureFlags = {
   hide_reels_tab: true,     // Remove Reels from bottom nav
   keep_reels_route: false,  // If true, /reels accessible via deep link only
   search_v2: true           // Gate the redesigned Search page
-};
+} as const;
