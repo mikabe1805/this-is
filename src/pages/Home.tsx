@@ -23,6 +23,7 @@ import Card from '../components/Card'
 import Section from '../components/Section'
 import { CardShell } from '../components/primitives/CardShell'
 import { SuggestedHubsRail } from '../components/home/SuggestedHubsRail'
+import SafeImage from '../components/ui/SafeImage'
 
 // BotanicalAccent removed for a cleaner, less decorative header
 
@@ -920,7 +921,7 @@ const Home = () => {
                                 >
                                     <CardShell variant="solid" className="p-4">
                                     <div className="flex items-start gap-4">
-                                        <img
+                                        <SafeImage
                                             src={activity.user.avatar}
                                             alt={activity.user.name}
                                             className="w-10 h-10 rounded-lg object-cover"
@@ -964,11 +965,10 @@ const Home = () => {
                                                         </p>
                                                     )}
                                                     {activity.placeImage && (
-                                        <img
+                                        <SafeImage
                                             src={activity.placeImage}
-                                            alt={activity.place?.name}
+                                            alt={activity.place?.name || 'Place'}
                                             className="w-full h-32 object-cover rounded-lg mt-3"
-                                            onError={(e)=>{ (e.currentTarget as HTMLImageElement).src = '/assets/leaf.png' }}
                                         />
                                                     )}
                                                     {activity.list && activity.type !== 'create_list' && (
@@ -1072,7 +1072,7 @@ const Home = () => {
                                     className="w-full p-5 hover:shadow-cozy hover:-translate-y-1 transition-all duration-300 text-left flex flex-col gap-2 overflow-hidden cursor-pointer"
                                   >
                                     <div className="flex items-start gap-4">
-                                      <img src={recentCreatedHub.mainImage || '/assets/leaf.png'} alt={recentCreatedHub.name} className="w-16 h-16 rounded-xl object-cover border-2 border-white shadow-soft" />
+                                      <SafeImage src={recentCreatedHub.mainImage || '/assets/leaf.png'} alt={recentCreatedHub.name} className="w-16 h-16 rounded-xl object-cover border-2 border-white shadow-soft" />
                                       <div className="flex-1 min-w-0">
                                         <div className="flex items-start justify-between mb-2">
                                           <h3 className="text-cozy-title line-clamp-2">{recentCreatedHub.name}</h3>
@@ -1097,11 +1097,10 @@ const Home = () => {
                                         <CardShell variant="solid" className="p-3">
                                             <div className="flex items-center gap-3">
                                                 {/* Thumbnail */}
-                                        <img
+                                        <SafeImage
                                             src={item.image}
                                             alt={item.title}
                                                     className="w-14 h-14 rounded-xl object-cover flex-shrink-0"
-                                            onError={(e)=>{ (e.currentTarget as HTMLImageElement).src = '/assets/leaf.png' }}
                                         />
                                                 {/* Content */}
                                         <div className="flex-1 min-w-0">

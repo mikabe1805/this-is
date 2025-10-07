@@ -411,4 +411,4 @@ export function clearDetailsCache() {
 // EXPORTS
 // ============================================================================
 
-export { PLACEHOLDER_IMAGE };
+export { PLACEHOLDER_IMAGE, PLACES_PHOTOS_ENABLED };
