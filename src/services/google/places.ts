@@ -320,6 +320,94 @@ export function setupLazyPhotoLoading(
 }
 
 // ============================================================================
+// GOOGLE MAPS API LOADER
+// ============================================================================
+
+let loadPromise: Promise<boolean> | null = null;
+
+/**
+ * Load Google Maps API script once.
+ * Returns true if loaded successfully, false otherwise.
+ */
+export async function loadGoogleMapsAPI(): Promise<boolean> {
+  // Kill switch check - if Places disabled, still load API but warn
+  if (!PLACES_ENABLED) {
+    console.warn('⚠️ Loading Google Maps API but PLACES_ENABLED=false');
+  }
+
+  // Return existing promise if already loading
+  if (loadPromise) {
+    return loadPromise;
+  }
+
+  // Check if already loaded
+  if (window.google?.maps?.places) {
+    console.log('[Places API] Already loaded');
+    return true;
+  }
+
+  // Check if script is already in DOM
+  const existingScript = document.querySelector('script[src*="maps.googleapis.com"]');
+  if (existingScript) {
+    console.log('[Places API] Script loading in progress...');
+    loadPromise = new Promise<boolean>((resolve) => {
+      const checkLoaded = setInterval(() => {
+        if (window.google?.maps?.places) {
+          clearInterval(checkLoaded);
+          resolve(true);
+        }
+      }, 100);
+      
+      // Timeout after 10s
+      setTimeout(() => {
+        clearInterval(checkLoaded);
+        resolve(false);
+      }, 10000);
+    });
+    return loadPromise;
+  }
+
+  // Load the API
+  const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
+  if (!apiKey) {
+    console.error('[Places API] Missing API key');
+    return false;
+  }
+
+  console.log('[Places API] Loading Google Maps API...');
+
+  loadPromise = new Promise<boolean>((resolve) => {
+    const script = document.createElement('script');
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places&loading=async&language=en`;
+    script.async = true;
+    script.defer = true;
+
+    script.onload = () => {
+      console.log('[Places API] Loaded successfully');
+      resolve(true);
+    };
+
+    script.onerror = () => {
+      console.error('[Places API] Failed to load');
+      loadPromise = null;
+      resolve(false);
+    };
+
+    document.head.appendChild(script);
+  });
+
+  return loadPromise;
+}
+
+/**
+ * Clear the details cache (useful for testing or memory management)
+ */
+export function clearDetailsCache() {
+  detailsCache.clear();
+  console.log('[Places API] Details cache cleared');
+}
+
+// ============================================================================
 // EXPORTS
 // ============================================================================
 
