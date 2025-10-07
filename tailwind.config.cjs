@@ -179,7 +179,6 @@ module.exports = {
       boxShadow: {
         soft: "0 8px 24px rgba(0,0,0,.08)",
         inset: "inset 0 0 0 1px rgba(0,0,0,.06)",
-        'soft': '0 2px 12px 0 rgba(60, 50, 30, 0.07)',
         'cozy': '0 4px 24px 0 rgba(120, 100, 60, 0.10)',
         'botanical': '0 8px 32px 0 rgba(90, 110, 80, 0.10)',
         'liquid': '0 12px 40px 0 rgba(90, 110, 80, 0.15)',
@@ -198,7 +197,6 @@ module.exports = {
         lg: "12px",
         xl: "16px", 
         "2xl": "24px",
-        xl: '1.25rem',
         pill: '9999px',
         'scrapbook': '1.5rem',
         'sticker': '2rem',

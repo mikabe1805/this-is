@@ -1,0 +1,145 @@
+{
+  "timestamp": "2025-10-07T00:09:04.254Z",
+  "summary": {
+    "total_findings": 10,
+    "by_kind": {
+      "optimized": 4,
+      "direct_usage": 4,
+      "mapsLoader": 2
+    },
+    "direct_usage_count": 4,
+    "optimized_usage_count": 4
+  },
+  "direct_usages": [
+    {
+      "file": "src/services/google/places.ts",
+      "line": 75,
+      "symbol": "new AutocompleteService()",
+      "kind": "direct_usage",
+      "context": "const service = new google.maps.places.AutocompleteService();"
+    },
+    {
+      "file": "src/services/google/places.ts",
+      "line": 81,
+      "symbol": "getPlacePredictions()",
+      "kind": "direct_usage",
+      "context": "service.getPlacePredictions("
+    },
+    {
+      "file": "src/services/google/places.ts",
+      "line": 127,
+      "symbol": "new PlacesService()",
+      "kind": "direct_usage",
+      "context": "const service = new google.maps.places.PlacesService(document.createElement('div'));"
+    },
+    {
+      "file": "src/services/google/places.ts",
+      "line": 148,
+      "symbol": "getDetails()",
+      "kind": "direct_usage",
+      "context": "service.getDetails("
+    }
+  ],
+  "optimized_usages": [
+    {
+      "file": "src/components/AddressAutocomplete.tsx",
+      "line": 127,
+      "symbol": "getPredictions()",
+      "kind": "optimized",
+      "context": "const results = await getPredictions(newValue, {"
+    },
+    {
+      "file": "src/components/AddressAutocomplete.tsx",
+      "line": 150,
+      "symbol": "getPlaceDetails()",
+      "kind": "optimized",
+      "context": "const details = await getPlaceDetails(prediction.place_id)"
+    },
+    {
+      "file": "src/components/GooglePlacesAutocomplete.tsx",
+      "line": 120,
+      "symbol": "getPredictions()",
+      "kind": "optimized",
+      "context": "const results = await getPredictions(newValue, {"
+    },
+    {
+      "file": "src/components/GooglePlacesAutocomplete.tsx",
+      "line": 142,
+      "symbol": "getPlaceDetails()",
+      "kind": "optimized",
+      "context": "const details = await getPlaceDetails(prediction.place_id)"
+    }
+  ],
+  "findings": [
+    {
+      "file": "src/components/AddressAutocomplete.tsx",
+      "line": 127,
+      "symbol": "getPredictions()",
+      "kind": "optimized",
+      "context": "const results = await getPredictions(newValue, {"
+    },
+    {
+      "file": "src/components/AddressAutocomplete.tsx",
+      "line": 150,
+      "symbol": "getPlaceDetails()",
+      "kind": "optimized",
+      "context": "const details = await getPlaceDetails(prediction.place_id)"
+    },
+    {
+      "file": "src/components/GooglePlacesAutocomplete.tsx",
+      "line": 120,
+      "symbol": "getPredictions()",
+      "kind": "optimized",
+      "context": "const results = await getPredictions(newValue, {"
+    },
+    {
+      "file": "src/components/GooglePlacesAutocomplete.tsx",
+      "line": 142,
+      "symbol": "getPlaceDetails()",
+      "kind": "optimized",
+      "context": "const details = await getPlaceDetails(prediction.place_id)"
+    },
+    {
+      "file": "src/services/google/places.ts",
+      "line": 75,
+      "symbol": "new AutocompleteService()",
+      "kind": "direct_usage",
+      "context": "const service = new google.maps.places.AutocompleteService();"
+    },
+    {
+      "file": "src/services/google/places.ts",
+      "line": 81,
+      "symbol": "getPlacePredictions()",
+      "kind": "direct_usage",
+      "context": "service.getPlacePredictions("
+    },
+    {
+      "file": "src/services/google/places.ts",
+      "line": 127,
+      "symbol": "new PlacesService()",
+      "kind": "direct_usage",
+      "context": "const service = new google.maps.places.PlacesService(document.createElement('div'));"
+    },
+    {
+      "file": "src/services/google/places.ts",
+      "line": 148,
+      "symbol": "getDetails()",
+      "kind": "direct_usage",
+      "context": "service.getDetails("
+    },
+    {
+      "file": "src/services/google/places.ts",
+      "line": 208,
+      "symbol": "Maps JS Loader",
+      "kind": "mapsLoader",
+      "context": "const existingScript = document.querySelector('script[src*=\"maps.googleapis.com\"]');"
+    },
+    {
+      "file": "src/services/google/places.ts",
+      "line": 239,
+      "symbol": "Maps JS Loader",
+      "kind": "mapsLoader",
+      "context": "script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places&loading=async&l"
+    }
+  ]
+}

@@ -1,5 +1,12 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { MapPinIcon } from '@heroicons/react/24/outline'
+import {
+  loadGoogleMapsAPI,
+  beginPlacesSession,
+  endPlacesSession,
+  getPredictions,
+  getPlaceDetails,
+} from '../services/google/places'
 
 interface AddressAutocompleteProps {
   onPlaceSelect: (place: string, details?: google.maps.places.PlaceResult) => void
@@ -13,7 +20,6 @@ interface AddressAutocompleteProps {
 declare global {
   interface Window {
     google: typeof google
-    initGoogleMaps: () => void
   }
 }
 
@@ -26,187 +32,168 @@ export default function AddressAutocomplete({
   worldwideBias = true
 }: AddressAutocompleteProps) {
   const inputRef = useRef<HTMLInputElement>(null)
-  const autocompleteRef = useRef<google.maps.places.Autocomplete | null>(null)
   const [isLoaded, setIsLoaded] = useState(false)
   const [inputValue, setInputValue] = useState(value)
+  const [predictions, setPredictions] = useState<google.maps.places.AutocompletePrediction[]>([])
+  const [showDropdown, setShowDropdown] = useState(false)
+  const [selectedIndex, setSelectedIndex] = useState(-1)
+  const debounceTimer = useRef<NodeJS.Timeout | null>(null)
+  const idleTimer = useRef<NodeJS.Timeout | null>(null)
+  const abortController = useRef<AbortController | null>(null)
 
-  // Load Google Maps API
+  // Load Google Maps API once on mount
   useEffect(() => {
-    const loadGoogleMapsAPI = () => {
-      console.log('AddressAutocomplete: Starting Google Maps API load...');
-      
-      // Check if Google Maps is already loaded
-      if (window.google && window.google.maps && window.google.maps.places) {
-        console.log('AddressAutocomplete: Google Maps already loaded');
-        setIsLoaded(true)
-        return
-      }
-
-      // Check if script is already loading
-      if (document.querySelector('script[src*="maps.googleapis.com"]')) {
-        console.log('AddressAutocomplete: Google Maps script already loading, waiting...');
-        // Wait for the existing script to load
-        window.initGoogleMaps = () => {
-          console.log('AddressAutocomplete: Google Maps loaded via existing script');
-          setIsLoaded(true)
-        }
-        return
-      }
-
-      // Load the Google Maps API script
-      const script = document.createElement('script')
-      const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY
-      
-      if (!apiKey) {
-        console.warn('AddressAutocomplete: Google Maps API key not found. Using fallback address input.')
-        setIsLoaded(false)
-        return
-      }
-
-      console.log('AddressAutocomplete: Loading Google Maps API with key:', apiKey.substring(0, 10) + '...');
-      script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places&loading=async&language=en&callback=initGoogleMaps`
-      script.async = true
-      script.defer = true
-
-      window.initGoogleMaps = () => {
-        console.log('AddressAutocomplete: Google Maps API loaded successfully');
-        
-        // Test if the API is working by checking if we can create a basic map instance
-        try {
-          if (window.google && window.google.maps && window.google.maps.places) {
-            console.log('AddressAutocomplete: Google Maps API is fully functional');
-            setIsLoaded(true);
-          } else {
-            console.error('AddressAutocomplete: Google Maps API loaded but not fully functional');
-            setIsLoaded(false);
-          }
-        } catch (error) {
-          console.error('AddressAutocomplete: Error testing Google Maps API:', error);
-          setIsLoaded(false);
-        }
-      }
-
-      script.onerror = () => {
-        console.error('AddressAutocomplete: Failed to load Google Maps API')
-        setIsLoaded(false)
-      }
-
-      script.onload = () => {
-        console.log('AddressAutocomplete: Google Maps script loaded');
-      }
-
-      document.head.appendChild(script)
-    }
-
-    loadGoogleMapsAPI()
+    loadGoogleMapsAPI().then(setIsLoaded)
   }, [])
-
-  // Initialize autocomplete when loaded
-  useEffect(() => {
-    if (!isLoaded || !inputRef.current) {
-      console.log('AddressAutocomplete: Not ready to initialize autocomplete', { isLoaded, hasInputRef: !!inputRef.current });
-      return;
-    }
-
-    console.log('AddressAutocomplete: Initializing autocomplete...');
-
-    try {
-      // Note: google.maps.places.Autocomplete is deprecated as of March 2025
-      // Google recommends migrating to PlaceAutocompleteElement, but this requires 
-      // a significant API rewrite. For now, suppress the deprecation warning.
-      const originalWarn = console.warn
-      console.warn = (message, ...args) => {
-        if (typeof message === 'string' && message.includes('google.maps.places.Autocomplete')) {
-          return // Suppress the deprecation warning
-        }
-        originalWarn(message, ...args)
-      }
-
-      // Create worldwide bounds to minimize local IP/location bias
-      const worldBounds = new window.google.maps.LatLngBounds(
-        new window.google.maps.LatLng(-85, -180),
-        new window.google.maps.LatLng(85, 180)
-      )
-
-      // Determine autocomplete types by mode
-      const types: google.maps.places.AutocompleteComponentRestrictions | string[] =
-        mode === 'city' ? ['(cities)'] : mode === 'place' ? ['establishment'] : ['geocode', 'establishment']
-
-      // Create autocomplete instance with flexible, worldwide options
-      autocompleteRef.current = new window.google.maps.places.Autocomplete(
-        inputRef.current,
-        {
-          // @ts-expect-error - types accepts special tokens like '(cities)'
-          types,
-          fields: ['formatted_address', 'name', 'place_id', 'geometry', 'address_components', 'types'],
-          componentRestrictions: undefined,
-          strictBounds: false,
-          // Use bounds to counteract default IP/location bias if requested
-          bounds: worldwideBias ? worldBounds : undefined
-        } as any
-      )
-
-      console.log('AddressAutocomplete: Autocomplete instance created successfully');
-
-      // Restore original console.warn
-      console.warn = originalWarn
-
-      // Add place selection listener
-      autocompleteRef.current.addListener('place_changed', () => {
-        console.log('AddressAutocomplete: Place selection triggered');
-        const place = autocompleteRef.current?.getPlace()
-        if (place && place.formatted_address) {
-          console.log('AddressAutocomplete: Selected place with formatted_address:', place.formatted_address);
-          setInputValue(place.formatted_address)
-          onPlaceSelect(place.formatted_address, place)
-        } else if (place && place.name) {
-          // Fallback to name if formatted_address is not available
-          console.log('AddressAutocomplete: Selected place with name:', place.name);
-          setInputValue(place.name)
-          onPlaceSelect(place.name, place)
-        } else {
-          console.log('AddressAutocomplete: No valid place data received');
-        }
-      })
-    } catch (error) {
-      console.error('AddressAutocomplete: Error initializing Google Places Autocomplete:', error)
-      setIsLoaded(false) // Mark as not loaded so fallback behavior takes over
-    }
-
-    return () => {
-      // Cleanup
-      if (autocompleteRef.current) {
-        try {
-          window.google.maps.event.clearInstanceListeners(autocompleteRef.current)
-          console.log('AddressAutocomplete: Cleaned up autocomplete listeners');
-        } catch (error) {
-          console.error('AddressAutocomplete: Error cleaning up autocomplete listeners:', error)
-        }
-      }
-    }
-  }, [isLoaded]) // Remove onPlaceSelect from dependencies to prevent re-initialization
 
   // Update input value when prop changes
   useEffect(() => {
     setInputValue(value)
   }, [value])
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newValue = e.target.value
-    setInputValue(newValue)
-    
-    // If Google Maps isn't loaded, still allow manual input
-    if (!isLoaded) {
-      onPlaceSelect(newValue)
+  // Handle input focus - start a new Places session
+  const handleFocus = () => {
+    if (isLoaded) {
+      beginPlacesSession()
+      console.log('[AddressAutocomplete] Session started')
     }
   }
 
-  const handleInputBlur = () => {
-    // If Google Maps isn't loaded and user typed something, use it as the address
-    if (!isLoaded && inputValue.trim()) {
-      onPlaceSelect(inputValue.trim())
+  // Handle input blur - end session after idle period
+  const handleBlur = () => {
+    // Delay to allow click on dropdown
+    setTimeout(() => {
+      setShowDropdown(false)
+      
+      // If Google Maps isn't loaded and user typed something, use it as the address
+      if (!isLoaded && inputValue.trim()) {
+        onPlaceSelect(inputValue.trim())
+      }
+    }, 200)
+  }
+
+  // End session after 5s idle
+  const resetIdleTimer = () => {
+    if (idleTimer.current) {
+      clearTimeout(idleTimer.current)
+    }
+    idleTimer.current = setTimeout(() => {
+      endPlacesSession()
+      console.log('[AddressAutocomplete] Session ended due to idle')
+    }, 5000)
+  }
+
+  // Handle input change with debouncing
+  const handleInputChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newValue = e.target.value
+    setInputValue(newValue)
+    setSelectedIndex(-1)
+    
+    // If Google Maps isn't loaded, still allow manual input
+    if (!isLoaded) {
+      return
+    }
+
+    // Cancel any pending request
+    if (abortController.current) {
+      abortController.current.abort()
+    }
+    abortController.current = new AbortController()
+
+    // Clear existing debounce timer
+    if (debounceTimer.current) {
+      clearTimeout(debounceTimer.current)
+    }
+
+    // Reset idle timer
+    resetIdleTimer()
+
+    // Require minimum 3 characters
+    if (newValue.trim().length < 3) {
+      setPredictions([])
+      setShowDropdown(false)
+      return
+    }
+
+    // Debounce for 600ms to reduce API calls
+    debounceTimer.current = setTimeout(async () => {
+      try {
+        // Determine types by mode
+        const types =
+          mode === 'city' ? ['(cities)'] :
+          mode === 'place' ? ['establishment'] :
+          undefined // geocode + establishment
+
+        const results = await getPredictions(newValue, {
+          types,
+          ...(worldwideBias ? {} : {}), // Can add locationBias here if needed
+        })
+
+        setPredictions(results)
+        setShowDropdown(results.length > 0)
+      } catch (error) {
+        console.error('[AddressAutocomplete] Error fetching predictions:', error)
+        setPredictions([])
+        setShowDropdown(false)
+      }
+    }, 600)
+  }
+
+  // Handle prediction selection
+  const handleSelectPrediction = async (prediction: google.maps.places.AutocompletePrediction) => {
+    setInputValue(prediction.description)
+    setShowDropdown(false)
+    setPredictions([])
+
+    // Fetch full details for the selected place
+    try {
+      const details = await getPlaceDetails(prediction.place_id)
+      
+      if (details) {
+        onPlaceSelect(prediction.description, details)
+      } else {
+        // Fallback to just the description
+        onPlaceSelect(prediction.description)
+      }
+    } catch (error) {
+      console.error('[AddressAutocomplete] Error fetching place details:', error)
+      onPlaceSelect(prediction.description)
+    }
+
+    // End the session after selection
+    endPlacesSession()
+    console.log('[AddressAutocomplete] Session ended after selection')
+  }
+
+  // Handle keyboard navigation
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (!showDropdown || predictions.length === 0) return
+
+    if (e.key === 'ArrowDown') {
+      e.preventDefault()
+      setSelectedIndex(prev => (prev < predictions.length - 1 ? prev + 1 : prev))
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault()
+      setSelectedIndex(prev => (prev > 0 ? prev - 1 : -1))
+    } else if (e.key === 'Enter') {
+      e.preventDefault()
+      if (selectedIndex >= 0 && selectedIndex < predictions.length) {
+        handleSelectPrediction(predictions[selectedIndex])
+      }
+    } else if (e.key === 'Escape') {
+      setShowDropdown(false)
+      setPredictions([])
     }
   }
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (debounceTimer.current) clearTimeout(debounceTimer.current)
+      if (idleTimer.current) clearTimeout(idleTimer.current)
+      if (abortController.current) abortController.current.abort()
+    }
+  }, [])
 
   return (
     <div className="relative">
@@ -216,13 +203,46 @@ export default function AddressAutocomplete({
           type="text"
           value={inputValue}
           onChange={handleInputChange}
-          onBlur={handleInputBlur}
+          onFocus={handleFocus}
+          onBlur={handleBlur}
+          onKeyDown={handleKeyDown}
           placeholder={placeholder}
           className={`w-full px-4 py-3 pl-10 border border-linen-200 rounded-xl focus:ring-2 focus:ring-sage-200 focus:border-transparent transition-all bg-white text-charcoal-600 ${className}`}
-          style={{ zIndex: 1000, position: 'relative' }}
+          autoComplete="off"
         />
         <MapPinIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-charcoal-400" />
       </div>
+
+      {/* Dropdown */}
+      {showDropdown && predictions.length > 0 && (
+        <div className="absolute z-50 w-full mt-2 bg-white border border-linen-200 rounded-xl shadow-lg max-h-60 overflow-y-auto">
+          {predictions.map((prediction, index) => (
+            <button
+              key={prediction.place_id}
+              type="button"
+              className={`w-full px-4 py-3 text-left hover:bg-sage-50 transition-colors ${
+                index === selectedIndex ? 'bg-sage-100' : ''
+              }`}
+              onMouseDown={(e) => {
+                e.preventDefault() // Prevent blur
+                handleSelectPrediction(prediction)
+              }}
+            >
+              <div className="flex items-start gap-2">
+                <MapPinIcon className="w-4 h-4 text-sage-600 mt-1 flex-shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-medium text-charcoal-800 truncate">
+                    {prediction.structured_formatting.main_text}
+                  </div>
+                  <div className="text-xs text-charcoal-500 truncate">
+                    {prediction.structured_formatting.secondary_text}
+                  </div>
+                </div>
+              </div>
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
@@ -262,4 +282,4 @@ export function FallbackAddressInput({
       <MapPinIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-charcoal-400" />
     </div>
   )
-} 
+}

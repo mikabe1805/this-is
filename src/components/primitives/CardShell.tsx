@@ -1,17 +1,33 @@
-import React from "react";
+import React from 'react'
 
-export function CardShell({
-  children,
-  variant = "solid",
-  className = "",
-  onClick,
-  ...props
-}: {
-  children: React.ReactNode;
-  variant?: "solid" | "glass";
-  className?: string;
-  onClick?: () => void;
-} & React.HTMLAttributes<HTMLDivElement>) {
-  const base = variant === "glass" ? "glass" : "panel";
-  return <div className={`${base} p-3 rounded-xl ${className}`} onClick={onClick} {...props}>{children}</div>;
+interface CardShellProps {
+  children: React.ReactNode
+  variant?: 'solid' | 'glass'
+  className?: string
+  onClick?: () => void
+}
+
+/**
+ * CardShell - Unified card container primitive
+ * 
+ * Use 'solid' for opaque content cards (default)
+ * Use 'glass' for overlay cards or transparent effects
+ */
+export function CardShell({ 
+  children, 
+  variant = 'solid', 
+  className = '',
+  onClick 
+}: CardShellProps) {
+  const baseClass = variant === 'glass' ? 'glass' : 'panel'
+  const interactiveClass = onClick ? 'cursor-pointer transition-transform hover:scale-[1.02]' : ''
+  
+  return (
+    <div 
+      className={`${baseClass} p-3 rounded-xl ${interactiveClass} ${className}`}
+      onClick={onClick}
+    >
+      {children}
+    </div>
+  )
 }

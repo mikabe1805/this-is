@@ -1,5 +1,12 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { MapPinIcon } from '@heroicons/react/24/outline'
+import {
+  loadGoogleMapsAPI,
+  beginPlacesSession,
+  endPlacesSession,
+  getPredictions,
+  getPlaceDetails,
+} from '../services/google/places'
 
 interface GooglePlacesAutocompleteProps {
   onPlaceSelect: (place: string, details?: google.maps.places.PlaceResult) => void
@@ -11,7 +18,6 @@ interface GooglePlacesAutocompleteProps {
 declare global {
   interface Window {
     google: typeof google
-    initGoogleMaps: () => void
   }
 }
 
@@ -22,123 +28,164 @@ export default function GooglePlacesAutocomplete({
   className = ""
 }: GooglePlacesAutocompleteProps) {
   const inputRef = useRef<HTMLInputElement>(null)
-  const autocompleteRef = useRef<google.maps.places.Autocomplete | null>(null)
   const [isLoaded, setIsLoaded] = useState(false)
   const [inputValue, setInputValue] = useState(value)
+  const [predictions, setPredictions] = useState<google.maps.places.AutocompletePrediction[]>([])
+  const [showDropdown, setShowDropdown] = useState(false)
+  const [selectedIndex, setSelectedIndex] = useState(-1)
+  const debounceTimer = useRef<NodeJS.Timeout | null>(null)
+  const idleTimer = useRef<NodeJS.Timeout | null>(null)
+  const abortController = useRef<AbortController | null>(null)
 
-  // Load Google Maps API
+  // Load Google Maps API once on mount
   useEffect(() => {
-    const loadGoogleMapsAPI = () => {
-      // Check if Google Maps is already loaded
-      if (window.google && window.google.maps && window.google.maps.places) {
-        setIsLoaded(true)
-        return
-      }
-
-      // If a script is already present, attach a listener
-      const existing = document.querySelector('script[data-gmaps]') as HTMLScriptElement | null
-      if (existing) {
-        const onReady = () => setIsLoaded(true)
-        window.initGoogleMaps = onReady
-        existing.addEventListener('load', onReady, { once: true })
-        return
-      }
-
-      // Load the Google Maps API script
-      const script = document.createElement('script')
-      const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY
-      
-      if (!apiKey) {
-        console.warn('Google Maps API key not found. Using fallback location input.')
-        setIsLoaded(false)
-        return
-      }
-
-      script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places&language=en&callback=initGoogleMaps`
-      script.async = true
-      script.defer = true
-      script.setAttribute('data-gmaps', 'true')
-
-      window.initGoogleMaps = () => {
-        setIsLoaded(true)
-      }
-
-      script.onerror = () => {
-        console.error('Failed to load Google Maps API')
-        setIsLoaded(false)
-      }
-
-      document.head.appendChild(script)
-    }
-
-    loadGoogleMapsAPI()
+    loadGoogleMapsAPI().then((loaded) => {
+      setIsLoaded(loaded)
+    })
   }, [])
-
-  // Initialize autocomplete when loaded
-  useEffect(() => {
-    if (!isLoaded || !inputRef.current || !(window.google && window.google.maps && window.google.maps.places)) return
-
-    try {
-      const originalWarn = console.warn
-      console.warn = (message, ...args) => {
-        if (typeof message === 'string' && message.includes('google.maps.places.Autocomplete')) {
-          return
-        }
-        originalWarn(message, ...args)
-      }
-
-      // Create autocomplete instance restricted to cities/localities
-      autocompleteRef.current = new window.google.maps.places.Autocomplete(
-        inputRef.current,
-        {
-          types: ['(cities)'],
-          fields: ['formatted_address', 'name', 'place_id', 'geometry'],
-          componentRestrictions: undefined,
-          strictBounds: false
-        }
-      )
-
-      console.warn = originalWarn
-
-      autocompleteRef.current.addListener('place_changed', () => {
-        const place = autocompleteRef.current?.getPlace()
-        if (place && place.formatted_address) {
-          setInputValue(place.formatted_address)
-          onPlaceSelect(place.formatted_address, place)
-        }
-      })
-    } catch (error) {
-      console.error('Error initializing Google Places Autocomplete:', error)
-    }
-
-    return () => {
-      if (autocompleteRef.current) {
-        window.google.maps.event.clearInstanceListeners(autocompleteRef.current)
-      }
-    }
-  }, [isLoaded, onPlaceSelect])
 
   // Update input value when prop changes
   useEffect(() => {
     setInputValue(value)
   }, [value])
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newValue = e.target.value
-    setInputValue(newValue)
-    
-    // If Google Maps isn't loaded, still allow manual input
-    if (!isLoaded) {
-      onPlaceSelect(newValue)
+  // Handle input focus - start a new Places session
+  const handleFocus = () => {
+    if (isLoaded) {
+      beginPlacesSession()
+      console.log('[GooglePlacesAutocomplete] Session started')
     }
   }
 
-  const handleInputBlur = () => {
-    // If Google Maps isn't loaded and user typed something, use it as the location
-    if (!isLoaded && inputValue.trim()) {
-      onPlaceSelect(inputValue.trim())
+  // Handle input blur - end session after idle period
+  const handleBlur = () => {
+    // Delay to allow click on dropdown
+    setTimeout(() => {
+      setShowDropdown(false)
+      
+      // If Google Maps isn't loaded and user typed something, use it as the location
+      if (!isLoaded && inputValue.trim()) {
+        onPlaceSelect(inputValue.trim())
+      }
+    }, 200)
+  }
+
+  // End session after 5s idle
+  const resetIdleTimer = () => {
+    if (idleTimer.current) {
+      clearTimeout(idleTimer.current)
+    }
+    idleTimer.current = setTimeout(() => {
+      endPlacesSession()
+      console.log('[GooglePlacesAutocomplete] Session ended due to idle')
+    }, 5000)
+  }
+
+  // Handle input change with debouncing
+  const handleInputChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newValue = e.target.value
+    setInputValue(newValue)
+    setSelectedIndex(-1)
+    
+    // If Google Maps isn't loaded, still allow manual input
+    if (!isLoaded) {
+      return
+    }
+
+    // Cancel any pending request
+    if (abortController.current) {
+      abortController.current.abort()
+    }
+    abortController.current = new AbortController()
+
+    // Clear existing debounce timer
+    if (debounceTimer.current) {
+      clearTimeout(debounceTimer.current)
+    }
+
+    // Reset idle timer
+    resetIdleTimer()
+
+    // Require minimum 3 characters
+    if (newValue.trim().length < 3) {
+      setPredictions([])
+      setShowDropdown(false)
+      return
+    }
+
+    // Debounce for 600ms to reduce API calls
+    debounceTimer.current = setTimeout(async () => {
+      try {
+        // Restrict to cities only
+        const results = await getPredictions(newValue, {
+          types: ['(cities)'],
+        })
+
+        setPredictions(results)
+        setShowDropdown(results.length > 0)
+      } catch (error) {
+        console.error('[GooglePlacesAutocomplete] Error fetching predictions:', error)
+        setPredictions([])
+        setShowDropdown(false)
+      }
+    }, 600)
+  }
+
+  // Handle prediction selection
+  const handleSelectPrediction = async (prediction: google.maps.places.AutocompletePrediction) => {
+    setInputValue(prediction.description)
+    setShowDropdown(false)
+    setPredictions([])
+
+    // Fetch full details for the selected place
+    try {
+      const details = await getPlaceDetails(prediction.place_id)
+      
+      if (details) {
+        onPlaceSelect(prediction.description, details)
+      } else {
+        // Fallback to just the description
+        onPlaceSelect(prediction.description)
+      }
+    } catch (error) {
+      console.error('[GooglePlacesAutocomplete] Error fetching place details:', error)
+      onPlaceSelect(prediction.description)
+    }
+
+    // End the session after selection
+    endPlacesSession()
+    console.log('[GooglePlacesAutocomplete] Session ended after selection')
+  }
+
+  // Handle keyboard navigation
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (!showDropdown || predictions.length === 0) return
+
+    if (e.key === 'ArrowDown') {
+      e.preventDefault()
+      setSelectedIndex(prev => (prev < predictions.length - 1 ? prev + 1 : prev))
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault()
+      setSelectedIndex(prev => (prev > 0 ? prev - 1 : -1))
+    } else if (e.key === 'Enter') {
+      e.preventDefault()
+      if (selectedIndex >= 0 && selectedIndex < predictions.length) {
+        handleSelectPrediction(predictions[selectedIndex])
+      }
+    } else if (e.key === 'Escape') {
+      setShowDropdown(false)
+      setPredictions([])
     }
   }
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (debounceTimer.current) clearTimeout(debounceTimer.current)
+      if (idleTimer.current) clearTimeout(idleTimer.current)
+      if (abortController.current) abortController.current.abort()
+    }
+  }, [])
 
   return (
     <div className="relative">
@@ -148,13 +195,47 @@ export default function GooglePlacesAutocomplete({
           type="text"
           value={inputValue}
           onChange={handleInputChange}
-          onBlur={handleInputBlur}
+          onFocus={handleFocus}
+          onBlur={handleBlur}
+          onKeyDown={handleKeyDown}
           placeholder={placeholder}
           className={`w-full px-4 py-3 pl-10 border border-warmGray-300 rounded-xl focus:ring-2 focus:ring-[#E17373] focus:border-transparent transition-all bg-white ${className}`}
+          autoComplete="off"
         />
         <MapPinIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-brown-400" />
       </div>
-      
+
+      {/* Dropdown */}
+      {showDropdown && predictions.length > 0 && (
+        <div className="absolute z-50 w-full mt-2 bg-white border border-warmGray-300 rounded-xl shadow-lg max-h-60 overflow-y-auto">
+          {predictions.map((prediction, index) => (
+            <button
+              key={prediction.place_id}
+              type="button"
+              className={`w-full px-4 py-3 text-left hover:bg-amber-50 transition-colors ${
+                index === selectedIndex ? 'bg-amber-100' : ''
+              }`}
+              onMouseDown={(e) => {
+                e.preventDefault() // Prevent blur
+                handleSelectPrediction(prediction)
+              }}
+            >
+              <div className="flex items-start gap-2">
+                <MapPinIcon className="w-4 h-4 text-amber-600 mt-1 flex-shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-medium text-gray-800 truncate">
+                    {prediction.structured_formatting.main_text}
+                  </div>
+                  <div className="text-xs text-gray-500 truncate">
+                    {prediction.structured_formatting.secondary_text}
+                  </div>
+                </div>
+              </div>
+            </button>
+          ))}
+        </div>
+      )}
+
       {!isLoaded && (
         <p className="text-xs text-amber-600 mt-1">
           💡 Enhanced location search loading... You can still type your city manually.
@@ -206,4 +287,4 @@ export function FallbackLocationInput({
       <MapPinIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-brown-400" />
     </div>
   )
-} 
+}
