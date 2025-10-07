@@ -317,7 +317,6 @@ const Explore = () => {
                   </div>
                 </div>
               </CardShell>
-              </CardShell>
             ))}
           </div>
         )}

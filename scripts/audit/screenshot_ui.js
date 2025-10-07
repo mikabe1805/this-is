@@ -59,7 +59,20 @@ async function captureScreenshots() {
       });
       
       // Wait for React to render and content to load
-      await browserPage.waitForTimeout(3000);
+      // Increased wait time to ensure all data is fetched and rendered
+      await browserPage.waitForTimeout(5000);
+      
+      // Wait for images to load
+      await browserPage.evaluate(() => {
+        return Promise.all(
+          Array.from(document.images)
+            .filter(img => !img.complete)
+            .map(img => new Promise(resolve => {
+              img.addEventListener('load', resolve);
+              img.addEventListener('error', resolve);
+            }))
+        );
+      });
       
       // Take screenshot
       const outputPath = path.join(SCREENSHOT_DIR, `${page.name}.png`);
