@@ -1,132 +1,132 @@
-import { EllipsisHorizontalIcon } from '@heroicons/react/24/outline';
-import CardShell from '../ui/CardShell';
+import { GlassPanel, PrimaryBtn, GhostBtn } from '../ui/primitives/Glass';
+import HubImage from '../HubImage';
+import { humanizeTag } from '../../utils/posterMapping';
 import { useState } from 'react';
 
 interface SuggestedHubCardProps {
   id: string;
-  name: string;
-  address: string;
   photoUrl?: string;
   reason?: string;
   exists: boolean;
   onOpen: () => void;
   onCreate: () => void;
   onNotInterested: () => void;
+  onViewDetails: () => void;
+  place: { // Pass entire place object
+    id: string;
+    name: string;
+    address: string;
+    primaryType?: string;
+    types?: string[];
+    photos?: { name: string }[];
+  }
 }
 
 export function SuggestedHubCard({
   id,
-  name,
-  address,
   photoUrl,
   reason,
   exists,
   onOpen,
   onCreate,
-  onNotInterested
+  onNotInterested,
+  onViewDetails,
+  place
 }: SuggestedHubCardProps) {
-  const [imageError, setImageError] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
+  const { name, address } = place;
+  const displayReason = reason || place.reason;
 
   // Extract short address (city, state or first part)
   const shortAddress = address.split(',').slice(0, 2).join(',').trim();
 
   return (
-    <CardShell variant="glass" className="p-3 w-[300px] flex-shrink-0 snap-start">
-      <div className="flex gap-3">
-        <img
-          src={imageError ? '/assets/leaf.png' : (photoUrl || '/assets/leaf.png')}
-          alt={name}
-          className="w-24 h-24 rounded-xl object-cover bg-bark-50 flex-shrink-0"
-          onError={() => setImageError(true)}
+    <GlassPanel className="min-w-[290px] max-w-[290px] snap-start p-4 md:p-5">
+      <button 
+        onClick={onViewDetails}
+        className="grid grid-cols-[96px_1fr] gap-4 items-start text-left w-full"
+      >
+        <HubImage 
+          place={place}
+          className="rounded-xl shadow-soft" 
+          aspect="aspect-[4/3]"
+          loadStrategy="fallback" // Always use fallback in the rail
         />
-        <div className="min-w-0 flex-1">
-          <h4 className="text-bark-900 font-semibold leading-tight truncate mb-1">
+        <div className="min-w-0">
+          {/* Category tag - shows place type */}
+          {place.primaryType && (
+            <div className="mb-1.5">
+              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-moss-300/40 text-bark-900 border border-moss-300/60">
+                {humanizeTag(place.primaryType)}
+              </span>
+            </div>
+          )}
+          <div className="text-title line-clamp-1">
             {name}
-          </h4>
-          <p className="text-bark-600 text-sm truncate">
+          </div>
+          <div className="text-body line-clamp-2">
             {shortAddress}
-          </p>
-          {reason && (
-            <span className="text-xs text-bark-600 mt-1 block">
-              Because you like <b>{reason}</b>
-            </span>
+          </div>
+          {displayReason && (
+            <div className="mt-1.5 text-meta">
+              Because you like <span className="font-semibold text-moss-600">#{humanizeTag(displayReason)}</span>
+            </div>
           )}
         </div>
-      </div>
+      </button>
 
-      <div className="mt-3 flex items-center gap-2">
+      <div className="mt-3 flex gap-2.5">
         {exists ? (
-          <button
-            onClick={onOpen}
-            className="pill pill--primary"
-            aria-label="Open hub"
-          >
-            Open
+          <button onClick={onOpen} className="pill pill--primary flex-1">
+            Open Hub
           </button>
         ) : (
-          <button
-            onClick={onCreate}
-            className="pill pill--primary"
-            aria-label="Create hub"
-          >
+          <button onClick={onCreate} className="pill pill--primary flex-1">
             Create Hub
           </button>
         )}
-        <button
-          onClick={onNotInterested}
-          className="pill pill--quiet"
-          aria-label="Not interested"
-        >
+        <button onClick={onNotInterested} className="pill pill--quiet flex-1">
           Not interested
         </button>
-        <div className="relative ml-auto">
-          <button
-            onClick={() => setShowMenu(!showMenu)}
-            className="p-2 hover:bg-bark-100 rounded-full transition-colors"
-            aria-label="More actions"
-          >
-            <EllipsisHorizontalIcon className="w-5 h-5 text-bark-600" />
-          </button>
-          {showMenu && (
-            <>
-              <div
-                className="fixed inset-0 z-10"
-                onClick={() => setShowMenu(false)}
-              />
-              <div className="absolute right-0 top-full mt-1 w-40 bg-white rounded-xl shadow-soft border border-bark-200 py-1 z-20">
-                <button
-                  onClick={() => {
-                    setShowMenu(false);
-                    // TODO: Implement save
-                  }}
-                  className="w-full px-4 py-2 text-left text-sm text-bark-700 hover:bg-bark-50"
-                >
-                  Save
-                </button>
-                <button
-                  onClick={() => {
-                    setShowMenu(false);
-                    // TODO: Implement share
-                  }}
-                  className="w-full px-4 py-2 text-left text-sm text-bark-700 hover:bg-bark-50"
-                >
-                  Share
-                </button>
-                <button
-                  onClick={() => {
-                    setShowMenu(false);
-                    // TODO: Implement report
-                  }}
-                  className="w-full px-4 py-2 text-left text-sm text-bark-700 hover:bg-bark-50"
-                >
-                  Report
-                </button>
-              </div>
-            </>
-          )}
-        </div>
       </div>
-    </CardShell>
+
+      {showMenu && (
+        <>
+          <div
+            className="fixed inset-0 z-10"
+            onClick={() => setShowMenu(false)}
+          />
+          <div className="absolute top-12 right-3 w-40 glass rounded-xl py-1 z-20">
+            <button
+              onClick={() => {
+                setShowMenu(false);
+                // TODO: Implement save
+              }}
+              className="w-full px-4 py-2 text-left text-sm text-bark-700 hover:bg-white/20 transition"
+            >
+              Save
+            </button>
+            <button
+              onClick={() => {
+                setShowMenu(false);
+                // TODO: Implement share
+              }}
+              className="w-full px-4 py-2 text-left text-sm text-bark-700 hover:bg-white/20 transition"
+            >
+              Share
+            </button>
+            <button
+              onClick={() => {
+                setShowMenu(false);
+                // TODO: Implement report
+              }}
+              className="w-full px-4 py-2 text-left text-sm text-bark-700 hover:bg-white/20 transition"
+            >
+              Report
+            </button>
+          </div>
+        </>
+      )}
+    </GlassPanel>
   );
 }

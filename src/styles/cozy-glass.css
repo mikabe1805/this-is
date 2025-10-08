@@ -1,73 +1,190 @@
-/* Cozy Glass Primitive Classes
- * Reusable everywhere - compose, don't customize
+/**
+ * Cozy Earthy Glass Primitives
+ * Use these classes for consistent glass/panel styling
  */
 
-.panel {
-  /* solid content blocks */
-  background: var(--bark-50);
-  border-radius: var(--radius-xl);
-  box-shadow: var(--shadow-soft), var(--inner-hairline);
-}
-
+/* Card material - white-tinted glass */
 .glass {
   position: relative;
-  background: var(--glass-bg);
-  backdrop-filter: blur(var(--glass-blur));
-  -webkit-backdrop-filter: blur(var(--glass-blur));
-  border-radius: var(--radius-xl);
-  box-shadow: var(--shadow-soft), var(--inner-hairline);
+  backdrop-filter: blur(16px) saturate(1.06);
+  background: linear-gradient(145deg, rgba(255,255,255,0.20), rgba(255,255,255,0.08));
+  border: 1px solid rgba(255,255,255,0.32);
+  box-shadow: 0 8px 24px rgba(61,54,48,0.10);
+  border-radius: 16px;
 }
 
-.glass::before {
+/* Very subtle "sunlight" – keep tiny */
+.sun-edge::before {
   content: "";
   position: absolute;
   inset: -1px;
-  pointer-events: none;
   border-radius: inherit;
+  pointer-events: none;
   background:
-    radial-gradient(110% 70% at 0% 0%, var(--glass-sun-a), transparent 58%),
-    radial-gradient(90% 60% at 100% 100%, var(--glass-sun-b), transparent 52%);
+    radial-gradient(420px 300px at 8% 9%, rgba(255,255,255,0.30), rgba(255,255,255,0) 55%),
+    radial-gradient(260px 190px at 10% 12%, rgba(240,230,206,0.08), rgba(240,230,206,0) 60%);
+  mix-blend-mode: screen;
 }
 
+/* Accent rim utility: use sparingly, not on every card */
+.accent-rim {
+  box-shadow: 0 0 0 1px rgba(255,255,255,0.35), 0 0 0 2px rgba(232,219,181,0.22);
+}
+
+/* Light variant - more translucent */
+.glass--light {
+  background: rgba(255, 250, 240, 0.4);
+  backdrop-filter: blur(12px) saturate(1.05);
+  -webkit-backdrop-filter: blur(12px) saturate(1.05);
+}
+
+/* Solid panel - for readable text content */
+.panel {
+  background: var(--parchment-50);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-soft), var(--inner-hairline);
+  border: 1px solid var(--parchment-100);
+}
+
+.panel--dark {
+  background: var(--bark-900);
+  color: var(--parchment-50);
+  border-color: var(--bark-700);
+}
+
+/* Scrim for text overlays on photos */
 .scrim {
-  background: var(--scrim);
+  background: var(--scrim-dark);
 }
 
-/* Quiet pill button used across cards/callouts */
+.scrim--light {
+  background: var(--scrim-light);
+}
+
+/* Buttons & chips — professional, not playful */
 .pill {
-  height: 40px;
-  border-radius: 999px;
-  padding: 0 16px;
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 8px;
-  box-shadow: var(--inner-hairline);
-  font-size: 14px;
+  height: 44px;
+  min-width: 44px;
+  padding: 0 20px;
+  background: rgba(255,255,255,0.12);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255,255,255,0.26);
+  border-radius: 9999px;
+  font-size: 15px;
   font-weight: 500;
+  cursor: pointer;
   transition: all 0.2s ease;
+  color: rgba(92, 83, 74, 0.9); /* bark-700 */
+}
+
+.pill:hover:not(:disabled) {
+  background: rgba(255,255,255,0.18);
+}
+
+.pill:focus-visible {
+  outline: 2px solid rgba(143,162,135,0.55); /* moss-500 */
+  outline-offset: 2px;
+}
+
+.pill:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .pill--primary {
-  background: var(--moss-600);
+  background: linear-gradient(135deg, #6F8A6B, #5E765C); /* moss gradient */
   color: white;
+  box-shadow: none; /* NO SHADOWS */
+  font-size: 15px;
+  font-weight: 500;
+  padding: 0 20px;
+  height: 44px;
+  border-radius: 9999px;
 }
 
-.pill--primary:hover {
-  background: var(--moss-500);
+.pill--primary:hover:not(:disabled) {
+  filter: brightness(1.08);
 }
 
 .pill--quiet {
-  background: rgba(255, 255, 255, .60);
-  color: var(--bark-700);
+  background: rgba(232, 219, 181, 0.40); /* warm aurum tint */
+  border: 1px solid rgba(232, 219, 181, 0.55);
+  backdrop-filter: blur(12px);
+  color: #3D3630; /* bark-900 for contrast */
+  box-shadow: none; /* NO SHADOWS */
+  font-size: 15px;
+  font-weight: 500;
+  padding: 0 20px;
+  height: 44px;
+  border-radius: 9999px;
 }
 
-.pill--quiet:hover {
-  background: rgba(255, 255, 255, .80);
+.pill--quiet:hover:not(:disabled) {
+  background: rgba(232, 219, 181, 0.55);
 }
 
-/* Ensure tap targets meet 44x44 minimum */
-.pill {
-  min-width: 44px;
-  min-height: 44px;
+/* Typography System - Dark, readable text on warm glass */
+.text-title {
+  color: #3D3630; /* bark-900 - dark for contrast */
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.3;
 }
 
+.text-body {
+  color: #5C534A; /* bark-700 - readable body text */
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+.text-meta {
+  color: #5C534A; /* bark-700 - readable */
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+.text-heading {
+  color: #3D3630; /* bark-900 - strong headings */
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+/* Legacy support */
+.glass-text-title { @apply text-title; }
+.glass-text-body { @apply text-body; }
+.glass-text-meta { @apply text-meta; }
+
+/* Card wrapper - enforces glass styling */
+.card-glass {
+  @apply glass sun-edge p-4;
+}
+
+.card-solid {
+  @apply panel p-4;
+}
+
+/* Accessibility */
+@media (prefers-reduced-motion: reduce) {
+  .pill {
+    transition: none;
+  }
+  
+  .pill:hover {
+    transform: none;
+  }
+}
+
+/* Focus states */
+.pill:focus-visible,
+.glass:focus-visible {
+  outline: 2px solid var(--moss-600);
+  outline-offset: 2px;
+}

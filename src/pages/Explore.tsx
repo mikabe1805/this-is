@@ -54,19 +54,29 @@ const Explore = () => {
       let exploreItems: ExploreItem[] = [];
       
       if (activeTab === 'nearby') {
-        // Load nearby places
-        const nearbyPlaces = await firebaseDataService.getNearbyPlaces();
-        exploreItems = nearbyPlaces.map(place => ({
-          id: place.id,
-          type: 'place' as const,
-          title: place.name,
-          description: place.address || '',
-          image: place.mainImage || '/assets/leaf.png',
-          location: place.address,
-          likes: place.savedCount || 0,
-          isLiked: false,
-          item: place
-        }));
+        // Load nearby places using external API
+        const userLocation = currentUser?.location || 'New Brunswick, NJ, USA'
+        const geocoded = await firebaseDataService.geocodeLocation(userLocation)
+        if (geocoded?.location) {
+          const nearbyPlaces = await firebaseDataService.getExternalSuggestedPlaces(
+            geocoded.location.lat,
+            geocoded.location.lng,
+            [],
+            20,
+            { radiusKm: 20 }
+          )
+          exploreItems = nearbyPlaces.map(place => ({
+            id: place.id,
+            type: 'place' as const,
+            title: place.name,
+            description: place.address || '',
+            image: place.mainImage || place.photoResourceName || '/assets/leaf.png',
+            location: place.address,
+            likes: place.savedCount || 0,
+            isLiked: false,
+            item: place
+          }))
+        }
       } else if (activeTab === 'following') {
         // Load content from followed users
         const friends = await firebaseDataService.getUserFriends(currentUser!.id);

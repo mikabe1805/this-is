@@ -1,9 +1,11 @@
 /**
  * Glass callout card for map markers
+ * Uses PlaceVisual for cost-optimized imagery (posters → user photos → budgeted Google thumb)
  */
 
 import { MapPinIcon, BookmarkIcon, PlusIcon } from '@heroicons/react/24/outline';
 import { CardShell } from './CardShell';
+import PlaceVisual from '../ui/PlaceVisual';
 
 export interface MapCalloutCardProps {
   place: {
@@ -11,8 +13,12 @@ export interface MapCalloutCardProps {
     name: string;
     address: string;
     distance?: string;
-    mainImage?: string;
+    mainImage?: string; // Legacy, fallback only
     tags?: string[];
+    // New Places API (New) fields
+    types?: string[];
+    photoResourceName?: string;
+    userPhotos?: string[];
   };
   onSave?: () => void;
   onAddPost?: () => void;
@@ -30,14 +36,17 @@ export function MapCalloutCard({ place, onSave, onAddPost, onClose, anchoredToMa
     <div className={positionClass}>
       <CardShell variant="glass" className="overflow-hidden">
         <div className="flex gap-3">
-          {/* Thumbnail */}
-          {place.mainImage && (
-            <img 
-              src={place.mainImage} 
+          {/* Thumbnail - PlaceVisual for cost optimization */}
+          <div className="w-14 h-14 rounded-lg overflow-hidden flex-shrink-0">
+            <PlaceVisual
+              types={place.types}
+              photoResourceName={place.photoResourceName}
+              userPhotos={place.userPhotos}
               alt={place.name}
-              className="w-20 h-20 rounded-lg object-cover flex-shrink-0"
+              size={56}
+              className="w-full h-full"
             />
-          )}
+          </div>
           
           {/* Content */}
           <div className="flex-1 min-w-0">
@@ -62,33 +71,24 @@ export function MapCalloutCard({ place, onSave, onAddPost, onClose, anchoredToMa
             )}
           </div>
           
-          {/* Actions */}
-          <div className="flex flex-col gap-2">
+          {/* Actions - Use pill buttons for consistency */}
+          <div className="flex gap-2 ml-auto">
             {onSave && (
               <button
                 onClick={onSave}
-                className="p-2 bg-bark-100 hover:bg-bark-200 rounded-lg transition-colors"
+                className="pill pill--quiet min-h-[44px] min-w-[44px]"
                 aria-label="Save place"
               >
-                <BookmarkIcon className="w-4 h-4 text-bark-700" />
+                <BookmarkIcon className="w-4 h-4" />
               </button>
             )}
             {onAddPost && (
               <button
                 onClick={onAddPost}
-                className="p-2 bg-moss-100 hover:bg-moss-200 rounded-lg transition-colors"
+                className="pill pill--primary min-h-[44px] min-w-[44px]"
                 aria-label="Add post"
               >
-                <PlusIcon className="w-4 h-4 text-moss-700" />
-              </button>
-            )}
-            {onClose && (
-              <button
-                onClick={onClose}
-                className="p-2 bg-bark-100 hover:bg-bark-200 rounded-lg transition-colors"
-                aria-label="Close"
-              >
-                <span className="text-bark-700 text-sm">×</span>
+                <PlusIcon className="w-4 h-4" />
               </button>
             )}
           </div>

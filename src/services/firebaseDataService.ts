@@ -2253,29 +2253,92 @@ class FirebaseDataService {
     tags: string[] = [],
     limit = 12,
     options: { interests?: string[]; radiusKm?: number; openNow?: boolean } = {}
-  ): Promise<Place[]> {
+  ): Promise<any[]> {
     try {
-      const clientKey = (import.meta as any).env?.VITE_GOOGLE_MAPS_API_KEY
-      const payload = { lat, lng, tags, limit, interests: options.interests || [], radiusKm: options.radiusKm ?? undefined, openNow: options.openNow ?? undefined, clientKey }
-      // Use deployed Cloud Function only
-      const cfUrl = 'https://us-central1-this-is-76332.cloudfunctions.net/suggestPlaces'
-      const resp = await fetch(cfUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      } as any)
-      if (!resp || !resp.ok) throw new Error('Request failed')
-      const data = await resp.json()
-      return data.places || []
+      // Use Places (New) API directly - cost optimized with field masks
+      const { searchNearby } = await import('../lib/placesNew');
+      
+      // Convert tags/interests to Google Places types
+      const typeMap: Record<string, string> = {
+        coffee: 'coffee_shop',
+        restaurant: 'restaurant',
+        park: 'park',
+        museum: 'museum',
+        library: 'library',
+        bar: 'bar',
+        cafe: 'cafe',
+        bookstore: 'book_store',
+        art: 'art_gallery',
+        nature: 'park',
+      };
+      
+      const includedTypes = [
+        ...tags.map(t => typeMap[t.toLowerCase()]).filter(Boolean),
+        ...(options.interests || []).map(i => typeMap[i.toLowerCase()]).filter(Boolean)
+      ].slice(0, 6); // Limit to 6 types max
+      
+      console.log('[firebaseDataService] 🔍 Calling Places (New) searchNearby', { lat, lng, includedTypes, limit });
+      
+      const results = await searchNearby(lat, lng, {
+        includedTypes: includedTypes.length > 0 ? includedTypes : ['restaurant', 'cafe', 'tourist_attraction'],
+        max: limit
+      });
+      
+      console.log('[firebaseDataService] ✅ Got', results.length, 'external places from Google Places (New)');
+      
+      // Map to expected format with types for category matching
+      return results.map((place: any) => ({
+        id: place.id,
+        name: place.name,
+        address: place.address || '',
+        coordinates: place.lat && place.lng ? { lat: place.lat, lng: place.lng } : undefined,
+        primaryType: place.primaryType,
+        types: place.types || [],
+        category: place.primaryType,
+        photos: place.photos || [],
+        photosV1: place.photos || [], // Legacy compatibility
+        source: 'google'
+      }));
     } catch (e) {
-      console.warn('getExternalSuggestedPlaces failed', e)
+      console.warn('❌ getExternalSuggestedPlaces failed', e)
       return []
     }
   }
 
+  // In-memory cache for geocoding results to prevent redundant API calls
+  private geocodeCache = new Map<string, { lat: number; lng: number; address: string } | null>()
+
   async geocodeLocation(query: string): Promise<{ lat: number; lng: number; address: string } | null> {
+    const cacheKey = query.trim().toLowerCase()
+    
+    // Check in-memory cache first
+    if (this.geocodeCache.has(cacheKey)) {
+      console.log('[geocodeLocation] CACHE HIT (memory) ->', query)
+      return this.geocodeCache.get(cacheKey)!
+    }
+
+    // Check localStorage cache (persists across sessions, 30 day TTL)
     try {
-      // Try local rewrites first (emulator/hosting)
+      const storageKey = `geocode:${cacheKey}`
+      const cached = localStorage.getItem(storageKey)
+      if (cached) {
+        const { result, timestamp } = JSON.parse(cached)
+        const age = Date.now() - timestamp
+        // Cache for 30 days
+        if (age < 30 * 24 * 60 * 60 * 1000) {
+          console.log('[geocodeLocation] CACHE HIT (localStorage) ->', query)
+          this.geocodeCache.set(cacheKey, result)
+          return result
+        }
+        // Expired, remove it
+        localStorage.removeItem(storageKey)
+      }
+    } catch {
+      // localStorage might be disabled
+    }
+
+    try {
+      // API call - this costs money!
       const clientKey = (import.meta as any).env?.VITE_GOOGLE_MAPS_API_KEY
       let resp: any = await fetch(`/geocodeLocation?q=${encodeURIComponent(query)}&clientKey=${encodeURIComponent(clientKey || '')}` as any)
       if (!resp || !resp.ok) {
@@ -2283,11 +2346,26 @@ class FirebaseDataService {
         const cfUrl = 'https://us-central1-this-is-76332.cloudfunctions.net/geocodeLocation'
         resp = await fetch(`${cfUrl}?q=${encodeURIComponent(query)}&clientKey=${encodeURIComponent(clientKey || '')}` as any)
       }
-      if (!resp || !resp.ok) return null
+      if (!resp || !resp.ok) {
+        this.geocodeCache.set(cacheKey, null)
+        return null
+      }
       const data = await (resp as any).json()
-      console.log('[geocodeLocation] query ->', query, 'result ->', data)
-      return data.location || null
+      const result = data.location || null
+      console.log('[geocodeLocation] 💰 API CALL ->', query, 'result ->', result)
+      
+      // Store in both caches
+      this.geocodeCache.set(cacheKey, result)
+      try {
+        const storageKey = `geocode:${cacheKey}`
+        localStorage.setItem(storageKey, JSON.stringify({ result, timestamp: Date.now() }))
+      } catch {
+        // localStorage might be full or disabled
+      }
+      
+      return result
     } catch {
+      this.geocodeCache.set(cacheKey, null)
       return null
     }
   }

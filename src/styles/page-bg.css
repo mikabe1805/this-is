@@ -1,0 +1,16 @@
+/* Page background - SUNLIT warm brown atmosphere */
+.page-bg {
+  background:
+    /* STRONG sunshine wash - like afternoon light */
+    radial-gradient(1600px 1000px at 15% 10%, 
+      rgba(255, 235, 150, 0.25),  /* bright golden glow */
+      rgba(240, 230, 206, 0.12) 50%,
+      transparent 75%
+    ),
+    /* Rich warm gradient - brown undertones */
+    linear-gradient(165deg, 
+      #E8E3DA 0%,      /* parchment-200 */
+      #DCD5CA 60%,     /* parchment-300 */
+      #C9BFA8 100%     /* deeper warm brown */
+    );
+}

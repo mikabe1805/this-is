@@ -20,11 +20,12 @@
   --shadow-soft: 0 8px 24px rgba(0, 0, 0, .08);
   --inner-hairline: inset 0 0 0 1px rgba(0, 0, 0, .06);
 
-  /* Glass parameters */
-  --glass-bg: rgba(255, 255, 255, .10);
-  --glass-blur: 8px;
-  --glass-sun-a: hsla(35, 95%, 60%, .08);
-  --glass-sun-b: hsla(160, 30%, 45%, .06);
+  /* Glass parameters - enhanced for richer cozy feel */
+  --glass-bg: rgba(255, 255, 255, .52);
+  --glass-stroke: rgba(255, 255, 255, .22);
+  --glass-blur: 16px;
+  --glass-sun-a: rgba(255, 210, 130, .20);  /* Warmer sunlight */
+  --glass-sun-b: rgba(75, 143, 103, .18);   /* Moss glow */
 
   /* Scrim for hero text on photos */
   --scrim: linear-gradient(to bottom, rgba(0, 0, 0, .45), rgba(0, 0, 0, .10));

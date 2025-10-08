@@ -6,19 +6,13 @@ import {
   endPlacesSession,
   getPredictions,
   getPlaceDetails,
-} from '../services/google/places'
+} from '../services/google/placesAdapter'
 
 interface GooglePlacesAutocompleteProps {
-  onPlaceSelect: (place: string, details?: google.maps.places.PlaceResult) => void
+  onPlaceSelect: (place: string, details?: any) => void
   placeholder?: string
   value?: string
   className?: string
-}
-
-declare global {
-  interface Window {
-    google: typeof google
-  }
 }
 
 export default function GooglePlacesAutocomplete({
@@ -30,7 +24,7 @@ export default function GooglePlacesAutocomplete({
   const inputRef = useRef<HTMLInputElement>(null)
   const [isLoaded, setIsLoaded] = useState(false)
   const [inputValue, setInputValue] = useState(value)
-  const [predictions, setPredictions] = useState<google.maps.places.AutocompletePrediction[]>([])
+  const [predictions, setPredictions] = useState<Array<{ description: string; place_id: string }>>([])
   const [showDropdown, setShowDropdown] = useState(false)
   const [selectedIndex, setSelectedIndex] = useState(-1)
   const debounceTimer = useRef<NodeJS.Timeout | null>(null)

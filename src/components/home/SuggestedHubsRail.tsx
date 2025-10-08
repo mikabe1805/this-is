@@ -10,6 +10,9 @@ interface SuggestedHub {
   reason?: string;
   exists: boolean;
   placeId?: string;
+  photos?: { name: string }[];
+  primaryType?: string;
+  types?: string[];
 }
 
 interface SuggestedHubsRailProps {
@@ -18,6 +21,7 @@ interface SuggestedHubsRailProps {
   onOpen: (hub: SuggestedHub) => void;
   onCreate: (hub: SuggestedHub) => void;
   onNotInterested: (hubId: string) => void;
+  onViewDetails: (placeId: string) => void;
   isLoading?: boolean;
 }
 
@@ -27,6 +31,7 @@ export function SuggestedHubsRail({
   onOpen,
   onCreate,
   onNotInterested,
+  onViewDetails,
   isLoading = false
 }: SuggestedHubsRailProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -65,12 +70,12 @@ export function SuggestedHubsRail({
   return (
     <section className="px-3 pt-2">
       {/* Header */}
-      <div className="flex items-center justify-between mb-2">
-        <h3 className="text-lg font-semibold text-bark-900">Suggested Hubs</h3>
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="text-heading">Suggested Hubs</h3>
         <button
           onClick={onRefresh}
           disabled={isLoading}
-          className="pill pill--quiet flex items-center gap-1 disabled:opacity-50"
+          className="pill pill--quiet px-3 py-1.5 h-[36px] text-[14px] gap-1.5"
           aria-label="Refresh suggestions"
         >
           <ArrowPathIcon className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
@@ -91,11 +96,8 @@ export function SuggestedHubsRail({
         {isLoading ? (
           // Loading skeletons
           Array.from({ length: 3 }).map((_, i) => (
-            <div
-              key={`skeleton-${i}`}
-              className="w-[300px] flex-shrink-0 snap-start"
-            >
-              <div className="glass p-3 rounded-xl animate-pulse">
+            <div key={`skeleton-${i}`} className="w-[300px] flex-shrink-0 snap-start">
+              <div className="relative glass sun-edge rounded-xl2 p-3 animate-pulse">
                 <div className="flex gap-3">
                   <div className="w-24 h-24 rounded-xl bg-bark-200" />
                   <div className="flex-1 space-y-2">
@@ -115,14 +117,19 @@ export function SuggestedHubsRail({
             <SuggestedHubCard
               key={hub.id}
               id={hub.id}
-              name={hub.name}
-              address={hub.address}
-              photoUrl={hub.photoUrl}
-              reason={hub.reason}
+              place={{
+                id: hub.id,
+                name: hub.name,
+                address: hub.address,
+                primaryType: hub.primaryType,
+                types: hub.types,
+                photos: hub.photos,
+              }}
               exists={hub.exists}
               onOpen={() => onOpen(hub)}
               onCreate={() => onCreate(hub)}
               onNotInterested={() => onNotInterested(hub.id)}
+              onViewDetails={() => onViewDetails(hub.id)}
             />
           ))
         )}

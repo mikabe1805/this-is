@@ -1,0 +1,17 @@
+<svg viewBox="0 0 400 300" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <radialGradient id="sky" cx="50%" cy="30%">
+      <stop offset="0%" stop-color="#E8E4DD"/>
+      <stop offset="100%" stop-color="#D4CEC3"/>
+    </radialGradient>
+  </defs>
+  <rect width="400" height="300" fill="url(#sky)"/>
+  <ellipse cx="200" cy="250" rx="150" ry="40" fill="#5BA679" opacity="0.3"/>
+  <ellipse cx="200" cy="260" rx="120" ry="30" fill="#4A8F67" opacity="0.4"/>
+  <path d="M150 180 Q160 140, 170 180 Q180 150, 190 180 Q200 140, 210 180 Q220 150, 230 180 Q240 140, 250 180" fill="#4A8F67"/>
+  <rect x="195" y="180" width="10" height="40" fill="#624F3E"/>
+  <circle cx="200" cy="110" r="35" fill="#5BA679" opacity="0.8"/>
+  <circle cx="220" cy="120" r="30" fill="#4A8F67" opacity="0.7"/>
+  <circle cx="180" cy="125" r="28" fill="#6FA870" opacity="0.7"/>
+</svg>
+

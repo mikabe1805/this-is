@@ -19,12 +19,12 @@ export function CardShell({
   className = '',
   onClick 
 }: CardShellProps) {
-  const baseClass = variant === 'glass' ? 'glass' : 'panel'
+  const baseClass = variant === 'glass' ? 'glass sun-edge' : 'panel'
   const interactiveClass = onClick ? 'cursor-pointer transition-transform hover:scale-[1.02]' : ''
   
   return (
     <div 
-      className={`${baseClass} p-3 rounded-xl ${interactiveClass} ${className}`}
+      className={`${baseClass} p-3 rounded-xl2 ${interactiveClass} ${className}`}
       onClick={onClick}
     >
       {children}

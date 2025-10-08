@@ -17,13 +17,14 @@ import { db } from '../firebase/config'
 import { doc, onSnapshot } from 'firebase/firestore'
 import { useAuth } from '../contexts/AuthContext.tsx'
 import { firebaseDataService } from '../services/firebaseDataService.js'
-import ImageCarousel from '../components/ImageCarousel'
 import CreateHubModal from '../components/CreateHubModal'
-import Card from '../components/Card'
 import Section from '../components/Section'
 import { CardShell } from '../components/primitives/CardShell'
 import { SuggestedHubsRail } from '../components/home/SuggestedHubsRail'
+import SuggestedHubModal from '../components/home/SuggestedHubModal'; // Import the new modal
 import SafeImage from '../components/ui/SafeImage'
+import '../styles/glass.css'
+import '../styles/page-bg.css'
 
 // BotanicalAccent removed for a cleaner, less decorative header
 
@@ -116,6 +117,15 @@ const Home = () => {
     const [createHubSeed, setCreateHubSeed] = useState<any>(null)
     const [recentCreatedHub, setRecentCreatedHub] = useState<Hub | null>(null)
 
+    // State for the new details modal
+    const [showSuggestedHubModal, setShowSuggestedHubModal] = useState(false);
+    const [selectedPlaceId, setSelectedPlaceId] = useState<string | null>(null);
+
+    const handleViewDetails = (placeId: string) => {
+      setSelectedPlaceId(placeId);
+      setShowSuggestedHubModal(true);
+    };
+
     const toRad = (v: number) => (v * Math.PI) / 180
     const haversineKm = (lat1: number, lon1: number, lat2: number, lon2: number) => {
         const R = 6371
@@ -129,19 +139,19 @@ const Home = () => {
     useEffect(() => {
         if (currentUser) {
             loadFriendsActivity()
-            loadForYou(true)
-            loadSuggested(true)
+            loadForYou(false) // Use cache first
+            loadSuggested(false) // Use cache first - DO NOT force on mount
             firebaseDataService.getUserLists(currentUser.id).then(l => setUserOwnedLists(Array.isArray(l) ? l.filter(x => x.userId === currentUser.id) : [])).catch(() => setUserOwnedLists([]))
             // Fetch tag options from Firebase for unified menu
             firebaseDataService.getPopularTags(200).then(tags => setAvailableTags(tags)).catch(()=> setAvailableTags(['cozy','trendy','quiet','local','authentic']))
         }
     }, [currentUser])
 
-    // Reload discovery when switching to discovery tab
+    // Reload discovery when switching to discovery tab (use cache, don't force refresh)
     useEffect(() => {
         if (activeTab === 'discovery' && currentUser) {
-            loadForYou()
-            loadSuggested()
+            loadForYou(false)
+            loadSuggested(false)
         }
     }, [activeTab])
 
@@ -326,29 +336,46 @@ const Home = () => {
     const loadSuggested = async (force: boolean = false) => {
         try {
             setIsLoadingSuggested(true)
-            if (!force && suggestedCacheRef.current.items.length > 0 && Date.now() - suggestedCacheRef.current.timestamp < 2 * 60 * 1000) {
+            
+            // COST DISCIPLINE: Aggressive caching - 10 minute TTL, respect existing data
+            const cacheAge = Date.now() - suggestedCacheRef.current.timestamp;
+            const hasFreshCache = suggestedCacheRef.current.items.length > 0 && cacheAge < 10 * 60 * 1000;
+            
+            if (!force && hasFreshCache) {
+                console.log('[loadSuggested] 💰 Using cached data (age:', Math.floor(cacheAge/1000), 'seconds)');
                 setSuggestedGoogle(suggestedCacheRef.current.items)
+                setIsLoadingSuggested(false)
                 return
             }
             const { tags, loc, userPrefs } = await getDiscoveryContext()
-            if (!loc) { setSuggestedGoogle([]); return }
+            if (!loc) { 
+                setSuggestedGoogle([]);
+                setIsLoadingSuggested(false);
+                return;
+            }
+            
             const interests = (userPrefs as any)?.favoriteCategories || []
             const milesPreferred = (userPrefs as any)?.locationPreferences?.nearbyRadius
             const preferredKm = typeof milesPreferred === 'number' && milesPreferred > 0 ? milesPreferred * 1.60934 : 80
             const radiusKm = (typeof filters.distanceKm === 'number' ? filters.distanceKm : preferredKm)
-            // session cache key by location+radius+openNow (show cached immediately, still refresh)
+            
+            // Check sessionStorage cache FIRST before API call
+            const cacheKey = `suggested_${filters.origin}_${loc.lat.toFixed(3)}_${loc.lng.toFixed(3)}_${radiusKm}_${filters.openNow?1:0}`
             try {
-              const cacheKey = `suggested_${filters.origin}_${loc.lat.toFixed(3)}_${loc.lng.toFixed(3)}_${radiusKm}_${filters.openNow?1:0}`
-              if (!force) {
                 const raw = sessionStorage.getItem(cacheKey)
                 if (raw) {
-                  const parsed = JSON.parse(raw)
-                  if (Array.isArray(parsed) && parsed.length > 0) {
-                    setSuggestedGoogle(parsed)
-                  }
+                    const parsed = JSON.parse(raw)
+                    if (Array.isArray(parsed) && parsed.length > 0) {
+                        console.log('[loadSuggested] 💰 Using sessionStorage cache, skipping API');
+                        setSuggestedGoogle(parsed)
+                        suggestedCacheRef.current = { items: parsed, timestamp: Date.now() }
+                        setIsLoadingSuggested(false)
+                        return;
+                    }
                 }
-              }
             } catch {}
+            
+            console.log('[loadSuggested] 💸 Calling Google Places API (no cache available)');
             // fetch more than we need, we will filter + de-dupe and then slice
             const external = await firebaseDataService.getExternalSuggestedPlaces(loc.lat, loc.lng, tags, 12, { interests: interests.slice(0,6), radiusKm, openNow: !!filters.openNow })
             const existingLite = await firebaseDataService.getPlaceKeysLite(800)
@@ -832,16 +859,17 @@ const Home = () => {
     // handleCreateHubFromGoogle removed; flow uses CreateHubModal
 
     return (
-        <div className="min-h-full relative bg-surface overflow-x-hidden">
+        <div className="min-h-screen">
+            <main className="page-bg min-h-screen pb-28">
             <div className="relative z-10 p-5 pb-3 max-w-2xl mx-auto flex flex-col gap-2 overflow-visible">
                 <div className="flex items-center justify-between mb-6">
                     <div>
                         <div className="flex items-center gap-2">
-                            <h1 className="text-2xl font-serif font-extrabold text-charcoal-800 tracking-tight">
+                            <h1 className="text-2xl font-serif font-extrabold text-bark-700 tracking-tight">
                                 This Is
                             </h1>
                         </div>
-                        <p className="text-sage-700 text-base mt-1">
+                        <p className="text-bark-700/90 text-base mt-1">
                             Your personal memory journal
                         </p>
                     </div>
@@ -872,21 +900,21 @@ const Home = () => {
                     </form>
                     
                 </div>
-                <div className="flex bg-white/80 rounded-xl p-1 mb-4 border border-linen-200">
+                <div className="flex glass sun-edge p-1 mb-4 gap-1">
                     <button
                         onClick={() => setActiveTab('friends')}
-                        className={`flex-1 py-2 px-4 rounded-lg font-medium transition-all duration-200 ${activeTab === 'friends'
-                            ? 'bg-sage-600 text-white'
-                            : 'text-sage-700'
+                        className={`flex-1 h-[42px] rounded-[20px] font-medium text-[15px] transition-all ${activeTab === 'friends'
+                            ? 'bg-gradient-to-b from-moss-600 to-moss-700 text-white shadow-soft'
+                            : 'text-bark-700 hover:bg-white/20'
                             }`}
                     >
                         Friends
                     </button>
                     <button
                         onClick={() => setActiveTab('discovery')}
-                        className={`flex-1 py-2 px-4 rounded-lg font-medium transition-all duration-200 ${activeTab === 'discovery'
-                            ? 'bg-sage-600 text-white'
-                            : 'text-sage-700'
+                        className={`flex-1 h-[42px] rounded-[20px] font-medium text-[15px] transition-all ${activeTab === 'discovery'
+                            ? 'bg-gradient-to-b from-moss-600 to-moss-700 text-white shadow-soft'
+                            : 'text-bark-700 hover:bg-white/20'
                             }`}
                     >
                         Discovery
@@ -1001,14 +1029,14 @@ const Home = () => {
                         <Section
                           title="For You"
                           action={hasLoadedDiscovery ? (
-                            <button onClick={async()=>{ await loadForYou(true) }} className="btn-secondary text-sm" aria-label="Refresh recommendations">Refresh</button>
+                            <button onClick={async()=>{ await loadForYou(true) }} className="pill text-sm text-bark-700 hover:bg-white/20 transition-all duration-200" aria-label="Refresh recommendations">Refresh</button>
                           ) : null}
                         >
                         {isLoadingForYou ? (
                             <div className="space-y-4">
                               {/* skeleton loaders to keep user engaged */}
                               {Array.from({ length: 3 }).map((_, i) => (
-                                <CardShell key={i} variant="solid" className="p-4 animate-pulse">
+                                        <CardShell key={i} variant="glass" className="p-4 animate-pulse">
                                   <div className="flex items-start gap-4">
                                     <div className="w-16 h-16 rounded-xl bg-bark-200" />
                                     <div className="flex-1 space-y-2">
@@ -1094,7 +1122,7 @@ const Home = () => {
                                     onClick={() => handleDiscoveryClick(item)}
                                         className="w-full text-left cursor-pointer"
                                 >
-                                        <CardShell variant="solid" className="p-3">
+                                        <CardShell variant="glass" className="p-3">
                                             <div className="flex items-center gap-3">
                                                 {/* Thumbnail */}
                                         <SafeImage
@@ -1104,10 +1132,10 @@ const Home = () => {
                                         />
                                                 {/* Content */}
                                         <div className="flex-1 min-w-0">
-                                                    <h3 className="font-semibold text-bark-900 leading-tight truncate mb-1">
+                                                    <h3 className="font-semibold text-bark-700 leading-tight truncate mb-1">
                                                         {item.title}
                                                     </h3>
-                                                    <p className="text-bark-600 text-sm truncate">
+                                                    <p className="text-bark-700/90 text-sm truncate">
                                                         {address}
                                                     </p>
                                                     {item.type === 'list' && item.places && (
@@ -1123,30 +1151,30 @@ const Home = () => {
                                                             e.stopPropagation();
                                                             handleLikeItem(item.id, item.type);
                                                         }}
-                                                        className="p-2 hover:bg-bark-100 rounded-full transition-colors"
+                                                        className="pill p-2 hover:bg-white/20 transition-colors"
                                                         aria-label={`${(item.item as List).likedBy?.includes(currentUser!.id) ? 'Unlike' : 'Like'} ${item.title}`}
                                                     >
-                                                        {(item.item as List).likedBy?.includes(currentUser!.id) ? <HeartIconSolid className="w-5 h-5 text-red-500" /> : <HeartIcon className="w-5 h-5 text-bark-600" />}
+                                                        {(item.item as List).likedBy?.includes(currentUser!.id) ? <HeartIconSolid className="w-5 h-5 text-red-500" /> : <HeartIcon className="w-5 h-5 text-bark-700" />}
                                                     </button>
                                                             <button
                                                                 onClick={e => {
                                                                     e.stopPropagation();
                                                                     handleSaveToPlace(item.item as Place);
                                                                 }}
-                                                        className="p-2 hover:bg-bark-100 rounded-full transition-colors"
+                                                        className="pill p-2 hover:bg-white/20 transition-colors"
                                                         aria-label={`Save ${item.title} to list`}
                                                             >
-                                                        <BookmarkIcon className="w-5 h-5 text-bark-600" />
+                                                        <BookmarkIcon className="w-5 h-5 text-bark-700" />
                                                             </button>
                                                             <button
                                                                 onClick={e => {
                                                                     e.stopPropagation();
                                                             handleCreatePost(item.type === 'list' ? item.id : undefined, item.type === 'hub' ? item.item : undefined);
                                                                 }}
-                                                        className="p-2 hover:bg-bark-100 rounded-full transition-colors"
+                                                        className="pill p-2 hover:bg-white/20 transition-colors"
                                                         aria-label={`Add post for ${item.title}`}
                                                             >
-                                                        <PlusIcon className="w-5 h-5 text-bark-600" />
+                                                        <PlusIcon className="w-5 h-5 text-bark-700" />
                                                             </button>
                                         </div>
                                     </div>
@@ -1164,10 +1192,14 @@ const Home = () => {
                                       address: item.address || '',
                                       photoUrl: item.mainImage,
                                       reason: item.tags?.[0],
-                                      exists: false, // TODO: Check if hub exists in DB
-                                      placeId: item.placeId
+                                      exists: false,
+                                      placeId: item.placeId,
+                                      photos: item.photos || [],
+                                      primaryType: item.primaryType || item.category,
+                                      types: item.types || []
                                     }))}
                                     onRefresh={async () => await loadSuggested(true)}
+                                    onViewDetails={handleViewDetails} // Pass the handler
                                     onOpen={(hub) => {
                                       // TODO: Navigate to existing hub
                                       console.log('Open hub:', hub);
@@ -1219,6 +1251,18 @@ const Home = () => {
                 onLocationSelect={handleLocationSelect}
             />
             <AdvancedFiltersDrawer isOpen={showAdvanced} onClose={()=>setShowAdvanced(false)} onApply={async ()=>{ await Promise.all([loadForYou(true), loadSuggested(true)]) }} />
+            
+            <SuggestedHubModal
+              isOpen={showSuggestedHubModal}
+              onClose={() => setShowSuggestedHubModal(false)}
+              placeId={selectedPlaceId}
+              onCreateHub={(placeData) => {
+                // TODO: Implement hub creation flow from modal
+                console.log('Create hub from modal:', placeData);
+                setShowSuggestedHubModal(false);
+              }}
+            />
+
             <CreatePost
                 isOpen={showCreatePost}
                 onClose={() => {
@@ -1307,6 +1351,7 @@ const Home = () => {
                 }}
               />
             )}
+            </main>
         </div>
     )
 }

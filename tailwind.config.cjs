@@ -9,166 +9,14 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        // Use modern color names to avoid warnings
-        ...Object.fromEntries(
-          Object.entries(defaultColors).map(([key, value]) => {
-            // Map deprecated color names to their modern equivalents
-            const colorMap = {
-              lightBlue: 'sky',
-              warmGray: 'stone',
-              trueGray: 'neutral',
-              coolGray: 'gray',
-              blueGray: 'slate'
-            };
-            return [colorMap[key] || key, value];
-          })
-        ),
-        // Cozy Glass earthy palette
-        bark: {
-          50: "#F7F5F2",
-          100: "#EEE9E2", 
-          200: "#D9CEC4",
-          300: "#C6B7A9",
-          400: "#9E8F82",
-          500: "#6F6356",
-          600: "#594F45",
-          700: "#443C35",
-          800: "#312B27",
-          900: "#1F1C1A"
-        },
-        moss: {
-          50: "#F3F7F4",
-          100: "#E6EFE8",
-          200: "#C7DECC",
-          300: "#A7CCB1",
-          400: "#6EAA83",
-          500: "#4B8F67",
-          600: "#3D7554",
-          700: "#315D44",
-          800: "#274A36",
-          900: "#1D382A"
-        },
-        sand: {
-          50: "#FFF9F1",
-          100: "#FFF2E1",
-          200: "#F7E2C1",
-          300: "#E6C79C",
-          400: "#D9B582",
-          500: "#C49A5E"
-        },
-        stone: {
-          50: "#FAFAFA",
-          100: "#F4F4F5",
-          200: "#E4E4E7",
-          300: "#D4D4D8",
-          400: "#A1A1AA",
-          500: "#71717A",
-          600: "#52525B",
-          700: "#3F3F46",
-          800: "#27272A",
-          900: "#18181B"
-        },
-        accent: {
-          DEFAULT: "#4B8F67",
-          fg: "#FFFFFF"
-        },
-        // Legacy colors for compatibility
-        linen: {
-          50: '#FAF8F4', // creamy white
-          100: '#F5F3EE',
-          200: '#ECE7DE',
-          300: '#E2D9CB',
-          400: '#D3C5B0',
-          500: '#BBA98C', // taupe
-          600: '#A08C6B',
-          700: '#7C6B4C',
-          800: '#5C5137',
-          900: '#3D3524',
-        },
-        wood: {
-          50: '#F8F5F2',
-          100: '#EDE3D6',
-          200: '#D6C1A6',
-          300: '#BFA178', // warm wood
-          400: '#A07C4B',
-          500: '#7C5A2E',
-          600: '#5C411C',
-          700: '#3D2A10',
-          800: '#2A1C0A',
-          900: '#1A1105',
-        },
-        sage: {
-          50: '#F6F7F6',
-          100: '#E3E7E3',
-          200: '#C7D0C7',
-          300: '#A3B3A3',
-          400: '#7A927A', // muted olive/sage
-          500: '#5F7A5F',
-          600: '#4A614A',
-          700: '#3D4F3D',
-          800: '#334033',
-          900: '#2C362C',
-        },
-        gold: {
-          50: '#FDF9ED',
-          100: '#F8EBC7',
-          200: '#F2DFA3',
-          300: '#E6C97A', // gentle gold
-          400: '#C9A94B',
-          500: '#A88A2E',
-          600: '#7C651C',
-          700: '#5C4A10',
-          800: '#3D320A',
-          900: '#2A2205',
-        },
-        charcoal: {
-          50: '#F6F6F6',
-          100: '#E3E3E3',
-          200: '#C7C7C7',
-          300: '#A3A3A3',
-          400: '#7A7A7A',
-          500: '#5F5F5F',
-          600: '#4A4A4A',
-          700: '#3D3D3D',
-          800: '#333333',
-          900: '#232323',
-        },
-        'wood-dark': {
-          50: '#F3F2F1',
-          100: '#E2E0DD',
-          200: '#C4C0B9',
-          300: '#A6A095',
-          400: '#8A8273',
-          500: '#6F6654',
-          600: '#5A5243',
-          700: '#474034',
-          800: '#342F26',
-          900: '#211E1A',
-        },
-        cream: {
-          50: '#FEFEFD',
-          100: '#FDFCFA',
-          200: '#FAF8F4',
-          300: '#F5F3EE',
-          400: '#ECE7DE',
-          500: '#E2D9CB',
-          600: '#D3C5B0',
-          700: '#BBA98C',
-          800: '#A08C6B',
-          900: '#7C6B4C',
-        },
-        coral: {
-          50: '#FEF7F6',
-          100: '#FDE8E6',
-          200: '#FBD1CC',
-          300: '#F8B3AB',
-          400: '#F48A7D',
-          500: '#F06449',
-          600: '#E74C3C',
-          700: '#C0392B',
-          800: '#9B2C1F',
-          900: '#7B2418',
-        },
+        parchment: { 50:'#F7F5F2', 100:'#EEECE7', 200:'#E8E3DA', 300:'#DCD5CA' },
+        bark:      { 700:'#5C534A', 900:'#3D3630' },
+        moss:      { 300:'#BFCAB5', 500:'#8FA287', 600:'#6F8A6B', 700:'#5E765C' },
+        aurum:     { 200:'#F0E6CE', 300:'#E8DBB5' },
+        info:  '#6F8F8C',
+        success: '#4C6E54',
+        warn:   '#C9A56A',
+        danger: '#B76B63',
       },
       fontFamily: {
         serif: ["'DM Serif Display'", 'Georgia', 'serif'],
@@ -177,11 +25,11 @@ module.exports = {
         handwriting: ["'Caveat'", 'cursive'],
       },
       boxShadow: {
-        soft: "0 8px 24px rgba(0,0,0,.08)",
-        inset: "inset 0 0 0 1px rgba(0,0,0,.06)",
-        'cozy': '0 4px 24px 0 rgba(120, 100, 60, 0.10)',
-        'botanical': '0 8px 32px 0 rgba(90, 110, 80, 0.10)',
-        'liquid': '0 12px 40px 0 rgba(90, 110, 80, 0.15)',
+        glass: '0 8px 24px rgba(61,54,48,0.10)',
+        soft:  '0 2px 12px rgba(0,0,0,0.06)',
+      },
+      borderRadius: {
+        xl2: '1.25rem'
       },
       backdropBlur: {
         'xs': '2px',

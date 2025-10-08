@@ -2,6 +2,7 @@ import React from 'react';
 import { HeartIcon, BookmarkIcon, ShareIcon, PlusIcon } from '@heroicons/react/24/outline';
 import { HeartIcon as HeartIconSolid } from '@heroicons/react/24/solid';
 import CardShell from '../ui/CardShell';
+import PlaceVisual from '../ui/PlaceVisual';
 
 interface StackCardProps {
   item: {
@@ -9,10 +10,14 @@ interface StackCardProps {
     type: 'place' | 'list' | 'user';
     title: string;
     description: string;
-    image: string;
+    image?: string; // Legacy, fallback only
     location?: string;
     likes?: number;
     isLiked?: boolean;
+    // New Places API (New) fields
+    types?: string[];
+    photoResourceName?: string;
+    userPhotos?: string[];
   };
   onItemClick: (item: any) => void;
   onLike: (item: any) => void;
@@ -41,19 +46,29 @@ export function StackCard({
       <CardShell
         variant="glass"
         onClick={() => onItemClick(item)}
-        className="glass--light h-full w-full cursor-pointer hover:shadow-soft transition-all duration-200"
+        className="h-full w-full cursor-pointer hover:shadow-soft transition-all duration-200"
       >
         <div className="flex flex-col h-full">
-          {/* Image */}
+          {/* Visual - Poster → User Photos → Budgeted Google Thumb */}
           <div className="relative h-48 w-full overflow-hidden rounded-t-xl">
-            <img
-              src={item.image}
-              alt={item.title}
-              className="h-full w-full object-cover"
-              onError={(e) => {
-                (e.currentTarget as HTMLImageElement).src = '/assets/leaf.png';
-              }}
-            />
+            {item.type === 'place' ? (
+              <PlaceVisual
+                types={item.types}
+                photoResourceName={item.photoResourceName}
+                userPhotos={item.userPhotos}
+                alt={item.title}
+                className="h-full w-full"
+              />
+            ) : (
+              <img
+                src={item.image || '/assets/leaf.png'}
+                alt={item.title}
+                className="h-full w-full object-cover"
+                onError={(e) => {
+                  (e.currentTarget as HTMLImageElement).src = '/assets/leaf.png';
+                }}
+              />
+            )}
             <div className="scrim absolute inset-0" />
             
             {/* Badge */}

@@ -1,64 +1,50 @@
-/**
- * Sunlit Glass UI Utilities
- * Earthy, brown glassy aesthetic with soft sunlight reflections
- */
-
-/* Solid panel - opaque warm background */
-.panel {
-  background: #F7F5F2;
-  border-radius: 16px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.55);
-}
-
-/* Glass effect with earthy warm glow - lighter/crisper */
+/* Card material - BROWN STAINED GLASS bathed in sunshine */
 .glass {
   position: relative;
-  background: rgba(255, 255, 255, 0.10);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  border-radius: 16px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08), inset 0 0 0 1px rgba(0, 0, 0, 0.06);
+  backdrop-filter: blur(18px) saturate(1.25);
+  -webkit-backdrop-filter: blur(18px) saturate(1.25);
+  /* Rich brown-tinted translucent glass */
+  background: linear-gradient(145deg, 
+    rgba(232, 219, 181, 0.65),  /* aurum-300 tint - warm brown */
+    rgba(220, 213, 202, 0.75)   /* parchment-300 - deeper warm */
+  );
+  border: 1px solid rgba(232, 219, 181, 0.50); /* golden border */
+  box-shadow: none; /* NO SHADOWS - clean glass look */
+  border-radius: 1.25rem;
 }
 
-/* Sunlit gradient overlay - reduced opacity for clarity */
-.glass::before {
+/* STRONG SUNSHINE - warm golden rays streaming through */
+.sun-edge::before {
   content: "";
   position: absolute;
   inset: -1px;
-  pointer-events: none;
   border-radius: inherit;
+  pointer-events: none;
   background:
-    radial-gradient(110% 70% at 0% 0%,   hsla(35, 95%, 60%, 0.10), transparent 58%),
-    radial-gradient(90%  60% at 100% 100%, hsla(160, 30%, 45%, 0.06), transparent 52%);
+    /* BRIGHT golden sunshine from top-left corner */
+    radial-gradient(700px 500px at 10% 10%, 
+      rgba(255, 235, 150, 0.55),  /* strong golden sunlight */
+      rgba(240, 230, 206, 0.30) 35%,
+      rgba(232, 219, 181, 0.10) 60%,
+      transparent 80%
+    );
+  mix-blend-mode: overlay;
+  opacity: 0.9;
 }
 
-/* Dark gradient scrim for overlays on images */
-.scrim {
-  background: linear-gradient(to bottom, rgba(0, 0, 0, 0), rgba(0, 0, 0, 0.45));
+/* Optional tiny highlight (use sparingly - ONE featured element per screen max) */
+.accent-rim {
+  box-shadow: 0 0 0 1px rgba(255,255,255,0.35), 0 0 0 2px rgba(232,219,181,0.18);
 }
 
-/* Focus ring - accessible moss accent */
-:focus-visible {
-  outline: 2px solid #4B8F67;
+/* Ghost chip */
+.pill {
+  background: rgba(255,255,255,0.12);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255,255,255,0.26);
+  border-radius: 9999px;
+}
+.pill:focus-visible {
+  outline: 2px solid rgba(143,162,135,0.55);
   outline-offset: 2px;
-}
-
-/* Variants */
-.glass--light::before {
-  background:
-    radial-gradient(110% 70% at 0% 0%,   hsla(35, 95%, 60%, 0.08), transparent 58%),
-    radial-gradient(90%  60% at 100% 100%, hsla(160, 30%, 45%, 0.06), transparent 52%);
-}
-
-.glass-strong {
-  background: rgba(255, 255, 255, 0.20);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-}
-
-.glass-subtle {
-  background: rgba(255, 255, 255, 0.05);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
 }
