@@ -193,21 +193,21 @@ export default function GooglePlacesAutocomplete({
           onBlur={handleBlur}
           onKeyDown={handleKeyDown}
           placeholder={placeholder}
-          className={`w-full px-4 py-3 pl-10 border border-warmGray-300 rounded-xl focus:ring-2 focus:ring-[#E17373] focus:border-transparent transition-all bg-white ${className}`}
+          className={`w-full px-4 py-3 pl-10 rounded-xl transition-all backdrop-filter backdrop-blur-lg bg-white/20 border border-white/30 focus:bg-white/25 focus:border-white/40 focus:ring-2 focus:ring-white/20 focus:ring-offset-0 text-bark-900 placeholder:text-bark-700/70 ${className}`}
           autoComplete="off"
         />
-        <MapPinIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-brown-400" />
+        <MapPinIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-bark-700/80" />
       </div>
 
       {/* Dropdown */}
       {showDropdown && predictions.length > 0 && (
-        <div className="absolute z-50 w-full mt-2 bg-white border border-warmGray-300 rounded-xl shadow-lg max-h-60 overflow-y-auto">
+        <div className="absolute z-50 w-full mt-2 glass rounded-xl shadow-glass max-h-60 overflow-y-auto border border-white/25">
           {predictions.map((prediction, index) => (
             <button
               key={prediction.place_id}
               type="button"
-              className={`w-full px-4 py-3 text-left hover:bg-amber-50 transition-colors ${
-                index === selectedIndex ? 'bg-amber-100' : ''
+              className={`w-full px-4 py-3 text-left hover:bg-white/20 transition-colors text-bark-900 ${
+                index === selectedIndex ? 'bg-white/20' : ''
               }`}
               onMouseDown={(e) => {
                 e.preventDefault() // Prevent blur

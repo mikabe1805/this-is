@@ -143,7 +143,7 @@ const SearchAndFilter: React.FC<SearchAndFilterProps> = ({
         
         <div className="flex-1 relative">
           <div className="relative">
-            <MagnifyingGlassIcon className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-charcoal-600 pointer-events-none z-10" />
+            <MagnifyingGlassIcon className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-bark-700/80 pointer-events-none z-10" />
             <input
               type="text"
               placeholder={placeholder}
@@ -167,7 +167,7 @@ const SearchAndFilter: React.FC<SearchAndFilterProps> = ({
                   }
                 }
               }}
-              className="w-full pl-12 pr-4 py-3 bg-white/80 backdrop-blur-sm border border-linen-200 rounded-2xl text-charcoal-600 placeholder-charcoal-400 focus:outline-none focus:ring-2 focus:ring-sage-200 focus:border-sage-300 shadow-soft transition-all duration-300"
+              className="w-full pl-12 pr-4 py-3 bg-white/48 backdrop-blur-xl rounded-2xl text-bark-900 placeholder-bark-700/70 ring-1 ring-inset ring-white/15 shadow-[inset_0_1px_1px_rgba(255,255,255,0.40),inset_0_0_0_1px_rgba(255,255,255,0.12),0_2px_4px_rgba(0,0,0,0.04),0_8px_16px_rgba(61,54,48,0.08)] focus:outline-none focus:ring-2 focus:ring-moss-600/35 focus:shadow-[inset_0_1px_2px_rgba(255,255,255,0.45),inset_0_0_0_1px_rgba(255,255,255,0.18),0_0_0_2px_rgba(240,210,150,0.45),0_2px_6px_rgba(0,0,0,0.05),0_12px_24px_rgba(61,54,48,0.10)] transition-all duration-200"
             />
           </div>
         </div>
@@ -176,11 +176,11 @@ const SearchAndFilter: React.FC<SearchAndFilterProps> = ({
           <button
             ref={filterButtonRef}
             onClick={handleFilterClick}
-            className="relative w-10 h-10 bg-white/80 backdrop-blur-sm rounded-xl flex items-center justify-center shadow-soft border border-linen-200 hover:bg-white transition-all duration-300"
+            className="relative w-10 h-10 rounded-xl flex items-center justify-center shadow-soft bg-white/22 border border-white/26 hover:bg-white/28 backdrop-blur-md transition-all duration-200"
           >
-            <FunnelIcon className="w-5 h-5 text-sage-600" />
+            <FunnelIcon className="w-5 h-5 text-bark-700/80" />
             {filterCount > 0 && (
-              <div className="absolute -top-1 -right-1 w-5 h-5 bg-sage-500 text-white text-xs rounded-full flex items-center justify-center font-medium">
+              <div className="absolute -top-1 -right-1 w-5 h-5 bg-white/80 text-bark-900 text-xs rounded-full flex items-center justify-center font-medium border border-white/40">
                 {filterCount}
               </div>
             )}

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+﻿import React, { useState, useEffect, useRef } from 'react';
 import { StackCard } from './StackCard';
 
 interface ExploreItem {
@@ -187,6 +187,7 @@ export function StackDeck({
 
   const currentItem = items[currentIndex];
   const nextItem = items[currentIndex + 1];
+  const affordance = Math.min(1, Math.abs(dragOffset.x) / 120);
 
   return (
     <div
@@ -237,30 +238,47 @@ export function StackDeck({
           transition: isDragging ? 'none' : 'transform 0.3s ease-out'
         }}
       />
+
+      {/* Drag affordance chips (non-interactive) */}
+      {isDragging && (
+        <>
+          <div
+            className="absolute inset-y-0 left-3 flex items-center z-30 pointer-events-none"
+            style={{ opacity: affordance }}
+          >
+            <div className="pill px-3 py-1 text-xs text-white/90">Previous</div>
+          </div>
+          <div
+            className="absolute inset-y-0 right-3 flex items-center z-30 pointer-events-none"
+            style={{ opacity: affordance }}
+          >
+            <div className="pill px-3 py-1 text-xs text-white/90">Next</div>
+          </div>
+        </>
+      )}
       
       {/* First-time user hint */}
       {showHint && currentIndex === 0 && (
-        <div className="absolute top-6 left-1/2 transform -translate-x-1/2 z-30 pointer-events-none">
-          <div className="bg-bark-900/60 backdrop-blur-sm text-white text-sm px-4 py-2 rounded-full flex items-center gap-2 animate-pulse">
+        <div className="absolute top-6 left-1/2 -translate-x-1/2 z-30 pointer-events-none">
+          <div className="bg-bark-900/70 backdrop-blur-sm text-white text-sm px-4 py-2 rounded-full flex items-center gap-2 animate-pulse">
             <span>Swipe to browse</span>
-            <span className="text-lg">→</span>
+            <span className="text-lg">↔︎</span>
           </div>
         </div>
       )}
-      
+
       {/* Instructions */}
-      <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 text-center">
+      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-center z-30 pointer-events-none">
         <div className="bg-black/60 backdrop-blur-sm text-white text-xs px-3 py-2 rounded-full">
           <div className="flex items-center gap-4">
             <span>← Previous</span>
-            <span>↑ Save</span>
-            <span>→ Next</span>
+            <span>↑ Quick Save</span>
+            <span>Next →</span>
           </div>
         </div>
       </div>
-      
-      {/* Progress indicator */}
-      <div className="absolute top-4 left-1/2 transform -translate-x-1/2">
+
+      <div className="absolute top-4 left-1/2 -translate-x-1/2">
         <div className="bg-black/60 backdrop-blur-sm text-white text-xs px-3 py-1 rounded-full">
           {currentIndex + 1} of {items.length}
         </div>
@@ -268,3 +286,9 @@ export function StackDeck({
     </div>
   );
 }
+
+
+
+
+
+

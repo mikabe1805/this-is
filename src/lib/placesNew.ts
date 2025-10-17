@@ -9,11 +9,10 @@ const KEY = import.meta.env.VITE_PLACES_NEW_KEY as string;
 const PHOTOS_ON = import.meta.env.VITE_PLACES_PHOTOS_ENABLED === 'true';
 const PLACES_ON = import.meta.env.VITE_PLACES_ENABLED === 'true';
 
-// Keep responses tight: list only what you actually render in lists/cards.
-// For detail view we'll fetch a broader mask on demand.
-// NOTE: photos.name removed to save costs - we use fallback images for suggested hubs
+// Keep responses tight: only what we render in lists/cards.
+// Strict per spec: id, displayName, formattedAddress, primaryType, photos.name
 const LIST_FIELD_MASK =
-  'places.id,places.displayName,places.formattedAddress,places.location,places.primaryType,places.types,places.photos.name';
+  'places.id,places.displayName,places.formattedAddress,places.primaryType,places.photos.name';
 const DETAIL_FIELD_MASK =
   'id,displayName,formattedAddress,location,primaryType,types,websiteUri,internationalPhoneNumber,userRatingCount,rating,photos';
 
@@ -47,6 +46,19 @@ export async function searchText(
   opts?: { lat?: number; lng?: number; max?: number }
 ): Promise<PlaceLite[]> {
   if (!PLACES_ON) return [];
+  // Local cache (24h)
+  const normQ = q.trim().toLowerCase().replace(/\s+/g, ' ');
+  const key = `places:v1:text|${normQ}|${opts?.lat?.toFixed?.(3) ?? ''},${opts?.lng?.toFixed?.(3) ?? ''}|${opts?.max ?? 10}`;
+  try {
+    const cached = localStorage.getItem(key);
+    if (cached) {
+      const { t, v } = JSON.parse(cached);
+      if (Date.now() - t < 24 * 60 * 60 * 1000) {
+        return v;
+      }
+      localStorage.removeItem(key);
+    }
+  } catch {}
   
   const body: any = { textQuery: q, maxResultCount: opts?.max ?? 10 };
   if (opts?.lat && opts?.lng) {
@@ -71,7 +83,9 @@ export async function searchText(
   }
   
   const json = await res.json();
-  return (json.places ?? []).map(mapLite);
+  const out = (json.places ?? []).map(mapLite);
+  try { localStorage.setItem(key, JSON.stringify({ t: Date.now(), v: out })); } catch {}
+  return out;
 }
 
 export async function searchNearby(
@@ -80,6 +94,19 @@ export async function searchNearby(
   opts?: { includedTypes?: string[]; max?: number }
 ): Promise<PlaceLite[]> {
   if (!PLACES_ON) return [];
+  // Local cache (24h)
+  const types = (opts?.includedTypes || []).map(t => String(t).toLowerCase()).sort().join('+');
+  const key = `places:v1:near|${lat.toFixed(3)},${lng.toFixed(3)}|${types}|${opts?.max ?? 10}`;
+  try {
+    const cached = localStorage.getItem(key);
+    if (cached) {
+      const { t, v } = JSON.parse(cached);
+      if (Date.now() - t < 24 * 60 * 60 * 1000) {
+        return v;
+      }
+      localStorage.removeItem(key);
+    }
+  } catch {}
   
   const body: any = {
     maxResultCount: opts?.max ?? 10,
@@ -105,7 +132,9 @@ export async function searchNearby(
   }
   
   const json = await res.json();
-  return (json.places ?? []).map(mapLite);
+  const out = (json.places ?? []).map(mapLite);
+  try { localStorage.setItem(key, JSON.stringify({ t: Date.now(), v: out })); } catch {}
+  return out;
 }
 
 export async function autocomplete(text: string, sessionToken: string) {
@@ -177,11 +206,12 @@ export function photoUrl(resourceName: string, px = 400): string {
 function mapLite(p: any): PlaceLite {
   return {
     id: p.id,
-    name: p.displayName?.text,
+    name: p.displayName?.text || p.displayName,
     address: p.formattedAddress,
-    lat: p.location?.latitude,
-    lng: p.location?.longitude,
-    types: p.types,
+    // location/types omitted from list mask for cost control
+    lat: undefined,
+    lng: undefined,
+    types: undefined,
     primaryType: p.primaryType,
     photos: p.photos,
   };

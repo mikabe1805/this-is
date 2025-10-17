@@ -10,6 +10,8 @@ const TYPE_TO_POSTER: Record<string, PosterCategory> = {
   'coffee_shop': 'coffee',
   'coffee': 'coffee',
   'bakery': 'coffee',
+  'tea_house': 'coffee',
+  'boba_tea_shop': 'coffee',
   
   // Parks & Outdoors
   'park': 'park',
@@ -19,6 +21,8 @@ const TYPE_TO_POSTER: Record<string, PosterCategory> = {
   'tourist_attraction': 'park',
   'hiking_area': 'park',
   'campground': 'park',
+  'beach': 'park',
+  'national_park': 'park',
   
   // Restaurants & Food
   'restaurant': 'restaurant',
@@ -35,6 +39,9 @@ const TYPE_TO_POSTER: Record<string, PosterCategory> = {
   'mexican_restaurant': 'restaurant',
   'pizza_restaurant': 'restaurant',
   'bar': 'restaurant',
+  'wine_bar': 'restaurant',
+  'brewery': 'restaurant',
+  'pub': 'restaurant',
   'night_club': 'restaurant',
   
   // Museums & Culture
@@ -71,5 +78,18 @@ export function humanizeTag(tag: string): string {
     .split('_')
     .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
     .join(' ')
+}
+
+// New helpers: resolve category from primaryType and/or types, and emit a public poster path.
+export function resolvePosterCategory(primaryType?: string | null, types: string[] = []): PosterCategory {
+  const candidates = [primaryType, ...types].filter(Boolean) as string[]
+  if (candidates.length === 0) return 'default'
+  return categoryFromTypes(candidates)
+}
+
+export function posterPathFor(primaryType?: string | null, types: string[] = []): string {
+  const cat = resolvePosterCategory(primaryType, types)
+  // Public posters use png names matching category; default fallback is provided
+  return `/posters/${cat}.png`
 }
 

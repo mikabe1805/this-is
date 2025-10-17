@@ -36,6 +36,13 @@ export function SuggestedHubsRail({
 }: SuggestedHubsRailProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
 
+  // Reset scroll position to start when suggestions change
+  useEffect(() => {
+    if (scrollRef.current && suggestions.length > 0) {
+      scrollRef.current.scrollTo({ left: 0, behavior: 'smooth' });
+    }
+  }, [suggestions.length]);
+
   // Lazy load images using IntersectionObserver
   useEffect(() => {
     if (!scrollRef.current) return;
@@ -68,14 +75,17 @@ export function SuggestedHubsRail({
   }
 
   return (
-    <section className="px-3 pt-2">
+    <section className="px-3 pt-2 radial-warm animate-slide-up">
+      {/* Soft divider */}
+      <hr className="my-4 border-white/20" />
+      
       {/* Header */}
       <div className="flex items-center justify-between mb-3">
-        <h3 className="text-heading">Suggested Hubs</h3>
+        <h3 className="section-title">Suggested Hubs</h3>
         <button
           onClick={onRefresh}
           disabled={isLoading}
-          className="pill pill--quiet px-3 py-1.5 h-[36px] text-[14px] gap-1.5"
+          className="badge inline-flex items-center h-9 text-[14px] gap-1.5"
           aria-label="Refresh suggestions"
         >
           <ArrowPathIcon className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
@@ -113,7 +123,8 @@ export function SuggestedHubsRail({
             </div>
           ))
         ) : (
-          suggestions.map((hub) => (
+          suggestions.map((hub, index) => (
+            <div key={hub.id} className="animate-rise" style={{ animationDelay: `${index*40}ms` }}>
             <SuggestedHubCard
               key={hub.id}
               id={hub.id}
@@ -131,6 +142,7 @@ export function SuggestedHubsRail({
               onNotInterested={() => onNotInterested(hub.id)}
               onViewDetails={() => onViewDetails(hub.id)}
             />
+            </div>
           ))
         )}
       </div>

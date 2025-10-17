@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+﻿import { useState, useEffect } from 'react';
 import { MapIcon, BookmarkIcon, UserIcon, SparklesIcon } from '@heroicons/react/24/outline';
 import { useLocation } from 'react-router-dom';
 import AdvancedFiltersDrawer from '../components/AdvancedFiltersDrawer';
@@ -12,6 +12,7 @@ import { firebaseDataService } from '../services/firebaseDataService';
 import Card from '../components/Card';
 import TagPill from '../components/TagPill';
 import CreateHubModal from '../components/CreateHubModal';
+import Button from '../components/ui/Button';
 import QuickViewModal from '../components/QuickViewModal';
 import SaveModal from '../components/SaveModal';
 
@@ -526,7 +527,7 @@ const Search = () => {
                 )}
                 {suggestedTag && currentUser && (
                   <div className="mb-3 text-sm flex items-center gap-2 bg-linen-50 border border-linen-200 rounded-xl p-2">
-                    <span>You often like “{suggestedTag}”.</span>
+                    <span>You often like â€œ{suggestedTag}â€.</span>
                     <button
                       className="px-3 py-1.5 rounded-full bg-gold-100 text-gold-700 hover:bg-gold-200 border border-gold-200"
                       onClick={async () => {
@@ -547,7 +548,7 @@ const Search = () => {
                       {Array.from({ length: 3 }).map((_,i)=> (
                         <div key={i} className="p-4 rounded-xl border border-linen-200 bg-white animate-pulse">
                           <div className="flex items-start gap-3">
-                            <div className="w-14 h-14 rounded-lg bg-linen-200" />
+                            <div className="w-14 h-14 rounded-xl2 bg-linen-200 shadow-soft" />
                             <div className="flex-1 space-y-2">
                               <div className="h-4 bg-linen-200 rounded w-1/2" />
                               <div className="h-3 bg-linen-200 rounded w-2/3" />
@@ -567,30 +568,33 @@ const Search = () => {
                       const maxKm =  (/* default */ 80)
                       return d <= maxKm
                     }
-                    return items.filter(within).map(p => (
-                    <Card key={p.id} className="p-4" interactive onClick={()=>{
+                    return items.filter(within).map((p, i) => (
+                    <Card key={p.id} className="p-4 animate-rise hover-lift hover-lift-on" interactive onClick={()=>{
                       const isExternal = ((p as any).source === 'google');
                       const d = distanceFromUserKm((p as any)?.coordinates?.lat, (p as any)?.coordinates?.lng)
                       const metaLine = [
                         (p.tags||[]).slice(0,2).map((t:string)=>`#${t}`).join(' '),
                         typeof d === 'number' ? `${d < 1 ? (d*1000).toFixed(0)+' m' : d.toFixed(1)+' km'}` : ''
-                      ].filter(Boolean).join(' · ')
+                      ].filter(Boolean).join(' Â· ')
                       setQuickView({ title: p.name, subtitle: (p as any).address, image: (p as any).mainImage, meta: metaLine, type: isExternal ? 'external_place' : 'place', place: p })
                     }}>
                       <div className="flex items-start gap-3">
-                        <img src={(p as any).mainImage || '/assets/leaf.png'} alt={p.name} className="w-14 h-14 rounded-lg object-cover" />
+                        <img src={(p as any).mainImage || '/assets/leaf.png'} alt={p.name} className="w-14 h-14 rounded-xl2 object-cover shadow-soft" />
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center justify-between">
-                            <h4 className="font-semibold text-charcoal-800 truncate">{p.name}</h4>
-                            <span className="text-xs text-charcoal-500">{(p.tags||[]).slice(0,2).map(t=>`#${t}`).join(' ')}</span>
+                            <h4 className="text-title truncate">{p.name}</h4>
+                            <span className="text-meta text-xs">{(p.tags||[]).slice(0,2).map(t=>`#${t}`).join(' ')}</span>
                           </div>
-                          <div className="text-sm text-charcoal-600 line-clamp-1">{p.address}</div>
+                          <div className="text-body text-sm line-clamp-1">{p.address}</div>
                         </div>
                       </div>
-                      <div className="mt-3 flex items-center justify-end gap-3">
-                        <button onClick={() => handlePlaceClick(p)} className="btn-primary text-sm">View</button>
+                      <div className="mt-3 flex items-center justify-end gap-2 bg-white/60 backdrop-blur-md rounded-xl p-1">
+                        <button onClick={() => handlePlaceClick(p)} className="btn-primary text-sm shimmer shimmer-run">View</button>
                         {currentUser && (
-                          <button onClick={async (e) => { e.stopPropagation(); await firebaseDataService.markPlaceNotInterested(currentUser.id, p.id); setRecommendedHubs(prev=>prev.filter(x=>x.id!==p.id)); setExternalHubs(prev=>prev.filter(x=>x.id!==p.id)); }} className="btn-secondary text-sm">Not interested</button>
+                          <>
+                          <button onClick={async (e) => { e.stopPropagation(); setSelectedPlace(p as any); setShowSaveModal(true) }} className="btn-secondary text-sm">Save</button>
+                          <button onClick={async (e) => { e.stopPropagation(); await firebaseDataService.markPlaceNotInterested(currentUser.id, p.id); setRecommendedHubs(prev=>prev.filter(x=>x.id!==p.id)); setExternalHubs(prev=>prev.filter(x=>x.id!==p.id)); }} className="btn-secondary text-sm">Hide</button>
+                          </>
                         )}
                       </div>
                     </Card>
@@ -607,7 +611,7 @@ const Search = () => {
                     <button
                       key={q}
                       onClick={() => { setSearchQuery(q); performSearch(q); setShowSearchHistory(false); }}
-                      className="w-full text-left px-3 py-2 rounded-xl bg-white border border-linen-200 hover:bg-linen-50 transition"
+                      className="w-full text-left px-3 py-2 rounded-xl surface-soft transition"
                     >
                       {q}
                     </button>
@@ -616,14 +620,14 @@ const Search = () => {
               </div>
             ) : (
               <div className="space-y-6">
-                <div className="flex justify-center bg-white rounded-xl p-1 border">
+                <div className="flex justify-center glass rounded-xl p-1">
                   {(['places', 'lists', 'users'] as const).map(filter => {
                     const placeCount = (displayResults.places || []).length
                     const listCount = (displayResults.lists || []).length
                     const userCount = (displayResults.users || []).length
                     const label = filter === 'places' ? `Places (${placeCount})` : filter === 'lists' ? `Lists (${listCount})` : `People (${userCount})`
                     return (
-                      <button key={filter} onClick={() => setActiveFilter(filter)} className={`flex-1 py-2 px-3 text-sm font-medium rounded-xl ${activeFilter === filter ? 'bg-sage-600 text-white' : ''}`}>
+                      <button key={filter} onClick={() => setActiveFilter(filter)} className={`${activeFilter === filter ? 'pill pill--primary' : 'pill pill--quiet'} h-9 text-sm font-medium flex-1`}>
                         {label}
                       </button>
                     )
@@ -632,10 +636,16 @@ const Search = () => {
 
                 {/* Google results for the current query (after results header/tabs) */}
                 {searchQuery.trim() && (
-                  <div className="my-6">
-                    <div className="flex items-center justify-between mb-3">
-                      <h3 className="text-lg font-serif font-semibold" style={{ color: '#2563eb' }}>Recommended from Google</h3>
+                  <div className="my-6 radial-warm">
+                    <div className="flex items-center justify-between mb-2">
+                      <h3 className="section-title">
+                        {(() => {
+                          const cnt = googleQueryHubs.filter(it => (activeFilters.length === 0) || (Array.isArray((it as any).tags) && (it as any).tags.some((t:string)=> activeFilters.includes(t)))).slice(0,8).length
+                          return `Recommended hubs for you (${cnt})`
+                        })()}
+                      </h3>
                     </div>
+                    <hr className="border-white/20 mb-3" />
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
                       {(isSearching ? Array.from({ length: 6 }).map((_,i)=> (
                         <div key={`sk-${i}`} className="relative w-full rounded-2xl border border-linen-200 overflow-hidden bg-white animate-pulse">
@@ -653,11 +663,11 @@ const Search = () => {
                         const price = typeof (item as any).priceLevel === 'number' ? '$'.repeat(Math.max(1, Math.min(4, (item as any).priceLevel))) : ''
                         const rating = typeof (item as any).rating === 'number' ? (item as any).rating.toFixed(1) : ''
                         const ratingCount = typeof (item as any).userRatingsTotal === 'number' ? ` (${(item as any).userRatingsTotal})` : ''
-                        const ratingAndCount = rating ? `${rating} ★${ratingCount}` : ''
-                        const meta = [ratingAndCount, price, (item as any).openNow ? 'Open now' : ''].filter(Boolean).join(' · ')
+                        const ratingAndCount = rating ? `${rating} â˜…${ratingCount}` : ''
+                        const meta = [ratingAndCount, price, (item as any).openNow ? 'Open now' : ''].filter(Boolean).join(' Â· ')
                         const images = Array.isArray((item as any).images) && (item as any).images.length > 0 ? (item as any).images : ((item as any).mainImage ? [(item as any).mainImage] : [])
                         return (
-                          <div key={item.id} className="relative w-full rounded-2xl border border-linen-200 overflow-hidden bg-white cursor-pointer" onClick={()=>{ const d = distanceFromUserKm((item as any)?.coordinates?.lat, (item as any)?.coordinates?.lng); const metaLine = [meta, typeof d === 'number' ? `${d < 1 ? (d*1000).toFixed(0)+' m' : d.toFixed(1)+' km'}` : ''].filter(Boolean).join(' · '); setQuickView({ title: (item as any).name, subtitle: (item as any).address, image: (Array.isArray((item as any).images) && (item as any).images[0]) || (item as any).mainImage, meta: metaLine, type: ((item as any).source === 'google' || (item as any).googlePlaceId || (item as any).provider === 'google') ? 'external_place' : 'place', place: item }) }}>
+                          <div key={item.id} className="relative w-full rounded-xl2 overflow-hidden surface-glass">
                             <div className="pointer-events-none absolute -top-20 left-6 w-56 h-56 rounded-full bg-white/70 blur-3xl opacity-70" />
                             <div className="pointer-events-none absolute -bottom-24 right-8 w-52 h-52 rounded-full bg-blue-200/70 blur-3xl opacity-70" />
                             
@@ -669,15 +679,15 @@ const Search = () => {
                               ) : (
                                 <img src={((images as any)[0] || (item as any).mainImage || '/assets/leaf.png')} alt={item.name} className="absolute inset-0 w-full h-full object-cover" onError={(e)=>{ (e.currentTarget as HTMLImageElement).src='/assets/leaf.png' }} />
                               )}
-                              <div className="absolute inset-x-0 top-0 h-10 bg-gradient-to-b from-black/25 to-transparent" />
+                              <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-black/30 to-transparent pointer-events-none" />
                             </div>
 
                             {/* content */}
-                            <div className="p-4 relative">
-                              <div className="relative">
-                                <h4 className="font-semibold text-blue-900 text-base text-center line-clamp-2">{item.name}</h4>
-                                <p className="text-blue-700 text-[11px] text-center mt-1 line-clamp-1">{(item as any).address || ''}</p>
-                                {meta && <p className="text-blue-900/80 text-[11px] text-center mt-2">{meta}</p>}
+                              <div className="p-4 relative">
+                                <div className="relative">
+                                <h4 className="text-title text-base text-center line-clamp-2">{item.name}</h4>
+                                <p className="text-meta text-[11px] text-center mt-1 line-clamp-1">{(item as any).address || ''}</p>
+                                {meta && <p className="text-meta text-[11px] text-center mt-2">{meta}</p>}
                                 {Array.isArray((item as any).tags) && (item as any).tags.length > 0 && (
                                   <div className="mt-2 flex flex-wrap justify-center gap-1">
                                     {normalizeExternalTags((item as any).tags).slice(0,4).map((t:string, i:number) => (
@@ -701,9 +711,13 @@ const Search = () => {
                                     ))}
                                   </div>
                                 )}
-                                <div className="mt-3 flex items-center justify-center text-[11px] text-blue-900/80">Tap to preview</div>
+                                <div className="mt-3 flex items-center justify-center gap-2">
+                                  <Button size="sm" variant="primary" onClick={()=>{ const d = distanceFromUserKm((item as any)?.coordinates?.lat, (item as any)?.coordinates?.lng); const metaLine = [meta, typeof d === 'number' ? `${d < 1 ? (d*1000).toFixed(0)+' m' : d.toFixed(1)+' km'}` : ''].filter(Boolean).join(' · '); setQuickView({ title: (item as any).name, subtitle: (item as any).address, image: (Array.isArray((item as any).images) && (item as any).images[0]) || (item as any).mainImage, meta: metaLine, type: ((item as any).source === 'google' || (item as any).googlePlaceId || (item as any).provider === 'google') ? 'external_place' : 'place', place: item }) }}>View</Button>
+                                  <Button size="sm" variant="secondary" onClick={()=>{ setSelectedPlace(item as any); setShowSaveModal(true) }}>Save</Button>
+                                  <Button size="sm" variant="ghost" onClick={()=>{ setGoogleQueryHubs(prev => prev.filter((x:any)=> x.id !== (item as any).id)) }}>Hide</Button>
+                                </div>
+                                </div>
                               </div>
-                            </div>
                           </div>
                         )
                       }))
@@ -723,7 +737,7 @@ const Search = () => {
                     {displayResults.places.map((result) => {
                   const place = 'item' in result ? result.item : result;
                   return (
-                    <div key={place.id} onClick={() => { if (isExternalPlace(place)) { setQuickView({ title: place.name, subtitle: (place as any).address, image: (place as any).mainImage, meta: (place.tags||[]).slice(0,3).map((t:string)=>`#${t}`).join(' '), type: 'external_place', place }); } else { handlePlaceClick(place) } }} className="p-4 bg-white rounded-xl border border-linen-200 cursor-pointer hover:bg-linen-50 transition">
+                    <div key={place.id} onClick={() => { if (isExternalPlace(place)) { setQuickView({ title: place.name, subtitle: (place as any).address, image: (place as any).mainImage, meta: (place.tags||[]).slice(0,3).map((t:string)=>`#${t}`).join(' '), type: 'external_place', place }); } else { handlePlaceClick(place) } }} className="p-4 surface-soft rounded-xl cursor-pointer transition">
                       <h4 className="text-cozy-title">{place.name}</h4>
                       <p className="text-cozy-sub line-clamp-1">{place.address}</p>
                       {'score' in result && <p className="text-xs text-purple-600">Score: {Math.round(result.score as number)}</p>}
@@ -740,7 +754,7 @@ const Search = () => {
                     {displayResults.lists.map((result) => {
                   const list = 'item' in result ? result.item : result;
                   return (
-                    <div key={list.id} onClick={() => setQuickView({ title: list.name, subtitle: list.description, image: (list as any).coverImage, meta: (list.tags||[]).slice(0,3).map((t:string)=>`#${t}`).join(' '), type: 'list', list })} className="p-4 bg-white rounded-xl border border-linen-200 cursor-pointer hover:bg-linen-50 transition">
+                    <div key={list.id} onClick={() => setQuickView({ title: list.name, subtitle: list.description, image: (list as any).coverImage, meta: (list.tags||[]).slice(0,3).map((t:string)=>`#${t}`).join(' '), type: 'list', list })} className="p-4 surface-soft rounded-xl cursor-pointer transition">
                       <h4 className="text-cozy-title">{list.name}</h4>
                       <p className="text-cozy-sub line-clamp-2">{list.description}</p>
                       {'score' in result && <p className="text-xs text-purple-600">Score: {Math.round(result.score as number)}</p>}
@@ -757,7 +771,7 @@ const Search = () => {
                     {displayResults.users.map((result) => {
                     const user = 'item' in result ? result.item : result;
                     return (
-                        <div key={user.id} onClick={() => handleUserClick(user)} className="p-4 bg-white rounded-xl border border-linen-200 cursor-pointer flex items-center gap-3 hover:bg-linen-50 transition">
+                        <div key={user.id} onClick={() => handleUserClick(user)} className="p-4 surface-soft rounded-xl cursor-pointer flex items-center gap-3 transition">
                             <img src={user.avatar} alt={user.name} className="w-12 h-12 rounded-full object-cover" />
                             <div>
                                 <h4 className="text-cozy-title">{user.name}</h4>
@@ -857,7 +871,7 @@ const Search = () => {
             const chips: Array<{label: string; tone?: any}> = []
             if (quickView.type === 'external_place' || quickView.type === 'place') {
               const p: any = quickView.place || {}
-              if (typeof p.rating === 'number') chips.push({ label: `${p.rating.toFixed(1)} ★`, tone: 'brand' })
+              if (typeof p.rating === 'number') chips.push({ label: `${p.rating.toFixed(1)} â˜…`, tone: 'brand' })
               if (typeof p.userRatingsTotal === 'number') chips.push({ label: `${p.userRatingsTotal}`, tone: 'neutral' })
               if (typeof p.priceLevel === 'number') chips.push({ label: '$'.repeat(Math.max(1, Math.min(4, p.priceLevel))) })
               if (p.openNow === true) chips.push({ label: 'Open now', tone: 'success' })
@@ -868,23 +882,23 @@ const Search = () => {
             <>
               {quickView.type === 'place' && (
                 <>
-                  <button className="btn-primary text-sm" onClick={()=>{ if (quickView?.place) { handlePlaceClick(quickView.place) }}}>Open</button>
-                  <button className="btn-secondary text-sm" onClick={()=>{ if (quickView?.place) { setSelectedPlace(quickView.place); setShowSaveModal(true); setQuickView(null) }}}>Save</button>
-                  <button className="btn-secondary text-sm" onClick={()=>{ if (quickView?.place) { const p:any = quickView.place; const lat=p?.coordinates?.lat, lng=p?.coordinates?.lng; const url = (typeof lat==='number' && typeof lng==='number') ? `https://www.google.com/maps/search/?api=1&query=${lat},${lng}` : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(p.address||quickView.subtitle||'')}`; window.open(url, '_blank'); }}}>Directions</button>
-                  <button className="btn-secondary text-sm" onClick={()=> setQuickView(null)}>Close</button>
+                  <Button size="sm" variant="primary" onClick={()=>{ if (quickView?.place) { handlePlaceClick(quickView.place) }}}>Open</Button>
+                  <Button size="sm" variant="secondary" onClick={()=>{ if (quickView?.place) { setSelectedPlace(quickView.place); setShowSaveModal(true); setQuickView(null) }}}>Save</Button>
+                  <Button size="sm" variant="secondary" onClick={()=>{ if (quickView?.place) { const p:any = quickView.place; const lat=p?.coordinates?.lat, lng=p?.coordinates?.lng; const url = (typeof lat==='number' && typeof lng==='number') ? `https://www.google.com/maps/search/?api=1&query=${lat},${lng}` : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(p.address||quickView.subtitle||'')}`; window.open(url, '_blank'); }}}>Directions</Button>
+                  <Button size="sm" variant="secondary" onClick={()=> setQuickView(null)}>Close</Button>
                 </>
               )}
               {quickView.type === 'external_place' && (
                 <>
-                  <button className="btn-primary text-sm" onClick={()=>{ if (quickView?.place) { setCreateHubSeed({ name: (quickView.place as any).name, address: (quickView.place as any).address, coordinates: (quickView.place as any).coordinates, images: (quickView.place as any).images, mainImage: (quickView.place as any).mainImage, description: (quickView.place as any).description }); setShowCreateHubModal(true); setQuickView(null) }}}>Create Hub</button>
-                  <button className="btn-secondary text-sm" onClick={()=>{ if (quickView?.place) { const p:any = quickView.place; const lat=p?.coordinates?.lat, lng=p?.coordinates?.lng; const url = (typeof lat==='number' && typeof lng==='number') ? `https://www.google.com/maps/search/?api=1&query=${lat},${lng}` : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(p.address||quickView.subtitle||'')}`; window.open(url, '_blank'); }}}>Directions</button>
-                  <button className="btn-secondary text-sm" onClick={()=> setQuickView(null)}>Close</button>
+                  <Button size="sm" variant="primary" onClick={()=>{ if (quickView?.place) { setCreateHubSeed({ name: (quickView.place as any).name, address: (quickView.place as any).address, coordinates: (quickView.place as any).coordinates, images: (quickView.place as any).images, mainImage: (quickView.place as any).mainImage, description: (quickView.place as any).description }); setShowCreateHubModal(true); setQuickView(null) }}}>Create Hub</Button>
+                  <Button size="sm" variant="secondary" onClick={()=>{ if (quickView?.place) { const p:any = quickView.place; const lat=p?.coordinates?.lat, lng=p?.coordinates?.lng; const url = (typeof lat==='number' && typeof lng==='number') ? `https://www.google.com/maps/search/?api=1&query=${lat},${lng}` : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(p.address||quickView.subtitle||'')}`; window.open(url, '_blank'); }}}>Directions</Button>
+                  <Button size="sm" variant="secondary" onClick={()=> setQuickView(null)}>Close</Button>
                 </>
               )}
               {quickView.type === 'list' && (
                 <>
-                  <button className="btn-primary text-sm" onClick={()=>{ if (quickView?.list) { handleListClick(quickView.list) }}}>Open</button>
-                  <button className="btn-secondary text-sm" onClick={()=> setQuickView(null)}>Close</button>
+                  <Button size="sm" variant="primary" onClick={()=>{ if (quickView?.list) { handleListClick(quickView.list) }}}>Open</Button>
+                  <Button size="sm" variant="secondary" onClick={()=> setQuickView(null)}>Close</Button>
                 </>
               )}
             </>
@@ -925,3 +939,5 @@ const Search = () => {
 };
 
 export default Search;
+
+

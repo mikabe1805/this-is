@@ -403,7 +403,7 @@ const ProfileModal = ({ userId, isOpen, onClose, onFollow, onShare, onOpenFullSc
                     ) : (
                       lists.map(list => (
                         <div key={list.id} onClick={() => handleListClick(list)} className="flex items-center gap-3 p-3 bg-[rgba(255,255,255,0.15)] backdrop-blur-md rounded-xl shadow-md border border-white/15 cursor-pointer hover:bg-[rgba(255,255,255,0.25)] transition-colors">
-                          <img src={list.coverImage} alt={list.name} className="w-14 h-14 rounded-lg object-cover border-2 border-white/15 shadow-sm" />
+                          <img src={list.coverImage} alt={list.name} className="w-14 h-14 rounded-xl2 object-cover shadow-soft border-2 border-white/15" />
                           <div className="flex-1 min-w-0">
                             <h4 className="font-semibold truncate text-[#FDF6E3]" style={{ fontFamily: "'Inter', system-ui, sans-serif" }}>{list.name}</h4>
                             <p className="text-sm text-[#FDF6E3] truncate" style={{ fontFamily: "'Inter', system-ui, sans-serif" }}>{list.description}</p>

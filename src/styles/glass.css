@@ -1,40 +1,54 @@
-/* Card material - BROWN STAINED GLASS bathed in sunshine */
+/* WHITE-TINTED GLASS */
 .glass {
   position: relative;
-  backdrop-filter: blur(18px) saturate(1.25);
-  -webkit-backdrop-filter: blur(18px) saturate(1.25);
-  /* Rich brown-tinted translucent glass */
-  background: linear-gradient(145deg, 
-    rgba(232, 219, 181, 0.65),  /* aurum-300 tint - warm brown */
-    rgba(220, 213, 202, 0.75)   /* parchment-300 - deeper warm */
-  );
-  border: 1px solid rgba(232, 219, 181, 0.50); /* golden border */
-  box-shadow: none; /* NO SHADOWS - clean glass look */
+  backdrop-filter: blur(20px) saturate(1.2);
+  -webkit-backdrop-filter: blur(20px) saturate(1.2);
+  background:
+    linear-gradient(0deg, rgba(255,255,255,0.32), rgba(255,255,255,0.28));
+  border: 1px solid rgba(255, 255, 255, 0.42);
+  box-shadow:
+    0 8px 24px rgba(61, 54, 48, 0.10),
+    inset 0 1px 0 rgba(255, 255, 255, 0.25);
   border-radius: 1.25rem;
 }
 
-/* STRONG SUNSHINE - warm golden rays streaming through */
+/* ASYMMETRIC SUN PATCH (low-alpha aurum only in patch) */
 .sun-edge::before {
   content: "";
   position: absolute;
-  inset: -1px;
+  inset: -2px;
   border-radius: inherit;
   pointer-events: none;
   background:
-    /* BRIGHT golden sunshine from top-left corner */
-    radial-gradient(700px 500px at 10% 10%, 
-      rgba(255, 235, 150, 0.55),  /* strong golden sunlight */
-      rgba(240, 230, 206, 0.30) 35%,
-      rgba(232, 219, 181, 0.10) 60%,
-      transparent 80%
-    );
+    radial-gradient(480px 300px at 12% 15%, rgba(255,255,255,0.65) 0%, rgba(240,230,206,0.18) 45%, transparent 70%),
+    radial-gradient(260px 160px at 24% 26%, rgba(240,230,206,0.14) 0%, transparent 70%);
   mix-blend-mode: overlay;
-  opacity: 0.9;
+  opacity: 0.90;
+  transition: opacity 0.2s ease;
 }
 
-/* Optional tiny highlight (use sparingly - ONE featured element per screen max) */
+.glass:hover.sun-edge::before,
+.glass:focus-within.sun-edge::before {
+  opacity: 1;
+}
+
+/* Accent rim utility (use sparingly, one featured card max) */
 .accent-rim {
-  box-shadow: 0 0 0 1px rgba(255,255,255,0.35), 0 0 0 2px rgba(232,219,181,0.18);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.45),
+    0 0 0 2px rgba(232, 219, 181, 0.20);
+}
+
+/* Paper-grain inside glass */
+.glass::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' /%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
+  opacity: 0.05; /* slightly reduced to avoid visible wash */
+  mix-blend-mode: overlay;
 }
 
 /* Ghost chip */

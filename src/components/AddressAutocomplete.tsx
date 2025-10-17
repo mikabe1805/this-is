@@ -6,7 +6,7 @@ import {
   endPlacesSession,
   getPredictions,
   getPlaceDetails,
-} from '../services/google/places'
+} from '../services/google/placesAdapter'
 
 interface AddressAutocompleteProps {
   onPlaceSelect: (place: string, details?: google.maps.places.PlaceResult) => void

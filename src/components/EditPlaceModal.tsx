@@ -126,7 +126,7 @@ const EditPlaceModal = ({ isOpen, onClose, listPlace, onSave }: EditPlaceModalPr
               <img
                 src={listPlace.place.hubImage || 'https://images.unsplash.com/photo-1442512595331-e89e73853f31?w=150&h=150&fit=crop'}
                 alt={listPlace.place.name}
-                className="w-16 h-16 rounded-xl object-cover border border-linen-200"
+                className="w-16 h-16 rounded-xl2 object-cover shadow-soft border border-linen-200"
               />
               <div className="flex-1">
                 <h3 className="font-serif font-semibold text-charcoal-800 mb-1">{listPlace.place.name}</h3>

@@ -117,16 +117,16 @@ const ListCard = ({
   const hasMorePlaces = places.length > 3
 
   return (
-    <div className="bg-white/90 backdrop-blur-glass rounded-2xl shadow-crystal border border-white/30 overflow-hidden hover:shadow-xl transition-all duration-300 group">
+    <div className="glass-card sun-edge rounded-2xl overflow-hidden hover:shadow-lg transition-all duration-300 group">
       {/* Header */}
-      <div className="p-6 border-b border-warm-100">
+      <div className="p-5 border-b border-white/20">
         <div className="flex items-start justify-between mb-4">
           <div className="flex-1">
-            <h3 className="font-serif font-semibold text-earth-800 text-xl mb-2">
+            <h3 className="text-title text-[18px] mb-2">
               {title}
             </h3>
             {description && (
-              <p className="text-earth-600 text-sm leading-relaxed mb-3">
+              <p className="text-meta text-[13px] leading-relaxed mb-3">
                 {description}
               </p>
             )}
@@ -146,8 +146,8 @@ const ListCard = ({
           </div>
           <div className="flex items-center gap-2">
             {isPrivate && (
-              <div className="w-10 h-10 bg-gradient-to-br from-earth-100 to-cream-100 rounded-full flex items-center justify-center border-2 border-white shadow-sm">
-                <UserIcon className="w-5 h-5 text-earth-500" />
+              <div className="w-9 h-9 bg-moss-soft rounded-full flex items-center justify-center border border-moss/20">
+                <UserIcon className="w-4 h-4 accent-moss" />
               </div>
             )}
             {isOwner && (
@@ -157,9 +157,9 @@ const ListCard = ({
                   setShowListMenu(true)
                 }}
                 ref={menuButtonRef}
-                className="w-8 h-8 bg-linen-100 rounded-full flex items-center justify-center hover:bg-linen-200 transition-colors"
+                className="w-8 h-8 bg-white/25 rounded-full flex items-center justify-center hover:bg-white/35 transition-colors backdrop-blur-sm"
               >
-                <EllipsisHorizontalIcon className="w-4 h-4 text-charcoal-600" />
+                <EllipsisHorizontalIcon className="w-4 h-4 text-bark-700" />
               </button>
             )}
           </div>
@@ -174,31 +174,31 @@ const ListCard = ({
               className="w-8 h-8 rounded-full object-cover border-2 border-white shadow-sm"
             />
             <div>
-              <span className="text-sm font-medium text-earth-700">{owner.name}</span>
+              <span className="text-[13px] font-medium text-body">{owner.name}</span>
               {isPrivate && (
-                <span className="text-xs bg-earth-100 text-earth-600 px-2 py-0.5 rounded-full ml-2">
+                <span className="text-[11px] badge-moss ml-2">
                   Private
                 </span>
               )}
             </div>
           </div>
           
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
             <button
               onClick={onLike}
-              className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium transition-all duration-200 ${
-                isLiked 
-                  ? 'bg-gradient-to-r from-warm-500 to-warm-400 text-white shadow-warm-200' 
-                  : 'bg-linen-100 text-sage-700 hover:bg-linen-200'
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[13px] font-medium transition-all ${
+                isLiked
+                  ? 'bg-moss-600 text-white'
+                  : 'bg-white/25 text-bark-700 hover:bg-white/35 backdrop-blur-sm'
               }`}
             >
-              {isLiked ? <HeartIconSolid className="w-4 h-4" /> : <HeartIcon className="w-4 h-4" />}
+              {isLiked ? <HeartIconSolid className="w-3.5 h-3.5" /> : <HeartIcon className="w-3.5 h-3.5" />}
               <span>{likes}</span>
             </button>
-            
+
             <button
               onClick={onView}
-              className="px-4 py-1.5 bg-gradient-to-r from-earth-500 to-earth-400 text-white text-sm font-medium rounded-full hover:from-earth-600 hover:to-earth-500 transition-all duration-200 shadow-soft"
+              className="px-4 py-1.5 btn-primary text-[13px] font-medium"
             >
               View
             </button>
@@ -207,46 +207,54 @@ const ListCard = ({
       </div>
 
       {/* Places preview */}
-      <div className="p-6">
-        <div className="space-y-4">
+      <div className="p-5">
+        <div className="space-y-3">
           {visiblePlaces.map((place) => (
-            <div key={place.id} className="p-4 bg-gradient-to-r from-linen-50 to-cream-50 rounded-xl border border-linen-100 hover:bg-linen-100/50 transition-all duration-300 group/place">
+            <div key={place.id} className="p-3 bg-white/20 backdrop-blur-sm rounded-xl border border-white/25 hover:bg-white/30 transition-all duration-200 group/place">
               <div className="flex items-start gap-4">
                 {/* Place image */}
                 <div className="relative">
                   {place.image ? (
-                    <img 
-                      src={place.image} 
+                    <img
+                      src={place.image}
                       alt={place.name}
-                      className="w-16 h-16 object-cover rounded-lg shadow-sm"
+                      className="w-14 h-14 object-cover rounded-xl shadow-sm"
                     />
                   ) : (
-                    <div className="w-16 h-16 bg-gradient-to-br from-warm-200 to-cream-200 rounded-lg flex items-center justify-center shadow-sm">
-                      <BookmarkIcon className="w-6 h-6 text-warm-500" />
+                    <div className="w-14 h-14 bg-moss-soft rounded-xl flex items-center justify-center shadow-sm border border-moss/15">
+                      <BookmarkIcon className="w-5 h-5 accent-moss" />
                     </div>
                   )}
-                  
+
                   {/* Status indicator */}
-                  <div className={`absolute -top-1 -right-1 w-6 h-6 rounded-full border-2 border-white flex items-center justify-center ${getStatusColor(place.status)} shadow-sm`}>
+                  <div className={`absolute -top-1 -right-1 w-5 h-5 rounded-full border-2 border-white flex items-center justify-center shadow-sm ${
+                    place.status === 'loved' ? 'bg-moss-600' :
+                    place.status === 'tried' ? 'bg-aurum-300' :
+                    'bg-bark-700'
+                  }`}>
                     {getStatusIcon(place.status)}
                   </div>
                 </div>
 
                 {/* Place details */}
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-3 mb-2">
-                    <h4 className="font-semibold text-earth-800 text-base truncate">
+                  <div className="flex items-center gap-2 mb-1.5">
+                    <h4 className="text-title text-[14px] truncate">
                       {place.name}
                     </h4>
-                    <span className={`text-xs px-2 py-1 rounded-full text-white font-medium ${getStatusColor(place.status)}`}>
+                    <span className={`text-[10px] px-1.5 py-0.5 rounded-full text-white font-medium ${
+                      place.status === 'loved' ? 'bg-moss-600' :
+                      place.status === 'tried' ? 'bg-aurum-300 text-bark-900' :
+                      'bg-bark-700'
+                    }`}>
                       {getStatusText(place.status)}
                     </span>
                   </div>
 
                   {/* Note */}
                   {place.note && (
-                    <div className="bg-white/60 backdrop-blur-sm rounded-lg p-3 mb-3 border border-warm-200">
-                      <p className="text-earth-600 text-sm italic leading-relaxed">
+                    <div className="bg-white/30 backdrop-blur-sm rounded-lg p-2 mb-2 border border-white/20">
+                      <p className="text-meta text-[12px] italic leading-relaxed">
                         "{place.note}"
                       </p>
                     </div>
@@ -268,9 +276,9 @@ const ListCard = ({
 
                   {/* Saved from */}
                   {place.savedFrom && (
-                    <div className="text-xs text-earth-500 flex items-center gap-1">
+                    <div className="text-[11px] text-muted flex items-center gap-1">
                       <span>Saved from {place.savedFrom.user}'s</span>
-                      <span className="font-medium">"{place.savedFrom.list}"</span>
+                      <span className="font-medium accent-moss">"{place.savedFrom.list}"</span>
                     </div>
                   )}
                 </div>
@@ -283,15 +291,15 @@ const ListCard = ({
         {hasMorePlaces && (
           <button
             onClick={() => setIsExpanded(!isExpanded)}
-            className="w-full text-center text-warm-600 hover:text-warm-700 font-medium text-sm mt-4 transition-colors"
+            className="w-full text-center accent-moss hover:brightness-110 font-medium text-[13px] mt-3 transition-all"
           >
             {isExpanded ? 'Show less' : `Show ${places.length - 3} more places`}
           </button>
         )}
 
         {/* Place count */}
-        <div className="text-center mt-6 pt-4 border-t border-warm-100">
-          <div className="flex items-center justify-center gap-2 text-sm text-earth-500">
+        <div className="text-center mt-4 pt-4 border-t border-white/20">
+          <div className="flex items-center justify-center gap-2 text-[13px] text-meta">
             <StarIcon className="w-4 h-4" />
             <span>{places.length} place{places.length !== 1 ? 's' : ''}</span>
           </div>

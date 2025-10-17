@@ -1,0 +1,25 @@
+{
+  "name": "thisis-search-benchmark",
+  "version": "1.0.0",
+  "description": "Synthetic load benchmark for this.is search endpoint",
+  "type": "module",
+  "scripts": {
+    "bench": "node benchmark.mjs",
+    "analyze": "node analyze.mjs",
+    "validate": "node validate-setup.mjs",
+    "cost": "node cost-calculator.mjs",
+    "compare": "node compare.mjs"
+  },
+  "keywords": [
+    "benchmark",
+    "performance",
+    "load-test"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "undici": "^6.20.0"
+  }
+}
+

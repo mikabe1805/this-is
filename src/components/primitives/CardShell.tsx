@@ -5,28 +5,23 @@ interface CardShellProps {
   variant?: 'solid' | 'glass'
   className?: string
   onClick?: () => void
+  style?: React.CSSProperties
 }
 
-/**
- * CardShell - Unified card container primitive
- * 
- * Use 'solid' for opaque content cards (default)
- * Use 'glass' for overlay cards or transparent effects
- */
+// Aligns with components/ui/CardShell for consistent padding/radius/elevation
 export function CardShell({ 
   children, 
   variant = 'solid', 
   className = '',
-  onClick 
+  onClick,
+  style
 }: CardShellProps) {
-  const baseClass = variant === 'glass' ? 'glass sun-edge' : 'panel'
-  const interactiveClass = onClick ? 'cursor-pointer transition-transform hover:scale-[1.02]' : ''
-  
+  const base = variant === 'glass' 
+    ? 'relative glass-card rounded-xl2 p-4 md:p-5 interactive-glass group hover-lift hover-lift-on animate-fade-in'
+    : 'panel rounded-2xl p-4 md:p-5'
+  const clickable = onClick ? 'cursor-pointer' : ''
   return (
-    <div 
-      className={`${baseClass} p-3 rounded-xl2 ${interactiveClass} ${className}`}
-      onClick={onClick}
-    >
+    <div className={`${base} ${clickable} ${className}`} onClick={onClick} style={style}>
       {children}
     </div>
   )

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+﻿import { useState, useEffect, useRef } from 'react';
 import { 
   MagnifyingGlassIcon, 
   FunnelIcon, 
@@ -6,10 +6,11 @@ import {
   ChevronRightIcon
 } from '@heroicons/react/24/outline';
 import CardShell from '../components/ui/CardShell';
+import HubImage from '../components/HubImage';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigation } from '../contexts/NavigationContext';
 import { firebaseDataService } from '../services/firebaseDataService';
-import { getPredictions, beginPlacesSession, endPlacesSession } from '../services/google/places';
+import { getPredictions, beginPlacesSession, endPlacesSession } from '../services/google/placesAdapter';
 import type { Place, List, User } from '../types/index.js';
 
 interface SearchResult {
@@ -43,10 +44,22 @@ const SearchV2 = () => {
         const tags = await firebaseDataService.getPopularTags(20);
         setAvailableTags(tags.slice(0, 12));
 
-        // Load recommended hubs
+        // Load recommended hubs (internal + external batched)
+        let recommended: any[] = []
         if (currentUser) {
-          const recommended = await firebaseDataService.getSuggestedPlaces({ limit: 6 });
-          setResults(prev => ({ ...prev, recommended }));
+          const internal = await firebaseDataService.getSuggestedPlaces({ limit: 6 })
+          let external: any[] = []
+          const eff = await firebaseDataService.getEffectiveLocation(currentUser.id)
+          if (eff) external = await firebaseDataService.getBatchedExternalRecommendations(eff.lat, eff.lng, { limit: 6 })
+          const merged = [...internal, ...external]
+          const seen = new Set<string>()
+          recommended = merged.filter((p: any) => {
+            const key = (p.id || '') + '|' + (p.name || '')
+            if (seen.has(key)) return false
+            seen.add(key)
+            return true
+          })
+          setResults(prev => ({ ...prev, recommended }))
         }
       } catch (error) {
         console.error('Failed to load initial data:', error);
@@ -234,7 +247,7 @@ const SearchV2 = () => {
                       <img
                         src={hub.mainImage || '/assets/leaf.png'}
                         alt={hub.name}
-                        className="w-16 h-16 rounded-xl object-cover flex-shrink-0"
+                        className="w-16 h-16 rounded-xl2 object-cover shadow-soft flex-shrink-0"
                         onError={(e) => {
                           (e.currentTarget as HTMLImageElement).src = '/assets/leaf.png';
                         }}
@@ -243,10 +256,7 @@ const SearchV2 = () => {
                         <h3 className="font-semibold text-bark-900 leading-tight mb-1">
                           {hub.name}
                         </h3>
-                        <p className="text-bark-600 text-sm flex items-center gap-1 truncate">
-                          <span>📍</span>
-                          {hub.address}
-                        </p>
+                        <p className="text-bark-600 text-sm truncate">{hub.address}</p>
                         {hub.tags && hub.tags.length > 0 && (
                           <div className="flex gap-1 mt-2">
                             {hub.tags.slice(0, 3).map((tag, i) => (
@@ -289,7 +299,7 @@ const SearchV2 = () => {
                       <img
                         src={list.coverImage || '/assets/leaf.png'}
                         alt={list.name}
-                        className="w-16 h-16 rounded-xl object-cover flex-shrink-0"
+                        className="w-16 h-16 rounded-xl2 object-cover shadow-soft flex-shrink-0"
                         onError={(e) => {
                           (e.currentTarget as HTMLImageElement).src = '/assets/leaf.png';
                         }}
@@ -337,7 +347,7 @@ const SearchV2 = () => {
                       <img
                         src={person.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${person.id}`}
                         alt={person.name}
-                        className="w-12 h-12 rounded-full object-cover flex-shrink-0"
+                        className="w-12 h-12 rounded-full object-cover shadow-soft flex-shrink-0"
                       />
                       <div className="flex-1 min-w-0">
                         <h3 className="font-semibold text-bark-900 leading-tight">
@@ -383,22 +393,24 @@ const SearchV2 = () => {
                   className="p-4"
                 >
                   <div className="flex items-start gap-3">
-                    <img
-                      src={hub.mainImage || '/assets/leaf.png'}
-                      alt={hub.name}
-                      className="w-16 h-16 rounded-xl object-cover flex-shrink-0"
-                      onError={(e) => {
-                        (e.currentTarget as HTMLImageElement).src = '/assets/leaf.png';
-                      }}
-                    />
+                    {/* Prefer unified HubImage for visual cohesion */}
+                    <div className="w-16 h-16 rounded-xl2 overflow-hidden flex-shrink-0 shadow-soft">
+                      <HubImage
+                        // @ts-ignore
+                        photos={(hub as any).photos}
+                        // @ts-ignore
+                        primaryType={(hub as any).primaryType}
+                        alt={hub.name}
+                        load={false}
+                        className="w-full h-full rounded-xl2 object-cover shadow-soft"
+                        aspect="aspect-square"
+                      />
+                    </div>
                     <div className="flex-1 min-w-0">
                       <h3 className="font-semibold text-bark-900 leading-tight mb-1">
                         {hub.name}
                       </h3>
-                      <p className="text-bark-600 text-sm flex items-center gap-1 truncate">
-                        <span>📍</span>
-                        {hub.address}
-                      </p>
+                      <p className="text-bark-600 text-sm truncate">{hub.address}</p>
                       <div className="flex gap-2 mt-3">
                         <button
                           onClick={() => openHubModal(hub.id)}
@@ -496,3 +508,7 @@ function EmptyState({ message }: { message: string }) {
 }
 
 export default SearchV2;
+
+
+
+

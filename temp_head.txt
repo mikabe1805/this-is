@@ -1,0 +1,1250 @@
+import { collection, doc, getDoc, getDocs, setDoc, updateDoc, query, where, orderBy, limit as fsLimit, startAfter, endBefore, onSnapshot, Timestamp, QueryConstraint, addDoc, deleteDoc, increment } from 'firebase/firestore'
+import { db } from '../firebase/config'
+import type { User, Place, List, Post, PostComment, Activity, Hub } from '../types'
+import { auth } from '../firebase/config'
+import { firebaseStorageService } from './firebaseStorageService'
+
+
+
+export interface SearchContext {
+  currentUser: User
+  friends: User[]
+  following: User[]
+  recentSearches: string[]
+  userPreferences: UserPreferences
+}
+
+export interface UserPreferences {
+  favoriteCategories: string[]
+  preferredPriceRange: string[]
+  socialPreferences: {
+    exploreNew: number
+    followFriends: number
+    trendingContent: number
+  }
+  locationPreferences: {
+    nearbyRadius: number
+    preferredAreas: string[]
+  }
+  interactionHistory: {
+    savedPlaces: string[]
+    likedPosts: string[]
+    visitedLists: string[]
+    searchHistory: string[]
+  }
+}
+
+export interface FirebaseSearchData {
+  places: Place[]
+  lists: List[]
+  users: User[]
+  posts: Post[]
+  totalResults: {
+    places: number
+    lists: number
+    users: number
+    posts: number
+  }
+}
+
+class FirebaseDataService {
+  private userPreferencesCache = new Map<string, UserPreferences>()
+  private searchCache = new Map<string, { data: FirebaseSearchData; timestamp: number }>()
+  private userCache = new Map<string, { user: User; timestamp: number }>()
+  private userActivityCache = new Map<string, { activities: Activity[]; timestamp: number }>()
+  private readonly CACHE_DURATION = 5 * 60 * 1000 // 5 minutes
+
+  // ====================
+  // USER MANAGEMENT
+  // ====================
+
+  async getCurrentUser(userId: string): Promise<User | null> {
+    const cached = this.userCache.get(userId)
+    if (cached && Date.now() - cached.timestamp < this.CACHE_DURATION) {
+      return cached.user
+    }
+
+    try {
+      const userDoc = await getDoc(doc(db, 'users', userId))
+      if (userDoc.exists()) {
+        const user = { id: userDoc.id, ...userDoc.data() } as User
+        this.userCache.set(userId, { user, timestamp: Date.now() })
+        return user
+      }
+      return null
+    } catch (error) {
+      console.error('Error fetching current user:', error)
+      return null
+    }
+  }
+
+  async createUser(user: User): Promise<void> {
+    try {
+      await setDoc(doc(db, 'users', user.id), user);
+    } catch (error) {
+      console.error('Error creating user:', error);
+    }
+  }
+
+  async getFollowers(userId: string): Promise<User[]> {
+    try {
+      const followersQuery = query(
+        collection(db, 'users', userId, 'followers'),
+        orderBy('followedAt', 'desc')
+      );
+      const followersSnapshot = await getDocs(followersQuery);
+      
+      const followerPromises = followersSnapshot.docs.map(async (followerDoc) => {
+        const followerId = followerDoc.data().userId;
+        return this.getCurrentUser(followerId);
+      });
+      
+      const followers = await Promise.all(followerPromises);
+      return followers.filter(user => user !== null) as User[];
+    } catch (error) {
+      console.error('Error fetching user followers:', error);
+      return [];
+    }
+  }
+
+  async getUserFriends(userId: string): Promise<User[]> {
+    try {
+      // For simplicity, we'll consider "friends" to be users who both follow each other.
+      // A more optimized approach might involve storing a "friends" subcollection.
+      const following = await this.getUserFollowing(userId);
+      const followers = await this.getFollowers(userId);
+
+      const followingIds = new Set(following.map(u => u.id));
+      const friends = followers.filter(follower => followingIds.has(follower.id));
+      
+      return friends;
+    } catch (error) {
+      console.error('Error fetching user friends:', error);
+      return [];
+    }
+  }
+
+  async getUserFollowing(userId: string): Promise<User[]> {
+    try {
+      console.log(`Fetching following for user: ${userId}`);
+      const followingQuery = query(
+        collection(db, 'users', userId, 'following'),
+        orderBy('followedAt', 'desc')
+      )
+      const followingSnapshot = await getDocs(followingQuery)
+      console.log(`Found ${followingSnapshot.docs.length} following documents`);
+      
+      const followingPromises = followingSnapshot.docs.map(async (followDoc) => {
+        const followedId = followDoc.data().userId
+        console.log(`Fetching user data for: ${followedId}`);
+        return this.getCurrentUser(followedId)
+      })
+      
+      const following = await Promise.all(followingPromises)
+      const filteredFollowing = following.filter(user => user !== null) as User[]
+      console.log(`Returning ${filteredFollowing.length} following users`);
+      return filteredFollowing
+    } catch (error) {
+      console.error('Error fetching user following:', error)
+      return []
+    }
+  }
+
+  async updateUserProfile(userId: string, profileData: Partial<User>): Promise<void> {
+    try {
+      const userRef = doc(db, 'users', userId);
+      await updateDoc(userRef, {
+        ...profileData,
+        updatedAt: Timestamp.now()
+      });
+      this.clearUserCache(userId); // Invalidate cache
+    } catch (error) {
+      console.error('Error updating user profile:', error);
+      throw error;
+    }
+  }
+
+  async followUser(currentUserId: string, targetUserId: string): Promise<void> {
+    // Prevent self-following
+    if (currentUserId === targetUserId) {
+      console.log('Cannot follow yourself');
+      return;
+    }
+
+    console.log(`Attempting to follow: ${currentUserId} -> ${targetUserId}`);
+
+    const currentUserFollowingRef = doc(db, 'users', currentUserId, 'following', targetUserId);
+    const targetUserFollowersRef = doc(db, 'users', targetUserId, 'followers', currentUserId);
+
+    try {
+      console.log('Setting follow document for current user...');
+      console.log('Document path:', currentUserFollowingRef.path);
+      await setDoc(currentUserFollowingRef, {
+        userId: targetUserId,
+        followedAt: Timestamp.now()
+      });
+      console.log('Follow document set for current user');
+
+      console.log('Setting follower document for target user...');
+      console.log('Document path:', targetUserFollowersRef.path);
+      await setDoc(targetUserFollowersRef, {
+        userId: currentUserId,
+        followedAt: Timestamp.now()
+      });
+      console.log('Follower document set for target user');
+
+      // For testing: automatically add as friend
+      console.log('Adding as friend...');
+      await this.addUserAsFriend(currentUserId, targetUserId);
+
+      console.log(`User ${currentUserId} successfully followed ${targetUserId}`);
+    } catch (error) {
+      console.error('Error following user:', error);
+      console.error('Error details:', {
+        currentUserId,
+        targetUserId,
+        errorMessage: error.message,
+        errorCode: error.code
+      });
+      throw error;
+    }
+  }
+
+  async addUserAsFriend(currentUserId: string, targetUserId: string): Promise<void> {
+    const currentUserFriendsRef = doc(db, 'users', currentUserId, 'friends', targetUserId);
+    const targetUserFriendsRef = doc(db, 'users', targetUserId, 'friends', currentUserId);
+
+    try {
+      await setDoc(currentUserFriendsRef, {
+        userId: targetUserId,
+        addedAt: Timestamp.now()
+      });
+      await setDoc(targetUserFriendsRef, {
+        userId: currentUserId,
+        addedAt: Timestamp.now()
+      });
+
+      console.log(`User ${currentUserId} and ${targetUserId} are now friends`);
+    } catch (error) {
+      console.error('Error adding user as friend:', error);
+      throw error;
+    }
+  }
+
+  async unfollowUser(currentUserId: string, targetUserId: string): Promise<void> {
+    const currentUserFollowingRef = doc(db, 'users', currentUserId, 'following', targetUserId);
+    const targetUserFollowersRef = doc(db, 'users', targetUserId, 'followers', currentUserId);
+
+    try {
+      await deleteDoc(currentUserFollowingRef);
+      await deleteDoc(targetUserFollowersRef);
+    } catch (error) {
+      console.error('Error unfollowing user:', error);
+      throw error;
+    }
+  }
+
+  async deleteUser(userId: string): Promise<void> {
+    try {
+      const userRef = doc(db, 'users', userId);
+      await deleteDoc(userRef);
+    } catch (error) {
+      console.error('Error deleting user:', error);
+      throw error;
+    }
+  }
+  
+  async getSavedPosts(userId: string): Promise<Post[]> {
+    // This assumes you have a 'savedPosts' subcollection for each user.
+    // You might need to adjust this based on your actual data model.
+    try {
+      const savedPostsQuery = query(
+        collection(db, 'users', userId, 'savedPosts'),
+        orderBy('savedAt', 'desc')
+      );
+      const savedPostsSnapshot = await getDocs(savedPostsQuery);
+      const postPromises = savedPostsSnapshot.docs.map(doc => this.getPost(doc.data().postId));
+      const posts = await Promise.all(postPromises);
+      return posts.filter(p => p !== null) as Post[];
+    } catch (error) {
+      console.error('Error fetching saved posts:', error);
+      return [];
+    }
+  }
+
+  async getUserPosts(userId: string): Promise<Post[]> {
+    try {
+      const postsQuery = query(
+        collection(db, 'posts'),
+        where('userId', '==', userId)
+        // Temporarily removed orderBy to avoid index requirement
+        // orderBy('createdAt', 'desc')
+      );
+      const postsSnapshot = await getDocs(postsQuery);
+      const posts = postsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Post[];
+      
+      // Sort posts client-side instead
+      return posts.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    } catch (error) {
+      console.error('Error fetching user posts:', error);
+      return [];
+    }
+  }
+
+
+  async getPostsFromUsers(userIds: string[]): Promise<Post[]> {
+    if (userIds.length === 0) {
+      return [];
+    }
+    try {
+      const postsQuery = query(
+        collection(db, 'posts'),
+        where('userId', 'in', userIds)
+      );
+      const postsSnapshot = await getDocs(postsQuery);
+      return postsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Post[];
+    } catch (error) {
+      console.error('Error fetching posts from users:', error);
+      return [];
+    }
+  }
+
+  async getSavedLists(userId: string): Promise<List[]> {
+    try {
+      const savedListsQuery = query(
+        collection(db, 'users', userId, 'savedLists'),
+        orderBy('savedAt', 'desc')
+      );
+      const savedListsSnapshot = await getDocs(savedListsQuery);
+      const listPromises = savedListsSnapshot.docs.map(doc => this.getList(doc.data().listId));
+      const lists = await Promise.all(listPromises);
+      return lists.filter(l => l !== null) as List[];
+    } catch (error) {
+      console.error('Error fetching saved lists:', error);
+      return [];
+    }
+  }
+
+  async getSavedPlaces(userId: string): Promise<Place[]> {
+    try {
+      const savedPlacesQuery = query(
+        collection(db, 'users', userId, 'savedPlaces'),
+        orderBy('savedAt', 'desc')
+      );
+      const savedPlacesSnapshot = await getDocs(savedPlacesQuery);
+      const placePromises = savedPlacesSnapshot.docs.map(doc => this.getPlace(doc.data().placeId));
+      return Promise.all(placePromises.filter(p => p !== null)) as Promise<Place[]>;
+    } catch (error) {
+      console.error('Error fetching saved places:', error);
+      return [];
+    }
+  }
+
+  // ====================
+  // USER PREFERENCES
+  // ====================
+
+  async getUserPreferences(userId: string): Promise<UserPreferences> {
+    // Check cache first
+    if (this.userPreferencesCache.has(userId)) {
+      return this.userPreferencesCache.get(userId)!
+    }
+
+    try {
+      const prefsDoc = await getDoc(doc(db, 'userPreferences', userId))
+      let preferences: UserPreferences
+
+      if (prefsDoc.exists()) {
+        preferences = prefsDoc.data() as UserPreferences
+      } else {
+        // Create default preferences based on user activity
+        preferences = await this.generateInitialPreferences(userId)
+        await this.saveUserPreferences(userId, preferences)
+      }
+
+      this.userPreferencesCache.set(userId, preferences)
+      return preferences
+    } catch (error) {
+      console.error('Error fetching user preferences:', error)
+      return this.getDefaultPreferences()
+    }
+  }
+
+  async saveUserPreferences(userId: string, preferences: UserPreferences): Promise<void> {
+    try {
+      await setDoc(doc(db, 'userPreferences', userId), {
+        ...preferences,
+        updatedAt: Timestamp.now()
+      })
+      this.userPreferencesCache.set(userId, preferences)
+    } catch (error) {
+      console.error('Error saving user preferences:', error)
+    }
+  }
+
+  private async generateInitialPreferences(userId: string): Promise<UserPreferences> {
+    try {
+      // Analyze user's saved places to determine favorite categories
+      const savedPlacesQuery = query(
+        collection(db, 'users', userId, 'savedPlaces'),
+        orderBy('savedAt', 'desc'),
+        fsLimit(50)
+      )
+      const savedPlacesSnapshot = await getDocs(savedPlacesQuery)
+      
+      const categoryCount: Record<string, number> = {}
+      const savedPlaceIds: string[] = []
+      
+      for (const doc of savedPlacesSnapshot.docs) {
+        const placeId = doc.data().placeId
+        savedPlaceIds.push(placeId)
+        
+        const place = await this.getPlace(placeId)
+        if (place && place.category) {
+          categoryCount[place.category] = (categoryCount[place.category] || 0) + 1
+        }
+      }
+
+      const favoriteCategories = Object.entries(categoryCount)
+        .sort(([,a], [,b]) => b - a)
+        .slice(0, 5)
+        .map(([category]) => category)
+
+      // Analyze liked posts for additional insights
+      const likedPostsQuery = query(
+        collection(db, 'users', userId, 'likedPosts'),
+        orderBy('likedAt', 'desc'),
+        fsLimit(30)
+      )
+      const likedPostsSnapshot = await getDocs(likedPostsQuery)
+      const likedPostIds = likedPostsSnapshot.docs.map(doc => doc.data().postId)
+
+      return {
+        favoriteCategories,
+        preferredPriceRange: ['$', '$$'], // Default to moderate pricing
+        socialPreferences: {
+          exploreNew: 0.6,
+          followFriends: 0.8,
+          trendingContent: 0.4
+        },
+        locationPreferences: {
+          nearbyRadius: 10, // 10km default
+          preferredAreas: []
+        },
+        interactionHistory: {
+          savedPlaces: savedPlaceIds,
+          likedPosts: likedPostIds,
+          visitedLists: [],
+          searchHistory: []
+        }
+      }
+    } catch (error) {
+      console.error('Error generating initial preferences:', error)
+      return this.getDefaultPreferences()
+    }
+  }
+
+  private getDefaultPreferences(): UserPreferences {
+    return {
+      favoriteCategories: [],
+      preferredPriceRange: ['$', '$$'],
+      socialPreferences: {
+        exploreNew: 0.5,
+        followFriends: 0.7,
+        trendingContent: 0.3
+      },
+      locationPreferences: {
+        nearbyRadius: 5,
+        preferredAreas: []
+      },
+      interactionHistory: {
+        savedPlaces: [],
+        likedPosts: [],
+        visitedLists: [],
+        searchHistory: []
+      }
+    }
+  }
+
+  // ====================
+  // AI ANALYSIS UTILITIES
+  // ====================
+
+  private async analyzeUserBio(bio: string): Promise<{
+    interests: string[]
+    preferences: string[]
+    suggestedCategories: string[]
+    suggestedTags: string[]
+  }> {
+    if (!bio || bio.trim().length < 10) {
+      return {
+        interests: [],
+        preferences: [],
+        suggestedCategories: [],
+        suggestedTags: []
+      }
+    }
+
+    try {
+      // Simple keyword-based analysis for now
+      // In a real implementation, this would use an AI service like OpenAI GPT
+      const bioLower = bio.toLowerCase()
+      
+      // Define keyword mappings for interests and categories
+      const keywordMappings = {
+        food: {
+          keywords: ['food', 'cooking', 'eating', 'chef', 'restaurant', 'culinary', 'dining', 'taste', 'flavor', 'recipe'],
+          categories: ['Restaurants', 'Food Trucks', 'Markets'],
+          tags: ['foodie', 'culinary', 'dining']
+        },
+        coffee: {
+          keywords: ['coffee', 'espresso', 'latte', 'cappuccino', 'cafe', 'caffeine', 'brew'],
+          categories: ['Coffee Shops'],
+          tags: ['coffee enthusiast', 'caffeine', 'cozy']
+        },
+        nature: {
+          keywords: ['nature', 'hiking', 'outdoors', 'park', 'trail', 'mountain', 'forest', 'trees', 'wildlife'],
+          categories: ['Parks & Nature', 'Hiking Trails', 'Outdoor Activities'],
+          tags: ['nature enthusiast', 'hiking', 'outdoors']
+        },
+        art: {
+          keywords: ['art', 'painting', 'drawing', 'creative', 'design', 'artist', 'gallery', 'museum'],
+          categories: ['Art Galleries', 'Museums', 'Creative Spaces'],
+          tags: ['art aficionado', 'creative', 'visual artist']
+        },
+        fitness: {
+          keywords: ['fitness', 'gym', 'workout', 'exercise', 'yoga', 'running', 'sports', 'health'],
+          categories: ['Sports & Fitness', 'Yoga Studios'],
+          tags: ['fitness enthusiast', 'health conscious', 'active']
+        },
+        music: {
+          keywords: ['music', 'concert', 'band', 'singing', 'musician', 'guitar', 'piano', 'jazz', 'rock'],
+          categories: ['Live Music', 'Entertainment'],
+          tags: ['music lover', 'musician', 'live music']
+        },
+        travel: {
+          keywords: ['travel', 'explore', 'adventure', 'journey', 'discover', 'wanderlust', 'trip'],
+          categories: ['Tourist Attractions', 'Adventure Sports'],
+          tags: ['adventurer', 'travel blogger', 'explorer']
+        },
+        work: {
+          keywords: ['work', 'business', 'professional', 'meeting', 'coworking', 'laptop', 'remote'],
+          categories: ['Co-working Spaces'],
+          tags: ['remote worker', 'professional', 'digital nomad']
+        },
+        social: {
+          keywords: ['social', 'friends', 'community', 'networking', 'people', 'party', 'gathering'],
+          categories: ['Community Centers', 'Bars & Nightlife'],
+          tags: ['social butterfly', 'community builder', 'networker']
+        }
+      }
+
+      const detectedInterests: string[] = []
+      const detectedCategories: string[] = []
+      const detectedTags: string[] = []
+      const detectedPreferences: string[] = []
+
+      // Analyze bio for keywords
+      Object.entries(keywordMappings).forEach(([interest, mapping]) => {
+        const hasKeyword = mapping.keywords.some(keyword => bioLower.includes(keyword))
+        if (hasKeyword) {
+          detectedInterests.push(interest)
+          detectedCategories.push(...mapping.categories)
+          detectedTags.push(...mapping.tags)
+        }
+      })
+
+      // Extract preferences based on descriptive words
+      const preferenceKeywords = {
+        'cozy': ['cozy', 'comfortable', 'warm', 'intimate', 'relaxed'],
+        'trendy': ['trendy', 'modern', 'hip', 'stylish', 'contemporary'],
+        'quiet': ['quiet', 'peaceful', 'calm', 'serene', 'tranquil'],
+        'authentic': ['authentic', 'genuine', 'traditional', 'local', 'real'],
+        'luxury': ['luxury', 'upscale', 'premium', 'high-end', 'exclusive'],
+        'budget-friendly': ['cheap', 'affordable', 'budget', 'inexpensive', 'economical']
+      }
+
+      Object.entries(preferenceKeywords).forEach(([preference, keywords]) => {
+        const hasKeyword = keywords.some(keyword => bioLower.includes(keyword))
+        if (hasKeyword) {
+          detectedPreferences.push(preference)
+        }
+      })
+
+      return {
+        interests: [...new Set(detectedInterests)],
+        preferences: [...new Set(detectedPreferences)],
+        suggestedCategories: [...new Set(detectedCategories)],
+        suggestedTags: [...new Set(detectedTags)]
+      }
+    } catch (error) {
+      console.error('Error analyzing user bio:', error)
+      return {
+        interests: [],
+        preferences: [],
+        suggestedCategories: [],
+        suggestedTags: []
+      }
+    }
+  }
+
+  // ====================
+  // USER CREATION & SETUP
+  // ====================
+
+  private async createUserProfile(userId: string, userData: {
+    displayName: string
+    email: string
+    username?: string
+    location: string
+    bio?: string
+    ageRange: string
+    userTags?: string[]
+    profilePictureUrl?: string
+  }): Promise<void> {
+    try {
+      // Verify user is authenticated
+      const currentUser = auth.currentUser
+      if (!currentUser || currentUser.uid !== userId) {
+        throw new Error('User not properly authenticated')
+      }
+
+      const userProfile = {
+        id: userId,
+        name: userData.displayName,
+        username: userData.username || userData.displayName.toLowerCase().replace(/\s+/g, ''),
+        location: userData.location,
+        bio: userData.bio || '',
+        influences: 0,
+        tags: userData.userTags || [],
+        createdAt: Timestamp.now(),
+        updatedAt: Timestamp.now(),
+        email: userData.email,
+        ageRange: userData.ageRange,
+        avatar: userData.profilePictureUrl || ''
+      }
+
+      console.log('💾 Saving user profile with avatar:', userData.profilePictureUrl)
+      await setDoc(doc(db, 'users', userId), userProfile)
+      console.log('✅ User profile created successfully')
+    } catch (error) {
+      console.error('❌ Error creating user profile:', error)
+      throw error
+    }
+  }
+
+  async initializeUserPreferences(userId: string, signupData: {
+    favoriteCategories: string[]
+    activityPreferences: string[]
+    budgetPreferences: string[]
+    socialPreferences: {
+      exploreNew: number
+      followFriends: number
+      trendingContent: number
+    }
+    discoveryRadius: number
+    location: string
+  }): Promise<void> {
+    try {
+      // Convert signup data to UserPreferences format
+      const preferences: UserPreferences = {
+        favoriteCategories: signupData.favoriteCategories,
+        preferredPriceRange: signupData.budgetPreferences,
+        socialPreferences: {
+          exploreNew: signupData.socialPreferences.exploreNew / 100, // Convert percentage to decimal
+          followFriends: signupData.socialPreferences.followFriends / 100,
+          trendingContent: signupData.socialPreferences.trendingContent / 100
+        },
+        locationPreferences: {
+          nearbyRadius: signupData.discoveryRadius,
+          preferredAreas: [signupData.location]
+        },
+        interactionHistory: {
+          savedPlaces: [],
+          likedPosts: [],
+          visitedLists: [],
+          searchHistory: []
+        }
+      }
+
+      await this.saveUserPreferences(userId, preferences)
+
+      console.log('User preferences initialized successfully')
+    } catch (error) {
+      console.error('Error initializing user preferences:', error)
+      throw error
+    }
+  }
+
+  async setupNewUser(userId: string, userData: {
+    displayName: string
+    email: string
+    location: string
+    bio?: string
+    ageRange?: string
+    favoriteCategories: string[]
+    activityPreferences: string[]
+    budgetPreferences: string[]
+    socialPreferences: {
+      exploreNew: number
+      followFriends: number
+      trendingContent: number
+    }
+    discoveryRadius: number
+    username?: string
+    userTags?: string[]
+    profilePictureUrl?: string
+  }): Promise<void> {
+    try {
+      // Analyze user bio with AI to enhance recommendations
+      let enhancedCategories = [...userData.favoriteCategories]
+      let enhancedTags = [...(userData.userTags || [])]
+      let enhancedPreferences = [...userData.activityPreferences]
+
+      if (userData.bio) {
+        console.log('🤖 Analyzing user bio for personalized recommendations...')
+        const bioAnalysis = await this.analyzeUserBio(userData.bio)
+        
+        // Merge AI suggestions with user selections (avoid duplicates)
+        bioAnalysis.suggestedCategories.forEach(category => {
+          if (!enhancedCategories.includes(category)) {
+            enhancedCategories.push(category)
+          }
+        })
+        
+        bioAnalysis.suggestedTags.forEach(tag => {
+          if (!enhancedTags.includes(tag)) {
+            enhancedTags.push(tag)
+          }
+        })
+        
+        bioAnalysis.preferences.forEach(pref => {
+          const prefLabel = pref.charAt(0).toUpperCase() + pref.slice(1).replace('-', ' ')
+          if (!enhancedPreferences.includes(prefLabel)) {
+            enhancedPreferences.push(prefLabel)
+          }
+        })
+
+        console.log('✨ Bio analysis complete:', {
+          originalCategories: userData.favoriteCategories.length,
+          enhancedCategories: enhancedCategories.length,
+          originalTags: userData.userTags?.length || 0,
+          enhancedTags: enhancedTags.length,
+          detectedInterests: bioAnalysis.interests
+        })
+      }
+
+      // Create user profile with enhanced data
+      await this.createUserProfile(userId, {
+        displayName: userData.displayName,
+        email: userData.email,
+        location: userData.location,
+        bio: userData.bio,
+        ageRange: userData.ageRange || '18-25', // Default to 18-25 if not provided
+        username: userData.username,
+        userTags: enhancedTags,
+        profilePictureUrl: userData.profilePictureUrl
+      })
+
+      // Initialize user preferences with enhanced data
+      await this.initializeUserPreferences(userId, {
+        favoriteCategories: enhancedCategories,
+        activityPreferences: enhancedPreferences,
+        budgetPreferences: userData.budgetPreferences,
+        socialPreferences: userData.socialPreferences,
+        discoveryRadius: userData.discoveryRadius,
+        location: userData.location
+      })
+
+      // Generate and save baseline recommendations with enhanced data
+      /* await this.generateBaselineRecommendations(userId, {
+        favoriteCategories: enhancedCategories,
+        activityPreferences: enhancedPreferences,
+        budgetPreferences: userData.budgetPreferences,
+        socialPreferences: userData.socialPreferences,
+        discoveryRadius: userData.discoveryRadius,
+        location: userData.location
+      }); */
+
+      console.log('✅ New user setup completed successfully with AI-enhanced preferences')
+    } catch (error) {
+      console.error('Error setting up new user:', error)
+      throw error
+    }
+  }
+
+  private async generateBaselineRecommendations(userId: string, signupPrefs: {
+    favoriteCategories: string[]
+    activityPreferences: string[]
+    budgetPreferences: string[]
+    socialPreferences: {
+      exploreNew: number
+      followFriends: number
+      trendingContent: number
+    }
+    discoveryRadius: number
+    location: string
+  }): Promise<void> {
+    try {
+      // Verify user is authenticated
+      const currentUser = auth.currentUser
+      if (!currentUser || currentUser.uid !== userId) {
+        console.warn('User not properly authenticated for baseline recommendations, skipping...')
+        return
+      }
+
+      // Use intelligent search service to generate baseline recommendations
+      const recommendations = await createBaselineRecommendations(userId, signupPrefs)
+      
+      const batch: Promise<any>[] = []
+      
+      recommendations.forEach(rec => {
+        const recData = {
+          type: rec.type,
+          itemId: rec.item.id,
+          score: rec.score,
+          reasons: rec.reasons,
+          createdAt: Timestamp.now(),
+          isBaseline: true
+        }
+        
+        batch.push(
+          setDoc(
+            doc(db, 'users', userId, 'recommendations', `${rec.type}_${rec.item.id}`),
+            recData
+          )
+        )
+      })
+      
+      // Execute all recommendations saves
+      await Promise.all(batch)
+      
+      console.log(`Generated ${recommendations.length} baseline recommendations for new user`)
+    } catch (error) {
+      console.error('Error generating baseline recommendations:', error)
+      // Don't throw - recommendations are nice to have but not essential for signup
+    }
+  }
+
+  async checkUsernameAvailability(username: string): Promise<boolean> {
+    try {
+      const q = query(collection(db, 'users'), where('username', '==', username));
+      const querySnapshot = await getDocs(q);
+      return querySnapshot.empty; // True if username is available
+    } catch (error) {
+      console.error('Error checking username availability:', error);
+      return false; // Fail safe
+    }
+  }
+
+  // ====================
+  // SEARCH DATA FETCHING
+  // ====================
+
+  async performSearch(
+    searchQuery: string,
+    filters: {
+      category?: string
+      priceRange?: string[]
+      location?: string
+      radius?: number
+      tags?: string[]
+    } = {},
+    limit: number = 50
+  ): Promise<FirebaseSearchData> {
+    const cacheKey = `${searchQuery}_${JSON.stringify(filters)}_${limit}`
+    
+    // Check cache
+    const cached = this.searchCache.get(cacheKey)
+    if (cached && Date.now() - cached.timestamp < this.CACHE_DURATION) {
+      return cached.data
+    }
+
+    try {
+      const searchResults = await Promise.all([
+        this.searchPlaces(searchQuery, filters, limit),
+        this.searchLists(searchQuery, filters, limit),
+        this.searchUsers(searchQuery, filters, limit),
+        this.searchPosts(searchQuery, filters, limit)
+      ])
+
+      const [places, lists, users, posts] = searchResults
+
+      const data: FirebaseSearchData = {
+        places,
+        lists,
+        users,
+        posts,
+        totalResults: {
+          places: places.length,
+          lists: lists.length,
+          users: users.length,
+          posts: posts.length
+        }
+      }
+
+      // Cache the results
+      this.searchCache.set(cacheKey, { data, timestamp: Date.now() })
+      
+      return data
+    } catch (error) {
+      console.error('Error performing search:', error)
+      return {
+        places: [],
+        lists: [],
+        users: [],
+        posts: [],
+        totalResults: { places: 0, lists: 0, users: 0, posts: 0 }
+      }
+    }
+  }
+
+  private async searchPlaces(searchQuery: string, filters: any, limitCount: number): Promise<Place[]> {
+    console.log(`🏢 Searching places for: "${searchQuery}"`)
+    
+    const constraints: QueryConstraint[] = []
+
+    // If we have a search query, we need to get more results first, then filter and rank
+    if (searchQuery && searchQuery.trim()) {
+      // For text search, get a larger set first, then filter client-side
+      constraints.push(fsLimit(limitCount * 5)) // Get 5x more results for better search coverage
+    } else {
+      // For browsing without search, order by popularity
+      constraints.push(orderBy('savedCount', 'desc'))
+      constraints.push(fsLimit(limitCount))
+    }
+
+    if (filters.category) {
+      constraints.push(where('category', '==', filters.category))
+    }
+
+    if (filters.tags && filters.tags.length > 0) {
+      constraints.push(where('tags', 'array-contains-any', filters.tags))
+    }
+
+    const placesQuery = query(collection(db, 'places'), ...constraints)
+    const placesSnapshot = await getDocs(placesQuery)
+    
+    let places = placesSnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    })) as Place[]
+
+    // Debug: Log what we got from Firebase
+    console.log(`🏢 Found ${places.length} places from Firebase:`)
+    places.forEach(place => {
+      const name = place.name || place.placeName || 'NO_NAME'
+      const tags = place.tags || place.placeTags || []
+      console.log(`  - ${name} (tags: ${Array.isArray(tags) ? tags.join(', ') : 'none'})`)
+    })
+
+    // Client-side filtering when a text query is provided
+    if (searchQuery && searchQuery.trim()) {
+      const q = searchQuery.toLowerCase()
+      places = places.filter(p => {
+        const name = (p.name || (p as any).placeName || '').toLowerCase()
+        const address = (p.address || '').toLowerCase()
+        const tags = ((p.tags || (p as any).placeTags || []) as string[]).map(t => t.toLowerCase())
+        return (
+          name.includes(q) ||
+          address.includes(q) ||
+          tags.some(t => t.includes(q))
+        )
+      })
+      // Basic relevance ranking: name > tags > address
+      places.sort((a, b) => {
+        const rank = (p: Place) => {
+          const name = (p.name || (p as any).placeName || '').toLowerCase()
+          const address = (p.address || '').toLowerCase()
+          const tags = ((p.tags || (p as any).placeTags || []) as string[]).map(t => t.toLowerCase())
+          if (name.includes(q)) return 0
+          if (tags.some(t => t.includes(q))) return 1
+          if (address.includes(q)) return 2
+          return 3
+        }
+        return rank(a) - rank(b)
+      })
+      places = places.slice(0, limitCount)
+    }
+
+    console.log(`🏢 Final places result: ${places.length} places`)
+    return places
+  }
+
+  private async searchLists(searchQuery: string, filters: any, limitCount: number): Promise<List[]> {
+    const constraints: QueryConstraint[] = [
+      where('isPublic', '==', true)
+    ]
+ 
+    console.log(`🔍 Searching lists for: "${searchQuery}"`)
+ 
+    // If we have a search query, we need to get more results first, then filter and rank
+    if (searchQuery && searchQuery.trim()) {
+      // For text search, get a larger set first, then filter client-side
+      constraints.push(fsLimit(limitCount * 5)) // Get 5x more results for better search coverage
+    } else {
+      // For browsing without search, order by popularity
+      constraints.push(orderBy('likes', 'desc'))
+      constraints.push(fsLimit(limitCount))
+    }
+ 
+    if (filters.tags && filters.tags.length > 0) {
+      constraints.push(where('tags', 'array-contains-any', filters.tags))
+    }
+ 
+    const listsQuery = query(collection(db, 'lists'), ...constraints)
+    const listsSnapshot = await getDocs(listsQuery)
+    
+    let lists = listsSnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    })) as List[]
+ 
+    // Debug: Log what we got from Firebase
+    console.log(`📋 Found ${lists.length} lists from Firebase:`)
+    lists.forEach(list => {
+      console.log(`  - ${list.name || list.listName || 'NO_NAME'} (tags: ${(list.tags || list.listTags || []).join(', ')})`)
+    })
+ 
+    // Client-side text filtering for list name/description/tags to ensure relevant results like 'cat'
+    if (searchQuery && searchQuery.trim()) {
+      const q = searchQuery.toLowerCase()
+      lists = lists.filter(list => {
+        const name = (list.name || list.listName || '').toLowerCase()
+        const description = (list.description || '').toLowerCase()
+        const tags = (list.tags || list.listTags || []).map(t => t.toLowerCase())
+        return (
+          name.includes(q) ||
+          description.includes(q) ||
+          tags.some((t: string) => t.includes(q))
+        )
+      })
+      // Basic relevance: prioritize name matches, then tag, then description
+      lists.sort((a, b) => {
+        const rank = (l: List) => {
+          const name = (l.name || l.listName || '').toLowerCase()
+          const description = (l.description || '').toLowerCase()
+          const tags = (l.tags || l.listTags || []).map(t => t.toLowerCase())
+          if (name.includes(q)) return 0
+          if (tags.some((t: string) => t.includes(q))) return 1
+          if (description.includes(q)) return 2
+          return 3
+        }
+        return rank(a) - rank(b)
+      })
+      // Trim to requested limit after filtering
+      lists = lists.slice(0, limitCount)
+    }
+ 
+    return lists
+  }
+
+  private async searchUsers(searchQuery: string, filters: any, limitCount: number): Promise<User[]> {
+    const usersQuery = query(
+      collection(db, 'users'),
+      orderBy('influences', 'desc'),
+      fsLimit(limitCount)
+    )
+    const usersSnapshot = await getDocs(usersQuery)
+    
+    let users = usersSnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    })) as User[]
+
+    // Optional user-tag filtering (via filters.tags)
+    if (filters && Array.isArray(filters.tags) && filters.tags.length > 0) {
+      const tagSet = new Set((filters.tags as string[]).map(t => t.toLowerCase()))
+      users = users.filter(user => Array.isArray((user as any).tags) && (user as any).tags.some((tag: string) => tagSet.has(String(tag).toLowerCase())))
+    }
+
+    if (searchQuery) {
+      const searchLower = searchQuery.toLowerCase()
+      return users.filter(user => 
+        user.name.toLowerCase().includes(searchLower) ||
+        user.username.toLowerCase().includes(searchLower) ||
+        (user.bio && user.bio.toLowerCase().includes(searchLower)) ||
+        (user.tags && user.tags.some(tag => tag.toLowerCase().includes(searchLower)))
+      )
+    }
+
+    return users
+  }
+
+  async searchPosts(searchQuery: string, filters: any, limitCount: number): Promise<Post[]> {
+    const postsQuery = query(
+      collection(db, 'posts'),
+      where('privacy', '==', 'public'),
+      orderBy('likes', 'desc'),
+      fsLimit(limitCount)
+    )
+    const postsSnapshot = await getDocs(postsQuery)
+    
+    const posts = postsSnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    })) as Post[]
+
+    if (searchQuery) {
+      const searchLower = searchQuery.toLowerCase()
+      return posts.filter(post => 
+        post.description.toLowerCase().includes(searchLower)
+      )
+    }
+
+    return posts
+  }
+
+  // ====================
+  // INDIVIDUAL DATA FETCHERS
+  // ====================
+
+  async getPlace(placeId: string): Promise<Place | null> {
+    try {
+      const placeDoc = await getDoc(doc(db, 'places', placeId))
+      if (placeDoc.exists()) {
+        return { id: placeDoc.id, ...placeDoc.data() } as Place
+      }
+      return null
+    } catch (error) {
+      console.error('Error fetching place:', error)
+      return null
+    }
+  }
+
+  async getPlaceKeysLite(limitCount: number = 500): Promise<Array<{ id: string; name: string; address?: string; lat?: number; lng?: number }>> {
+    try {
+      const placesQuery = query(collection(db, 'places'), fsLimit(limitCount))
+      const snap = await getDocs(placesQuery)
+      return snap.docs.map(d => {
+        const data: any = d.data()
+        const lat = (data.coordinates && data.coordinates.lat) || data.location?.lat
+        const lng = (data.coordinates && data.coordinates.lng) || data.location?.lng
+        return { id: d.id, name: data.name || data.placeName || '', address: data.address || data.location?.address, lat, lng }
+      })
+    } catch (e) {
+      console.warn('getPlaceKeysLite failed', e)
+      return []
+    }
+  }
+
+  async getList(listId: string): Promise<List | null> {
+    try {
+      const listDoc = await getDoc(doc(db, 'lists', listId))
+      if (listDoc.exists()) {
+        return { id: listDoc.id, ...listDoc.data() } as List
+      }
+      return null
+    } catch (error) {
+      console.error('Error fetching list:', error)
+      return null
+    }
+  }
+
+  async getPostsForHub(hubId: string): Promise<Post[]> {
+    try {
+      const postsQuery = query(
+        collection(db, 'posts'),
+        where('hubId', '==', hubId),
+        orderBy('createdAt', 'desc')
+      );
+      const postsSnapshot = await getDocs(postsQuery);
+      const posts = postsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Post[];
+      
+      // Enrich posts with user information
+      const enrichedPosts = await Promise.all(
+        posts.map(async (post) => {
+          if (post.userId && !post.username) {
+            try {
+              const username = await this.getUserDisplayName(post.userId);
+              const user = await this.getCurrentUser(post.userId);
+              return { 
+                ...post, 
+                username,
+                userAvatar: user?.avatar || ''
+              };
+            } catch (error) {
+              console.error('Error fetching username for post:', error);
+              return { ...post, username: 'Unknown User', userAvatar: '' };
+            }
+          }
+          return post;
+        })
+      );
+      
+      return enrichedPosts;
+    } catch (error) {
+      console.error('Error fetching posts for hub:', error);
+      return [];
+    }
+  }
+
+  async getPost(postId: string): Promise<Post | null> {
+    try {
+      const postDoc = await getDoc(doc(db, 'posts', postId))
+      if (postDoc.exists()) {
+        return { id: postDoc.id, ...postDoc.data() } as Post
+      }
+      return null
+    } catch (error) {
+      console.error('Error fetching post:', error)
+      return null
+    }
+  }
+
+  async getCommentsForPost(postId: string): Promise<PostComment[]> {
+    try {
+      console.log('firebaseDataService: Fetching comments for post:', postId);
+      
+      const commentsQuery = query(
+        collection(db, 'posts', postId, 'comments'),
+        orderBy('createdAt', 'desc')
+      );
+      const commentsSnapshot = await getDocs(commentsQuery);
+      
+      console.log('firebaseDataService: Found', commentsSnapshot.docs.length, 'comments');
+      
+      const comments = await Promise.all(commentsSnapshot.docs.map(async doc => {
+        const commentData = doc.data() as PostComment;
+        const user = await this.getCurrentUser(commentData.userId);
+        return {
+          id: doc.id,
+          ...commentData,
+          username: user?.username || 'Unknown User',
+          userAvatar: user?.avatar || ''
+        };
+      }));
+      
+      console.log('firebaseDataService: Processed comments:', comments.length);
+      return comments;
+    } catch (error) {
+      console.error('firebaseDataService: Error fetching comments for post:', error);
+      return [];
+    }
+  }
+
+  async postComment(postId: string, userId: string, text: string): Promise<PostComment | null> {
+    try {
+      console.log('firebaseDataService: Posting comment:', { postId, userId, text });
+      
+      const currentUser = await this.getCurrentUser(userId);
+      if (!currentUser) {
+        console.error('firebaseDataService: User not found for comment posting');
+        throw new Error('User not found');
+      }
+
+      const newCommentRef = doc(collection(db, 'posts', postId, 'comments'));
+      const newComment: PostComment = {
+        id: newCommentRef.id,
+        userId,
+        username: currentUser.username,
+        userAvatar: currentUser.avatar || '',
+        text,
+        createdAt: Timestamp.now().toDate().toISOString(), // Use proper timestamp
+        likes: 0,
+        likedBy: [],
+      };
+
+      console.log('firebaseDataService: Saving comment to Firestore:', newComment);
+      await setDoc(newCommentRef, newComment);
+      

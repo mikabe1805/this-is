@@ -1,5 +1,6 @@
 import { onRequest } from 'firebase-functions/v2/https'
 import { logger } from 'firebase-functions'
+import * as admin from 'firebase-admin'
 
 // ============================================================================
 // Places API (New) - REST v1 with strict field masks
@@ -9,9 +10,9 @@ const API_BASE = 'https://places.googleapis.com/v1'
 
 // Minimal field mask - ONLY what we render in list tiles
 // Avoids Atmosphere ($0.03), Contact ($0.03), and other premium SKUs
-// Note: displayName requires .text suffix for REST API
-// Photos are included but client decides whether to fetch them (budgeted)
-const LIST_FIELD_MASK = 'places.id,places.displayName.text,places.formattedAddress,places.location,places.primaryType,places.types,places.photos'
+// Note: REST allows places.displayName (entire object). We only read .text client-side.
+// Strict per spec: id, displayName, formattedAddress, primaryType, photos.name
+const LIST_FIELD_MASK = 'places.id,places.displayName,places.formattedAddress,places.primaryType,places.photos.name'
 
 // Simple in-memory LRU cache to avoid duplicate API calls within same execution
 const cache = new Map<string, { data: any; timestamp: number }>()
@@ -55,21 +56,48 @@ export const suggestPlaces = onRequest({ cors: true }, async (req, res) => {
       return
     }
     
-    // Check cache first
-    const cacheKey = `suggest:${lat}:${lng}:${tags.join(',')}`
-    const cached = getCached(cacheKey)
-    if (cached) {
-      logger.info('Returning cached results', { cacheKey })
-      res.json(cached)
+    // Normalize & build cache keys
+    const norm = (arr: any[]) => Array.from(new Set(arr.map((t: any) => String(t || '').trim().toLowerCase()))).sort()
+    const normTags = norm(Array.isArray(tags) ? tags : [])
+    const normInterests = norm(Array.isArray(interests) ? interests : [])
+    const keyParts = {
+      q: '',
+      lat: Number(lat).toFixed(4),
+      lng: Number(lng).toFixed(4),
+      radiusKm: Number(radiusKm) || 20,
+      types: normTags.concat(normInterests),
+    }
+    const cacheKey = `suggest:${keyParts.q}|${keyParts.lat},${keyParts.lng}|${keyParts.radiusKm}|${keyParts.types.join('+')}`
+
+    // 1) In-memory cache
+    const mem = getCached(cacheKey)
+    if (mem) {
+      logger.info('Returning cached (memory) results', { cacheKey })
+      res.json(mem)
       return
+    }
+
+    // 2) Firestore cache (24h TTL)
+    try {
+      const docRef = admin.firestore().doc(`placesCache/${encodeURIComponent(cacheKey)}`)
+      const snap = await docRef.get()
+      if (snap.exists) {
+        const data = snap.data() as any
+        const ageMs = Date.now() - (data.createdAt?.toMillis?.() || data.createdAt)
+        if (ageMs < 24 * 60 * 60 * 1000) {
+          logger.info('Returning cached (firestore) results', { cacheKey })
+          setCache(cacheKey, data.payload)
+          res.json(data.payload)
+          return
+        }
+      }
+    } catch (e) {
+      logger.warn('Firestore cache read failed', { cacheKey, err: (e as any)?.message })
     }
     
     // Build keyword from tags + interests
-    const merged = [
-      ...(Array.isArray(tags) ? tags : []),
-      ...(Array.isArray(interests) ? interests : [])
-    ]
-    const uniq = Array.from(new Set(merged.map((t: any) => String(t).toLowerCase())))
+    const merged = [...normTags, ...normInterests]
+    const uniq = merged
     // Convert km to meters, but cap at 50,000m (50km) - Places API (New) limit
     const radiusMeters = Number(radiusKm) && Number(radiusKm) > 0 ? Math.round(Number(radiusKm) * 1000) : 20000
     const radius = Math.min(radiusMeters, 50000) // Max 50km per API spec
@@ -167,18 +195,16 @@ export const suggestPlaces = onRequest({ cors: true }, async (req, res) => {
       // Photos: Store resourceName only, client will fetch budgeted thumbnails
       const photoResourceName = p.photos?.[0]?.name || null
       const mapsUrl = `https://www.google.com/maps/search/?api=1&query=place_id:${p.id}`
-      
+
       return {
         id: p.id,
         placeId: p.id,
-        name: p.displayName?.text || 'Unknown Place',
+        name: p.displayName?.text || p.displayName || 'Unknown Place',
         address: p.formattedAddress || '',
-        coordinates: { 
-          lat: p.location?.latitude, 
-          lng: p.location?.longitude 
-        },
-        category: p.primaryType || p.types?.[0] || 'place',
-        tags: p.types || [],
+        // location/types omitted from LIST_FIELD_MASK for cost control
+        coordinates: undefined,
+        category: p.primaryType || 'place',
+        tags: [],
         // NO direct photo URLs - client uses PlaceVisual with photoBudget
         photoResourceName: photoResourceName,
         mainImage: '', // Deprecated
@@ -189,16 +215,28 @@ export const suggestPlaces = onRequest({ cors: true }, async (req, res) => {
         description: '', // Not in LIST_FIELD_MASK (would require premium Details call)
         website: '', // Not in LIST_FIELD_MASK (would require premium Details call)
         googleMapsUrl: mapsUrl,
-        // Types for PlaceVisual component (category posters)
-        types: p.types || [],
+        // Types removed for cost control (use primaryType)
+        types: [],
         primaryType: p.primaryType || null
       }
     })
 
     logger.info('[Places API (New)] Returning results', { count: results.length })
-    
     const response = { places: results }
     setCache(cacheKey, response)
+    // Write to Firestore cache (best-effort)
+    try {
+      const docRef = admin.firestore().doc(`placesCache/${encodeURIComponent(cacheKey)}`)
+      await docRef.set({
+        key: cacheKey,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        params: keyParts,
+        payload: response,
+        ttlHours: 24,
+      }, { merge: true })
+    } catch (e) {
+      logger.warn('Firestore cache write failed', { cacheKey, err: (e as any)?.message })
+    }
     res.json(response)
   } catch (e: any) {
     logger.error('[suggestPlaces] Uncaught error', e)
@@ -245,5 +283,4 @@ export const geocodeLocation = onRequest({ cors: true }, async (req, res) => {
     res.status(500).json({ error: e?.message || 'Unknown error' })
   }
 })
-
 

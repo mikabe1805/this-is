@@ -517,7 +517,7 @@ const Profile = () => {
     }
 
     return (
-        <div className="relative min-h-full overflow-x-hidden bg-surface">
+        <div className="relative min-h-full overflow-x-hidden bg-surface sunlight-soft">
             <div className="relative z-10 px-4 pt-5">
                 <form onSubmit={(e) => { e.preventDefault() }}>
                     <SearchAndFilter
@@ -549,13 +549,14 @@ const Profile = () => {
                 />
             </div>
             {!searchQuery.trim() && (
-            <div className="relative z-10 p-6 mt-6 rounded-2xl border border-linen-200 bg-white max-w-2xl mx-auto overflow-hidden flex flex-col gap-2">
+            <div className="relative z-10 p-6 mt-6 rounded-2xl surface-soft max-w-2xl mx-auto overflow-hidden flex flex-col gap-2 sunlight-soft">
                 <div className="flex items-center gap-6">
                     <div className="relative">
+                        <span className="pointer-events-none absolute -top-3 -left-3 w-16 h-16 rounded-full bg-white/55 blur-xl opacity-80"></span>
                         <img
                             src={currentUser.avatar || 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face'}
                             alt={currentUser.name}
-                            className="w-20 h-20 rounded-xl object-cover bg-linen-200"
+                            className="w-20 h-20 rounded-xl object-cover bg-white/20"
                             onError={(e) => {
                                 console.warn('Profile image failed to load:', currentUser.avatar)
                                 e.currentTarget.src = 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face'
@@ -570,24 +571,24 @@ const Profile = () => {
                     <div className="flex-1">
                         <div className="flex items-center justify-between mb-1">
                             <div className="flex items-center gap-2">
-                                <h2 className="text-2xl font-serif font-extrabold text-charcoal-800 tracking-tight">{currentUser.name}</h2>
+                                <h2 className="text-2xl font-serif font-extrabold text-title tracking-tight">{currentUser.name}</h2>
                             </div>
                             <button
                                 ref={userMenuButtonRef}
                                 onClick={() => setShowUserMenu(true)}
-                                className="w-8 h-8 bg-linen-100 rounded-full flex items-center justify-center hover:bg-linen-200 transition-colors"
+                                className="w-8 h-8 glass rounded-full flex items-center justify-center hover:bg-white/20 transition-colors"
                             >
                                 <EllipsisHorizontalIcon className="w-5 h-5 text-charcoal-600" />
                             </button>
                         </div>
-                        <p className="text-[1.05rem] text-charcoal-600 mb-1">@{currentUser.username}</p>
+                        <p className="text-[1.05rem] text-meta mb-1">@{currentUser.username}</p>
                         {currentUser.location && (
-                            <div className="flex items-center gap-2 text-[0.95rem] text-sage-700 mb-1">
-                                <MapPinIcon className="w-5 h-5 text-sage-500" />
+                            <div className="flex items-center gap-2 text-[0.95rem] text-body mb-1">
+                                <MapPinIcon className="w-5 h-5 text-bark-700/70" />
                                 {currentUser.location}
                             </div>
                         )}
-                        <div className="flex items-center gap-2 text-[0.95rem] text-gold-700">
+                        <div className="flex items-center gap-2 text-[0.95rem] text-meta">
                             <CalendarIcon className="w-5 h-5 text-gold-500" />
                             <span>Member since {formatTimestamp(currentUser.createdAt)}</span>
                         </div>
@@ -608,7 +609,7 @@ const Profile = () => {
                     </div>
                 </div>
                 {currentUser.bio && (
-                    <p className="mt-4 text-[0.95rem] text-charcoal-700 bg-linen-100 rounded-xl p-3">{currentUser.bio}</p>
+                    <p className="mt-4 text-[0.95rem] text-body glass rounded-xl p-3">{currentUser.bio}</p>
                 )}
                 <div className="flex flex-wrap gap-2 mt-4">
                     {profileTags.map(tag => (
@@ -637,44 +638,44 @@ const Profile = () => {
                         />
                     </div>
                 </div>
-                <div className="grid grid-cols-3 gap-4 mt-6 border-t border-linen-200 pt-4">
+                <div className="grid grid-cols-3 gap-4 mt-6 border-t border-white/20 pt-4">
                     <div className="text-center cursor-pointer" onClick={() => navigate('/lists')}>
-                        <div className="text-2xl font-serif font-bold text-charcoal-700">{listCount}</div>
-                        <div className="text-sm text-charcoal-400">Lists</div>
+                        <div className="text-xl font-serif font-semibold text-title">{listCount}</div>
+                        <div className="text-sm text-meta">Lists</div>
                     </div>
                     <div className="text-center cursor-pointer" onClick={() => navigate('/places')}>
-                        <div className="text-2xl font-serif font-bold text-charcoal-700">{placeCount}</div>
-                        <div className="text-sm text-charcoal-400">Places</div>
+                        <div className="text-xl font-serif font-semibold text-title">{placeCount}</div>
+                        <div className="text-sm text-meta">Places</div>
                     </div>
                     <div className="text-center cursor-pointer" onClick={() => navigate('/profile/following')}>
-                        <div className="text-2xl font-serif font-bold text-charcoal-700">{followerCount}</div>
-                        <div className="text-sm text-charcoal-400">Followers</div>
+                        <div className="text-xl font-serif font-semibold text-title">{followerCount}</div>
+                        <div className="text-sm text-meta">Followers</div>
                     </div>
                 </div>
             </div>
             )}
             {!searchQuery.trim() && (
-            <div className="relative z-10 p-4 max-w-2xl mx-auto">
-                <div className="rounded-2xl shadow-botanical border border-linen-200 bg-white p-6 flex gap-4 transition hover:shadow-cozy hover:-translate-y-1">
+            <div className="relative z-10 p-4 max-w-2xl mx-auto sunlight-soft">
+                <div className="rounded-2xl surface-soft p-6 flex gap-4 transition hover-lift hover-lift-on">
                     <button
                         onClick={() => {
                             window.dispatchEvent(new CustomEvent('openCreateList'))
                         }}
-                        className="flex-1 rounded-xl p-4 bg-sage-100 text-sage-700 font-semibold flex flex-col items-center gap-2 shadow-soft hover:bg-sage-200 hover:shadow-botanical transition"
+                        className="flex-1 rounded-xl p-4 bg-white/22 border border-white/26 backdrop-blur-md text-bark-900 font-semibold flex flex-col items-center gap-2 shadow-soft hover:bg-white/28 transition"
                     >
                         <PlusIcon className="w-6 h-6" />
                         New List
                     </button>
                     <button
                         onClick={() => navigate('/lists')}
-                        className="flex-1 rounded-xl p-4 bg-gold-100 text-gold-700 font-semibold flex flex-col items-center gap-2 shadow-soft hover:bg-gold-200 hover:shadow-botanical transition"
+                        className="flex-1 rounded-xl p-4 bg-white/22 border border-white/26 backdrop-blur-md text-bark-900 font-semibold flex flex-col items-center gap-2 shadow-soft hover:bg-white/28 transition"
                     >
                         <BookmarkIcon className="w-6 h-6" />
                         View My Lists
                     </button>
                     <button
                         onClick={() => navigate('/favorites')}
-                        className="flex-1 rounded-xl p-4 bg-charcoal-100 text-charcoal-700 font-semibold flex flex-col items-center gap-2 shadow-soft hover:bg-charcoal-200 hover:shadow-botanical transition"
+                        className="flex-1 rounded-xl p-4 bg-white/22 border border-white/26 backdrop-blur-md text-bark-900 font-semibold flex flex-col items-center gap-2 shadow-soft hover:bg-white/28 transition"
                     >
                         <HeartIcon className="w-6 h-6" />
                         Favorites
@@ -685,7 +686,7 @@ const Profile = () => {
             <div className="relative z-10 p-4 max-w-2xl mx-auto space-y-8 pb-20">
                 <div>
                     <Section title="Your Lists" action={
-                      <button onClick={() => { const params = new URLSearchParams(); if (selectedTags.length > 0) params.set('tags', selectedTags.join(',')); if (sortBy) params.set('sort', sortBy); params.set('onlyMine', 'true'); navigate(`/lists?${params.toString()}`) }} className="text-sm font-medium text-sage-700 hover:underline">View All</button>
+                      <button onClick={() => { const params = new URLSearchParams(); if (selectedTags.length > 0) params.set('tags', selectedTags.join(',')); if (sortBy) params.set('sort', sortBy); params.set('onlyMine', 'true'); navigate(`/lists?${params.toString()}`) }} className="text-sm font-medium text-body hover:underline">View All</button>
                     }>
                     <div className="space-y-4">
                         {visibleLists.map((list) => (
@@ -693,17 +694,17 @@ const Profile = () => {
                                 key={list.id}
                                 role="button"
                                 tabIndex={0}
-                                className="w-full text-left rounded-xl border border-linen-200 bg-white flex flex-col md:flex-row gap-4 overflow-hidden transition hover:bg-linen-50 focus:outline-none"
+                                className="w-full text-left rounded-xl glass flex flex-col md:flex-row gap-4 overflow-hidden transition hover:bg-white/20 focus:outline-none"
                                                                     onClick={() => openListModal(list, 'profile')}
                                 aria-label={`Open list ${list.name}`}
                             >
-                                <div className="w-full md:w-40 h-28 md:h-auto flex-shrink-0 bg-linen-100">
+                    <div className="w-full md:w-40 h-28 md:h-auto flex-shrink-0 bg-white/10 rounded-xl overflow-hidden">
                                     <img src={list.coverImage} alt={list.name} className="w-full h-full object-cover" loading="lazy" />
-                                </div>
+                    </div>
                                 <div className="flex-1 p-4 flex flex-col justify-between">
                                     <div>
-                                        <div className="flex items-center gap-2 mb-1">
-                                            <h4 className="font-serif font-semibold text-lg text-charcoal-700">{list.name}</h4>
+                        <div className="flex items-center gap-2 mb-1">
+                            <h4 className="text-title">{list.name}</h4>
                                             {list.tags.includes('auto-generated') && (
                                                 <span className="px-2 py-1 rounded-full text-xs font-medium bg-gold-100 text-gold-700 border border-gold-200">
                                                     Auto
@@ -782,7 +783,7 @@ const Profile = () => {
                                                         e.stopPropagation()
                                                         handleCreatePost(list.id)
                                                     }}
-                                                    className="p-1.5 rounded-full bg-sage-50 text-sage-600 hover:bg-sage-100 transition"
+                                                    className="p-1.5 rounded-full glass hover:bg-white/20 transition"
                                                     title="Create post"
                                                 >
                                                     <PlusIcon className="w-4 h-4" />
@@ -799,7 +800,7 @@ const Profile = () => {
                         <div className="mt-4 flex justify-center">
                             <button
                                 onClick={() => setVisibleCount(c => c + 6)}
-                                className="px-4 py-2 rounded-xl bg-white text-sage-700 border border-linen-200 hover:bg-linen-50 transition"
+                                className="pill pill--quiet"
                             >
                                 Load more
                             </button>
@@ -819,13 +820,13 @@ const Profile = () => {
                 </div>
                 <div>
                     <Section title="Recent Activity" action={!searchQuery.trim() ? (
-                      <button onClick={() => setShowAllActivity(prev => !prev)} className="text-sm font-medium text-sage-700 hover:underline">{showAllActivity ? 'Show less' : 'See all recent activity'}</button>
+                      <button onClick={() => setShowAllActivity(prev => !prev)} className="text-sm font-medium text-body hover:underline">{showAllActivity ? 'Show less' : 'See all recent activity'}</button>
                     ) : null}>
                     <div className="space-y-4">
                         {activityToShow.map((activity) => (
-                            <div key={activity.id} className="rounded-xl border border-linen-200 bg-white flex items-center gap-4 p-4 transition hover:bg-linen-50">
-                                <div className="w-12 h-12 rounded-xl bg-sage-100 flex items-center justify-center">
-                                    <BookmarkIcon className="w-6 h-6 text-sage-500" />
+                            <div key={activity.id} className="rounded-xl glass flex items-center gap-4 p-4 transition hover:bg-white/20">
+                                <div className="w-12 h-12 rounded-xl bg-white/20 flex items-center justify-center">
+                                    <BookmarkIcon className="w-6 h-6 text-bark-700" />
                                 </div>
                                 <div className="flex-1">
                                     <p className="text-sm text-charcoal-700 font-medium">
@@ -838,7 +839,7 @@ const Profile = () => {
                         {(!searchQuery.trim() && !showAllActivity && filteredActivityItems.length > 3) && (
                             <button
                                 onClick={() => setShowAllActivity(true)}
-                                className="w-full mt-2 text-center text-sm font-medium text-sage-700 hover:underline"
+                                className="w-full mt-2 text-center text-sm font-medium text-body hover:underline"
                             >
                                 See all recent activity
                             </button>
@@ -893,7 +894,7 @@ const Profile = () => {
                         }}
                         className="flex items-center gap-3 p-4 bg-linen-50 rounded-xl border border-linen-200"
                     >
-                        <img src={currentUser?.avatar || 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face'} alt={currentUser?.name} className="w-10 h-10 rounded-full object-cover border-2 border-white shadow-soft flex-shrink-0" />
+                        <img src={currentUser?.avatar || 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face'} alt={currentUser?.name} className="w-10 h-10 rounded-full object-cover shadow-soft flex-shrink-0" />
                         <input
                             type="text"
                             value={commentInput}

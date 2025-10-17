@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+﻿import { useState, useEffect } from 'react';
 import { formatTimestamp } from '../utils/dateUtils';
 import { useParams, useNavigate } from 'react-router-dom';
 import { MapPinIcon, UserIcon, CalendarIcon, HeartIcon, BookmarkIcon, EyeIcon, PlusIcon, ShareIcon, ArrowLeftIcon } from '@heroicons/react/24/outline';
@@ -420,7 +420,7 @@ const UserProfile = () => {
                         <img 
                           src={list.coverImage} 
                           alt={list.name} 
-                          className="w-20 h-20 rounded-xl object-cover shadow-soft"
+                          className="w-20 h-20 rounded-xl2 object-cover shadow-soft"
                           loading="lazy"
                         />
                       )}
@@ -475,3 +475,4 @@ const UserProfile = () => {
 }
 
 export default UserProfile 
+

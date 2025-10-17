@@ -31,11 +31,11 @@ export default function TagPill({
     ? 'text-xs px-2.5 py-1'
     : 'text-sm px-3 py-1.5'
 
-  const baseClasses = `inline-flex items-center gap-1.5 rounded-full border transition-colors duration-200 ease-out focus:outline-none focus-visible:ring-2 focus-visible:ring-sage-300 focus-visible:ring-offset-1 focus-visible:ring-offset-white`
+  const baseClasses = `inline-flex items-center gap-1.5 rounded-full border transition-colors duration-200 ease-out focus:outline-none focus-visible:ring-2 focus-visible:ring-white/50 focus-visible:ring-offset-1 focus-visible:ring-offset-transparent hover-lift`
 
   const stateClasses = selected
-    ? 'bg-sage-50 border-sage-200 text-sage-700 hover:bg-sage-100'
-    : 'bg-white/90 border-linen-200 text-charcoal-700 hover:bg-linen-50'
+    ? 'bg-white/28 border-white/30 text-bark-900'
+    : 'bg-white/22 border-white/26 text-bark-900 backdrop-blur-md hover:bg-white/28 shimmer shimmer-run'
 
   const disabledClasses = disabled ? 'opacity-60 cursor-not-allowed hover:bg-inherit' : 'cursor-pointer active:scale-[0.98]'
 

@@ -102,7 +102,7 @@ const SaveToListModal: React.FC<SaveToListModalProps> = ({
               <img
                 src={(place as any).mainImage}
                 alt={place.name}
-                className="w-16 h-16 rounded-xl object-cover border border-linen-200"
+                className="w-16 h-16 rounded-xl2 object-cover shadow-soft border border-linen-200"
               />
             )}
             <div className="flex-1">

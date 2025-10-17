@@ -3,10 +3,12 @@ import React from 'react';
 export function GlassPanel({
   className = '',
   children,
+  withSunlight = false,
   ...props
-}: React.PropsWithChildren<{ className?: string }>) {
+}: React.PropsWithChildren<{ className?: string; withSunlight?: boolean }>) {
+  const sunlightClass = withSunlight ? 'sun-edge' : '';
   return (
-    <div className={`relative glass sun-edge rounded-xl2 ${className}`} {...props}>
+    <div className={`relative glass-card ${sunlightClass} rounded-xl2 group hover-lift hover-lift-on animate-fade-in ${className}`} {...props}>
       {children}
     </div>
   );

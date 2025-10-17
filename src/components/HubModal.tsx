@@ -507,7 +507,7 @@ const HubModal = ({ hub, isOpen, onClose, onAddPost, onSave, onShare, onOpenFull
                           onClick={() => handleListClick(list)}
                         >
                           {list.coverImage && (
-                            <SafeImage src={list.coverImage} alt={list.name} className="w-12 h-12 rounded-lg object-cover border border-[#E8D4C0]/50 shadow-sm" />
+                            <SafeImage src={list.coverImage} alt={list.name} className="w-12 h-12 rounded-xl2 object-cover shadow-soft border border-[#E8D4C0]/50" />
                           )}
                           <div className="flex-1 min-w-0">
                             <h4 className="font-serif font-semibold text-[#5D4A2E] truncate">{list.name}</h4>
@@ -549,7 +549,7 @@ const HubModal = ({ hub, isOpen, onClose, onAddPost, onSave, onShare, onOpenFull
                           onClick={() => handleListClick(list)}
                         >
                           {list.coverImage && (
-                            <SafeImage src={list.coverImage} alt={list.name} className="w-12 h-12 rounded-lg object-cover border border-[#E8D4C0]/50 shadow-sm" />
+                            <SafeImage src={list.coverImage} alt={list.name} className="w-12 h-12 rounded-xl2 object-cover shadow-soft border border-[#E8D4C0]/50" />
                           )}
                           <div className="flex-1 min-w-0">
                             <h4 className="font-serif font-semibold text-[#5D4A2E] truncate">{list.name}</h4>
@@ -588,7 +588,7 @@ const HubModal = ({ hub, isOpen, onClose, onAddPost, onSave, onShare, onOpenFull
                         <SafeImage 
                           src={comment?.userAvatar || '/assets/default-avatar.svg'} 
                           alt={comment?.username || 'User'} 
-                          className="w-10 h-10 rounded-lg object-cover border border-[#E8D4C0] shadow-sm flex-shrink-0"
+                          className="w-10 h-10 rounded-xl2 object-cover shadow-soft border border-[#E8D4C0] flex-shrink-0"
                         />
                         <div className="flex-1">
                           <div className="flex items-center gap-2 mb-1">

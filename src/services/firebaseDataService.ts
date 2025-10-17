@@ -1,4 +1,4 @@
-import { collection, doc, getDoc, getDocs, setDoc, updateDoc, query, where, orderBy, limit as fsLimit, startAfter, endBefore, onSnapshot, Timestamp, QueryConstraint, addDoc, deleteDoc, increment } from 'firebase/firestore'
+﻿import { collection, doc, getDoc, getDocs, setDoc, updateDoc, query, where, orderBy, limit as fsLimit, startAfter, endBefore, onSnapshot, Timestamp, QueryConstraint, addDoc, deleteDoc, increment } from 'firebase/firestore'
 import { db } from '../firebase/config'
 import type { User, Place, List, Post, PostComment, Activity, Hub } from '../types'
 import { auth } from '../firebase/config'
@@ -624,11 +624,11 @@ class FirebaseDataService {
         avatar: userData.profilePictureUrl || ''
       }
 
-      console.log('💾 Saving user profile with avatar:', userData.profilePictureUrl)
+      console.log('ðŸ’¾ Saving user profile with avatar:', userData.profilePictureUrl)
       await setDoc(doc(db, 'users', userId), userProfile)
-      console.log('✅ User profile created successfully')
+      console.log('âœ… User profile created successfully')
     } catch (error) {
-      console.error('❌ Error creating user profile:', error)
+      console.error('âŒ Error creating user profile:', error)
       throw error
     }
   }
@@ -702,7 +702,7 @@ class FirebaseDataService {
       let enhancedPreferences = [...userData.activityPreferences]
 
       if (userData.bio) {
-        console.log('🤖 Analyzing user bio for personalized recommendations...')
+        console.log('ðŸ¤– Analyzing user bio for personalized recommendations...')
         const bioAnalysis = await this.analyzeUserBio(userData.bio)
         
         // Merge AI suggestions with user selections (avoid duplicates)
@@ -725,7 +725,7 @@ class FirebaseDataService {
           }
         })
 
-        console.log('✨ Bio analysis complete:', {
+        console.log('âœ¨ Bio analysis complete:', {
           originalCategories: userData.favoriteCategories.length,
           enhancedCategories: enhancedCategories.length,
           originalTags: userData.userTags?.length || 0,
@@ -766,7 +766,7 @@ class FirebaseDataService {
         location: userData.location
       }); */
 
-      console.log('✅ New user setup completed successfully with AI-enhanced preferences')
+      console.log('âœ… New user setup completed successfully with AI-enhanced preferences')
     } catch (error) {
       console.error('Error setting up new user:', error)
       throw error
@@ -900,7 +900,7 @@ class FirebaseDataService {
   }
 
   private async searchPlaces(searchQuery: string, filters: any, limitCount: number): Promise<Place[]> {
-    console.log(`🏢 Searching places for: "${searchQuery}"`)
+    console.log(`ðŸ¢ Searching places for: "${searchQuery}"`)
     
     const constraints: QueryConstraint[] = []
 
@@ -931,7 +931,7 @@ class FirebaseDataService {
     })) as Place[]
 
     // Debug: Log what we got from Firebase
-    console.log(`🏢 Found ${places.length} places from Firebase:`)
+    console.log(`ðŸ¢ Found ${places.length} places from Firebase:`)
     places.forEach(place => {
       const name = place.name || place.placeName || 'NO_NAME'
       const tags = place.tags || place.placeTags || []
@@ -967,7 +967,7 @@ class FirebaseDataService {
       places = places.slice(0, limitCount)
     }
 
-    console.log(`🏢 Final places result: ${places.length} places`)
+    console.log(`ðŸ¢ Final places result: ${places.length} places`)
     return places
   }
 
@@ -976,7 +976,7 @@ class FirebaseDataService {
       where('isPublic', '==', true)
     ]
  
-    console.log(`🔍 Searching lists for: "${searchQuery}"`)
+    console.log(`ðŸ” Searching lists for: "${searchQuery}"`)
  
     // If we have a search query, we need to get more results first, then filter and rank
     if (searchQuery && searchQuery.trim()) {
@@ -1001,7 +1001,7 @@ class FirebaseDataService {
     })) as List[]
  
     // Debug: Log what we got from Firebase
-    console.log(`📋 Found ${lists.length} lists from Firebase:`)
+    console.log(`ðŸ“‹ Found ${lists.length} lists from Firebase:`)
     lists.forEach(list => {
       console.log(`  - ${list.name || list.listName || 'NO_NAME'} (tags: ${(list.tags || list.listTags || []).join(', ')})`)
     })
@@ -1101,6 +1101,10 @@ class FirebaseDataService {
 
   async getPlace(placeId: string): Promise<Place | null> {
     try {
+      if (!placeId || typeof placeId !== 'string' || placeId.trim().length === 0) {
+        console.warn('[getPlace] invalid placeId', placeId)
+        return null
+      }
       const placeDoc = await getDoc(doc(db, 'places', placeId))
       if (placeDoc.exists()) {
         return { id: placeDoc.id, ...placeDoc.data() } as Place
@@ -2097,7 +2101,7 @@ class FirebaseDataService {
         }
       } catch {}
 
-      // Fallback: no usageCount or query failed — return all tags sorted alphabetically
+      // Fallback: no usageCount or query failed â€” return all tags sorted alphabetically
       const all = await getDocs(collection(db, 'tags'))
       const names = all.docs.map(d => d.id).sort()
       return names.slice(0, limitCount)
@@ -2277,17 +2281,26 @@ class FirebaseDataService {
         ...(options.interests || []).map(i => typeMap[i.toLowerCase()]).filter(Boolean)
       ].slice(0, 6); // Limit to 6 types max
       
-      console.log('[firebaseDataService] 🔍 Calling Places (New) searchNearby', { lat, lng, includedTypes, limit });
+      console.log('[firebaseDataService] calling Places (New) searchNearby', { lat, lng, includedTypes, limit });
       
       const results = await searchNearby(lat, lng, {
         includedTypes: includedTypes.length > 0 ? includedTypes : ['restaurant', 'cafe', 'tourist_attraction'],
         max: limit
       });
       
-      console.log('[firebaseDataService] ✅ Got', results.length, 'external places from Google Places (New)');
+      console.log('[firebaseDataService] got', results.length, 'external places from Google Places (New)');
+      
+      // Filter franchises and fast food to emphasize unique spots
+      const ban = ['mcdonald','starbucks','kfc','taco bell','subway','pizza hut','burger king','wendy','dunkin','domino','chipotle','popeyes','papa john','7-eleven','seven-eleven','five guys','chick-fil-a','walmart']
+      const filtered = results.filter((place: any) => {
+        const name = String(place.name || '').toLowerCase()
+        const isBanned = ban.some(b => name.includes(b))
+        const isFast = Array.isArray(place.types) && place.types.some((t: string) => t.toLowerCase().includes('fast_food'))
+        return !isBanned && !isFast
+      })
       
       // Map to expected format with types for category matching
-      return results.map((place: any) => ({
+      return filtered.map((place: any) => ({
         id: place.id,
         name: place.name,
         address: place.address || '',
@@ -2300,7 +2313,7 @@ class FirebaseDataService {
         source: 'google'
       }));
     } catch (e) {
-      console.warn('❌ getExternalSuggestedPlaces failed', e)
+      console.warn('âŒ getExternalSuggestedPlaces failed', e)
       return []
     }
   }
@@ -2352,7 +2365,7 @@ class FirebaseDataService {
       }
       const data = await (resp as any).json()
       const result = data.location || null
-      console.log('[geocodeLocation] 💰 API CALL ->', query, 'result ->', result)
+      console.log('[geocodeLocation] ðŸ’° API CALL ->', query, 'result ->', result)
       
       // Store in both caches
       this.geocodeCache.set(cacheKey, result)
@@ -2369,6 +2382,71 @@ class FirebaseDataService {
       return null
     }
   }
+
+  // ====================
+  // EFFECTIVE LOCATION (current > profile > null)
+  // ====================
+  async getEffectiveLocation(userId?: string): Promise<{ lat: number; lng: number; address?: string; source: 'current' | 'profile' } | null> {
+    try {
+      const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
+        if (!('geolocation' in navigator)) return reject(new Error('no geolocation'))
+        navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy: false, timeout: 4000 })
+      })
+      return { lat: pos.coords.latitude, lng: pos.coords.longitude, source: 'current' }
+    } catch {}
+
+    try {
+      if (userId) {
+        const u = await this.getCurrentUser(userId)
+        const locStr = (u as any)?.location || (u as any)?.location?.address
+        if (locStr && typeof locStr === 'string' && locStr.trim().length > 0) {
+          const geo = await this.geocodeLocation(locStr)
+          if (geo) return { lat: geo.lat, lng: geo.lng, address: geo.address, source: 'profile' }
+        }
+      }
+    } catch {}
+    return null
+  }
+
+  // Distance helper (km)
+  distanceKm(a: { lat: number; lng: number }, b: { lat: number; lng: number }) {
+    const toRad = (v: number) => (v * Math.PI) / 180
+    const R = 6371
+    const dLat = toRad(b.lat - a.lat)
+    const dLng = toRad(b.lng - a.lng)
+    const la1 = toRad(a.lat)
+    const la2 = toRad(b.lat)
+    const h = Math.sin(dLat/2)**2 + Math.cos(la1)*Math.cos(la2)*Math.sin(dLng/2)**2
+    return 2*R*Math.asin(Math.sqrt(h))
+  }
+
+  // ====================
+  // BATCHED RECOMMENDATIONS (24h client cache)
+  // ====================
+  private externalRecoCache = new Map<string, { t: number; v: any[] }>()
+  async getBatchedExternalRecommendations(
+    lat: number,
+    lng: number,
+    opts: { tags?: string[]; limit?: number } = {}
+  ) {
+    const key = `reco:${lat.toFixed(2)},${lng.toFixed(2)}|${(opts.tags || []).map(t=>t.toLowerCase()).sort().join('+')}|${opts.limit || 20}`
+    const now = Date.now()
+    const mem = this.externalRecoCache.get(key)
+    if (mem && now - mem.t < 24*60*60*1000) return mem.v
+    try {
+      const raw = localStorage.getItem(key)
+      if (raw) {
+        const { t, v } = JSON.parse(raw)
+        if (now - t < 24*60*60*1000) { this.externalRecoCache.set(key, { t, v }); return v }
+      }
+    } catch {}
+    const v = await this.getExternalSuggestedPlaces(lat, lng, opts.tags || [], opts.limit || 20)
+    this.externalRecoCache.set(key, { t: now, v })
+    try { localStorage.setItem(key, JSON.stringify({ t: now, v })) } catch {}
+    return v
+  }
+
+  
 
   async createHub(hubData: { name: string, address: string, description: string, coordinates?: { lat: number, lng: number } }): Promise<string> {
     // Prevent duplicates: look for matching name and similar address first
@@ -2671,3 +2749,5 @@ class FirebaseDataService {
 // Export singleton instance
 export const firebaseDataService = new FirebaseDataService()
 export default firebaseDataService
+
+

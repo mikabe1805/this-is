@@ -1,4 +1,4 @@
-import type { List, ListPlace, Hub, Place } from '../types/index.js'
+﻿import type { List, ListPlace, Hub, Place } from '../types/index.js'
 import { MapPinIcon, HeartIcon, BookmarkIcon, ShareIcon, EllipsisHorizontalIcon, ArrowLeftIcon, StarIcon, MapIcon, MagnifyingGlassIcon, CameraIcon } from '@heroicons/react/24/outline'
 import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
@@ -444,14 +444,8 @@ const ListView = () => {
   }
 
   return (
-    <div className="relative min-h-full overflow-x-hidden bg-linen-50">
-      {/* Enhanced background: linen texture, sunlight gradient, vignette */}
-      <div className="absolute inset-0 z-0 pointer-events-none">
-        <div className="absolute inset-0 bg-linen-texture opacity-80 mix-blend-multiply"></div>
-        <div className="absolute inset-0 bg-gradient-to-br from-gold-50/60 via-linen-100/80 to-sage-100/70 opacity-80"></div>
-        <div className="absolute inset-0 bg-gradient-radial from-transparent via-transparent to-charcoal-900/10"></div>
-      </div>
-      {/* Header */}
+    <div className="relative min-h-full overflow-x-hidden">
+      {/* PageHeader now uses glass internally, no extra background needed */}
       <PageHeader
         coverUrl={list.coverImage}
         title={list.name}
@@ -470,14 +464,14 @@ const ListView = () => {
       {/* List Info */}
       <div className="relative z-10 p-4 space-y-4">
         {/* Tabs */}
-        <CardShell variant="solid" className="p-2">
-          <div className="flex gap-2 overflow-x-auto no-scrollbar">
+        <CardShell variant="glass" className="p-1">
+          <div className="flex gap-1 overflow-x-auto no-scrollbar">
             <button
               onClick={() => setActiveTab('overview')}
               className={`flex-shrink-0 py-2 px-4 rounded-lg font-semibold text-sm transition-all ${
                 activeTab === 'overview' 
-                  ? 'bg-moss-500 text-white shadow-soft' 
-                  : 'text-bark-700 bg-bark-100 hover:bg-bark-200'
+                  ? 'bg-white/20 text-bark-900 shadow-soft border border-white/30' 
+                  : 'text-body hover:bg-white/10'
               }`}
               aria-label="View overview tab"
               aria-pressed={activeTab === 'overview'}
@@ -488,8 +482,8 @@ const ListView = () => {
               onClick={() => setActiveTab('places')}
               className={`flex-shrink-0 py-2 px-4 rounded-lg font-semibold text-sm transition-all ${
                 activeTab === 'places' 
-                  ? 'bg-moss-500 text-white shadow-soft' 
-                  : 'text-bark-700 bg-bark-100 hover:bg-bark-200'
+                  ? 'bg-white/20 text-bark-900 shadow-soft border border-white/30' 
+                  : 'text-body hover:bg-white/10'
               }`}
               aria-label="View places tab"
               aria-pressed={activeTab === 'places'}
@@ -500,8 +494,8 @@ const ListView = () => {
               onClick={() => setActiveTab('posts')}
               className={`flex-shrink-0 py-2 px-4 rounded-lg font-semibold text-sm transition-all ${
                 activeTab === 'posts' 
-                  ? 'bg-moss-500 text-white shadow-soft' 
-                  : 'text-bark-700 bg-bark-100 hover:bg-bark-200'
+                  ? 'bg-white/20 text-bark-900 shadow-soft border border-white/30' 
+                  : 'text-body hover:bg-white/10'
               }`}
               aria-label="View posts tab"
               aria-pressed={activeTab === 'posts'}
@@ -512,8 +506,8 @@ const ListView = () => {
               onClick={() => setActiveTab('map')}
               className={`flex-shrink-0 py-2 px-4 rounded-lg font-semibold text-sm transition-all ${
                 activeTab === 'map' 
-                  ? 'bg-moss-500 text-white shadow-soft' 
-                  : 'text-bark-700 bg-bark-100 hover:bg-bark-200'
+                  ? 'bg-white/20 text-bark-900 shadow-soft border border-white/30' 
+                  : 'text-body hover:bg-white/10'
               }`}
               aria-label="View map tab"
               aria-pressed={activeTab === 'map'}
@@ -525,35 +519,35 @@ const ListView = () => {
 
         {/* List Info - Only show in overview tab */}
         {activeTab === 'overview' && (
-        <CardShell variant="solid" className="p-4">
+        <CardShell variant="glass" className="p-4">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
               <button 
                 onClick={handleLike}
-                className={`p-2 rounded-lg transition ${
+                className={`p-2 rounded-lg transition glass ${
                   isLiked 
-                    ? 'bg-moss-100 text-moss-600' 
-                    : 'bg-bark-100 text-bark-600 hover:bg-bark-200'
+                    ? 'text-aurum-300' 
+                    : 'text-body hover:bg-white/10'
                 }`}
               >
                 <HeartIcon className={`w-5 h-5 ${isLiked ? 'fill-current' : ''}`} />
               </button>
               <button 
                 onClick={handleSaveList}
-                className={`p-2 rounded-lg transition ${
+                className={`p-2 rounded-lg transition glass ${
                   isSaved 
-                    ? 'bg-moss-100 text-moss-600' 
-                    : 'bg-bark-100 text-bark-600 hover:bg-bark-200'
+                    ? 'text-aurum-300' 
+                    : 'text-body hover:bg-white/10'
                 }`}
               >
                 <BookmarkIcon className={`w-5 h-5 ${isSaved ? 'fill-current' : ''}`} />
               </button>
-              <button className="p-2 rounded-lg bg-bark-100 text-bark-600 hover:bg-bark-200 transition">
+              <button className="p-2 rounded-lg glass text-body hover:bg-white/10 transition">
                 <ShareIcon className="w-5 h-5" />
               </button>
               <button
                 onClick={() => setShowMapModal(true)}
-                className="p-2 rounded-lg bg-bark-100 text-bark-600 hover:bg-bark-200 transition"
+                className="p-2 rounded-lg glass text-body hover:bg-white/10 transition"
                 aria-label="View all on map"
               >
                 <MapIcon className="w-5 h-5" />
@@ -563,7 +557,7 @@ const ListView = () => {
               <button
                 ref={listMenuButtonRef}
                 onClick={() => setShowListMenu(true)}
-                className="p-2 rounded-lg bg-bark-100 text-bark-600 hover:bg-bark-200 transition"
+                className="p-2 rounded-lg glass text-body hover:bg-white/10 transition"
               >
                 <EllipsisHorizontalIcon className="w-5 h-5" />
               </button>
@@ -574,16 +568,16 @@ const ListView = () => {
             {list.tags.map((tag) => (
               <span
                 key={tag}
-                className="px-3 py-1 bg-moss-100 text-moss-700 text-sm rounded-full border border-moss-200"
+                className="px-3 py-1 bg-aurum-200/50 text-bark-900 text-sm rounded-full border border-aurum-200/70"
               >
                 #{tag}
               </span>
             ))}
           </div>
           
-          <div className="flex items-center gap-4 text-sm text-bark-500">
+          <div className="flex items-center gap-4 text-sm text-meta">
             <span>{sortedPlaces.length} places</span>
-            <span>•</span>
+            <span>â€¢</span>
             <span>Updated {new Date(list.updatedAt).toLocaleDateString()}</span>
           </div>
         </CardShell>
@@ -591,9 +585,9 @@ const ListView = () => {
 
         {/* Description - Only show in overview tab */}
         {activeTab === 'overview' && list.description && (
-          <CardShell variant="solid" className="p-4">
-            <h3 className="text-sm font-semibold text-bark-900 mb-2">Description</h3>
-            <p className="text-bark-700 text-sm leading-relaxed">{list.description}</p>
+          <CardShell variant="glass" className="p-4">
+            <h3 className="text-sm font-semibold text-title mb-2">Description</h3>
+            <p className="text-body text-sm leading-relaxed">{list.description}</p>
           </CardShell>
         )}
       </div>
@@ -601,15 +595,15 @@ const ListView = () => {
       {/* Scoped Search - Only show in places tab */}
       {activeTab === 'places' && (
       <div className="relative z-10 px-4 pb-4">
-        <div className="panel p-3">
+        <div className="glass p-1 rounded-xl">
           <div className="relative">
-            <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-bark-500" />
+            <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-bark-700/70" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search within this list..."
-              className="w-full pl-10 pr-4 py-2 rounded-xl border border-bark-200 bg-white text-bark-900 placeholder-bark-500 focus:outline-none focus:ring-2 focus:ring-moss-500 focus:border-transparent"
+              className="w-full pl-10 pr-4 py-2 rounded-lg border-none bg-transparent text-body placeholder-bark-700/70 focus:outline-none focus:ring-0"
               aria-label="Search places in this list"
             />
           </div>
@@ -645,18 +639,18 @@ const ListView = () => {
       {/* Recommended for your list - Only show in overview tab */}
       {activeTab === 'overview' && recommended.length > 0 && (
         <div className="relative z-10 px-4 pb-2">
-          <h3 className="text-lg font-serif font-semibold text-charcoal-800 mb-2">Recommended for your list</h3>
+          <h3 className="text-lg font-serif font-semibold text-title mb-2">Recommended for your list</h3>
           <div className="space-y-2">
             {recommended.slice(0,6).map((p)=> (
-              <div key={p.id} onClick={()=> handlePlaceClick({ id: '', place: p, status: 'loved', addedAt: new Date().toISOString() } as any)} className="bg-white/80 border border-linen-200 rounded-2xl p-4 shadow-soft hover:shadow-cozy transition cursor-pointer">
+              <div key={p.id} onClick={()=> handlePlaceClick({ id: '', place: p, status: 'loved', addedAt: new Date().toISOString() } as any)} className="glass rounded-2xl p-4 shadow-soft hover:shadow-cozy transition cursor-pointer">
                 <div className="flex items-start gap-3">
-                  <img src={(p as any).mainImage || 'https://images.unsplash.com/photo-1565299624946-b28f40a0ca4b?w=200&h=150&fit=crop'} alt={p.name} className="w-16 h-16 rounded-lg object-cover" />
+                  <img src={(p as any).mainImage || 'https://images.unsplash.com/photo-1565299624946-b28f40a0ca4b?w=200&h=150&fit=crop'} alt={p.name} className="w-16 h-16 rounded-xl2 object-cover shadow-soft" />
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between">
-                      <h4 className="font-semibold text-charcoal-800 truncate">{p.name}</h4>
-                      <span className="text-xs text-charcoal-500">{(p.tags||[]).slice(0,2).map(t=>`#${t}`).join(' ')}</span>
+                      <h4 className="font-semibold text-title truncate">{p.name}</h4>
+                      <span className="text-xs text-meta">{(p.tags||[]).slice(0,2).map(t=>`#${t}`).join(' ')}</span>
                     </div>
-                    <div className="text-sm text-charcoal-600 line-clamp-1">{p.address}</div>
+                    <div className="text-sm text-body line-clamp-1">{p.address}</div>
                   </div>
                 </div>
               </div>
@@ -668,10 +662,10 @@ const ListView = () => {
       {/* Empty state for overview tab */}
       {activeTab === 'overview' && sortedPlaces.length === 0 && (
         <div className="relative z-10 px-4">
-          <CardShell variant="solid" className="p-8 text-center">
-            <BookmarkIcon className="w-16 h-16 text-bark-300 mx-auto mb-4" />
-            <h3 className="text-lg font-serif font-semibold text-bark-800 mb-2">Empty List</h3>
-            <p className="text-bark-600 mb-4">Start adding places to build your list</p>
+          <CardShell variant="glass" className="p-8 text-center">
+            <BookmarkIcon className="w-16 h-16 text-bark-700/50 mx-auto mb-4" />
+            <h3 className="text-lg font-serif font-semibold text-title mb-2">Empty List</h3>
+            <p className="text-body mb-4">Start adding places to build your list</p>
           </CardShell>
         </div>
       )}
@@ -684,15 +678,15 @@ const ListView = () => {
               <button
                 key={tag}
                 onClick={() => toggleTag(tag)}
-                className="px-3 py-1 rounded-full text-sm font-medium bg-sage-100 text-sage-700 border border-sage-200 hover:bg-sage-200 transition flex items-center gap-1"
+                className="px-3 py-1 rounded-full text-sm font-medium bg-aurum-200/50 text-bark-900 border border-aurum-200/70 hover:bg-aurum-200/70 transition flex items-center gap-1"
               >
                 #{tag}
-                <span className="text-sage-500">×</span>
+                <span className="text-bark-700/70">Ã—</span>
               </button>
             ))}
           </div>
           {/* Sticky search/filter for long lists */}
-          <div className="sticky top-0 z-10 bg-white/90 backdrop-blur-sm border-b border-linen-200">
+          <div className="sticky top-0 z-10 glass border-b border-white/20">
             <form onSubmit={(e) => { e.preventDefault(); /* search is applied in-place via searchQuery state */ }}>
               <SearchAndFilter
                 placeholder="Search places in this list..."
@@ -718,31 +712,31 @@ const ListView = () => {
           <div
             key={listPlace.id}
             onClick={() => handlePlaceClick(listPlace)}
-            className="bg-white/90 backdrop-blur-sm rounded-3xl shadow-botanical border border-linen-200 overflow-hidden hover:shadow-cozy transition-all duration-300 flex flex-col relative cursor-pointer"
+            className="glass rounded-3xl shadow-botanical overflow-hidden hover:shadow-cozy transition-all duration-300 flex flex-col relative cursor-pointer"
           >
             {/* Three dots menu on image */}
             <div className="absolute top-4 right-4 z-20">
               <button
-                className="bg-white/80 hover:bg-sage-100 border border-linen-200 rounded-full p-2 shadow-soft focus:outline-none"
+                className="glass hover:bg-white/20 rounded-full p-2 shadow-soft focus:outline-none"
                 onClick={(e) => {
                   e.stopPropagation()
                   setCardMenuOpen(cardMenuOpen === listPlace.id ? null : listPlace.id)
                 }}
                 aria-label="Open actions menu"
               >
-                <EllipsisHorizontalIcon className="w-6 h-6 text-sage-600" />
+                <EllipsisHorizontalIcon className="w-6 h-6 text-body" />
               </button>
               {cardMenuOpen === listPlace.id && (
-                <div className="absolute right-0 mt-2 w-32 bg-white rounded-xl shadow-botanical border border-linen-200 py-2 z-30">
+                <div className="absolute right-0 mt-2 w-32 glass rounded-xl shadow-botanical py-2 z-30">
                   <button
-                    className="block w-full text-left px-4 py-2 text-charcoal-700 hover:bg-sage-50 rounded-t-xl"
+                    className="block w-full text-left px-4 py-2 text-body hover:bg-white/10 rounded-t-xl"
                     onClick={(e) => {
                       e.stopPropagation()
                       handleEditPlace(listPlace)
                     }}
                   >Edit</button>
                   <button
-                    className="block w-full text-left px-4 py-2 text-red-600 hover:bg-red-50 rounded-b-xl"
+                    className="block w-full text-left px-4 py-2 text-red-600 hover:bg-red-500/20 rounded-b-xl"
                     onClick={(e) => {
                       e.stopPropagation()
                       handleRemovePlace(listPlace)
@@ -752,7 +746,7 @@ const ListView = () => {
               )}
             </div>
             {/* Hub Image on top */}
-            <div className="w-full h-40 bg-linen-100 flex-shrink-0 relative">
+            <div className="w-full h-40 bg-white/10 flex-shrink-0 relative">
               <img 
                 src={(listPlace.place as any).mainImage || 'https://images.unsplash.com/photo-1442512595331-e89e73853f31?w=150&h=150&fit=crop'} 
                 alt={listPlace.place.name} 
@@ -763,8 +757,8 @@ const ListView = () => {
             <div className="flex-1 p-6 flex flex-col gap-2">
               <div className="flex items-start justify-between mb-2">
                 <div className="flex-1">
-                  <h4 className="font-serif font-semibold text-charcoal-800 mb-1 text-lg">{listPlace.place.name}</h4>
-                  <div className="flex items-center text-charcoal-500 text-sm mb-2">
+                  <h4 className="font-serif font-semibold text-title mb-1 text-lg">{listPlace.place.name}</h4>
+                  <div className="flex items-center text-body text-sm mb-2">
                     <MapPinIcon className="w-4 h-4 mr-1" />
                     {listPlace.place.address}
                   </div>
@@ -774,30 +768,30 @@ const ListView = () => {
                   {getStatusIcon(listPlace.status)}
                   <span className="capitalize">{listPlace.status}</span>
                   {listPlace.status === 'tried' && listPlace.feeling && (
-                    <span className="ml-1">• {listPlace.feeling}</span>
+                    <span className="ml-1">â€¢ {listPlace.feeling}</span>
                   )}
                 </div>
               </div>
               {listPlace.note && (
-                <p className="text-sm text-charcoal-600 mb-2 italic">"{listPlace.note}"</p>
+                <p className="text-sm text-body mb-2 italic">"{listPlace.note}"</p>
               )}
               <div className="flex flex-wrap gap-1 mb-2">
                 {listPlace.place.tags.map((tag) => (
                   <span
                     key={tag}
-                    className="px-2 py-1 bg-linen-100 text-charcoal-600 text-xs rounded-full border border-linen-200"
+                    className="px-2 py-1 bg-white/10 text-meta text-xs rounded-full border border-white/20"
                   >
                     #{tag}
                   </span>
                 ))}
               </div>
               <div className="flex items-center justify-between mt-2">
-                <div className="flex items-center space-x-4 text-sm text-charcoal-500">
+                <div className="flex items-center space-x-4 text-sm text-meta">
                   <span className="flex items-center">
                     <BookmarkIcon className="w-4 h-4 mr-1" />
                     {listPlace.place.savedCount} influence
                   </span>
-                  <span>•</span>
+                  <span>â€¢</span>
                   <span>Added {new Date(listPlace.addedAt).toLocaleDateString()}</span>
                 </div>
               </div>
@@ -806,24 +800,24 @@ const ListView = () => {
         ))}
         {/* Empty State */}
         {sortedPlaces.length === 0 && (
-          <div className="bg-white/70 backdrop-blur-sm rounded-2xl p-8 text-center shadow-botanical border border-linen-200">
+          <div className="glass rounded-2xl p-8 text-center shadow-botanical">
             {listPlaces.length === 0 ? (
               <>
-                <BookmarkIcon className="w-16 h-16 text-sage-300 mx-auto mb-4" />
-                <h3 className="text-lg font-serif font-semibold text-charcoal-800 mb-2">No places yet</h3>
-                <p className="text-charcoal-600 mb-4">Start building your list by adding your favorite places</p>
+                <BookmarkIcon className="w-16 h-16 text-bark-700/50 mx-auto mb-4" />
+                <h3 className="text-lg font-serif font-semibold text-title mb-2">No places yet</h3>
+                <p className="text-body mb-4">Start building your list by adding your favorite places</p>
                 <button 
                   onClick={handleAddFirstPlace}
-                  className="bg-gradient-to-r from-sage-500 to-sage-600 text-white px-6 py-3 rounded-xl font-medium hover:from-sage-600 hover:to-sage-700 transition-all duration-300 shadow-soft"
+                  className="pill pill--primary"
                 >
                   Add Your First Place
                 </button>
               </>
             ) : (
               <>
-                <BookmarkIcon className="w-16 h-16 text-sage-300 mx-auto mb-4" />
-                <h3 className="text-lg font-serif font-semibold text-charcoal-800 mb-2">No places found</h3>
-                <p className="text-charcoal-600 mb-4">Try adjusting your search or filters</p>
+                <BookmarkIcon className="w-16 h-16 text-bark-700/50 mx-auto mb-4" />
+                <h3 className="text-lg font-serif font-semibold text-title mb-2">No places found</h3>
+                <p className="text-body mb-4">Try adjusting your search or filters</p>
                 <button 
                   onClick={() => {
                     setSearchQuery('')
@@ -831,7 +825,7 @@ const ListView = () => {
                     setSelectedTags([])
                     setSortBy('recent')
                   }}
-                  className="bg-gradient-to-r from-sage-500 to-sage-600 text-white px-6 py-3 rounded-xl font-medium hover:from-sage-600 hover:to-sage-700 transition-all duration-300 shadow-soft"
+                  className="pill pill--primary"
                 >
                   Clear Filters
                 </button>
@@ -845,10 +839,10 @@ const ListView = () => {
       {/* Posts Tab */}
       {activeTab === 'posts' && (
         <div className="relative z-10 p-4">
-          <CardShell variant="solid" className="p-8 text-center">
-            <CameraIcon className="w-16 h-16 text-bark-300 mx-auto mb-4" />
-            <h3 className="text-lg font-serif font-semibold text-bark-800 mb-2">No Posts Yet</h3>
-            <p className="text-bark-600 mb-4">Posts from places in this list will appear here</p>
+          <CardShell variant="glass" className="p-8 text-center">
+            <CameraIcon className="w-16 h-16 text-bark-700/50 mx-auto mb-4" />
+            <h3 className="text-lg font-serif font-semibold text-title mb-2">No Posts Yet</h3>
+            <p className="text-body mb-4">Posts from places in this list will appear here</p>
           </CardShell>
         </div>
       )}
@@ -856,8 +850,8 @@ const ListView = () => {
       {/* Map Tab */}
       {activeTab === 'map' && (
         <div className="relative z-10 p-4">
-          <CardShell variant="solid" className="overflow-hidden relative" style={{ height: '60vh' }}>
-            <div className="w-full h-full bg-sand-100 flex items-center justify-center text-bark-500 font-semibold">
+          <CardShell variant="glass" className="overflow-hidden relative" style={{ height: '60vh' }}>
+            <div className="w-full h-full bg-white/10 flex items-center justify-center text-body font-semibold">
               [Interactive Map Placeholder]
               <br />
               <span className="text-sm font-normal">Click a marker to see details</span>
@@ -886,17 +880,17 @@ const ListView = () => {
       {/* Map Modal placeholder */}
       {showMapModal && (
         <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/30">
-          <div className="bg-white rounded-3xl shadow-botanical p-8 max-w-2xl w-full relative">
+          <div className="glass rounded-3xl shadow-botanical p-8 max-w-2xl w-full relative">
             <button
-              className="absolute top-4 right-4 text-sage-600 hover:text-sage-900 bg-sage-100 rounded-full p-2 shadow-soft"
+              className="absolute top-4 right-4 text-body hover:text-title glass rounded-full p-2 shadow-soft"
               onClick={() => setShowMapModal(false)}
               aria-label="Close map"
             >
               <EllipsisHorizontalIcon className="w-6 h-6" />
             </button>
-            <div className="text-center text-lg font-serif font-semibold mb-4">Map view coming soon!</div>
+            <div className="text-center text-lg font-serif font-semibold text-title mb-4">Map view coming soon!</div>
             {/* TODO: Add real map here */}
-            <div className="h-80 bg-sage-100 rounded-2xl flex items-center justify-center text-sage-400 font-bold text-2xl">
+            <div className="h-80 bg-white/10 rounded-2xl flex items-center justify-center text-meta font-bold text-2xl">
               [Map Placeholder]
             </div>
           </div>
@@ -908,7 +902,7 @@ const ListView = () => {
         <div className="fixed inset-0 z-[100000] bg-black/90 flex items-center justify-center" onClick={() => setShowFullImage(false)}>
           <img src={list.coverImage} alt={list.name} className="max-w-[95vw] max-h-[95vh] object-contain" />
           <button className="absolute top-4 right-4 w-10 h-10 rounded-full bg-white/20 border border-white/40 backdrop-blur-sm flex items-center justify-center" onClick={() => setShowFullImage(false)}>
-            <span className="text-white text-lg">×</span>
+            <span className="text-white text-lg">Ã—</span>
           </button>
         </div>
       )}
@@ -1049,10 +1043,10 @@ const ListView = () => {
           ) : (
             <button
               onClick={handleSaveList}
-              className={`w-full py-3 px-4 rounded-xl font-semibold transition ${
+              className={`w-full py-3 px-4 rounded-xl font-semibold transition pill ${
                 isSaved 
-                  ? 'bg-moss-500 text-white' 
-                  : 'bg-bark-100 text-bark-700 hover:bg-bark-200'
+                  ? 'pill--primary' 
+                  : 'pill--quiet'
               }`}
             >
               {isSaved ? 'Saved' : 'Save List'}
@@ -1063,10 +1057,10 @@ const ListView = () => {
           <button
             key="like"
             onClick={handleLike}
-            className={`flex items-center justify-center gap-2 py-3 px-4 rounded-xl font-medium transition ${
+            className={`flex items-center justify-center gap-2 py-3 px-4 rounded-xl font-medium transition pill pill--quiet ${
               isLiked 
-                ? 'bg-moss-100 text-moss-700' 
-                : 'bg-bark-100 text-bark-700 hover:bg-bark-200'
+                ? 'text-aurum-300' 
+                : ''
             }`}
           >
             <HeartIcon className={`w-4 h-4 ${isLiked ? 'fill-current' : ''}`} />
@@ -1075,7 +1069,7 @@ const ListView = () => {
           <button
             key="map"
             onClick={() => setShowMapModal(true)}
-            className="flex items-center justify-center gap-2 bg-bark-100 text-bark-700 py-3 px-4 rounded-xl font-medium hover:bg-bark-200 transition"
+            className="flex items-center justify-center gap-2 pill pill--quiet py-3 px-4 rounded-xl font-medium transition"
           >
             <MapIcon className="w-4 h-4" />
             Map
@@ -1087,3 +1081,4 @@ const ListView = () => {
 }
 
 export default ListView
+

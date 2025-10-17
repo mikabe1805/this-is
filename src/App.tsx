@@ -20,7 +20,6 @@ import Explore from './pages/Explore.tsx'
 import ListView from './pages/ListView.tsx'
 import ViewAllLists from './pages/ViewAllLists.tsx'
 import Favorites from './pages/SavedLists.tsx'
-import Reels from './pages/Reels.tsx'
 import { featureFlags } from './config/featureFlags'
 import PlaceHub from './pages/PlaceHub.tsx'
 import UserProfile from './pages/UserProfile.tsx'
@@ -197,6 +196,12 @@ function AppContent() {
     return cleanup
   }, [])
 
+  // Tailwind runtime verification stamp
+  useEffect(() => {
+    ;(window as any).__build = Date.now()
+    console.log('[UI] tailwind=on', (window as any).__build)
+  }, [])
+
   // Update active tab based on current route
   useEffect(() => {
     const path = location.pathname
@@ -314,8 +319,8 @@ function AppContent() {
           </Routes>
         </div>
       ) : (
-        <div className="h-dvh bg-surface">
-          <div className="max-w-md mx-auto bg-white h-full shadow-crystal border border-linen-200">
+        <div className="h-dvh">
+          <div className="max-w-md mx-auto h-full">
             <div className="flex flex-col h-full">
               {/* Main Content Area */}
               <main className="flex-1 overflow-y-auto pb-28 overflow-x-hidden">
@@ -402,9 +407,27 @@ function Providers({ children }: { children: React.ReactNode }) {
 }
 
 function App() {
+  useEffect(() => {
+    try {
+      ;(window as any).__ui_build = new Date().toISOString()
+      console.log('[UI] build', (window as any).__ui_build)
+      const sunlight = document.querySelector('.sunlight-layer') as HTMLElement | null
+      const root = document.getElementById('root') as HTMLElement | null
+      if (sunlight && root) {
+        console.table({
+          sunlightZ: getComputedStyle(sunlight).zIndex,
+          appZ: getComputedStyle(root).zIndex,
+        })
+      }
+    } catch {}
+  }, [])
   return (
     <Providers>
-      <AppContent />
+      {/* Subtle global sunlight layer for depth */}
+      <div className="sunlight-layer" />
+      <div className="relative z-10">
+        <AppContent />
+      </div>
     </Providers>
   )
 }

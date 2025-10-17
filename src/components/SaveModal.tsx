@@ -163,7 +163,7 @@ const SaveModal: React.FC<SaveModalProps> = ({
               <img
                 src={(place as any).mainImage}
                 alt={place.name}
-                className="w-12 h-12 rounded-xl object-cover border border-linen-200"
+                className="w-12 h-12 rounded-xl2 object-cover shadow-soft border border-linen-200"
               />
             )}
             <div className="flex-1">

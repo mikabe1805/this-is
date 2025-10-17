@@ -438,7 +438,7 @@ const EnhancedSearchDemo = () => {
                           <img 
                             src={result.item.coverImage} 
                             alt={result.item.name}
-                            className="w-16 h-16 rounded-lg object-cover"
+                            className="w-16 h-16 rounded-xl2 object-cover shadow-soft"
                           />
                         )}
                         <div className="flex-1">

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+﻿import { useState, useEffect } from 'react'
 import { ArrowLeftIcon, MagnifyingGlassIcon, UserIcon } from '@heroicons/react/24/outline'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext.js'
@@ -71,7 +71,7 @@ const Followers = () => {
         ) : (
           filtered.map(u => (
             <div key={u.id} className="relative rounded-2xl shadow-botanical border border-linen-200 bg-white/95 p-4 flex items-center gap-4">
-              <img src={u.avatar} alt={u.name} className="w-12 h-12 rounded-xl object-cover border border-linen-200" loading="lazy" />
+              <img src={u.avatar} alt={u.name} className="w-12 h-12 rounded-xl2 object-cover shadow-soft border border-linen-200" loading="lazy" />
               <div className="flex-1 min-w-0">
                 <div className="flex items-center justify-between">
                   <div className="min-w-0">
@@ -89,3 +89,4 @@ const Followers = () => {
 }
 
 export default Followers
+

@@ -14,20 +14,25 @@ type Variant = 'glass' | 'panel';
 
 interface CardShellProps {
   variant?: Variant;
+  withSunlight?: boolean;
   className?: string;
   children: React.ReactNode;
   onClick?: () => void;
   style?: React.CSSProperties;
 }
 
-export default function CardShell({ 
-  variant = 'panel', 
-  className = '', 
+export default function CardShell({
+  variant = 'panel',
+  withSunlight = false,
+  className = '',
   children,
   onClick,
   style
 }: CardShellProps) {
-  const base = variant === 'glass' ? 'glass' : 'panel';
+  const sunClass = withSunlight && variant === 'glass' ? 'sun-edge' : '';
+  const base = variant === 'glass'
+    ? `relative glass-card ${sunClass} rounded-2xl p-4 md:p-5 interactive-glass`
+    : 'panel rounded-2xl p-4 md:p-5';
   const clickable = onClick ? 'cursor-pointer' : '';
   
   return (

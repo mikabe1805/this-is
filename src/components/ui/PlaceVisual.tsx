@@ -16,6 +16,8 @@ const PLACES_NEW_KEY = import.meta.env.VITE_PLACES_NEW_KEY || import.meta.env.VI
 // Simple daily photo budget (move to separate file if needed)
 const DAILY_LIMIT = Number(import.meta.env.VITE_DAILY_GOOGLE_PHOTO_LIMIT ?? 10)
 const BUDGET_KEY = 'photoBudget:v1'
+const FETCHED_KEY = 'photoFetched:v1'
+const fetchedThisSession = new Set<string>()
 
 function canFetchGooglePhoto(): boolean {
   const today = new Date().toISOString().slice(0, 10)
@@ -67,6 +69,14 @@ export default function PlaceVisual({
   const handleGooglePhotoLoad = () => {
     setGooglePhotoLoaded(true)
     markGooglePhotoFetched()
+    try {
+      const url = googlePhotoUrl(photoResourceName!, 600)
+      fetchedThisSession.add(url)
+      const raw = sessionStorage.getItem(FETCHED_KEY)
+      const set = new Set<string>(raw ? JSON.parse(raw) : [])
+      set.add(url)
+      sessionStorage.setItem(FETCHED_KEY, JSON.stringify(Array.from(set)))
+    } catch {}
   }
   
   return (

@@ -9,10 +9,10 @@ type SectionProps = {
 
 export default function Section({ title, action, children, className = '' }: SectionProps) {
   return (
-    <section className={`space-y-3 ${className}`}>
+    <section className={`space-y-4 ${className}`}>
       {(title || action) && (
-        <div className="flex items-center justify-between">
-          {title ? <h2 className="type-title text-charcoal-800">{title}</h2> : <div />}
+        <div className="flex items-center justify-between mb-1">
+          {title ? <h2 className="text-[18px] font-semibold" style={{color: 'rgba(61,54,48,0.95)', letterSpacing: '-0.01em'}}>{title}</h2> : <div />}
           {action}
         </div>
       )}

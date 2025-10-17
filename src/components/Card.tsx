@@ -13,7 +13,7 @@ export default function Card({ children, className = '', as = 'div', interactive
   return (
     <Element
       className={
-        `bg-white rounded-xl border border-linen-200 ${interactive ? 'hover:bg-linen-50 transition' : ''} ` +
+        `${interactive ? 'glass-card interactive-glass' : 'glass-card'} rounded-2xl ` +
         className
       }
       {...rest}

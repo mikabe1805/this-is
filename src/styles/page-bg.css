@@ -1,16 +1,19 @@
-/* Page background - SUNLIT warm brown atmosphere */
-.page-bg {
-  background:
-    /* STRONG sunshine wash - like afternoon light */
-    radial-gradient(1600px 1000px at 15% 10%, 
-      rgba(255, 235, 150, 0.25),  /* bright golden glow */
-      rgba(240, 230, 206, 0.12) 50%,
-      transparent 75%
-    ),
-    /* Rich warm gradient - brown undertones */
-    linear-gradient(165deg, 
-      #E8E3DA 0%,      /* parchment-200 */
-      #DCD5CA 60%,     /* parchment-300 */
-      #C9BFA8 100%     /* deeper warm brown */
-    );
+/* Parchment base: neutral, no yellow wash */
+html, body, #root {
+  height: 100%;
 }
+
+body {
+  background:
+    radial-gradient(80% 60% at 20% 0%, rgba(232, 227, 218, 0.70) 0%, rgba(232, 227, 218, 0.30) 45%, transparent 70%),
+    linear-gradient(180deg, rgba(247, 245, 242, 1) 0%, rgba(238, 236, 231, 1) 100%);
+  background-color: #F7F5F2; /* parchment-50 */
+  color: #3D3630; /* bark-900 default text */
+}
+
+/* Legibility defaults */
+h1, h2, h3, h4, h5, h6 { color: #3D3630; }
+p, span, li, small { color: rgba(60, 54, 48, 0.92); }
+/* Secondary text */
+.text-secondary { color: rgba(60, 54, 48, 0.80); }
+

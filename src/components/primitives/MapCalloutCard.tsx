@@ -50,20 +50,20 @@ export function MapCalloutCard({ place, onSave, onAddPost, onClose, anchoredToMa
           
           {/* Content */}
           <div className="flex-1 min-w-0">
-            <h3 className="font-semibold text-bark-900 text-sm mb-1 truncate">{place.name}</h3>
-            <div className="flex items-center text-bark-600 text-xs mb-2">
+            <h3 className="font-semibold text-title text-sm mb-1 truncate">{place.name}</h3>
+            <div className="flex items-center text-body text-xs mb-2">
               <MapPinIcon className="w-3 h-3 mr-1 flex-shrink-0" />
               <span className="truncate">{place.address}</span>
             </div>
             {place.distance && (
-              <div className="text-moss-600 text-xs font-medium">{place.distance}</div>
+              <div className="text-meta text-xs font-medium">{place.distance}</div>
             )}
             
             {/* Tags */}
             {place.tags && place.tags.length > 0 && (
               <div className="flex gap-1 mt-2 flex-wrap">
                 {place.tags.slice(0, 2).map(tag => (
-                  <span key={tag} className="px-2 py-0.5 bg-moss-100/50 text-moss-700 text-xs rounded-full">
+                  <span key={tag} className="px-2 py-0.5 bg-aurum-200/50 text-bark-900 text-xs rounded-full border border-aurum-200/70">
                     #{tag}
                   </span>
                 ))}

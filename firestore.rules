@@ -127,6 +127,18 @@ service cloud.firestore {
       allow read: if false; // Only backend should read analytics
     }
 
+    // Cache: Places query responses (24h TTL) - readable by all, write-only by backend (admin SDK)
+    match /placesCache/{key} {
+      allow read: if true;
+      allow write: if false; // Functions write via admin SDK (rules bypassed)
+    }
+
+    // Cache: Maps cell responses (24h TTL)
+    match /mapsCells/{key} {
+      allow read: if true;
+      allow write: if false; // Functions write via admin SDK
+    }
+
     // Test collection - Allow all operations for development
     match /test-collection/{document=**} {
       allow read, write: if isDevMode(); // Only allow in dev mode

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+﻿import { useState, useEffect, useRef } from 'react'
 import { HeartIcon, BookmarkIcon, EyeIcon, PlusIcon } from '@heroicons/react/24/outline'
 import { HeartIcon as HeartIconSolid } from '@heroicons/react/24/solid'
 import SearchAndFilter from '../components/SearchAndFilter'
@@ -19,10 +19,13 @@ import { useAuth } from '../contexts/AuthContext.tsx'
 import { firebaseDataService } from '../services/firebaseDataService.js'
 import CreateHubModal from '../components/CreateHubModal'
 import Section from '../components/Section'
+import Button from '../components/ui/Button'
+import SegmentedTabs from '../components/ui/SegmentedTabs'
 import { CardShell } from '../components/primitives/CardShell'
 import { SuggestedHubsRail } from '../components/home/SuggestedHubsRail'
 import SuggestedHubModal from '../components/home/SuggestedHubModal'; // Import the new modal
 import SafeImage from '../components/ui/SafeImage'
+import HubImage from '../components/HubImage'
 import '../styles/glass.css'
 import '../styles/page-bg.css'
 
@@ -154,6 +157,22 @@ const Home = () => {
             loadSuggested(false)
         }
     }, [activeTab])
+
+    // Optional, motion-safe parallax for the global sunlight layer
+    useEffect(() => {
+        try {
+            const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches
+            if (reduce) return
+            const el = document.querySelector('.sunlight-layer') as HTMLElement | null
+            if (!el) return
+            const onScroll = () => {
+                const y = Math.min(24, window.scrollY * 0.06)
+                el.style.transform = `translateY(${y}px)`
+            }
+            window.addEventListener('scroll', onScroll, { passive: true })
+            return () => window.removeEventListener('scroll', onScroll)
+        } catch {}
+    }, [])
 
     // Live-sync user profile updates (e.g., location changes)
     useEffect(() => {
@@ -342,7 +361,7 @@ const Home = () => {
             const hasFreshCache = suggestedCacheRef.current.items.length > 0 && cacheAge < 10 * 60 * 1000;
             
             if (!force && hasFreshCache) {
-                console.log('[loadSuggested] 💰 Using cached data (age:', Math.floor(cacheAge/1000), 'seconds)');
+                console.log('[loadSuggested] ðŸ’° Using cached data (age:', Math.floor(cacheAge/1000), 'seconds)');
                 setSuggestedGoogle(suggestedCacheRef.current.items)
                 setIsLoadingSuggested(false)
                 return
@@ -366,7 +385,7 @@ const Home = () => {
                 if (raw) {
                     const parsed = JSON.parse(raw)
                     if (Array.isArray(parsed) && parsed.length > 0) {
-                        console.log('[loadSuggested] 💰 Using sessionStorage cache, skipping API');
+                        console.log('[loadSuggested] ðŸ’° Using sessionStorage cache, skipping API');
                         setSuggestedGoogle(parsed)
                         suggestedCacheRef.current = { items: parsed, timestamp: Date.now() }
                         setIsLoadingSuggested(false)
@@ -375,7 +394,7 @@ const Home = () => {
                 }
             } catch {}
             
-            console.log('[loadSuggested] 💸 Calling Google Places API (no cache available)');
+            console.log('[loadSuggested] ðŸ’¸ Calling Google Places API (no cache available)');
             // fetch more than we need, we will filter + de-dupe and then slice
             const external = await firebaseDataService.getExternalSuggestedPlaces(loc.lat, loc.lng, tags, 12, { interests: interests.slice(0,6), radiusKm, openNow: !!filters.openNow })
             const existingLite = await firebaseDataService.getPlaceKeysLite(800)
@@ -859,500 +878,512 @@ const Home = () => {
     // handleCreateHubFromGoogle removed; flow uses CreateHubModal
 
     return (
-        <div className="min-h-screen">
-            <main className="page-bg min-h-screen pb-28">
-            <div className="relative z-10 p-5 pb-3 max-w-2xl mx-auto flex flex-col gap-2 overflow-visible">
-                <div className="flex items-center justify-between mb-6">
-                    <div>
-                        <div className="flex items-center gap-2">
-                            <h1 className="text-2xl font-serif font-extrabold text-bark-700 tracking-tight">
-                                This Is
-                            </h1>
-                        </div>
-                        <p className="text-bark-700/90 text-base mt-1">
-                            Your personal memory journal
-                        </p>
-                    </div>
-                </div>
-                <div className="relative mb-4">
-                    <form onSubmit={(e) => { e.preventDefault(); }}>
-                    <SearchAndFilter
-                        placeholder="Search places, lists, or friends..."
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                        sortOptions={sortOptions}
-                        filterOptions={filterOptions}
-                        availableTags={availableTags}
-                        sortBy={sortBy}
-                        setSortBy={handleSortByChange}
-                        activeFilters={activeFilters}
-                        setActiveFilters={setActiveFilters}
-                        selectedTags={selectedTags}
-                        setSelectedTags={setSelectedTags}
-                            onLocationSelect={() => setShowLocationModal(true)}
-                        dropdownPosition="top-right"
-                            onSubmitQuery={() => { /* in-place filtering */ }}
-                            onApplyFilters={async ()=>{ await Promise.all([loadForYou(true), loadSuggested(true)]) }}
-                            distanceKm={undefined}
-                            setDistanceKm={undefined}
-                            onOpenAdvanced={() => setShowAdvanced(true)}
-                    />
-                    </form>
-                    
-                </div>
-                <div className="flex glass sun-edge p-1 mb-4 gap-1">
-                    <button
-                        onClick={() => setActiveTab('friends')}
-                        className={`flex-1 h-[42px] rounded-[20px] font-medium text-[15px] transition-all ${activeTab === 'friends'
-                            ? 'bg-gradient-to-b from-moss-600 to-moss-700 text-white shadow-soft'
-                            : 'text-bark-700 hover:bg-white/20'
-                            }`}
-                    >
-                        Friends
-                    </button>
-                    <button
-                        onClick={() => setActiveTab('discovery')}
-                        className={`flex-1 h-[42px] rounded-[20px] font-medium text-[15px] transition-all ${activeTab === 'discovery'
-                            ? 'bg-gradient-to-b from-moss-600 to-moss-700 text-white shadow-soft'
-                            : 'text-bark-700 hover:bg-white/20'
-                            }`}
-                    >
-                        Discovery
-                    </button>
-                </div>
-            </div>
-            <div className="relative z-10 px-5 pb-8 max-w-2xl mx-auto overflow-x-hidden">
-                {activeTab === 'friends' ? (
-                    <div className="space-y-6">
-                        <Section title="Recent Activity">
-                        {isLoadingActivity ? (
-                            <p className="text-center py-8">Loading activity...</p>
-                        ) : (() => {
-                            const q = searchQuery.trim().toLowerCase()
-                            const filtered = q
-                              ? friendsActivity.filter(a => (
-                                  (a.place?.name || '').toLowerCase().includes(q) ||
-                                  (a.list || '').toLowerCase().includes(q) ||
-                                  (a.note || '').toLowerCase().includes(q) ||
-                                  (a.user?.name || '').toLowerCase().includes(q)
-                                ))
-                              : friendsActivity
-                            if (filtered.length === 0) {
-                                return <p className="text-center py-8 text-cozy-sub">No recent activity yet.</p>
-                            }
-                            return (
-                                filtered.map((activity) => (
-                                <button
-                                    key={activity.id}
-                                    onClick={() => handleActivityClick(activity)}
-                                    className="w-full text-left flex flex-col gap-2 overflow-hidden"
-                                >
-                                    <CardShell variant="solid" className="p-4">
-                                    <div className="flex items-start gap-4">
-                                        <SafeImage
-                                            src={activity.user.avatar}
-                                            alt={activity.user.name}
-                                            className="w-10 h-10 rounded-lg object-cover"
-                                        />
-                                        <div className="flex-1 min-w-0">
-                                            <div className="flex items-center gap-2 mb-2">
-                                                <span
-                                                    onClick={(e) => {
-                                                        e.stopPropagation()
-                                                        handleUserClick(activity.user.id)
-                                                    }}
-                                                    className="text-cozy-title hover:text-sage-600 transition-colors cursor-pointer"
-                                                >
-                                                    {activity.user.name}
-                                                </span>
-                                                <span className="text-sage-400">•</span>
-                                                <span className="text-cozy-meta">{formatTimestamp(activity.createdAt)}</span>
-                                            </div>
-                                            <div className="flex items-start gap-2">
-                                                {getActionIcon(activity.type)}
-                                                <div className="flex-1">
-                                                    <p className="text-cozy-sub">
-                                                        {activity.type === 'create_list' ? (
-                                                            <>
-                                                                <span className="font-medium">{getActionText(activity.type)}</span>
-                                                                <span className="font-semibold text-charcoal-800"> "{activity.list}"</span>
-                                                            </>
-                                                        ) : (
-                                                            <>
-                                                                <span className="font-medium">{getActionText(activity.type)}</span>
-                                                                <span className="font-semibold text-charcoal-800"> {activity.place?.name}</span>
-                                                            </>
-                                                        )}
-                                                    </p>
-                                                    {activity.type === 'create_list' && (
-                                                        <p className="text-cozy-meta mt-1">{activity.note}</p>
-                                                    )}
-                                                    {activity.note && (
-                                                        <p className="text-cozy-meta mt-2 italic">
-                                                            "{activity.note}"
-                                                        </p>
-                                                    )}
-                                                    {activity.placeImage && (
-                                        <SafeImage
-                                            src={activity.placeImage}
-                                            alt={activity.place?.name || 'Place'}
-                                            className="w-full h-32 object-cover rounded-lg mt-3"
-                                        />
-                                                    )}
-                                                    {activity.list && activity.type !== 'create_list' && (
-                                                        <div className="mt-2">
-                                                            <span className="text-xs bg-linen-100 text-sage-700 px-2 py-1 rounded-full">
-                                                                Saved to {activity.list}
-                                                            </span>
-                                                        </div>
-                                                    )}
-                                                    {activity.type === 'create_list' && (
-                                                        <div className="mt-2">
-                                                            <span className="text-xs bg-sage-100 text-sage-600 px-2 py-1 rounded-full">
-                                                                {activity.places} places
-                                                            </span>
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    </CardShell>
-                                </button>
-                            ))
-                            )
-                        })()}
-                        </Section>
-                    </div>
-                ) : (
-                    <div className="space-y-5">
-                        <Section
-                          title="For You"
-                          action={hasLoadedDiscovery ? (
-                            <button onClick={async()=>{ await loadForYou(true) }} className="pill text-sm text-bark-700 hover:bg-white/20 transition-all duration-200" aria-label="Refresh recommendations">Refresh</button>
-                          ) : null}
-                        >
-                        {isLoadingForYou ? (
-                            <div className="space-y-4">
-                              {/* skeleton loaders to keep user engaged */}
-                              {Array.from({ length: 3 }).map((_, i) => (
-                                        <CardShell key={i} variant="glass" className="p-4 animate-pulse">
-                                  <div className="flex items-start gap-4">
-                                    <div className="w-16 h-16 rounded-xl bg-bark-200" />
-                                    <div className="flex-1 space-y-2">
-                                      <div className="h-4 bg-bark-200 rounded w-1/2" />
-                                      <div className="h-3 bg-bark-200 rounded w-3/4" />
-                                      <div className="h-3 bg-bark-200 rounded w-2/3" />
-                                    </div>
-                                  </div>
-                                </CardShell>
-                              ))}
+        <div className="min-h-screen sunlight-soft">
+            <main className="pb-28">
+                <div className="relative z-10 p-5 pb-2 max-w-2xl mx-auto flex flex-col gap-2 overflow-visible">
+                    <div className="flex items-center justify-between mb-6">
+                        <div>
+                            <div className="flex items-center gap-2">
+                                <h1 className="text-[28px] font-serif font-extrabold tracking-tight" style={{color: 'rgba(61,54,48,0.95)'}}>
+                                    This Is
+                                </h1>
                             </div>
-                        ) : (() => {
-                            const q = searchQuery.trim().toLowerCase()
-                            let filtered = q
-                              ? discoveryItems.filter(item => {
-                                  const list: any = item.item
-                                  return (
-                                    (item.title || '').toLowerCase().includes(q) ||
-                                    (item.description || '').toLowerCase().includes(q) ||
-                                    (Array.isArray(list?.tags) && list.tags.some((t: string) => t.toLowerCase().includes(q)))
-                                  )
-                                })
-                              : discoveryItems
-                            // Remove google-suggested hubs from the default list so they render only in the distinct section
-                            filtered = filtered.filter(it => (it.type !== 'hub') || (((it.item as any)?.source) !== 'google'))
-                            const showSuggestedSection = true
-                            if (sortBy === 'relevance') {
-                                const q = searchQuery.trim().toLowerCase()
-                                const score = (it: DiscoveryItem) => {
-                                  let s = 0
-                                  const name = (it.title||'').toLowerCase()
-                                  const desc = (it.description||'').toLowerCase()
-                                  const tags = Array.isArray((it.item as any)?.tags) ? ((it.item as any).tags as string[]).map(t=>t.toLowerCase()) : []
-                                  if (q) { if (name.includes(q)) s+=4; if (desc.includes(q)) s+=2; if (tags.some(t=>t.includes(q))) s+=3 }
-                                  // popularity tiebreaker
-                                  const pop = (it.likes||0) + ((it.item as any)?.savedCount || 0)
-                                  return { s, pop }
-                                }
-                                filtered = [...filtered].sort((a,b)=>{
-                                  const sa = score(a), sb = score(b)
-                                  if (sb.s !== sa.s) return sb.s - sa.s
-                                  return sb.pop - sa.pop
-                                })
-                            } else if (sortBy === 'nearby' && selectedLocation) {
-                                filtered = [...filtered].sort((a, b) => {
-                                    const da = itemDistances[a.id] ?? Number.MAX_VALUE
-                                    const db = itemDistances[b.id] ?? Number.MAX_VALUE
-                                    return da - db
-                                })
-                            }
-                            if (filtered.length === 0 && !showSuggestedSection) {
-                                return <p className="text-center py-8">No trending items yet.</p>
-                            }
-                            return (
-                                <>
-                                {recentCreatedHub && (
-                                  <CardShell
-                                    key={`recent-${recentCreatedHub.id}`}
-                                    variant="solid"
-                                    onClick={() => openHubModal(recentCreatedHub, 'home-discovery-feed')}
-                                    className="w-full p-5 hover:shadow-cozy hover:-translate-y-1 transition-all duration-300 text-left flex flex-col gap-2 overflow-hidden cursor-pointer"
-                                  >
-                                    <div className="flex items-start gap-4">
-                                      <SafeImage src={recentCreatedHub.mainImage || '/assets/leaf.png'} alt={recentCreatedHub.name} className="w-16 h-16 rounded-xl object-cover border-2 border-white shadow-soft" />
-                                      <div className="flex-1 min-w-0">
-                                        <div className="flex items-start justify-between mb-2">
-                                          <h3 className="text-cozy-title line-clamp-2">{recentCreatedHub.name}</h3>
-                                        </div>
-                                        <p className="text-cozy-sub mb-3">{recentCreatedHub.location?.address}</p>
-                                      </div>
-                                    </div>
-                                  </CardShell>
-                                )}
-                                {filtered.map((item) => {
-                                    // Extract single address line
-                                    const address = item.type === 'hub' && (item.item as any)?.address
-                                        ? (item.item as any).address.split(',').slice(0, 2).join(',').trim()
-                                        : item.description;
-                                    
-                                    return (
-                                <div
-                                    key={item.id}
-                                    onClick={() => handleDiscoveryClick(item)}
-                                        className="w-full text-left cursor-pointer"
-                                >
-                                        <CardShell variant="glass" className="p-3">
-                                            <div className="flex items-center gap-3">
-                                                {/* Thumbnail */}
-                                        <SafeImage
-                                            src={item.image}
-                                            alt={item.title}
-                                                    className="w-14 h-14 rounded-xl object-cover flex-shrink-0"
-                                        />
-                                                {/* Content */}
-                                        <div className="flex-1 min-w-0">
-                                                    <h3 className="font-semibold text-bark-700 leading-tight truncate mb-1">
-                                                        {item.title}
-                                                    </h3>
-                                                    <p className="text-bark-700/90 text-sm truncate">
-                                                        {address}
-                                                    </p>
-                                                    {item.type === 'list' && item.places && (
-                                                        <span className="inline-block mt-1 text-xs text-bark-600">
-                                                            {item.places} places
-                                                        </span>
-                                                    )}
-                                                </div>
-                                                {/* Actions */}
-                                                <div className="flex items-center gap-1">
-                                                    <button
-                                                        onClick={e => {
-                                                            e.stopPropagation();
-                                                            handleLikeItem(item.id, item.type);
-                                                        }}
-                                                        className="pill p-2 hover:bg-white/20 transition-colors"
-                                                        aria-label={`${(item.item as List).likedBy?.includes(currentUser!.id) ? 'Unlike' : 'Like'} ${item.title}`}
-                                                    >
-                                                        {(item.item as List).likedBy?.includes(currentUser!.id) ? <HeartIconSolid className="w-5 h-5 text-red-500" /> : <HeartIcon className="w-5 h-5 text-bark-700" />}
-                                                    </button>
-                                                            <button
-                                                                onClick={e => {
-                                                                    e.stopPropagation();
-                                                                    handleSaveToPlace(item.item as Place);
-                                                                }}
-                                                        className="pill p-2 hover:bg-white/20 transition-colors"
-                                                        aria-label={`Save ${item.title} to list`}
-                                                            >
-                                                        <BookmarkIcon className="w-5 h-5 text-bark-700" />
-                                                            </button>
-                                                            <button
-                                                                onClick={e => {
-                                                                    e.stopPropagation();
-                                                            handleCreatePost(item.type === 'list' ? item.id : undefined, item.type === 'hub' ? item.item : undefined);
-                                                                }}
-                                                        className="pill p-2 hover:bg-white/20 transition-colors"
-                                                        aria-label={`Add post for ${item.title}`}
-                                                            >
-                                                        <PlusIcon className="w-5 h-5 text-bark-700" />
-                                                            </button>
-                                        </div>
-                                    </div>
-                                    </CardShell>
-                                </div>
-                                    );
-                                })}
-                                
-                                {/* Suggested Hubs Rail */}
-                                {suggestedGoogle.length > 0 || isLoadingSuggested ? (
-                                  <SuggestedHubsRail
-                                    suggestions={suggestedGoogle.slice(0, 12).map((item) => ({
-                                      id: item.id,
-                                      name: item.name,
-                                      address: item.address || '',
-                                      photoUrl: item.mainImage,
-                                      reason: item.tags?.[0],
-                                      exists: false,
-                                      placeId: item.placeId,
-                                      photos: item.photos || [],
-                                      primaryType: item.primaryType || item.category,
-                                      types: item.types || []
-                                    }))}
-                                    onRefresh={async () => await loadSuggested(true)}
-                                    onViewDetails={handleViewDetails} // Pass the handler
-                                    onOpen={(hub) => {
-                                      // TODO: Navigate to existing hub
-                                      console.log('Open hub:', hub);
-                                    }}
-                                    onCreate={(hub) => {
-                                      const item = suggestedGoogle.find(g => g.id === hub.id);
-                                      if (item) {
-                                        setCreateHubSeed({
-                                                         name: item.name,
-                                                         address: item.address,
-                                                         coordinates: item.coordinates,
-                                                         images: item.images,
-                                                         mainImage: item.mainImage,
-                                                         description: item.description
-                                        });
-                                        setShowCreateHubModal(true);
-                                      }
-                                    }}
-                                    onNotInterested={(hubId) => {
-                                      setSuggestedGoogle(prev => prev.filter(g => g.id !== hubId));
-                                    }}
-                                    isLoading={isLoadingSuggested}
-                                  />
-                                ) : null}
-
-                                </>
-                            )
-                        })()}
-                        </Section>
+                            <p className="text-[14px] mt-1 leading-tight" style={{color: 'rgba(74,66,60,0.82)', fontWeight: 500}}>
+                                Your personal memory journal
+                            </p>
+                        </div>
                     </div>
-                )}
-            </div>
-            {selectedPlace && (
-                <SaveModal
-                    isOpen={showSaveModal}
-                    onClose={() => {
-                        setShowSaveModal(false)
-                        setSelectedPlace(null)
-                    }}
-                    place={selectedPlace}
-                    userLists={userOwnedLists}
-                    onSave={handleSave}
-                    onCreateList={handleCreateList}
-                />
-            )}
-            <LocationSelectModal
-                isOpen={showLocationModal}
-                onClose={() => setShowLocationModal(false)}
-                onLocationSelect={handleLocationSelect}
-            />
-            <AdvancedFiltersDrawer isOpen={showAdvanced} onClose={()=>setShowAdvanced(false)} onApply={async ()=>{ await Promise.all([loadForYou(true), loadSuggested(true)]) }} />
-            
-            <SuggestedHubModal
-              isOpen={showSuggestedHubModal}
-              onClose={() => setShowSuggestedHubModal(false)}
-              placeId={selectedPlaceId}
-              onCreateHub={(placeData) => {
-                // TODO: Implement hub creation flow from modal
-                console.log('Create hub from modal:', placeData);
-                setShowSuggestedHubModal(false);
-              }}
-            />
+                    <div className="relative mb-4">
+                        <form onSubmit={(e) => { e.preventDefault(); }}>
+                        <SearchAndFilter
+                            placeholder="Search places, lists, or friends..."
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                            sortOptions={sortOptions}
+                            filterOptions={filterOptions}
+                            availableTags={availableTags}
+                            sortBy={sortBy}
+                            setSortBy={handleSortByChange}
+                            activeFilters={activeFilters}
+                            setActiveFilters={setActiveFilters}
+                            selectedTags={selectedTags}
+                            setSelectedTags={setSelectedTags}
+                                onLocationSelect={() => setShowLocationModal(true)}
+                            dropdownPosition="top-right"
+                                onSubmitQuery={() => { /* in-place filtering */ }}
+                                onApplyFilters={async ()=>{ await Promise.all([loadForYou(true), loadSuggested(true)]) }}
+                                distanceKm={undefined}
+                                setDistanceKm={undefined}
+                                onOpenAdvanced={() => setShowAdvanced(true)}
+                        />
+                        </form>
+                        
+                    </div>
+                    <SegmentedTabs
+                      value={activeTab}
+                      onChange={(v)=> setActiveTab(v)}
+                      items={[
+                        { key: 'friends', label: 'Friends' },
+                        { key: 'discovery', label: 'Discovery' },
+                      ]}
+                      className="mb-4"
+                    />
+                </div>
+                <div className="relative z-10 px-5 pb-8 max-w-2xl mx-auto overflow-x-hidden">
+                    {activeTab === 'friends' ? (
+                        <div className="space-y-4">
+                            <Section title="Recent Activity">
+                            {isLoadingActivity ? (
+                                <p className="text-center py-8">Loading activity...</p>
+                            ) : (() => {
+                                const q = searchQuery.trim().toLowerCase()
+                                const filtered = q
+                                  ? friendsActivity.filter(a => (
+                                      (a.place?.name || '').toLowerCase().includes(q) ||
+                                      (a.list || '').toLowerCase().includes(q) ||
+                                      (a.note || '').toLowerCase().includes(q) ||
+                                      (a.user?.name || '').toLowerCase().includes(q)
+                                    ))
+                                  : friendsActivity
+                                if (filtered.length === 0) {
+                                    return <p className="text-center py-8 text-cozy-sub">No recent activity yet.</p>
+                                }
+                                return (
+                                    filtered.map((activity) => (
+                                    <button
+                                        key={activity.id}
+                                        onClick={() => handleActivityClick(activity)}
+                                        className="w-full text-left flex flex-col gap-2 overflow-hidden"
+                                    >
+                                        <CardShell variant="solid" className="p-4">
+                                        <div className="flex items-start gap-4">
+                                            <SafeImage
+                                                src={activity.user.avatar}
+                                                alt={activity.user.name}
+                                                className="w-10 h-10 rounded-xl2 object-cover shadow-soft"
+                                            />
+                                            <div className="flex-1 min-w-0">
+                                                <div className="flex items-center gap-2 mb-2">
+                                                    <span
+                                                        onClick={(e) => {
+                                                            e.stopPropagation()
+                                                            handleUserClick(activity.user.id)
+                                                        }}
+                                                        className="text-cozy-title hover:text-sage-600 transition-colors cursor-pointer"
+                                                    >
+                                                        {activity.user.name}
+                                                    </span>
+                                                    <span className="text-sage-400">â€¢</span>
+                                                    <span className="text-cozy-meta">{formatTimestamp(activity.createdAt)}</span>
+                                                </div>
+                                                <div className="flex items-start gap-2">
+                                                    {getActionIcon(activity.type)}
+                                                    <div className="flex-1">
+                                                        <p className="text-cozy-sub">
+                                                            {activity.type === 'create_list' ? (
+                                                                <>
+                                                                    <span className="font-medium">{getActionText(activity.type)}</span>
+                                                                    <span className="font-semibold text-charcoal-800"> "{activity.list}"</span>
+                                                                </>
+                                                            ) : (
+                                                                <>
+                                                                    <span className="font-medium">{getActionText(activity.type)}</span>
+                                                                    <span className="font-semibold text-charcoal-800"> {activity.place?.name}</span>
+                                                                </>
+                                                            )}
+                                                        </p>
+                                                        {activity.type === 'create_list' && (
+                                                            <p className="text-cozy-meta mt-1">{activity.note}</p>
+                                                        )}
+                                                        {activity.note && (
+                                                            <p className="text-cozy-meta mt-2 italic">
+                                                                "{activity.note}"
+                                                            </p>
+                                                        )}
+                                                        {activity.placeImage && (
+                                    <SafeImage
+                                        src={activity.placeImage}
+                                        alt={activity.place?.name || 'Place'}
+                                        className="w-full h-32 object-cover rounded-lg mt-3"
+                                    />
+                                                        )}
+                                                        {activity.list && activity.type !== 'create_list' && (
+                                                            <div className="mt-2">
+                                                                <span className="text-xs bg-linen-100 text-sage-700 px-2 py-1 rounded-full">
+                                                                    Saved to {activity.list}
+                                                                </span>
+                                                            </div>
+                                                        )}
+                                                        {activity.type === 'create_list' && (
+                                                            <div className="mt-2">
+                                                                <span className="text-xs bg-sage-100 text-sage-600 px-2 py-1 rounded-full">
+                                                                    {activity.places} places
+                                                                </span>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </CardShell>
+                                    </button>
+                                ))
+                                )
+                            })()}
+                            </Section>
+                        </div>
+                    ) : (
+                        <div className="space-y-6">
+                            <Section
+                              title="For You"
+                              className="radial-warm animate-slide-up"
+                              action={hasLoadedDiscovery ? (
+                                <button className="badge h-9 inline-flex items-center gap-1.5 hover:brightness-105 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200" onClick={async()=>{ await loadForYou(true) }} aria-label="Refresh recommendations">
+                                  <svg className={`w-4 h-4 transition-transform duration-600 ease-out ${isLoadingForYou ? 'animate-spin' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                                  </svg>
+                                  <span className="text-[13px]">Refresh</span>
+                                </button>
+                              ) : null}
+                            >
+                            {isLoadingForYou ? (
+                                <div className="space-y-4">
+                                  {/* skeleton loaders to keep user engaged */}
+                                  {Array.from({ length: 3 }).map((_, i) => (
+                                            <CardShell key={i} variant="glass" className="p-4 animate-pulse">
+                                      <div className="flex items-start gap-4">
+                                        <div className="w-16 h-16 rounded-xl bg-bark-200" />
+                                        <div className="flex-1 space-y-2">
+                                          <div className="h-4 bg-bark-200 rounded w-1/2" />
+                                          <div className="h-3 bg-bark-200 rounded w-3/4" />
+                                          <div className="h-3 bg-bark-200 rounded w-2/3" />
+                                        </div>
+                                      </div>
+                                    </CardShell>
+                                  ))}
+                                </div>
+                            ) : (() => {
+                                const q = searchQuery.trim().toLowerCase()
+                                let filtered = q
+                                  ? discoveryItems.filter(item => {
+                                      const list: any = item.item
+                                      return (
+                                        (item.title || '').toLowerCase().includes(q) ||
+                                        (item.description || '').toLowerCase().includes(q) ||
+                                        (Array.isArray(list?.tags) && list.tags.some((t: string) => t.toLowerCase().includes(q)))
+                                      )
+                                    })
+                                  : discoveryItems
+                                // Remove google-suggested hubs from the default list so they render only in the distinct section
+                                filtered = filtered.filter(it => (it.type !== 'hub') || (((it.item as any)?.source) !== 'google'))
+                                const showSuggestedSection = true
+                                if (sortBy === 'relevance') {
+                                    const q = searchQuery.trim().toLowerCase()
+                                    const score = (it: DiscoveryItem) => {
+                                      let s = 0
+                                      const name = (it.title||'').toLowerCase()
+                                      const desc = (it.description||'').toLowerCase()
+                                      const tags = Array.isArray((it.item as any)?.tags) ? ((it.item as any).tags as string[]).map(t=>t.toLowerCase()) : []
+                                      if (q) { if (name.includes(q)) s+=4; if (desc.includes(q)) s+=2; if (tags.some(t=>t.includes(q))) s+=3 }
+                                      // popularity tiebreaker
+                                      const pop = (it.likes||0) + ((it.item as any)?.savedCount || 0)
+                                      return { s, pop }
+                                    }
+                                    filtered = [...filtered].sort((a,b)=>{
+                                      const sa = score(a), sb = score(b)
+                                      if (sb.s !== sa.s) return sb.s - sa.s
+                                      return sb.pop - sa.pop
+                                    })
+                                } else if (sortBy === 'nearby' && selectedLocation) {
+                                    filtered = [...filtered].sort((a, b) => {
+                                        const da = itemDistances[a.id] ?? Number.MAX_VALUE
+                                        const db = itemDistances[b.id] ?? Number.MAX_VALUE
+                                        return da - db
+                                    })
+                                }
+                                if (filtered.length === 0 && !showSuggestedSection) {
+                                    return <p className="text-center py-8">No trending items yet.</p>
+                                }
+                                return (
+                                    <>
+                                    {recentCreatedHub && (
+                                      <CardShell
+                                        key={`recent-${recentCreatedHub.id}`}
+                                        variant="solid"
+                                        onClick={() => openHubModal(recentCreatedHub, 'home-discovery-feed')}
+                                        className="w-full p-5 hover:shadow-cozy hover:-translate-y-1 transition-all duration-300 text-left flex flex-col gap-2 overflow-hidden cursor-pointer"
+                                      >
+                                        <div className="flex items-start gap-4">
+                                          <HubImage photos={(recentCreatedHub as any).photos} primaryType={(recentCreatedHub as any).primaryType} types={(recentCreatedHub as any).types} alt={recentCreatedHub.name} load={false} className="w-16 h-16 rounded-xl2 object-cover shadow-soft" />
+                                          <div className="flex-1 min-w-0">
+                                            <div className="flex items-start justify-between mb-2">
+                                              <h3 className="text-cozy-title line-clamp-2">{recentCreatedHub.name}</h3>
+                                            </div>
+                                            <p className="text-cozy-sub mb-3">{recentCreatedHub.location?.address}</p>
+                                          </div>
+                                        </div>
+                                      </CardShell>
+                                    )}
+                                    {filtered.map((item, idx) => {
+                                        // Extract single address line
+                                        const address = item.type === 'hub' && (item.item as any)?.address
+                                            ? (item.item as any).address.split(',').slice(0, 2).join(',').trim()
+                                            : item.description;
+                                        
+                                        return (
+                                    <div
+                                        key={item.id}
+                                        onClick={() => handleDiscoveryClick(item)}
+                                            className="w-full text-left cursor-pointer"
+                                    >
+                                            <CardShell variant="glass" className={`p-4 ${idx===0 ? 'sun-edge' : ''} animate-rise hover-lift hover-lift-on`} style={{ animationDelay: `${idx*40}ms` }}>
+                                                <div className="grid grid-cols-[64px_1fr] items-start gap-3">
+                                                    {/* Thumbnail */}
+                                    {item.type === 'hub' ? (
+                                      <div className="row-span-2">
+                                        <HubImage
+                                        // @ts-ignore
+                                        photos={(item.item as any)?.photos}
+                                        // @ts-ignore
+                                        primaryType={(item.item as any)?.primaryType}
+                                        // @ts-ignore
+                                        types={(item.item as any)?.types}
+                                        alt={item.title}
+                                        load={false}
+                                        className="w-16 h-16 rounded-xl2 object-cover shadow-soft flex-shrink-0"
+                                      />
+                                      </div>
+                                    ) : (
+                                      <div className="row-span-2">
+                                        <SafeImage
+                                          src={item.image}
+                                          alt={item.title}
+                                          className="w-16 h-16 rounded-xl2 object-cover shadow-soft flex-shrink-0"
+                                        />
+                                      </div>
+                                    )}
+                                                    {/* Content */}
+                                    <div className="flex-1 min-w-0">
+                                                <h3 className="text-[15px] font-semibold truncate mb-1" style={{color: 'rgba(61,54,48,0.92)'}}>
+                                                    {item.title}
+                                                </h3>
+                                                <p className="text-[13px] truncate" style={{color: 'rgba(74,66,60,0.85)'}}>
+                                                    {address}
+                                                </p>
+                                                {item.type === 'list' && item.places && (
+                                                    <span className="inline-block mt-1 text-[12px]" style={{color: 'rgba(74,66,60,0.82)'}}>
+                                                        {item.places} places
+                                                    </span>
+                                                )}
+                                            </div>
+                                            {/* Actions (compact, below content on small screens) */}
+                                            <div className="col-start-2 mt-1 flex items-center gap-1">
+                                              <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                className="w-9 h-9 p-0"
+                                                aria-label={`${(item.item as List).likedBy?.includes(currentUser!.id) ? 'Unlike' : 'Like'} ${item.title}`}
+                                                onClick={e => { e.stopPropagation(); handleLikeItem(item.id, item.type); }}
+                                              >
+                                                {(item.item as List).likedBy?.includes(currentUser!.id)
+                                                  ? <HeartIconSolid className="w-4 h-4 text-red-500" />
+                                                  : <HeartIcon className="w-4 h-4 text-bark-700" />}
+                                              </Button>
+                                              <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                className="w-9 h-9 p-0"
+                                                aria-label={`Save ${item.title} to list`}
+                                                onClick={e => { e.stopPropagation(); handleSaveToPlace(item.item as Place); }}
+                                              >
+                                                <BookmarkIcon className="w-4 h-4 text-bark-700" />
+                                              </Button>
+                                              <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                className="w-9 h-9 p-0"
+                                                aria-label={`Add post for ${item.title}`}
+                                                onClick={e => { e.stopPropagation(); handleCreatePost(item.type === 'list' ? item.id : undefined, item.type === 'hub' ? item.item : undefined); }}
+                                              >
+                                                <PlusIcon className="w-4 h-4 text-bark-700" />
+                                              </Button>
+                                            </div>
+                                        </div>
+                                    </CardShell>
+                                    </div>
+                                        );
+                                    })}
+                                    
+                                    {/* Suggested Hubs Rail */}
+                                    {suggestedGoogle.length > 0 || isLoadingSuggested ? (
+                                      <SuggestedHubsRail
+                                        suggestions={suggestedGoogle.slice(0, 12).map((item) => ({
+                                          id: item.id,
+                                          name: item.name,
+                                          address: item.address || '',
+                                          photoUrl: item.mainImage,
+                                          reason: item.tags?.[0],
+                                          exists: false,
+                                          placeId: item.placeId,
+                                          photos: item.photos || [],
+                                          primaryType: item.primaryType || item.category,
+                                          types: item.types || []
+                                        }))}
+                                        onRefresh={async () => await loadSuggested(true)}
+                                        onViewDetails={handleViewDetails} // Pass the handler
+                                        onOpen={(hub) => {
+                                          // TODO: Navigate to existing hub
+                                          console.log('Open hub:', hub);
+                                        }}
+                                        onCreate={(hub) => {
+                                          const item = suggestedGoogle.find(g => g.id === hub.id);
+                                          if (item) {
+                                            setCreateHubSeed({
+                                                             name: item.name,
+                                                             address: item.address,
+                                                             coordinates: item.coordinates,
+                                                             images: item.images,
+                                                             mainImage: item.mainImage,
+                                                             description: item.description
+                                            });
+                                            setShowCreateHubModal(true);
+                                          }
+                                        }}
+                                        onNotInterested={(hubId) => {
+                                          setSuggestedGoogle(prev => prev.filter(g => g.id !== hubId));
+                                        }}
+                                        isLoading={isLoadingSuggested}
+                                      />
+                                    ) : null}
 
-            <CreatePost
-                isOpen={showCreatePost}
-                onClose={() => {
-                    setShowCreatePost(false)
-                    setCreatePostListId(null)
-                    setCreatePostHub(null)
-                }}
-                preSelectedListIds={createPostListId ? [createPostListId] : undefined}
-                preSelectedHub={createPostHub || undefined}
-            />
-            {selectedPost && (
-                <CommentsModal
-                    isOpen={showCommentsModal}
-                    onClose={() => {
-                        setShowCommentsModal(false)
-                        setSelectedPost(null)
-                    }}
-                    comments={selectedPost.comments || []}
-                    onAddComment={handleAddComment}
-                    onLikeComment={handleLikeComment}
-                    onReplyToComment={handleReplyToComment}
+                                    </>
+                                )
+                            })()}
+                            </Section>
+                        </div>
+                    )}
+                </div>
+                {selectedPlace && (
+                    <SaveModal
+                        isOpen={showSaveModal}
+                        onClose={() => {
+                            setShowSaveModal(false)
+                            setSelectedPlace(null)
+                        }}
+                        place={selectedPlace}
+                        userLists={userOwnedLists}
+                        onSave={handleSave}
+                        onCreateList={handleCreateList}
+                    />
+                )}
+                <LocationSelectModal
+                    isOpen={showLocationModal}
+                    onClose={() => setShowLocationModal(false)}
+                    onLocationSelect={handleLocationSelect}
                 />
-            )}
-            {selectedPost && (
-                <ReplyModal
-                    isOpen={showReplyModal}
-                    onClose={() => {
-                        setShowReplyModal(false)
-                        setSelectedPost(null)
-                    }}
-                    postId={selectedPost.id}
-                    postAuthor={selectedPost.username}
-                    postContent={selectedPost.description}
-                    postImage={selectedPost.images?.[0]}
-                    onReply={handlePostReply}
+                <AdvancedFiltersDrawer isOpen={showAdvanced} onClose={()=>setShowAdvanced(false)} onApply={async ()=>{ await Promise.all([loadForYou(true), loadSuggested(true)]) }} />
+                
+                <SuggestedHubModal
+                  isOpen={showSuggestedHubModal}
+                  onClose={() => setShowSuggestedHubModal(false)}
+                  placeId={selectedPlaceId}
+                  onCreateHub={(placeData) => {
+                    // TODO: Implement hub creation flow from modal
+                    console.log('Create hub from modal:', placeData);
+                    setShowSuggestedHubModal(false);
+                  }}
                 />
-            )}
-            <ShareModal
-                isOpen={showShareModal}
-                onClose={() => setShowShareModal(false)}
-                title="this.is"
-                description="Discover amazing places with friends"
-                url={window.location.href}
-                type="post"
-            />
-            {/* SuggestedHubModal path removed */}
-            {showCreateHubModal && (
-              <CreateHubModal
-                isOpen={showCreateHubModal}
-                onClose={() => setShowCreateHubModal(false)}
-                place={createHubSeed || undefined}
-                onCreate={async (data) => {
-                  if (!currentUser) return
-                  const hubId = await firebaseDataService.createHub({
-                    name: data.name,
-                    description: data.description || '',
-                    address: data.address,
-                    coordinates: data.coordinates,
-                  } as any)
-                  if (hubId) {
-                    // set chosen primary image if provided
-                    if (data.mainImage) {
-                      try { await firebaseDataService.setHubMainImage(hubId, data.mainImage) } catch {}
-                    }
-                    // Close modal and remove the suggested item
-                    setShowCreateHubModal(false)
-                    setSuggestedGoogle(prev => prev.filter(p => p.name !== data.name || p.address !== data.address))
-                    // Refresh discovery cache but avoid layout reset
-                    await Promise.all([loadForYou(true), loadSuggested(true)])
-                    // Open the created hub
-                    const newHub: Hub = {
-                      id: hubId,
-                      name: data.name,
-                      description: data.description || '',
-                      tags: [],
-                      images: [],
-                      location: { address: data.address, lat: data.coordinates?.lat || 0, lng: data.coordinates?.lng || 0 },
-                      googleMapsUrl: data.coordinates ? `https://www.google.com/maps/search/?api=1&query=${data.coordinates.lat},${data.coordinates.lng}` : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(data.address)}`,
-                      mainImage: data.mainImage,
-                      posts: [],
-                      lists: []
-                    }
-                    setRecentCreatedHub(newHub)
-                    openHubModal(newHub, 'home-suggested-create')
-                  }
-                }}
-              />
-            )}
-            </main>
-        </div>
+
+                <CreatePost
+                    isOpen={showCreatePost}
+                    onClose={() => {
+                        setShowCreatePost(false)
+                        setCreatePostListId(null)
+                        setCreatePostHub(null)
+                    }}
+                    preSelectedListIds={createPostListId ? [createPostListId] : undefined}
+                    preSelectedHub={createPostHub || undefined}
+                />
+                {selectedPost && (
+                    <CommentsModal
+                        isOpen={showCommentsModal}
+                        onClose={() => {
+                            setShowCommentsModal(false)
+                            setSelectedPost(null)
+                        }}
+                        comments={selectedPost.comments || []}
+                        onAddComment={handleAddComment}
+                        onLikeComment={handleLikeComment}
+                        onReplyToComment={handleReplyToComment}
+                    />
+                )}
+                {selectedPost && (
+                    <ReplyModal
+                        isOpen={showReplyModal}
+                        onClose={() => {
+                            setShowReplyModal(false)
+                            setSelectedPost(null)
+                        }}
+                        postId={selectedPost.id}
+                        postAuthor={selectedPost.username}
+                        postContent={selectedPost.description}
+                        postImage={selectedPost.images?.[0]}
+                        onReply={handlePostReply}
+                    />
+                )}
+                <ShareModal
+                    isOpen={showShareModal}
+                    onClose={() => setShowShareModal(false)}
+                    title="this.is"
+                    description="Discover amazing places with friends"
+                    url={window.location.href}
+                    type="post"
+                />
+                {/* SuggestedHubModal path removed */}
+                {showCreateHubModal && (
+                  <CreateHubModal
+                    isOpen={showCreateHubModal}
+                    onClose={() => setShowCreateHubModal(false)}
+                    place={createHubSeed || undefined}
+                    onCreate={async (data) => {
+                      if (!currentUser) return
+                      const hubId = await firebaseDataService.createHub({
+                        name: data.name,
+                        description: data.description || '',
+                        address: data.address,
+                        coordinates: data.coordinates,
+                      } as any)
+                      if (hubId) {
+                        // set chosen primary image if provided
+                        if (data.mainImage) {
+                          try { await firebaseDataService.setHubMainImage(hubId, data.mainImage) } catch {}
+                        }
+                        // Close modal and remove the suggested item
+                        setShowCreateHubModal(false)
+                        setSuggestedGoogle(prev => prev.filter(p => p.name !== data.name || p.address !== data.address))
+                        // Refresh discovery cache but avoid layout reset
+                        await Promise.all([loadForYou(true), loadSuggested(true)])
+                        // Open the created hub
+                        const newHub: Hub = {
+                          id: hubId,
+                          name: data.name,
+                          description: data.description || '',
+                          tags: [],
+                          images: [],
+                          location: { address: data.address, lat: data.coordinates?.lat || 0, lng: data.coordinates?.lng || 0 },
+                          googleMapsUrl: data.coordinates ? `https://www.google.com/maps/search/?api=1&query=${data.coordinates.lat},${data.coordinates.lng}` : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(data.address)}`,
+                          mainImage: data.mainImage,
+                          posts: [],
+                          lists: []
+                        }
+                        setRecentCreatedHub(newHub)
+                        openHubModal(newHub, 'home-suggested-create')
+                      }
+                    }}
+                  />
+                )}
+                </main>
+            </div>
     )
 }
 

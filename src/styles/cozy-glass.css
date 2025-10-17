@@ -95,80 +95,120 @@
   cursor: not-allowed;
 }
 
+/* Primary button - warm earth tones instead of green */
 .pill--primary {
-  background: linear-gradient(135deg, #6F8A6B, #5E765C); /* moss gradient */
+  background: linear-gradient(145deg, 
+    rgba(139, 115, 85, 0.8) 0%,   /* Warm brown */
+    rgba(122, 111, 100, 0.9) 50%, /* Mid brown */
+    rgba(108, 95, 82, 0.95) 100%  /* Dark brown */
+  );
   color: white;
-  box-shadow: none; /* NO SHADOWS */
+  box-shadow: 
+    0 0 0 1px rgba(255, 255, 255, 0.2), /* Subtle white rim */
+    0 4px 12px rgba(31, 28, 21, 0.25);  /* Soft shadow */
   font-size: 15px;
   font-weight: 500;
   padding: 0 20px;
   height: 44px;
   border-radius: 9999px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  backdrop-filter: blur(8px);
 }
 
 .pill--primary:hover:not(:disabled) {
-  filter: brightness(1.08);
+  box-shadow: 
+    0 0 0 1px rgba(255, 255, 255, 0.3),
+    0 6px 16px rgba(31, 28, 21, 0.3);
 }
 
+.pill--primary:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+/* Ghost button - more glassy, less golden */
 .pill--quiet {
-  background: rgba(232, 219, 181, 0.40); /* warm aurum tint */
-  border: 1px solid rgba(232, 219, 181, 0.55);
-  backdrop-filter: blur(12px);
-  color: #3D3630; /* bark-900 for contrast */
-  box-shadow: none; /* NO SHADOWS */
+  background: linear-gradient(145deg,
+    rgba(255, 255, 255, 0.36), /* Stronger white for clarity */
+    rgba(240, 230, 206, 0.28)  /* Subtle warm tint */
+  );
+  border: 1px solid rgba(255, 255, 255, 0.40);
+  backdrop-filter: blur(16px);
+  color: #3D3630; /* bark-900 for readability */
+  text-shadow: none;
+  box-shadow: 
+    0 0 0 1px rgba(255, 255, 255, 0.18),
+    0 4px 12px rgba(31, 28, 21, 0.12);
   font-size: 15px;
-  font-weight: 500;
-  padding: 0 20px;
-  height: 44px;
+  font-weight: 600;
+  padding: 0 16px;
+  height: 40px;
   border-radius: 9999px;
 }
 
 .pill--quiet:hover:not(:disabled) {
-  background: rgba(232, 219, 181, 0.55);
+  background: linear-gradient(145deg,
+    rgba(255, 255, 255, 0.48),
+    rgba(240, 230, 206, 0.38)
+  );
+  border-color: rgba(255, 255, 255, 0.48);
+  box-shadow: 
+    0 0 0 1px rgba(255, 255, 255, 0.28),
+    0 6px 16px rgba(31, 28, 21, 0.16);
 }
 
-/* Typography System - Dark, readable text on warm glass */
-.text-title {
-  color: #3D3630; /* bark-900 - dark for contrast */
+/* Typography System - DARK text for light/glass backgrounds */
+.text-title-glass {
+  color: #3D3630; /* bark-900 - dark for readability on light glass */
   font-size: 16px;
   font-weight: 600;
   letter-spacing: -0.01em;
   line-height: 1.3;
 }
 
-.text-body {
-  color: #5C534A; /* bark-700 - readable body text */
+.text-body-glass {
+  color: #4A423C; /* bark-800 */
   font-size: 14px;
   font-weight: 500;
   line-height: 1.4;
 }
 
-.text-meta {
-  color: #5C534A; /* bark-700 - readable */
+.text-meta-glass {
+  color: rgba(74,66,60,0.88); /* bark with good opacity */
   font-size: 13px;
   font-weight: 500;
   line-height: 1.4;
 }
 
-.text-heading {
-  color: #3D3630; /* bark-900 - strong headings */
+.text-heading-glass {
+  color: #3D3630; /* bark-900 */
   font-size: 18px;
   font-weight: 600;
   letter-spacing: -0.02em;
 }
 
-/* Legacy support */
-.glass-text-title { @apply text-title; }
-.glass-text-body { @apply text-body; }
-.glass-text-meta { @apply text-meta; }
+/* For image overlays - LIGHT text with shadow */
+.text-on-image {
+  color: #F7F5F2; /* parchment-50 */
+  text-shadow: 0 2px 8px rgba(31, 28, 21, 0.55);
+}
 
 /* Card wrapper - enforces glass styling */
 .card-glass {
-  @apply glass sun-edge p-4;
+  position: relative;
+  backdrop-filter: blur(16px) saturate(1.06);
+  background: linear-gradient(145deg, rgba(255,255,255,0.20), rgba(255,255,255,0.08));
+  border: 1px solid rgba(255,255,255,0.32);
+  box-shadow: 0 8px 24px rgba(61,54,48,0.10);
+  border-radius: 16px;
+  padding: 1rem;
 }
 
 .card-solid {
-  @apply panel p-4;
+  background: var(--parchment-50);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-soft), var(--inner-hairline);
+  border: 1px solid var(--parchment-100);
+  padding: 1rem;
 }
 
 /* Accessibility */
