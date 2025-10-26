@@ -1,8 +1,11 @@
 ﻿import { collection, doc, getDoc, getDocs, setDoc, updateDoc, query, where, orderBy, limit as fsLimit, startAfter, endBefore, onSnapshot, Timestamp, QueryConstraint, addDoc, deleteDoc, increment } from 'firebase/firestore'
 import { db } from '../firebase/config'
+import { serverTimestamp } from 'firebase/firestore'
 import type { User, Place, List, Post, PostComment, Activity, Hub } from '../types'
 import { auth } from '../firebase/config'
 import { firebaseStorageService } from './firebaseStorageService'
+import { stablePlaceKey } from '../utils/stablePlaceKey'
+import { mapInterestsToTypes, getComplementaryTypes } from '../utils/placeTypes'
 
 
 
@@ -624,11 +627,11 @@ class FirebaseDataService {
         avatar: userData.profilePictureUrl || ''
       }
 
-      console.log('ðŸ’¾ Saving user profile with avatar:', userData.profilePictureUrl)
+      console.log('[firebaseDataService] saving user profile with avatar:', userData.profilePictureUrl)
       await setDoc(doc(db, 'users', userId), userProfile)
-      console.log('âœ… User profile created successfully')
+      console.log('[firebaseDataService] user profile created successfully')
     } catch (error) {
-      console.error('âŒ Error creating user profile:', error)
+      console.error('[firebaseDataService] error creating user profile:', error)
       throw error
     }
   }
@@ -702,7 +705,7 @@ class FirebaseDataService {
       let enhancedPreferences = [...userData.activityPreferences]
 
       if (userData.bio) {
-        console.log('ðŸ¤– Analyzing user bio for personalized recommendations...')
+        console.log('[firebaseDataService] analyzing user bio for personalized recommendations...')
         const bioAnalysis = await this.analyzeUserBio(userData.bio)
         
         // Merge AI suggestions with user selections (avoid duplicates)
@@ -725,7 +728,7 @@ class FirebaseDataService {
           }
         })
 
-        console.log('âœ¨ Bio analysis complete:', {
+        console.log('[firebaseDataService] bio analysis complete:', {
           originalCategories: userData.favoriteCategories.length,
           enhancedCategories: enhancedCategories.length,
           originalTags: userData.userTags?.length || 0,
@@ -766,7 +769,7 @@ class FirebaseDataService {
         location: userData.location
       }); */
 
-      console.log('âœ… New user setup completed successfully with AI-enhanced preferences')
+      console.log('[firebaseDataService] new user setup completed successfully with AI-enhanced preferences')
     } catch (error) {
       console.error('Error setting up new user:', error)
       throw error
@@ -900,7 +903,7 @@ class FirebaseDataService {
   }
 
   private async searchPlaces(searchQuery: string, filters: any, limitCount: number): Promise<Place[]> {
-    console.log(`ðŸ¢ Searching places for: "${searchQuery}"`)
+    console.log(`[firebaseDataService] searching places for: "${searchQuery}"`)
     
     const constraints: QueryConstraint[] = []
 
@@ -931,7 +934,7 @@ class FirebaseDataService {
     })) as Place[]
 
     // Debug: Log what we got from Firebase
-    console.log(`ðŸ¢ Found ${places.length} places from Firebase:`)
+    console.log(`[firebaseDataService] found ${places.length} places from Firebase:`)
     places.forEach(place => {
       const name = place.name || place.placeName || 'NO_NAME'
       const tags = place.tags || place.placeTags || []
@@ -967,7 +970,7 @@ class FirebaseDataService {
       places = places.slice(0, limitCount)
     }
 
-    console.log(`ðŸ¢ Final places result: ${places.length} places`)
+    console.log(`[firebaseDataService] final places result: ${places.length} places`)
     return places
   }
 
@@ -976,7 +979,7 @@ class FirebaseDataService {
       where('isPublic', '==', true)
     ]
  
-    console.log(`ðŸ” Searching lists for: "${searchQuery}"`)
+    console.log(`[firebaseDataService] searching lists for: "${searchQuery}"`)
  
     // If we have a search query, we need to get more results first, then filter and rank
     if (searchQuery && searchQuery.trim()) {
@@ -1001,7 +1004,7 @@ class FirebaseDataService {
     })) as List[]
  
     // Debug: Log what we got from Firebase
-    console.log(`ðŸ“‹ Found ${lists.length} lists from Firebase:`)
+    console.log(`[firebaseDataService] found ${lists.length} lists from Firebase:`)
     lists.forEach(list => {
       console.log(`  - ${list.name || list.listName || 'NO_NAME'} (tags: ${(list.tags || list.listTags || []).join(', ')})`)
     })
@@ -2101,7 +2104,7 @@ class FirebaseDataService {
         }
       } catch {}
 
-      // Fallback: no usageCount or query failed â€” return all tags sorted alphabetically
+      // Fallback: no usageCount or query failed -- return all tags sorted alphabetically
       const all = await getDocs(collection(db, 'tags'))
       const names = all.docs.map(d => d.id).sort()
       return names.slice(0, limitCount)
@@ -2251,56 +2254,233 @@ class FirebaseDataService {
     this.searchCache.clear()
   }
 
+  // Record a suppression for a suggestion by stable key for ~14 days
+  async suppressSuggestion(params: { userId?: string | null; stableKey: string; reason?: string }): Promise<void> {
+    try {
+      const { userId, stableKey, reason } = params
+      if (!userId || !stableKey) return
+      const ref = doc(db, 'users', userId, 'suggestSuppress', stableKey)
+      const ttlMs = 14 * 24 * 60 * 60 * 1000
+      await setDoc(ref, {
+        reason: reason || 'not_interested',
+        createdAt: serverTimestamp(),
+        expiresAt: Timestamp.fromDate(new Date(Date.now() + ttlMs))
+      }, { merge: true })
+    } catch (e) {
+      console.warn('suppressSuggestion failed', e)
+    }
+  }
+
+  // Fetch active suppressed stable keys for a user (not expired)
+  async getSuppressedSuggestionKeys(userId: string): Promise<string[]> {
+    try {
+      const qy = query(
+        collection(db, 'users', userId, 'suggestSuppress'),
+        where('expiresAt', '>', Timestamp.now())
+      )
+      const snap = await getDocs(qy)
+      return snap.docs.map(d => (d.id || (d.data() as any)?.stableKey)).filter(Boolean) as string[]
+    } catch (e) {
+      console.warn('getSuppressedSuggestionKeys failed', e)
+      return []
+    }
+  }
+
   async getExternalSuggestedPlaces(
     lat: number,
     lng: number,
     tags: string[] = [],
     limit = 12,
-    options: { interests?: string[]; radiusKm?: number; openNow?: boolean } = {}
+    options: {
+      interests?: string[];
+      radiusKm?: number;
+      openNow?: boolean;
+      cacheBypass?: boolean;
+    } = {}
   ): Promise<any[]> {
     try {
       // Use Places (New) API directly - cost optimized with field masks
-      const { searchNearby } = await import('../lib/placesNew');
+      const { searchNearby, getDetails } = await import('../lib/placesNew');
       
-      // Convert tags/interests to Google Places types
-      const typeMap: Record<string, string> = {
-        coffee: 'coffee_shop',
-        restaurant: 'restaurant',
-        park: 'park',
-        museum: 'museum',
-        library: 'library',
-        bar: 'bar',
-        cafe: 'cafe',
-        bookstore: 'book_store',
-        art: 'art_gallery',
-        nature: 'park',
+      // Use shared type mapping utilities
+      const interestInputs = [ ...(options.interests || []), ...tags ];
+      const primaryTypes = mapInterestsToTypes(interestInputs, false);
+      const complementaryTypes = getComplementaryTypes(primaryTypes);
+
+      const requestedRadiusKm = typeof options.radiusKm === 'number' && options.radiusKm > 0 ? options.radiusKm : 40;
+      const queryRadiusKm = Math.max(requestedRadiusKm, 5);
+      // Allow up to 150 km for progressive expansion (was 80km)
+      const radiusMeters = Math.min(queryRadiusKm * 1000, 150000);
+      // Tune jitter based on urban/suburban scale and whether we're bypassing cache
+      let jitterMeters: number;
+      if (options.cacheBypass) {
+        // Forced refresh: add more variety
+        jitterMeters = queryRadiusKm <= 20
+          ? Math.min(radiusMeters * 0.04, 800)    // urban cap ~800m
+          : Math.min(radiusMeters * 0.05, 4000);  // suburban/rural cap ~4km
+      } else {
+        // Cached path: keep jitter tighter
+        jitterMeters = queryRadiusKm <= 20
+          ? Math.min(radiusMeters * 0.02, 400)    // urban cap ~400m
+          : Math.min(radiusMeters * 0.025, 1000); // suburban/rural cap ~1km
+      }
+      
+      // Dynamic fetch budget: smaller for normal load, larger on repeated refreshes
+      let refreshCount = 0;
+      if (options.cacheBypass) {
+        try {
+          const key = 'suggested_refresh_counter';
+          const raw = sessionStorage.getItem(key);
+          refreshCount = raw ? (Number(raw) || 0) : 0;
+          sessionStorage.setItem(key, String(refreshCount + 1));
+        } catch {}
+      }
+      const baseMax = Math.max(limit, 12);
+      // Grow modestly with refresh count but stay under safe quotas
+      const primaryMax = options.cacheBypass
+        ? Math.min(baseMax + Math.min(refreshCount * 4, 16), 36)
+        : Math.min(baseMax * 2, 24);
+      const secondaryMax = options.cacheBypass
+        ? Math.min(Math.floor(baseMax * 0.9), 18)
+        : Math.min(Math.floor(baseMax * 0.5), 12);
+
+      // Simple client-side pacing to avoid 429s on rapid refreshes
+      if (!('__lastPlacesCallTs' in (this as any))) (this as any).__lastPlacesCallTs = 0;
+      const now = Date.now();
+      const since = now - (this as any).__lastPlacesCallTs;
+      const minGap = options.cacheBypass ? 900 : 400; // ms
+      if (since < minGap) {
+        await new Promise(res => setTimeout(res, minGap - since));
+      }
+      (this as any).__lastPlacesCallTs = Date.now();
+
+      const doSearch = async (
+        types: string[] | undefined,
+        max: number,
+        bypass: boolean,
+        latOffset: number = 0,
+        lngOffset: number = 0
+      ) => {
+        try {
+          return await searchNearby(lat + latOffset, lng + lngOffset, {
+            includedTypes: (types && types.length > 0) ? types : undefined,
+            max,
+            cacheBypass: !!bypass,
+            cacheTtlMs: 6 * 60 * 60 * 1000,
+            jitterMeters,
+            radiusMeters
+          });
+        } catch (err: any) {
+          const msg = String(err?.message || err || '');
+          const is429 = msg.includes('429') || /Too\s*Many/i.test(msg);
+          if (is429) {
+            console.warn('[firebaseDataService] Rate limit hit, using cached results');
+            return [] as any[];
+          }
+          return [] as any[];
+        }
       };
-      
-      const includedTypes = [
-        ...tags.map(t => typeMap[t.toLowerCase()]).filter(Boolean),
-        ...(options.interests || []).map(i => typeMap[i.toLowerCase()]).filter(Boolean)
-      ].slice(0, 6); // Limit to 6 types max
-      
-      console.log('[firebaseDataService] calling Places (New) searchNearby', { lat, lng, includedTypes, limit });
-      
-      const results = await searchNearby(lat, lng, {
-        includedTypes: includedTypes.length > 0 ? includedTypes : ['restaurant', 'cafe', 'tourist_attraction'],
-        max: limit
+
+      // Multi-call strategy to reach 60 candidates (Google API limit is 20 per call)
+      // Make 3 calls with different type mixes and geographic offsets for diversity
+      const calls: Promise<any[]>[] = [];
+
+      if (limit >= 40) {
+        // Large request (60): Make 3 strategic calls
+        console.log('[firebaseDataService] multi-call strategy (3 calls)', {
+          primaryTypes,
+          complementaryTypes,
+          radiusMeters,
+          queryRadiusKm,
+          jitterMeters,
+          cacheBypass: !!options.cacheBypass,
+          refreshCount
+        });
+
+        // Call 1: Primary types, center point
+        calls.push(doSearch(primaryTypes, 20, !!options.cacheBypass, 0, 0));
+
+        // Call 2: Complementary types, north offset (0.3° ≈ 33km for diversity)
+        calls.push(doSearch(complementaryTypes, 20, !!options.cacheBypass, 0.3, 0));
+
+        // Call 3: Mixed types, southeast offset (0.3° both directions ≈ 47km diagonal)
+        const mixedTypes = [...primaryTypes.slice(0, 2), ...complementaryTypes.slice(0, 2)];
+        calls.push(doSearch(mixedTypes, 20, !!options.cacheBypass, -0.3, 0.3));
+      } else {
+        // Small request (<40): Single call with mixed types
+        const allTypes = [...primaryTypes, ...complementaryTypes.slice(0, 2)];
+        const searchMax = Math.min(primaryMax + Math.floor(secondaryMax / 2), 20);
+
+        console.log('[firebaseDataService] single-call strategy', {
+          allTypes,
+          searchMax,
+          radiusMeters,
+          queryRadiusKm,
+          jitterMeters,
+          cacheBypass: !!options.cacheBypass,
+          refreshCount
+        });
+
+        calls.push(doSearch(allTypes, searchMax, !!options.cacheBypass, 0, 0));
+      }
+
+      const allResults = await Promise.all(calls);
+      const results = allResults.flat();
+
+      console.log('[firebaseDataService] API returned', {
+        totalCalls: allResults.length,
+        countsPerCall: allResults.map(r => r.length),
+        totalResults: results?.length,
+        requestedLimit: limit,
+        sample: results?.[0] ? {
+          name: results[0].name,
+          hasCoords: !!(results[0].lat && results[0].lng)
+        } : null
+      });
+
+      // Strict chain and fast-food filter
+      const ban = [
+        // Fast food and coffee
+        'mcdonald','burger king','taco bell','kfc','pizza hut','domino','papa john','subway','wendy','five guys','chick-fil-a','chickfila','dunkin','starbucks','chipotle','popeyes','seven-eleven','7-eleven',
+        // Big box retail
+        'walmart','target','costco','best buy','home depot','lowe',
+        // Grocery chains
+        'shoprite','acme','stop & shop','stop n shop','wegmans','kroger','safeway','publix','aldi','trader joe','whole foods',
+        // Pharmacies
+        'cvs','walgreens','rite aid','duane reade'
+      ];
+      const filterOut = (arr: any[]) => arr.filter((place: any) => {
+        const name = String(place.name || '').toLowerCase();
+        const isBanned = ban.some(b => name.includes(b));
+        const isFast = Array.isArray(place.types) && place.types.some((t: string) => t.toLowerCase().includes('fast_food'));
+        return !isBanned && !isFast;
+      });
+      let merged = filterOut(results);
+
+      console.log('[firebaseDataService] After chain/fast-food filter', {
+        before: results.length,
+        after: merged.length,
+        removed: results.length - merged.length
+      });
+
+      // Dedupe by id and name|address
+      const seenId = new Set<string>(); const seenKey = new Set<string>();
+      const filtered = [] as any[];
+      for (const p of merged) {
+        const id = p.id || '';
+        const key = `${String(p.name||'').toLowerCase()}|${String(p.address||'').toLowerCase()}`;
+        if (id && seenId.has(id)) continue;
+        if (key && seenKey.has(key)) continue;
+        seenId.add(id); seenKey.add(key);
+        filtered.push(p);
+      }
+      console.log('[firebaseDataService] After deduplication', {
+        beforeDedupe: merged.length,
+        afterDedupe: filtered.length,
+        duplicatesRemoved: merged.length - filtered.length
       });
       
-      console.log('[firebaseDataService] got', results.length, 'external places from Google Places (New)');
-      
-      // Filter franchises and fast food to emphasize unique spots
-      const ban = ['mcdonald','starbucks','kfc','taco bell','subway','pizza hut','burger king','wendy','dunkin','domino','chipotle','popeyes','papa john','7-eleven','seven-eleven','five guys','chick-fil-a','walmart']
-      const filtered = results.filter((place: any) => {
-        const name = String(place.name || '').toLowerCase()
-        const isBanned = ban.some(b => name.includes(b))
-        const isFast = Array.isArray(place.types) && place.types.some((t: string) => t.toLowerCase().includes('fast_food'))
-        return !isBanned && !isFast
-      })
-      
-      // Map to expected format with types for category matching
-      return filtered.map((place: any) => ({
+      const mapped = filtered.map((place: any) => ({
         id: place.id,
         name: place.name,
         address: place.address || '',
@@ -2312,8 +2492,90 @@ class FirebaseDataService {
         photosV1: place.photos || [], // Legacy compatibility
         source: 'google'
       }));
+
+      // Fill in missing coordinates - drastically reduce detail/geocode calls
+      // Only enrich the first few results that are missing coords
+      const MAX_DETAIL_CALLS = 2; // Reduced from 4
+      const MAX_GEOCODE_CALLS = 2; // Reduced from 6
+      let detailCalls = 0;
+      let geocodeCalls = 0;
+      
+      const enriched = await Promise.all(mapped.map(async (place: any, idx: number) => {
+        const hasCoords = place.coordinates?.lat != null && place.coordinates?.lng != null;
+        if (hasCoords) return place;
+
+        // Only enrich first few results to minimize API calls
+        if (idx >= 8) {
+          // For later results, skip if no coords - filter out later
+          return null;
+        }
+
+        if (detailCalls < MAX_DETAIL_CALLS && idx < 4) {
+          detailCalls += 1;
+          try {
+            const detail = await getDetails(place.id);
+            if (detail?.lat != null && detail?.lng != null) {
+              return {
+                ...place,
+                coordinates: { lat: detail.lat, lng: detail.lng },
+                primaryType: place.primaryType || detail.primaryType,
+                types: place.types?.length ? place.types : detail.types,
+                photos: detail.photos?.length ? detail.photos : place.photos,
+                photosV1: detail.photos?.length ? detail.photos : place.photos
+              };
+            }
+          } catch (detailError) {
+            console.warn('[firebaseDataService] getDetails fallback failed', detailError);
+          }
+        }
+
+        if (place.address && geocodeCalls < MAX_GEOCODE_CALLS && idx < 6) {
+          geocodeCalls += 1;
+          try {
+            const geo = await this.geocodeLocation(place.address);
+            if (geo) {
+              return {
+                ...place,
+                coordinates: { lat: geo.lat, lng: geo.lng },
+                address: geo.address || place.address
+              };
+            }
+          } catch (geoError) {
+            console.warn('[firebaseDataService] geocode fallback failed', geoError);
+          }
+        }
+
+        // If we couldn't get coords, filter out
+        return null;
+      }));
+
+      // Filter out null entries (places we couldn't enrich with coordinates)
+      const validPlaces = enriched.filter((p: any) => p != null && p.coordinates?.lat != null && p.coordinates?.lng != null);
+      
+      // Distance sort so nearest relevant options surface first
+      const toRad = (v: number) => v * Math.PI / 180;
+      const withDist = validPlaces.map((p: any) => {
+        const plat = p?.coordinates?.lat; const plng = p?.coordinates?.lng;
+        if (typeof plat === 'number' && typeof plng === 'number') {
+          const dLat = toRad(plat - lat); const dLon = toRad(plng - lng);
+          const a = Math.sin(dLat/2)**2 + Math.cos(toRad(lat))*Math.cos(toRad(plat))*Math.sin(dLon/2)**2;
+          const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+          const km = 6371 * c; return { p, d: km };
+        }
+        return { p, d: Number.MAX_VALUE };
+      });
+      withDist.sort((a,b) => a.d - b.d);
+      const finalPlaces = withDist.map(x => x.p).slice(0, limit);
+
+      // Attach stable key before returning
+      return finalPlaces.map((p: any) => {
+        const placeId = p.placeId ?? (p as any).place_id ?? p.id ?? null
+        const normalized = { ...p, placeId }
+        const key = stablePlaceKey(normalized)
+        return { ...normalized, __key: key }
+      })
     } catch (e) {
-      console.warn('âŒ getExternalSuggestedPlaces failed', e)
+      console.warn('[firebaseDataService] getExternalSuggestedPlaces failed', e)
       return []
     }
   }
@@ -2365,7 +2627,7 @@ class FirebaseDataService {
       }
       const data = await (resp as any).json()
       const result = data.location || null
-      console.log('[geocodeLocation] ðŸ’° API CALL ->', query, 'result ->', result)
+      console.log('[geocodeLocation] API call ->', query, 'result ->', result)
       
       // Store in both caches
       this.geocodeCache.set(cacheKey, result)

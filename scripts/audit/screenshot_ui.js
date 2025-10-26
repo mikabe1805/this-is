@@ -1,6 +1,6 @@
 /**
  * Screenshot UI pages for status reporting
- * Uses Playwright if installed, otherwise creates placeholders
+ * Uses Playwright if installed, otherwise creates placeholders.
  */
 
 import fs from 'fs';
@@ -12,29 +12,28 @@ const __dirname = path.dirname(__filename);
 
 const SCREENSHOT_DIR = path.join(__dirname, '../../docs/ui-status/screenshots');
 const PAGES = [
-  { name: 'home', url: '/', viewport: { width: 375, height: 812 } },
+  { name: 'home', url: '/', viewport: { width: 375, height: 812 }, readySelector: '[data-page="home"][data-page-ready="true"]' },
   { name: 'explore', url: '/explore', viewport: { width: 375, height: 812 } },
   { name: 'hub', url: '/hub/test-id', viewport: { width: 375, height: 812 } },
-  { name: 'list', url: '/list/test-id', viewport: { width: 375, height: 812 } }
+  { name: 'list', url: '/list/test-id', viewport: { width: 375, height: 812 } },
+  { name: 'profile', url: '/profile', viewport: { width: 375, height: 812 } }
 ];
 
 async function captureScreenshots() {
-  // Ensure screenshot directory exists
   if (!fs.existsSync(SCREENSHOT_DIR)) {
     fs.mkdirSync(SCREENSHOT_DIR, { recursive: true });
   }
 
-  // Check if Playwright is installed
   let playwright;
   try {
     playwright = await import('playwright');
-  } catch (e) {
-    console.log('⚠️  Playwright not installed. Creating placeholder screenshots...');
+  } catch (error) {
+    console.log('[screenshot] Playwright not installed. Creating placeholder screenshots...');
     createPlaceholders();
     return;
   }
 
-  console.log('📸 Starting screenshot capture...');
+  console.log('[screenshot] Starting capture run...');
 
   const browser = await playwright.chromium.launch({ headless: true });
   const context = await browser.newContext({
@@ -45,58 +44,95 @@ async function captureScreenshots() {
   for (const page of PAGES) {
     try {
       const browserPage = await context.newPage();
-      
-      // Navigate to local dev server
-      // Assumes dev server is running on localhost:5173 (Vite default)
-      const url = `http://localhost:5173${page.url}`;
-      console.log(`  → Capturing ${page.name} from ${url}`);
-      
-      // Navigate with screenshot mode query parameter
-      const screenshotUrl = `${url}${url.includes('?') ? '&' : '?'}screenshot=true`;
-      await browserPage.goto(screenshotUrl, { 
-        waitUntil: 'domcontentloaded',
-        timeout: 60000 
+
+      await browserPage.addInitScript(() => {
+        try {
+          window.localStorage.setItem('__screenshot_mode', 'true');
+        } catch {}
       });
-      
-      // Wait for React to render and content to load
-      // Increased wait time to ensure all data is fetched and rendered
-      await browserPage.waitForTimeout(5000);
-      
-      // Wait for images to load
-      await browserPage.evaluate(() => {
-        return Promise.all(
-          Array.from(document.images)
-            .filter(img => !img.complete)
-            .map(img => new Promise(resolve => {
-              img.addEventListener('load', resolve);
-              img.addEventListener('error', resolve);
-            }))
+
+      const url = `http://localhost:5173${page.url}`;
+      console.log(`[screenshot] Capturing ${page.name} from ${url}`);
+
+      const screenshotUrl = `${url}${url.includes('?') ? '&' : '?'}screenshot=true`;
+      await browserPage.goto(screenshotUrl, {
+        waitUntil: 'networkidle',
+        timeout: 60000
+      });
+
+      await browserPage.waitForFunction(() => document.readyState === 'complete', { timeout: 15000 }).catch(() => {});
+      await browserPage.waitForLoadState('networkidle').catch(() => {});
+
+      if (page.readySelector) {
+        await browserPage.waitForSelector(page.readySelector, { timeout: 20000 }).catch(() => {});
+      }
+
+      await browserPage.waitForFunction(() => {
+        const main = document.querySelector('main');
+        return !!main && main.textContent && main.textContent.trim().length > 0;
+      }, { timeout: 20000 }).catch(() => {});
+
+      await browserPage.waitForTimeout(800);
+
+      await browserPage.evaluate(async () => {
+        const scrollable = document.querySelector('[data-scroll-root]') || document.scrollingElement || document.body;
+        if (!scrollable) return;
+        const maxScroll = scrollable.scrollHeight - scrollable.clientHeight;
+        if (maxScroll <= 0) return;
+        const step = Math.max(Math.floor(maxScroll / 4), 240);
+        for (let pos = 0; pos <= maxScroll; pos += step) {
+          scrollable.scrollTo({ top: pos, behavior: 'instant' });
+          await new Promise(resolve => setTimeout(resolve, 420));
+        }
+        scrollable.scrollTo({ top: Math.max(maxScroll * 0.12, 0), behavior: 'instant' });
+      });
+
+      await browserPage.waitForTimeout(800);
+
+      await browserPage.evaluate(async () => {
+        const pending = Array.from(document.images).filter(img => !img.complete);
+        await Promise.all(
+          pending.map(
+            img =>
+              new Promise(resolve => {
+                if (img.complete) return resolve(undefined);
+                const done = () => resolve(undefined);
+                img.addEventListener('load', done, { once: true });
+                img.addEventListener('error', done, { once: true });
+                setTimeout(done, 3500);
+              })
+          )
         );
       });
-      
-      // Take screenshot
+
+      await browserPage.evaluate(() => {
+        const scrollable = document.querySelector('[data-scroll-root]') || document.scrollingElement || document.body;
+        if (scrollable) scrollable.scrollTo({ top: 0, behavior: 'instant' });
+      });
+
       const outputPath = path.join(SCREENSHOT_DIR, `${page.name}.png`);
-      await browserPage.screenshot({ path: outputPath, fullPage: false });
-      
-      console.log(`  ✓ Saved ${page.name}.png`);
+      await browserPage.screenshot({
+        path: outputPath,
+        fullPage: true
+      });
+
+      console.log(`[screenshot] Saved ${page.name}.png`);
       await browserPage.close();
     } catch (error) {
-      console.error(`  ✗ Failed to capture ${page.name}:`, error.message);
-      // Create placeholder on error
+      console.error(`[screenshot] Failed to capture ${page.name}:`, error.message);
       createPlaceholder(page.name);
     }
   }
 
   await browser.close();
-  console.log('✅ Screenshot capture complete!');
+  console.log('[screenshot] Capture complete.');
 }
 
 function createPlaceholders() {
   for (const page of PAGES) {
     createPlaceholder(page.name);
   }
-  
-  // Write instructions
+
   const instructions = `# Screenshot Instructions
 
 ## Manual Capture
@@ -111,7 +147,8 @@ Since Playwright is not installed, please capture screenshots manually:
    - Explore: \`/explore\`
    - Hub: \`/hub/<any-id>\`
    - List: \`/list/<any-id>\`
-5. **Save as PNG** to this directory with names: \`home.png\`, \`explore.png\`, \`hub.png\`, \`list.png\`
+   - Profile: \`/profile\`
+5. **Save as PNG** to this directory with names: \`home.png\`, \`explore.png\`, \`hub.png\`, \`list.png\`, \`profile.png\`
 
 ## Automated Capture (Recommended)
 
@@ -130,7 +167,7 @@ npm run status:ui  # Run in another terminal
 `;
 
   fs.writeFileSync(path.join(SCREENSHOT_DIR, 'INSTRUCTIONS.md'), instructions, 'utf8');
-  console.log('✅ Placeholder screenshots created. See INSTRUCTIONS.md for manual capture.');
+  console.log('[screenshot] Placeholder screenshots created. See INSTRUCTIONS.md for manual capture.');
 }
 
 function createPlaceholder(pageName) {
@@ -150,14 +187,12 @@ Or capture manually:
 4. Take screenshot and save as ${pageName}.png in docs/ui-status/screenshots/
 `;
   fs.writeFileSync(placeholderPath, content, 'utf8');
-  console.log(`  ✓ Created placeholder for ${pageName}`);
+  console.log(`[screenshot] Created placeholder for ${pageName}`);
 }
 
-// Run if called directly
 captureScreenshots().catch(error => {
   console.error('Screenshot capture failed:', error);
   process.exit(1);
 });
 
 export { captureScreenshots };
-

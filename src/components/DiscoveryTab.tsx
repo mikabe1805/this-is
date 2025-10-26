@@ -20,6 +20,7 @@ import { firebaseDataService } from '../services/firebaseDataService.js'
 import { doc, onSnapshot } from 'firebase/firestore'
 import { db } from '../firebase/config'
 import SafeImage from './ui/SafeImage'
+import { kmBetween } from '../utils/distance'
 
 const DiscoveryTab = () => {
   const { 
@@ -65,16 +66,6 @@ const DiscoveryTab = () => {
   const [hubDistances, setHubDistances] = useState<Record<string, number>>({})
   const [listDistances, setListDistances] = useState<Record<string, number>>({})
   const placeCacheRef = useRef<Record<string, Place>>({})
-
-  const toRad = (v: number) => (v * Math.PI) / 180
-  const haversineKm = (lat1: number, lon1: number, lat2: number, lon2: number) => {
-    const R = 6371
-    const dLat = toRad(lat2 - lat1)
-    const dLon = toRad(lon2 - lon1)
-    const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
-    return R * c
-  }
 
   // Load real user data and build search context
   useEffect(() => {
@@ -342,7 +333,7 @@ const DiscoveryTab = () => {
         const lat = place.coordinates?.lat
         const lng = place.coordinates?.lng
         if (typeof lat === 'number' && typeof lng === 'number') {
-          hd[place.id] = haversineKm(lat, lng, selectedLocation.lat, selectedLocation.lng)
+          hd[place.id] = kmBetween(lat, lng, selectedLocation.lat, selectedLocation.lng)
         }
       })
       setHubDistances(hd)
@@ -353,7 +344,7 @@ const DiscoveryTab = () => {
         const hubs: any[] = Array.isArray(anyList.hubs) ? anyList.hubs : []
         let min = Infinity
         if (anyList.location && typeof anyList.location.lat === 'number' && typeof anyList.location.lng === 'number') {
-          min = Math.min(min, haversineKm(anyList.location.lat, anyList.location.lng, selectedLocation.lat, selectedLocation.lng))
+          min = Math.min(min, kmBetween(anyList.location.lat, anyList.location.lng, selectedLocation.lat, selectedLocation.lng))
         }
         for (const hubRef of hubs) {
           if (typeof hubRef === 'string') {
@@ -368,14 +359,14 @@ const DiscoveryTab = () => {
             const lat = place && place.coordinates ? place.coordinates.lat : undefined
             const lng = place && place.coordinates ? place.coordinates.lng : undefined
             if (typeof lat === 'number' && typeof lng === 'number') {
-              const d = haversineKm(lat, lng, selectedLocation.lat, selectedLocation.lng)
+              const d = kmBetween(lat, lng, selectedLocation.lat, selectedLocation.lng)
               if (d < min) min = d
             }
           } else {
             const lat = (hubRef.location && hubRef.location.lat) || hubRef.coordinates?.lat
             const lng = (hubRef.location && hubRef.location.lng) || hubRef.coordinates?.lng
             if (typeof lat === 'number' && typeof lng === 'number') {
-              const d = haversineKm(lat, lng, selectedLocation.lat, selectedLocation.lng)
+              const d = kmBetween(lat, lng, selectedLocation.lat, selectedLocation.lng)
               if (d < min) min = d
             }
           }

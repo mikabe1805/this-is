@@ -1,0 +1,78 @@
+*** Begin Patch
+*** Update File: src/services/suggestionsEngine.ts
+@@
+     console.log('[engine:selectDiverse] Strategy', {
+       novel: novel.length,
+       served: served.length,
+       count: this.count,
+       useOnlyNovel,
+       novelSample: novel.slice(0, 3).map(p => ({ name: p.name, km: p.__km?.toFixed(1), score: p.__score?.toFixed(2) })),
+       servedSample: served.slice(0, 3).map(p => ({ name: p.name, km: p.__km?.toFixed(1), score: p.__score?.toFixed(2) }))
+     })
+
+    // Mixed mode: prioritize novel items first, then backfill served
+    if (!useOnlyNovel) {
+      console.log('[engine:selectDiverse] Mixed mode: prioritize novel, backfill served')
+
+      const novelSorted = [...novel].sort((a, b) => (b.__score || 0) - (a.__score || 0))
+      const servedSorted = [...served].sort((a, b) => (b.__score || 0) - (a.__score || 0))
+
+      const RELAXED_NB_CAP = 4
+      const RELAXED_TYPE_CAP = 6
+      const NB_CAP = 2
+      const TYPE_CAP = 3
+
+      const neighborhoodCount = new Map<string, number>()
+      const typeCount = new Map<string, number>()
+      const selected: Candidate[] = []
+
+      // Phase 1: take as many novel items as possible (relaxed caps, ignore ring quotas)
+      for (const p of novelSorted) {
+        if (selected.length >= this.count) break
+        const lat = p.coordinates?.lat
+        const lng = p.coordinates?.lng
+        const nb = this.neighborhoodBucket(lat, lng)
+        const primaryType = String(p.types?.[0] || 'other').toLowerCase()
+
+        const nbCount = neighborhoodCount.get(nb) || 0
+        const tCount = typeCount.get(primaryType) || 0
+        if (nbCount >= RELAXED_NB_CAP) continue
+        if (tCount >= RELAXED_TYPE_CAP) continue
+
+        neighborhoodCount.set(nb, nbCount + 1)
+        typeCount.set(primaryType, tCount + 1)
+        selected.push(p)
+      }
+
+      // Phase 2: backfill with served under normal caps
+      if (selected.length < this.count) {
+        for (const p of servedSorted) {
+          if (selected.length >= this.count) break
+          if (selected.find(s => s.__key === p.__key)) continue
+
+          const lat = p.coordinates?.lat
+          const lng = p.coordinates?.lng
+          const nb = this.neighborhoodBucket(lat, lng)
+          const primaryType = String(p.types?.[0] || 'other').toLowerCase()
+
+          const nbCount = neighborhoodCount.get(nb) || 0
+          const tCount = typeCount.get(primaryType) || 0
+          if (nbCount >= NB_CAP) continue
+          if (tCount >= TYPE_CAP) continue
+
+          neighborhoodCount.set(nb, nbCount + 1)
+          typeCount.set(primaryType, tCount + 1)
+          selected.push(p)
+        }
+      }
+
+      const finalNovelCount = selected.filter(p => !this.isServed(p.__key!)).length
+      console.log('[engine:selectDiverse] Final selection', {
+        total: selected.length,
+        novel: finalNovelCount,
+        served: selected.length - finalNovelCount,
+        items: selected.map(p => ({ name: p.name, km: p.__km?.toFixed(1), isNovel: !this.isServed(p.__key!) }))
+      })
+      return selected
+    }
+*** End Patch

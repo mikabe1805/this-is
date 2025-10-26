@@ -323,7 +323,7 @@ function AppContent() {
           <div className="max-w-md mx-auto h-full">
             <div className="flex flex-col h-full">
               {/* Main Content Area */}
-              <main className="flex-1 overflow-y-auto pb-28 overflow-x-hidden">
+              <main className="flex-1 overflow-y-auto pb-28 overflow-x-hidden" data-scroll-root>
                 <Routes>
                   <Route path="/" element={<Home />} />
                   <Route path="/home" element={<Home />} />

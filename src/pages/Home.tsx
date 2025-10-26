@@ -28,8 +28,17 @@ import SafeImage from '../components/ui/SafeImage'
 import HubImage from '../components/HubImage'
 import '../styles/glass.css'
 import '../styles/page-bg.css'
+import { stablePlaceKey } from '../utils/stablePlaceKey'
+import { kmBetween } from '../utils/distance'
+import { isHardBannedChain, isSoftPenalizedChain } from '../utils/chainDetection'
+import { mapInterestsToTypes } from '../utils/placeTypes'
+import {
+  SuggestionsEngine,
+  calculateBaseRadius
+} from '../services/suggestionsEngine'
 
-// BotanicalAccent removed for a cleaner, less decorative header
+// Version marker to verify code reload
+console.log('[CODE VERSION] Home.tsx loaded at 2025-10-26T03:15:00Z')
 
 interface FriendActivity extends Omit<Activity, 'list'> {
     user: User
@@ -110,12 +119,6 @@ const Home = () => {
     const suggestedCacheRef = useRef<{ items: any[]; timestamp: number }>({ items: [], timestamp: 0 })
     const [isLoadingForYou, setIsLoadingForYou] = useState(true)
     const [isLoadingSuggested, setIsLoadingSuggested] = useState(true)
-    // Track recently-surfaced suggestions to rotate variety across refreshes
-    const suggestedSeenRef = useRef<Set<string>>(new Set<string>())
-    try {
-        const rawSeen = sessionStorage.getItem('suggested_seen_ids')
-        if (rawSeen) suggestedSeenRef.current = new Set<string>(JSON.parse(rawSeen))
-    } catch {}
     const [showCreateHubModal, setShowCreateHubModal] = useState(false)
     const [createHubSeed, setCreateHubSeed] = useState<any>(null)
     const [recentCreatedHub, setRecentCreatedHub] = useState<Hub | null>(null)
@@ -123,38 +126,82 @@ const Home = () => {
     // State for the new details modal
     const [showSuggestedHubModal, setShowSuggestedHubModal] = useState(false);
     const [selectedPlaceId, setSelectedPlaceId] = useState<string | null>(null);
+    
+    // Track if initial load has happened to prevent React StrictMode double-invoke
+    const initialLoadRef = useRef({ forYou: false, suggested: false, activity: false });
+    // Track in-flight requests to prevent duplicate calls
+    const loadingRef = useRef({ forYou: false, suggested: false, activity: false });
 
     const handleViewDetails = (placeId: string) => {
       setSelectedPlaceId(placeId);
       setShowSuggestedHubModal(true);
     };
 
-    const toRad = (v: number) => (v * Math.PI) / 180
-    const haversineKm = (lat1: number, lon1: number, lat2: number, lon2: number) => {
-        const R = 6371
-        const dLat = toRad(lat2 - lat1)
-        const dLon = toRad(lon2 - lon1)
-        const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2
-        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
-        return R * c
-    }
+    // Track radius expansion history for progressive search
+    const radiusHistoryRef = useRef<number[]>([])
 
     useEffect(() => {
-        if (currentUser) {
-            loadFriendsActivity()
-            loadForYou(false) // Use cache first
-            loadSuggested(false) // Use cache first - DO NOT force on mount
-            firebaseDataService.getUserLists(currentUser.id).then(l => setUserOwnedLists(Array.isArray(l) ? l.filter(x => x.userId === currentUser.id) : [])).catch(() => setUserOwnedLists([]))
-            // Fetch tag options from Firebase for unified menu
-            firebaseDataService.getPopularTags(200).then(tags => setAvailableTags(tags)).catch(()=> setAvailableTags(['cozy','trendy','quiet','local','authentic']))
+        if (!currentUser) return;
+        
+        // Prevent duplicate calls from React StrictMode
+        if (initialLoadRef.current.forYou && initialLoadRef.current.suggested && initialLoadRef.current.activity) {
+            console.log('[Home] Skipping duplicate mount effect');
+            return;
         }
+
+        // AbortController to cancel on unmount/re-render
+        const abortController = new AbortController();
+        let mounted = true;
+
+        const loadInitialData = async () => {
+            try {
+                // Load in sequence to avoid overwhelming the API
+                if (!initialLoadRef.current.activity && mounted) {
+                    initialLoadRef.current.activity = true;
+                    await loadFriendsActivity();
+                }
+                
+                if (!initialLoadRef.current.forYou && mounted) {
+                    initialLoadRef.current.forYou = true;
+                    await loadForYou(false);
+                }
+                
+                if (!initialLoadRef.current.suggested && mounted) {
+                    initialLoadRef.current.suggested = true;
+                    await loadSuggested(false);
+                }
+
+                // Load user lists and tags in parallel (non-API calls)
+                if (mounted) {
+                    firebaseDataService.getUserLists(currentUser.id)
+                        .then(l => setUserOwnedLists(Array.isArray(l) ? l.filter(x => x.userId === currentUser.id) : []))
+                        .catch(() => setUserOwnedLists([]));
+                    
+                    firebaseDataService.getPopularTags(200)
+                        .then(tags => setAvailableTags(tags))
+                        .catch(() => setAvailableTags(['cozy','trendy','quiet','local','authentic']));
+                }
+            } catch (error) {
+                if (!abortController.signal.aborted) {
+                    console.error('[Home] Error loading initial data:', error);
+                }
+            }
+        };
+
+        loadInitialData();
+
+        return () => {
+            mounted = false;
+            abortController.abort();
+        };
     }, [currentUser])
 
     // Reload discovery when switching to discovery tab (use cache, don't force refresh)
     useEffect(() => {
         if (activeTab === 'discovery' && currentUser) {
-            loadForYou(false)
-            loadSuggested(false)
+            // Use cache - these will return immediately if cache is fresh
+            void loadForYou(false);
+            void loadSuggested(false);
         }
     }, [activeTab])
 
@@ -198,6 +245,14 @@ const Home = () => {
 
     const loadFriendsActivity = async () => {
         if (!currentUser) return;
+        
+        // Prevent duplicate in-flight requests
+        if (loadingRef.current.activity) {
+            console.log('[loadFriendsActivity] already loading, skipping duplicate call');
+            return;
+        }
+        loadingRef.current.activity = true;
+        
         try {
             setIsLoadingActivity(true)
             const friends = await firebaseDataService.getUserFriends(currentUser.id)
@@ -229,8 +284,210 @@ const Home = () => {
             setFriendsActivity([])
         } finally {
             setIsLoadingActivity(false)
+            loadingRef.current.activity = false;
         }
     }
+
+    // Load ONLY the external Google suggestions rail
+    const loadSuggested = async (bypassCache: boolean = false) => {
+        // Prevent duplicate in-flight requests
+        if (loadingRef.current.suggested) {
+            console.log('[loadSuggested] already loading, skipping duplicate call');
+            return;
+        }
+        loadingRef.current.suggested = true;
+
+        try {
+            setIsLoadingSuggested(true)
+
+            // 1. Get context
+            const { tags, loc, userPrefs } = await getDiscoveryContext()
+            if (!loc) {
+                setSuggestedGoogle([]);
+                setIsLoadingSuggested(false);
+                loadingRef.current.suggested = false;
+                return;
+            }
+
+            const interests = (userPrefs as any)?.favoriteCategories || []
+
+            // 2. Calculate radius with progressive expansion
+            const baseRadius = calculateBaseRadius(userPrefs, filters)
+            const isRefresh = bypassCache
+
+            let currentRadius = baseRadius
+            if (isRefresh && radiusHistoryRef.current.length > 0) {
+                // Progressive expansion on refresh
+                const expansionFactors = [1.0, 1.3, 1.6, 2.0, 2.5]
+                const round = radiusHistoryRef.current.length
+                const factor = expansionFactors[Math.min(round, expansionFactors.length - 1)]
+                currentRadius = Math.min(baseRadius * factor, 150) // Cap at 150km
+            }
+
+            radiusHistoryRef.current.push(currentRadius)
+
+            // 3. Build cache key (location only, stable)
+            const cacheKey = `suggested_${loc.lat.toFixed(2)}_${loc.lng.toFixed(2)}_v3`
+
+            // Check cache (skip if refreshing)
+            if (!bypassCache) {
+                try {
+                    const raw = sessionStorage.getItem(cacheKey)
+                    if (raw) {
+                        const parsed = JSON.parse(raw)
+                        if (Array.isArray(parsed) && parsed.length > 0) {
+                            console.log('[loadSuggested] using cache', {
+                                count: parsed.length,
+                                sample: parsed[0] ? {
+                                    name: parsed[0].name,
+                                    hasDistance: 'distanceKm' in parsed[0],
+                                    distanceKm: parsed[0].distanceKm
+                                } : null
+                            })
+                            setSuggestedGoogle(parsed)
+                            setIsLoadingSuggested(false)
+                            loadingRef.current.suggested = false
+                            return
+                        }
+                    }
+                } catch {}
+            }
+
+            // 4. Request candidates (LARGER pool: 60 instead of 20)
+            const requestLimit = 60
+
+            console.log('[loadSuggested] fetching', {
+                bypassCache,
+                radius: currentRadius,
+                round: radiusHistoryRef.current.length,
+                radiusHistory: radiusHistoryRef.current
+            })
+
+            const candidates = await firebaseDataService.getExternalSuggestedPlaces(
+                loc.lat,
+                loc.lng,
+                tags,
+                requestLimit,
+                {
+                    interests: interests.slice(0, 6),
+                    radiusKm: currentRadius,
+                    openNow: !!filters.openNow,
+                    cacheBypass: bypassCache
+                }
+            )
+
+            console.log('[loadSuggested] received candidates', {
+                count: candidates?.length || 0,
+                sample: candidates?.[0] ? {
+                    name: candidates[0].name,
+                    hasCoords: !!(candidates[0].coordinates?.lat && candidates[0].coordinates?.lng),
+                    coords: candidates[0].coordinates
+                } : null
+            })
+
+            if (bypassCache && (!candidates || candidates.length === 0)) {
+                console.warn('[loadSuggested] refresh returned empty (preserving existing)')
+                setIsLoadingSuggested(false)
+                loadingRef.current.suggested = false
+                return
+            }
+
+            // 5. Build known/suppressed sets
+            const existingLite = await firebaseDataService.getPlaceKeysLite(800)
+            const knownKeys = new Set<string>([
+                ...forYouCacheRef.current.items
+                    .filter(it => it.type === 'hub')
+                    .map(it => stablePlaceKey((it.item as any))),
+                ...((existingLite || []).map((x: any) => stablePlaceKey({
+                    placeId: (x as any).placeId,
+                    name: x.name,
+                    address: x.address,
+                    coordinates: { lat: x.lat, lng: x.lng }
+                })))
+            ].filter(Boolean) as string[])
+
+            const suppressedKeys = new Set<string>(
+                currentUser ? (await firebaseDataService.getSuppressedSuggestionKeys(currentUser.id)) : []
+            )
+
+            // 6. Create suggestions engine
+            const engine = new SuggestionsEngine({
+                userLoc: loc,
+                userInterests: [...tags, ...interests].map(s => s.toLowerCase()),
+                knownKeys,
+                suppressedKeys,
+                recentRailKeys: new Set(suggestedGoogle.map(g => g.__key || stablePlaceKey(g)).filter(Boolean)),
+                storage: sessionStorage,
+                radiusHistory: radiusHistoryRef.current,
+                count: 12,
+                ttlHours: 6,
+                maxMemory: 300
+            })
+
+            // 7. Let engine pick
+            const { picked, nextRadius, shouldExpand, memorySize, debug } = engine.pick(candidates)
+
+            console.log('[suggestions:engine]', {
+                round: radiusHistoryRef.current.length,
+                radius: currentRadius,
+                nextRadius,
+                shouldExpand,
+                candidatesReceived: candidates.length,
+                candidatesTotal: debug.candidatesTotal,
+                candidatesNovel: debug.candidatesNovel,
+                picked: picked.length,
+                memorySize
+            })
+
+            console.log('[suggestions:picked]', picked.map(p => ({
+                name: p.name,
+                key: p.__key?.substring(0, 20),
+                km: p.__km?.toFixed(1)
+            })))
+
+            // 8. Format for UI
+            const formatted = picked.map(p => ({
+                id: p.__key,
+                name: p.name,
+                address: p.address || '',
+                photoUrl: p.mainImage,
+                reason: p.types?.[0],
+                exists: false,
+                placeId: p.placeId,
+                photos: p.photos || [],
+                primaryType: p.types?.[0],
+                types: p.types || [],
+                distanceKm: p.__km,
+                __key: p.__key
+            }))
+
+            console.log('[loadSuggested] Formatted output', {
+                count: formatted.length,
+                sample: formatted.slice(0, 2).map(f => ({
+                    name: f.name,
+                    distanceKm: f.distanceKm?.toFixed(1),
+                    hasDistance: typeof f.distanceKm === 'number',
+                    key: f.__key?.substring(0, 15)
+                }))
+            })
+
+            // 9. Cache if not refreshing
+            if (!bypassCache) {
+                try {
+                    sessionStorage.setItem(cacheKey, JSON.stringify(formatted))
+                } catch {}
+            }
+
+            setSuggestedGoogle(formatted)
+        } catch (e) {
+            console.error('[loadSuggested] failed', e)
+            setSuggestedGoogle([])
+        } finally {
+            setIsLoadingSuggested(false)
+            loadingRef.current.suggested = false;
+        }
+    }
+
 
     // Shared context for loaders
     const getDiscoveryContext = async (): Promise<{ tags: string[]; loc: { lat: number; lng: number; name?: string } | null; userPrefs: any }> => {
@@ -291,45 +548,47 @@ const Home = () => {
 
     // Load ONLY the For You section (internal places + lists)
     const loadForYou = async (force: boolean = false) => {
+        // Prevent duplicate in-flight requests
+        if (loadingRef.current.forYou) {
+            console.log('[loadForYou] already loading, skipping duplicate call');
+            return;
+        }
+        loadingRef.current.forYou = true;
+        
         try {
             setIsLoadingForYou(true)
             if (!force && forYouCacheRef.current.items.length > 0 && Date.now() - forYouCacheRef.current.timestamp < 2 * 60 * 1000) {
                 setDiscoveryItems(forYouCacheRef.current.items)
+                setIsLoadingForYou(false)
+                loadingRef.current.forYou = false;
                 return
             }
-            const { tags, loc, userPrefs } = await getDiscoveryContext()
-            if (!loc) { setDiscoveryItems([]); return }
+            const { tags, loc } = await getDiscoveryContext()
+            if (!loc) { 
+                setDiscoveryItems([]); 
+                setIsLoadingForYou(false); 
+                loadingRef.current.forYou = false;
+                return;
+            }
             const internal = await firebaseDataService.getSuggestedPlaces({ tags, location: { lat: loc.lat, lng: loc.lng }, limit: 12 })
             let places = internal || []
-            const milesPreferred = (userPrefs as any)?.locationPreferences?.nearbyRadius
-            const preferredKm = typeof milesPreferred === 'number' && milesPreferred > 0 ? milesPreferred * 1.60934 : 80
-            const maxKmDefault = (typeof filters.distanceKm === 'number' ? filters.distanceKm : preferredKm)
-            const filtered = places.filter(p => {
-                const plat = p.coordinates?.lat, plng = p.coordinates?.lng
-                if (typeof plat !== 'number' || typeof plng !== 'number') return false
-                const R = 6371, toRad = (v:number)=>v*Math.PI/180
-                const dLat = toRad(plat - loc.lat), dLon = toRad(plng - loc.lng)
-                const a = Math.sin(dLat/2)**2 + Math.cos(toRad(loc.lat)) * Math.cos(toRad(plat)) * Math.sin(dLon/2)**2
-                const km = 2 * Math.atan2(Math.sqrt(a),Math.sqrt(1-a)) * R
-                return km <= maxKmDefault
+
+            // Convert places to DiscoveryItems
+            const placeItems: DiscoveryItem[] = places.slice(0, 12).map(place => {
+                const addr = (place as any).address || (place as any).location?.address || ''
+                return ({
+                    id: place.id,
+                    type: 'hub' as const,
+                    title: place.name,
+                    description: addr,
+                    image: (place as any).mainImage || 'https://images.unsplash.com/photo-1565299624946-b28f40a0ca4b?w=400&h=300&fit=crop',
+                    item: place,
+                    isGoogleSuggested: (place as any).source === 'google',
+                    googlePlaceDetails: (place as any).googlePlaceDetails
+                })
             })
-            // Ensure uniqueness
-            const seen = new Set<string>()
-            const unique: any[] = []
-            for (const p of filtered) {
-                const k = `${(p.name||'').toLowerCase()}|${((p as any).address || (p as any).location?.address || '').toLowerCase()}`
-                if (!seen.has(k)) { seen.add(k); unique.push(p) }
-            }
-            const placeItems: DiscoveryItem[] = unique.slice(0, 12).map(place => ({
-                id: place.id,
-                type: 'hub' as const,
-                title: place.name,
-                description: (place as any).address || (place as any).location?.address || '',
-                image: (place as any).mainImage || 'https://images.unsplash.com/photo-1565299624946-b28f40a0ca4b?w=400&h=300&fit=crop',
-                item: place,
-                isGoogleSuggested: (place as any).source === 'google',
-                googlePlaceDetails: (place as any).googlePlaceDetails
-            }))
+
+            // Complement with lists matching user tags
             const searchLists = await firebaseDataService.performSearch('', { tags }, 20)
             const listItems: DiscoveryItem[] = searchLists.lists.slice(0, 6).map(list => ({
                 id: list.id,
@@ -342,135 +601,16 @@ const Home = () => {
                 image: list.coverImage || 'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=400&h=300&fit=crop',
                 item: list
             }))
+
             const finalItems = [...placeItems, ...listItems]
             setDiscoveryItems(finalItems)
             forYouCacheRef.current = { items: finalItems, timestamp: Date.now() }
-            setHasLoadedDiscovery(true)
+        } catch (error) {
+            console.error('Error loading For You items:', error)
+            setDiscoveryItems([])
         } finally {
             setIsLoadingForYou(false)
-        }
-    }
-
-    // Load ONLY the Suggested Hubs section (Google external)
-    const loadSuggested = async (force: boolean = false) => {
-        try {
-            setIsLoadingSuggested(true)
-            
-            // COST DISCIPLINE: Aggressive caching - 10 minute TTL, respect existing data
-            const cacheAge = Date.now() - suggestedCacheRef.current.timestamp;
-            const hasFreshCache = suggestedCacheRef.current.items.length > 0 && cacheAge < 10 * 60 * 1000;
-            
-            if (!force && hasFreshCache) {
-                console.log('[loadSuggested] ðŸ’° Using cached data (age:', Math.floor(cacheAge/1000), 'seconds)');
-                setSuggestedGoogle(suggestedCacheRef.current.items)
-                setIsLoadingSuggested(false)
-                return
-            }
-            const { tags, loc, userPrefs } = await getDiscoveryContext()
-            if (!loc) { 
-                setSuggestedGoogle([]);
-                setIsLoadingSuggested(false);
-                return;
-            }
-            
-            const interests = (userPrefs as any)?.favoriteCategories || []
-            const milesPreferred = (userPrefs as any)?.locationPreferences?.nearbyRadius
-            const preferredKm = typeof milesPreferred === 'number' && milesPreferred > 0 ? milesPreferred * 1.60934 : 80
-            const radiusKm = (typeof filters.distanceKm === 'number' ? filters.distanceKm : preferredKm)
-            
-            // Check sessionStorage cache FIRST before API call
-            const cacheKey = `suggested_${filters.origin}_${loc.lat.toFixed(3)}_${loc.lng.toFixed(3)}_${radiusKm}_${filters.openNow?1:0}`
-            try {
-                const raw = sessionStorage.getItem(cacheKey)
-                if (raw) {
-                    const parsed = JSON.parse(raw)
-                    if (Array.isArray(parsed) && parsed.length > 0) {
-                        console.log('[loadSuggested] ðŸ’° Using sessionStorage cache, skipping API');
-                        setSuggestedGoogle(parsed)
-                        suggestedCacheRef.current = { items: parsed, timestamp: Date.now() }
-                        setIsLoadingSuggested(false)
-                        return;
-                    }
-                }
-            } catch {}
-            
-            console.log('[loadSuggested] ðŸ’¸ Calling Google Places API (no cache available)');
-            // fetch more than we need, we will filter + de-dupe and then slice
-            const external = await firebaseDataService.getExternalSuggestedPlaces(loc.lat, loc.lng, tags, 12, { interests: interests.slice(0,6), radiusKm, openNow: !!filters.openNow })
-            const existingLite = await firebaseDataService.getPlaceKeysLite(800)
-            const keyFor = (p: any) => `${(p.name||'').toLowerCase()}|${(p.address||'').toLowerCase()}`
-            const coordKey = (p:any) => (p.coordinates && typeof p.coordinates.lat==='number' && typeof p.coordinates.lng==='number') ? `${p.coordinates.lat.toFixed(5)},${p.coordinates.lng.toFixed(5)}` : ''
-            const seenComposite = new Set([
-                ...forYouCacheRef.current.items.map(it => keyFor((it.item as any))),
-                ...(existingLite||[]).map((x:any)=>`${(x.name||'').toLowerCase()}|${(x.address||'').toLowerCase()}`),
-                ...(existingLite||[]).map((x:any)=> (typeof x.lat==='number' && typeof x.lng==='number') ? `${x.lat.toFixed(5)},${x.lng.toFixed(5)}` : '')
-            ])
-            // Remove duplicates and enforce distance bound; drop items with no coordinates unless geocoded later
-            let filtered = (external||[])
-              .filter(p => !seenComposite.has(keyFor(p)) && (!coordKey(p) || !seenComposite.has(coordKey(p))))
-              .filter(p => {
-                const plat = p?.coordinates?.lat
-                const plng = p?.coordinates?.lng
-                if (typeof plat !== 'number' || typeof plng !== 'number') return false // require coords pre-enrichment to respect hard cap
-                const R=6371; const toRad=(v:number)=>v*Math.PI/180
-                const dLat=toRad(plat - loc.lat); const dLon=toRad(plng - loc.lng)
-                const a=Math.sin(dLat/2)**2+Math.cos(toRad(loc.lat))*Math.cos(toRad(plat))*Math.sin(dLon/2)**2
-                const c=2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
-                const km = R*c
-                return km <= radiusKm
-              })
-            // Shuffle to introduce variety
-            for (let i = filtered.length - 1; i > 0; i--) {
-                const j = Math.floor(Math.random() * (i + 1))
-                const tmp = filtered[i]; filtered[i] = filtered[j]; filtered[j] = tmp
-            }
-            // Exclude recently surfaced items when possible
-            const seenIds = suggestedSeenRef.current as unknown as Set<string>
-            const unseen = filtered.filter(p => !seenIds.has(p.id))
-            let pick = (unseen.length >= 8 ? unseen : filtered).slice(0, 12)
-            // Enrich addresses to ensure full, formatted address (state/country/zip) where missing; also attempt geocoding only if coords exist
-            try {
-                pick = await Promise.all(pick.map(async (p: any) => {
-                    let addr = p.address || p.formattedAddress || ''
-                    const looksIncomplete = !addr || (!/\b[A-Z]{2}\b/.test(addr) && !/\b[0-9]{5}(?:-[0-9]{4})?\b/.test(addr))
-                    if (looksIncomplete && p.coordinates && typeof p.coordinates.lat==='number' && typeof p.coordinates.lng==='number') {
-                        try {
-                            const geo = await firebaseDataService.geocodeLocation(`${p.coordinates.lat},${p.coordinates.lng}`)
-                            if (geo?.address) addr = geo.address
-                        } catch {}
-                    }
-                    return { ...p, address: addr }
-                }))
-            } catch {}
-            // After enrichment, drop any items that still visibly exceed the radius if coords known
-            pick = pick.filter((p: any) => {
-                const plat = p?.coordinates?.lat
-                const plng = p?.coordinates?.lng
-                if (typeof plat !== 'number' || typeof plng !== 'number') return false
-                const R=6371; const toRad=(v:number)=>v*Math.PI/180
-                const dLat=toRad(plat - loc.lat); const dLon=toRad(plng - loc.lng)
-                const a=Math.sin(dLat/2)**2+Math.cos(toRad(loc.lat))*Math.cos(toRad(plat))*Math.sin(dLon/2)**2
-                const c=2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
-                const km = R*c
-                return km <= radiusKm
-            })
-            // Keep UI limited
-            pick = pick.slice(0, 8)
-            // Persist recently surfaced ids (cap to 100)
-            pick.forEach(p => seenIds.add(p.id))
-            try {
-                const arr = Array.from(seenIds).slice(-100)
-                suggestedSeenRef.current = new Set(arr) as unknown as Set<string>
-                sessionStorage.setItem('suggested_seen_ids', JSON.stringify(arr))
-            } catch {}
-            setSuggestedGoogle(pick)
-            suggestedCacheRef.current = { items: pick, timestamp: Date.now() }
-            try {
-              const cacheKey = `suggested_${filters.origin}_${loc.lat.toFixed(3)}_${loc.lng.toFixed(3)}_${radiusKm}_${filters.openNow?1:0}`
-              sessionStorage.setItem(cacheKey, JSON.stringify(pick))
-            } catch {}
-        } finally {
-            setIsLoadingSuggested(false)
+            loadingRef.current.forYou = false;
         }
     }
 
@@ -583,12 +723,20 @@ const Home = () => {
                 .map(x=>x.p)
               within = withDist.slice(0, 12)
             }
-            // Ensure uniqueness within For You feed as well
+            // Ensure uniqueness within For You feed as well (by stable key)
             const feedSeen = new Set<string>()
             const uniqueWithin: any[] = []
             for (const p of within) {
-              const k = `${(p.name||'').toLowerCase()}|${((p as any).address || (p as any).location?.address || '').toLowerCase()}`
-              if (!feedSeen.has(k)) { feedSeen.add(k); uniqueWithin.push(p) }
+              const k = stablePlaceKey({
+                placeId: (p as any).placeId,
+                name: p.name,
+                address: (p as any).address || (p as any).location?.address,
+                coordinates: {
+                  lat: (p as any).coordinates?.lat ?? (p as any).location?.lat,
+                  lng: (p as any).coordinates?.lng ?? (p as any).location?.lng,
+                },
+              })
+              if (k && !feedSeen.has(k)) { feedSeen.add(k); uniqueWithin.push(p) }
             }
             const placeItems: DiscoveryItem[] = uniqueWithin.slice(0, 12).map(place => {
                 const addr = (place as any).address || (place as any).location?.address || ''
@@ -626,7 +774,7 @@ const Home = () => {
             console.error('Error loading discovery items:', error)
             setDiscoveryItems([])
         } finally {
-            // no-op; using split loaders now
+            setIsLoadingForYou(false)
         }
     }
 
@@ -644,7 +792,7 @@ const Home = () => {
                     const lat = place.coordinates?.lat
                     const lng = place.coordinates?.lng
                     if (typeof lat === 'number' && typeof lng === 'number') {
-                        distances[item.id] = haversineKm(lat, lng, selectedLocation.lat, selectedLocation.lng)
+                        distances[item.id] = kmBetween(lat, lng, selectedLocation.lat, selectedLocation.lng)
                     }
                 } else {
                     // list: compute nearest hub distance
@@ -652,7 +800,7 @@ const Home = () => {
                     const hubs: any[] = Array.isArray(list.hubs) ? list.hubs : []
                     let min = Infinity
                     if (list.location && typeof list.location.lat === 'number' && typeof list.location.lng === 'number') {
-                      min = Math.min(min, haversineKm(list.location.lat, list.location.lng, selectedLocation.lat, selectedLocation.lng))
+                      min = Math.min(min, kmBetween(list.location.lat, list.location.lng, selectedLocation.lat, selectedLocation.lng))
                     }
                     for (const hubRef of hubs) {
                         if (typeof hubRef === 'string') {
@@ -667,14 +815,14 @@ const Home = () => {
                             const lat = place && place.coordinates ? place.coordinates.lat : undefined
                             const lng = place && place.coordinates ? place.coordinates.lng : undefined
                             if (typeof lat === 'number' && typeof lng === 'number') {
-                                const d = haversineKm(lat, lng, selectedLocation.lat, selectedLocation.lng)
+                                const d = kmBetween(lat, lng, selectedLocation.lat, selectedLocation.lng)
                                 if (d < min) min = d
                             }
                         } else {
                             const lat = (hubRef.location && hubRef.location.lat) || hubRef.coordinates?.lat
                             const lng = (hubRef.location && hubRef.location.lng) || hubRef.coordinates?.lng
                             if (typeof lat === 'number' && typeof lng === 'number') {
-                                const d = haversineKm(lat, lng, selectedLocation.lat, selectedLocation.lng)
+                                const d = kmBetween(lat, lng, selectedLocation.lat, selectedLocation.lng)
                                 if (d < min) min = d
                             }
                         }
@@ -877,9 +1025,18 @@ const Home = () => {
 
     // handleCreateHubFromGoogle removed; flow uses CreateHubModal
 
+    const isHomeReady = !isLoadingActivity && !isLoadingForYou && !isLoadingSuggested
+    const locationName = selectedLocation?.name
+        ? (selectedLocation.name.split(',')[0]?.trim() || selectedLocation.name)
+        : 'your area'
+    const curatedCount = discoveryItems.length
+    const googleCount = suggestedGoogle.length
+    const curatedLabel = curatedCount === 1 ? 'pick' : 'picks'
+    const googleLabel = googleCount === 1 ? 'new find' : 'new finds'
+
     return (
         <div className="min-h-screen sunlight-soft">
-            <main className="pb-28">
+            <main className="pb-28" data-page="home" data-page-ready={isHomeReady ? 'true' : undefined}>
                 <div className="relative z-10 p-5 pb-2 max-w-2xl mx-auto flex flex-col gap-2 overflow-visible">
                     <div className="flex items-center justify-between mb-6">
                         <div>
@@ -921,13 +1078,73 @@ const Home = () => {
                     </div>
                     <SegmentedTabs
                       value={activeTab}
-                      onChange={(v)=> setActiveTab(v)}
+                      onChange={(v)=> setActiveTab(v as 'friends' | 'discovery')}
                       items={[
                         { key: 'friends', label: 'Friends' },
                         { key: 'discovery', label: 'Discovery' },
                       ]}
-                      className="mb-4"
+                      className="mb-3"
                     />
+                    {activeTab === 'discovery' && (
+                      <CardShell
+                        variant="glass"
+                        className="mt-1 p-4 sm:p-5 space-y-4 rounded-3xl animate-slide-up shadow-[0_16px_40px_rgba(61,54,48,0.08)]"
+                      >
+                        <div className="flex flex-wrap items-start justify-between gap-4">
+                          <div className="space-y-1">
+                            <p className="text-[11px] uppercase tracking-[0.18em] text-sage-500">
+                              Today near {locationName}
+                            </p>
+                            <h2 className="text-[18px] font-semibold text-bark-900">
+                              {curatedCount > 0
+                                ? `Fresh ${curatedLabel} picked for you`
+                                : 'We are curating new picks'}
+                            </h2>
+                            <p className="text-[13px] text-bark-600">
+                              {googleCount > 0
+                                ? `Plus ${googleCount} ${googleLabel} from Google to explore.`
+                                : 'Refresh discovery to surface more ideas nearby.'}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-3 rounded-2xl bg-white/60 px-4 py-3 shadow-[0_8px_24px_rgba(61,54,48,0.08)]">
+                            <div className="text-center">
+                              <div className="text-[20px] font-semibold text-bark-900 leading-none">{curatedCount}</div>
+                              <div className="text-[11px] text-bark-500">Curated</div>
+                            </div>
+                            <div className="h-8 w-px bg-white/70" aria-hidden="true"></div>
+                            <div className="text-center">
+                              <div className="text-[20px] font-semibold text-bark-900 leading-none">{googleCount}</div>
+                              <div className="text-[11px] text-bark-500">New finds</div>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-3">
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            className="px-4"
+                            onClick={() => { void Promise.all([loadForYou(true), loadSuggested(true)]); }}
+                          >
+                            Refresh picks
+                          </Button>
+                          <button
+                            type="button"
+                            className="text-[12px] text-sage-700 underline-offset-4 hover:underline"
+                            onClick={() => setShowAdvanced(true)}
+                          >
+                            Refine filters
+                          </button>
+                          <div className="flex items-center gap-2 text-[12px] text-bark-500">
+                            <span className="inline-flex h-2 w-2 rounded-full bg-sage-500" aria-hidden="true"></span>
+                            <span>{curatedCount > 0 ? 'Updated moments ago' : 'Collecting new picks'}</span>
+                          </div>
+                          <div className="flex items-center gap-2 text-[12px] text-bark-500">
+                            <span className="inline-flex h-2 w-2 rounded-full bg-sand-500" aria-hidden="true"></span>
+                            <span>{selectedLocation?.name || 'Set a location to personalize distance'}</span>
+                          </div>
+                        </div>
+                      </CardShell>
+                    )}
                 </div>
                 <div className="relative z-10 px-5 pb-8 max-w-2xl mx-auto overflow-x-hidden">
                     {activeTab === 'friends' ? (
@@ -973,7 +1190,7 @@ const Home = () => {
                                                     >
                                                         {activity.user.name}
                                                     </span>
-                                                    <span className="text-sage-400">â€¢</span>
+                                                    <span className="text-sage-400">•</span>
                                                     <span className="text-cozy-meta">{formatTimestamp(activity.createdAt)}</span>
                                                 </div>
                                                 <div className="flex items-start gap-2">
@@ -1034,17 +1251,27 @@ const Home = () => {
                         </div>
                     ) : (
                         <div className="space-y-6">
+                            <div className="radial-warm animate-slide-up">
+                              <div className="flex items-start justify-between mb-4">
+                                <div>
+                                  <h2 className="text-[20px] font-semibold" style={{color: 'rgba(61,54,48,0.95)', letterSpacing: '-0.01em'}}>
+                                    For You
+                                  </h2>
+                                  <p className="text-[13px] mt-1" style={{color: 'rgba(74,66,60,0.75)'}}>
+                                    Personalized places and lists based on your interests
+                                  </p>
+                                </div>
+                                {hasLoadedDiscovery && (
+                                  <button className="badge h-9 inline-flex items-center gap-1.5 hover:brightness-105 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200" onClick={async()=>{ await loadForYou(true) }} aria-label="Refresh recommendations">
+                                    <svg className={`w-4 h-4 transition-transform duration-600 ease-out ${isLoadingForYou ? 'animate-spin' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                                    </svg>
+                                    <span className="text-[13px]">Refresh</span>
+                                  </button>
+                                )}
+                              </div>
                             <Section
-                              title="For You"
-                              className="radial-warm animate-slide-up"
-                              action={hasLoadedDiscovery ? (
-                                <button className="badge h-9 inline-flex items-center gap-1.5 hover:brightness-105 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200" onClick={async()=>{ await loadForYou(true) }} aria-label="Refresh recommendations">
-                                  <svg className={`w-4 h-4 transition-transform duration-600 ease-out ${isLoadingForYou ? 'animate-spin' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                                  </svg>
-                                  <span className="text-[13px]">Refresh</span>
-                                </button>
-                              ) : null}
+                              className=""
                             >
                             {isLoadingForYou ? (
                                 <div className="space-y-4">
@@ -1074,9 +1301,15 @@ const Home = () => {
                                       )
                                     })
                                   : discoveryItems
-                                // Remove google-suggested hubs from the default list so they render only in the distinct section
-                                filtered = filtered.filter(it => (it.type !== 'hub') || (((it.item as any)?.source) !== 'google'))
+                                // Remove any hubs that collide with the rail set (by stable key)
+                                const railKeys = new Set<string>(suggestedGoogle.map((g: any) => g.__key || stablePlaceKey(g)))
+                                filtered = filtered.filter(it => {
+                                  if (it.type !== 'hub') return true
+                                  const k = stablePlaceKey((it.item as any))
+                                  return !railKeys.has(k)
+                                })
                                 const showSuggestedSection = true
+                                const hasCurated = filtered.length > 0
                                 if (sortBy === 'relevance') {
                                     const q = searchQuery.trim().toLowerCase()
                                     const score = (it: DiscoveryItem) => {
@@ -1101,11 +1334,19 @@ const Home = () => {
                                         return da - db
                                     })
                                 }
-                                if (filtered.length === 0 && !showSuggestedSection) {
+                                if (!hasCurated && !showSuggestedSection) {
                                     return <p className="text-center py-8">No trending items yet.</p>
                                 }
                                 return (
                                     <>
+                                    {!hasCurated && (
+                                      <CardShell variant="glass" className="p-5 text-center text-sm text-bark-600 mb-3">
+                                        <p className="font-medium text-bark-800">We&apos;re still curating picks for you.</p>
+                                        <p className="mt-2 text-bark-600">
+                                          Try refreshing or adjust filters to bring in more personalized places.
+                                        </p>
+                                      </CardShell>
+                                    )}
                                     {recentCreatedHub && (
                                       <CardShell
                                         key={`recent-${recentCreatedHub.id}`}
@@ -1217,18 +1458,37 @@ const Home = () => {
                                     {/* Suggested Hubs Rail */}
                                     {suggestedGoogle.length > 0 || isLoadingSuggested ? (
                                       <SuggestedHubsRail
-                                        suggestions={suggestedGoogle.slice(0, 12).map((item) => ({
-                                          id: item.id,
+                                        suggestions={suggestedGoogle.slice(0, 12).map((item) => {
+                                          const lat = item?.coordinates?.lat
+                                          const lng = item?.coordinates?.lng
+                                          // Use pre-calculated distance from engine, ensure it's a valid number (not NaN)
+                                          let distanceKm: number | undefined = undefined
+                                          if (typeof item.distanceKm === 'number' && !isNaN(item.distanceKm)) {
+                                            distanceKm = item.distanceKm
+                                          } else if (typeof item.distanceKm === 'string') {
+                                            const parsed = parseFloat(item.distanceKm)
+                                            distanceKm = isNaN(parsed) ? undefined : parsed
+                                          }
+                                          // Fallback to recalculation if still undefined or invalid
+                                          if ((distanceKm === undefined || isNaN(distanceKm)) && selectedLocation && typeof lat === 'number' && typeof lng === 'number') {
+                                            distanceKm = kmBetween(lat, lng, selectedLocation.lat, selectedLocation.lng)
+                                          }
+                                          return ({
+                                            // Use stable key as UI id so variants collapse together
+                                            id: item.__key,
+                                            rawId: item.id,
                                           name: item.name,
                                           address: item.address || '',
                                           photoUrl: item.mainImage,
                                           reason: item.tags?.[0],
                                           exists: false,
-                                          placeId: item.placeId,
+                                            placeId: item.placeId || item.id,
                                           photos: item.photos || [],
                                           primaryType: item.primaryType || item.category,
-                                          types: item.types || []
-                                        }))}
+                                            types: item.types || [],
+                                            distanceKm,
+                                          })
+                                        })}
                                         onRefresh={async () => await loadSuggested(true)}
                                         onViewDetails={handleViewDetails} // Pass the handler
                                         onOpen={(hub) => {
@@ -1236,7 +1496,7 @@ const Home = () => {
                                           console.log('Open hub:', hub);
                                         }}
                                         onCreate={(hub) => {
-                                          const item = suggestedGoogle.find(g => g.id === hub.id);
+                                          const item = suggestedGoogle.find(g => (g as any).__key === hub.id || stablePlaceKey(g) === hub.id);
                                           if (item) {
                                             setCreateHubSeed({
                                                              name: item.name,
@@ -1249,8 +1509,17 @@ const Home = () => {
                                             setShowCreateHubModal(true);
                                           }
                                         }}
-                                        onNotInterested={(hubId) => {
-                                          setSuggestedGoogle(prev => prev.filter(g => g.id !== hubId));
+                                        onNotInterested={async (hubId) => {
+                                          setSuggestedGoogle(prev => prev.filter(g => ((g as any).__key || stablePlaceKey(g)) !== hubId));
+                                          try {
+                                            if (currentUser) {
+                                              await firebaseDataService.suppressSuggestion({
+                                                userId: currentUser.id,
+                                                stableKey: hubId,
+                                                reason: 'not_interested',
+                                              })
+                                            }
+                                          } catch {}
                                         }}
                                         isLoading={isLoadingSuggested}
                                       />
@@ -1260,6 +1529,7 @@ const Home = () => {
                                 )
                             })()}
                             </Section>
+                            </div>
                         </div>
                     )}
                 </div>
@@ -1287,6 +1557,7 @@ const Home = () => {
                   isOpen={showSuggestedHubModal}
                   onClose={() => setShowSuggestedHubModal(false)}
                   placeId={selectedPlaceId}
+                  userLocation={selectedLocation || undefined}
                   onCreateHub={(placeData) => {
                     // TODO: Implement hub creation flow from modal
                     console.log('Create hub from modal:', placeData);
@@ -1358,9 +1629,15 @@ const Home = () => {
                         if (data.mainImage) {
                           try { await firebaseDataService.setHubMainImage(hubId, data.mainImage) } catch {}
                         }
-                        // Close modal and remove the suggested item
+                        // Close modal and remove the suggested item by stable key
                         setShowCreateHubModal(false)
-                        setSuggestedGoogle(prev => prev.filter(p => p.name !== data.name || p.address !== data.address))
+                        const createdKey = stablePlaceKey({
+                          placeId: (data as any).placeId,
+                          name: data.name,
+                          address: data.address,
+                          coordinates: data.coordinates,
+                        })
+                        setSuggestedGoogle(prev => prev.filter(p => stablePlaceKey(p) !== createdKey))
                         // Refresh discovery cache but avoid layout reset
                         await Promise.all([loadForYou(true), loadSuggested(true)])
                         // Open the created hub

@@ -1,6 +1,6 @@
 import { ArrowPathIcon } from '@heroicons/react/24/outline';
 import { SuggestedHubCard } from './SuggestedHubCard';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useMemo } from 'react';
 
 interface SuggestedHub {
   id: string;
@@ -13,6 +13,7 @@ interface SuggestedHub {
   photos?: { name: string }[];
   primaryType?: string;
   types?: string[];
+  distanceKm?: number;
 }
 
 interface SuggestedHubsRailProps {
@@ -35,6 +36,19 @@ export function SuggestedHubsRail({
   isLoading = false
 }: SuggestedHubsRailProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  // De-duplicate suggestions by id (engine provides stable keys)
+  const uniqueSuggestions = useMemo(() => {
+    const seen = new Set<string>();
+    const unique: SuggestedHub[] = [];
+    for (const s of suggestions || []) {
+      if (!s?.id) continue;
+      if (seen.has(s.id)) continue;
+      seen.add(s.id);
+      unique.push(s);
+    }
+    return unique;
+  }, [suggestions]);
 
   // Reset scroll position to start when suggestions change
   useEffect(() => {
@@ -70,25 +84,32 @@ export function SuggestedHubsRail({
     return () => observer.disconnect();
   }, [suggestions]);
 
-  if (suggestions.length === 0 && !isLoading) {
+  if (uniqueSuggestions.length === 0 && !isLoading) {
     return null;
   }
 
   return (
-    <section className="px-3 pt-2 radial-warm animate-slide-up">
+    <section className="px-3 pt-4 pb-2 radial-warm animate-slide-up">
       {/* Soft divider */}
-      <hr className="my-4 border-white/20" />
-      
+      <hr className="my-6 border-white/20" />
+
       {/* Header */}
-      <div className="flex items-center justify-between mb-3">
-        <h3 className="section-title">Suggested Hubs</h3>
+      <div className="flex items-center justify-between mb-4">
+        <div>
+          <h3 className="text-[18px] font-semibold" style={{color: 'rgba(61,54,48,0.92)'}}>
+            Google Hubs Suggestions
+          </h3>
+          <p className="text-[12px] mt-0.5" style={{color: 'rgba(74,66,60,0.75)'}}>
+            Discover new places near you
+          </p>
+        </div>
         <button
           onClick={onRefresh}
           disabled={isLoading}
-          className="badge inline-flex items-center h-9 text-[14px] gap-1.5"
+          className="badge inline-flex items-center h-9 text-[13px] gap-1.5 hover:brightness-105 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200"
           aria-label="Refresh suggestions"
         >
-          <ArrowPathIcon className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+          <ArrowPathIcon className={`w-4 h-4 transition-transform duration-600 ease-out ${isLoading ? 'animate-spin' : ''}`} />
           Refresh
         </button>
       </div>
@@ -123,10 +144,9 @@ export function SuggestedHubsRail({
             </div>
           ))
         ) : (
-          suggestions.map((hub, index) => (
+          uniqueSuggestions.map((hub, index) => (
             <div key={hub.id} className="animate-rise" style={{ animationDelay: `${index*40}ms` }}>
             <SuggestedHubCard
-              key={hub.id}
               id={hub.id}
               place={{
                 id: hub.id,
@@ -140,7 +160,8 @@ export function SuggestedHubsRail({
               onOpen={() => onOpen(hub)}
               onCreate={() => onCreate(hub)}
               onNotInterested={() => onNotInterested(hub.id)}
-              onViewDetails={() => onViewDetails(hub.id)}
+              onViewDetails={() => onViewDetails(hub.placeId || hub.id)}
+              distanceKm={hub.distanceKm}
             />
             </div>
           ))

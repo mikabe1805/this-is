@@ -1,0 +1,247 @@
+*** Begin Patch
+*** Update File: src/services/suggestionsEngine.ts
+@@
+-  private selectDiverse(scored: Candidate[], round: number): Candidate[] {
++  private selectDiverse(scored: Candidate[], round: number): Candidate[] {
+@@
+-    // Split novel vs served
+-    const novel = scored.filter(p => !this.isServed(p.__key!))
+-    const served = scored.filter(p => this.isServed(p.__key!))
+-
+-    // If we have enough novel items, ONLY use novel items (force freshness)
+-    const useOnlyNovel = novel.length >= this.count
+-
+-    console.log('[engine:selectDiverse] Strategy', {
+-      novel: novel.length,
+-      served: served.length,
+-      count: this.count,
+-      useOnlyNovel,
+-      novelSample: novel.slice(0, 3).map(p => ({ name: p.name, km: p.__km?.toFixed(1), score: p.__score?.toFixed(2) })),
+-      servedSample: served.slice(0, 3).map(p => ({ name: p.name, km: p.__km?.toFixed(1), score: p.__score?.toFixed(2) }))
+-    })
+-
+-    // Sort each group by score
+-    const sorted = useOnlyNovel
+-      ? novel.sort((a, b) => (b.__score || 0) - (a.__score || 0))
+-      : [
+-          ...novel.sort((a, b) => (b.__score || 0) - (a.__score || 0)),
+-          ...served.sort((a, b) => (b.__score || 0) - (a.__score || 0)),
+-        ]
+-
+-    console.log('[engine:selectDiverse] After sorting', {
+-      sortedCount: sorted.length,
+-      firstThree: sorted.slice(0, 3).map(p => ({
+-        name: p.name,
+-        km: p.__km?.toFixed(1),
+-        score: p.__score?.toFixed(2),
+-        isNovel: !this.isServed(p.__key!)
+-      }))
+-    })
+-
+-    // Track diversity
+-    const neighborhoodCount = new Map<string, number>()
+-    const typeCount = new Map<string, number>()
+-    const perNeighborhoodCap = 2
+-    const perTypeCap = 3
+-
+-    // Fill rings
+-    const ringBuckets = rings.map(r => ({ ...r, items: [] as Candidate[] }))
+-
+-    for (const p of sorted) {
+-      const ring = ringBuckets.find(
+-        r => (p.__km || 999) >= r.min && (p.__km || 999) < r.max
+-      )
+-      if (!ring) continue
+-
+-      const lat = p.coordinates?.lat
+-      const lng = p.coordinates?.lng
+-      const nb = this.neighborhoodBucket(lat, lng)
+-      const primaryType = String(p.types?.[0] || 'other').toLowerCase()
+-
+-      const nbCount = neighborhoodCount.get(nb) || 0
+-      const tCount = typeCount.get(primaryType) || 0
+-
+-      // Enforce caps
+-      if (nbCount >= perNeighborhoodCap) continue
+-      if (tCount >= perTypeCap) continue
+-
+-      neighborhoodCount.set(nb, nbCount + 1)
+-      typeCount.set(primaryType, tCount + 1)
+-      ring.items.push(p)
+-    }
+-
+-    // Collect from rings up to quota
+-    const selected: Candidate[] = []
+-    for (const ring of ringBuckets) {
+-      for (const p of ring.items) {
+-        if (selected.length >= this.count) break
+-        if (selected.length < ring.quota) {
+-          selected.push(p)
+-        }
+-      }
+-    }
+-
+-    // Backfill if needed (respecting caps)
+-    if (selected.length < this.count) {
+-      for (const p of sorted) {
+-        if (selected.length >= this.count) break
+-        if (selected.find(s => s.__key === p.__key)) continue
+-
+-        // Re-check caps for backfill
+-        const lat = p.coordinates?.lat
+-        const lng = p.coordinates?.lng
+-        const nb = this.neighborhoodBucket(lat, lng)
+-        const primaryType = String(p.types?.[0] || 'other').toLowerCase()
+-
+-        const nbCount = neighborhoodCount.get(nb) || 0
+-        const tCount = typeCount.get(primaryType) || 0
+-
+-        if (nbCount >= perNeighborhoodCap) continue
+-        if (tCount >= perTypeCap) continue
+-
+-        neighborhoodCount.set(nb, nbCount + 1)
+-        typeCount.set(primaryType, tCount + 1)
+-        selected.push(p)
+-      }
+-    }
++    // Split novel vs served
++    const novel = scored.filter(p => !this.isServed(p.__key!))
++    const served = scored.filter(p => this.isServed(p.__key!))
++
++    // If we have enough novel items, ONLY use novel items (force freshness)
++    const useOnlyNovel = novel.length >= this.count
++
++    console.log('[engine:selectDiverse] Strategy', {
++      novel: novel.length,
++      served: served.length,
++      count: this.count,
++      useOnlyNovel,
++      novelSample: novel.slice(0, 3).map(p => ({ name: p.name, km: p.__km?.toFixed(1), score: p.__score?.toFixed(2) })),
++      servedSample: served.slice(0, 3).map(p => ({ name: p.name, km: p.__km?.toFixed(1), score: p.__score?.toFixed(2) }))
++    })
++
++    // Sort each group by score (desc)
++    const novelSorted = [...novel].sort((a, b) => (b.__score || 0) - (a.__score || 0))
++    const servedSorted = [...served].sort((a, b) => (b.__score || 0) - (a.__score || 0))
++
++    if (useOnlyNovel) {
++      // ORIGINAL path: use ring quotas + strict caps on novel only
++      const neighborhoodCount = new Map<string, number>()
++      const typeCount = new Map<string, number>()
++      const perNeighborhoodCap = 2
++      const perTypeCap = 3
++
++      const ringBuckets = rings.map(r => ({ ...r, items: [] as Candidate[] }))
++
++      for (const p of novelSorted) {
++        const ring = ringBuckets.find(r => (p.__km || 999) >= r.min && (p.__km || 999) < r.max)
++        if (!ring) continue
++
++        const lat = p.coordinates?.lat
++        const lng = p.coordinates?.lng
++        const nb = this.neighborhoodBucket(lat, lng)
++        const primaryType = String(p.types?.[0] || 'other').toLowerCase()
++
++        const nbCount = neighborhoodCount.get(nb) || 0
++        const tCount = typeCount.get(primaryType) || 0
++        if (nbCount >= perNeighborhoodCap) continue
++        if (tCount >= perTypeCap) continue
++
++        neighborhoodCount.set(nb, nbCount + 1)
++        typeCount.set(primaryType, tCount + 1)
++        ring.items.push(p)
++      }
++
++      const selected: Candidate[] = []
++      for (const ring of ringBuckets) {
++        for (const p of ring.items) {
++          if (selected.length >= this.count) break
++          if (selected.length < ring.quota) {
++            selected.push(p)
++          }
++        }
++      }
++
++      const finalNovelCount = selected.filter(p => !this.isServed(p.__key!)).length
++      console.log('[engine:selectDiverse] Final selection', {
++        total: selected.length,
++        novel: finalNovelCount,
++        served: selected.length - finalNovelCount,
++        items: selected.map(p => ({
++          name: p.name,
++          km: p.__km?.toFixed(1),
++          isNovel: !this.isServed(p.__key!)
++        }))
++      })
++
++      return selected
++    }
++
++    // MIXED MODE: Prioritize novel items first (relaxed caps), then backfill with served (normal caps)
++    console.log('[engine:selectDiverse] Mixed mode: prioritize novel, backfill served')
++
++    const relaxedNbCap = 4 // relaxed for novel
++    const relaxedTypeCap = 6
++    const normalNbCap = 2 // normal for served
++    const normalTypeCap = 3
++
++    const neighborhoodCount = new Map<string, number>()
++    const typeCount = new Map<string, number>()
++
++    const selected: Candidate[] = []
++
++    // Phase 1: take as many novel items as possible under relaxed caps (ignore ring quotas)
++    for (const p of novelSorted) {
++      if (selected.length >= this.count) break
++      const lat = p.coordinates?.lat
++      const lng = p.coordinates?.lng
++      const nb = this.neighborhoodBucket(lat, lng)
++      const primaryType = String(p.types?.[0] || 'other').toLowerCase()
++
++      const nbCount = neighborhoodCount.get(nb) || 0
++      const tCount = typeCount.get(primaryType) || 0
++      if (nbCount >= relaxedNbCap) continue
++      if (tCount >= relaxedTypeCap) continue
++
++      neighborhoodCount.set(nb, nbCount + 1)
++      typeCount.set(primaryType, tCount + 1)
++      selected.push(p)
++    }
++
++    // Phase 2: backfill with served items under normal caps (still ignoring ring quotas for flexibility)
++    if (selected.length < this.count) {
++      for (const p of servedSorted) {
++        if (selected.length >= this.count) break
++        if (selected.find(s => s.__key === p.__key)) continue
++
++        const lat = p.coordinates?.lat
++        const lng = p.coordinates?.lng
++        const nb = this.neighborhoodBucket(lat, lng)
++        const primaryType = String(p.types?.[0] || 'other').toLowerCase()
++
++        const nbCount = neighborhoodCount.get(nb) || 0
++        const tCount = typeCount.get(primaryType) || 0
++        if (nbCount >= normalNbCap) continue
++        if (tCount >= normalTypeCap) continue
++
++        neighborhoodCount.set(nb, nbCount + 1)
++        typeCount.set(primaryType, tCount + 1)
++        selected.push(p)
++      }
++    }
++
++    const finalNovelCount = selected.filter(p => !this.isServed(p.__key!)).length
++    console.log('[engine:selectDiverse] Final selection', {
++      total: selected.length,
++      novel: finalNovelCount,
++      served: selected.length - finalNovelCount,
++      items: selected.map(p => ({
++        name: p.name,
++        km: p.__km?.toFixed(1),
++        isNovel: !this.isServed(p.__key!)
++      }))
++    })
++
++    return selected
+   }
+*** End Patch

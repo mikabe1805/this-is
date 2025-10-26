@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { firebaseDataService, type FirebaseSearchData } from '../services/firebaseDataService';
 import { aiSearchService } from '../services/aiSearchService';
@@ -16,6 +16,7 @@ export const useSearch = () => {
   const [error, setError] = useState('');
   const [searchContext, setSearchContext] = useState<SearchContext | null>(null);
   const [contextLoading, setContextLoading] = useState(true);
+  const requestIdRef = useRef(0);
 
   useEffect(() => {
     const loadSearchContext = async () => {
@@ -38,6 +39,7 @@ export const useSearch = () => {
   }, [authUser]);
 
   const performSearch = useCallback(async (query: string, options: { sortBy?: string, tags?: string[] } = {}) => {
+    const reqId = ++requestIdRef.current;
     setIsSearching(true);
     setError('');
 
@@ -70,12 +72,20 @@ export const useSearch = () => {
       if (results && Array.isArray((results as any).lists)) {
         (results as any).lists = (results as any).lists.slice(0, 50);
       }
+      if (reqId !== requestIdRef.current) {
+        // Stale result, ignore
+        return;
+      }
       setDisplayResults(results);
     } catch (err) {
       console.error("Search failed:", err);
-      setError("An error occurred during the search.");
+      if (reqId === requestIdRef.current) {
+        setError("An error occurred during the search.");
+      }
     } finally {
-      setIsSearching(false);
+      if (reqId === requestIdRef.current) {
+        setIsSearching(false);
+      }
     }
   }, [searchContext, filters]);
 

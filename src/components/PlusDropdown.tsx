@@ -98,10 +98,25 @@ const PlusDropdown: React.FC<PlusDropdownProps> = ({ onCreatePost, onSaveHub, on
         <button
           ref={buttonRef}
           onClick={handleToggleDropdown}
-          className="w-14 h-14 bg-gradient-to-r from-sage-500 to-gold-500 text-white rounded-full flex items-center justify-center shadow-soft hover:shadow-lg transition-all duration-300 transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-sage-300"
-          aria-label="Add to list"
+          className="relative w-20 h-20 text-white rounded-full flex items-center justify-center transition-all duration-300 transform hover:scale-110 active:scale-95 focus:outline-none group"
+          style={{
+            background: 'linear-gradient(135deg, rgba(75, 143, 103, 0.95) 0%, rgba(181, 142, 83, 0.95) 100%)',
+            backdropFilter: 'blur(20px)',
+            boxShadow: '0 8px 32px rgba(75, 143, 103, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.2), inset 0 1px 0 0 rgba(255, 255, 255, 0.3)',
+          }}
+          aria-label="Create post or add to list"
         >
-          <PlusIcon className="w-7 h-7" />
+          <div className="absolute inset-0 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+            style={{
+              background: 'radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.2) 0%, transparent 60%)',
+            }}
+          />
+          <PlusIcon className="w-10 h-10 stroke-[3] relative z-10 drop-shadow-lg" />
+          <div className="absolute inset-0 rounded-full animate-pulse opacity-30"
+            style={{
+              background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.3) 0%, transparent 100%)',
+            }}
+          />
         </button>
       </div>
       

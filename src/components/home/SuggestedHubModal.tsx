@@ -8,9 +8,10 @@ interface SuggestedHubModalProps {
   onClose: () => void;
   placeId: string | null;
   onCreateHub: (placeData: PlaceDetail) => void;
+  userLocation?: { lat: number; lng: number };
 }
 
-export default function SuggestedHubModal({ isOpen, onClose, placeId, onCreateHub }: SuggestedHubModalProps) {
+export default function SuggestedHubModal({ isOpen, onClose, placeId, onCreateHub, userLocation }: SuggestedHubModalProps) {
   const [place, setPlace] = useState<PlaceDetail | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -56,13 +57,25 @@ export default function SuggestedHubModal({ isOpen, onClose, placeId, onCreateHu
             <h2 className="text-title mb-2">{place.name}</h2>
             
             {/* Distance indicator (placeholder) */}
-            <div className="text-meta flex items-center gap-1.5 mb-4">
-              <svg className="w-3.5 h-3.5 opacity-60" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-              </svg>
-              0.5 mi away
-            </div>
+            {typeof place.lat === 'number' && typeof place.lng === 'number' && userLocation && (
+              <div className="text-meta flex items-center gap-1.5 mb-4">
+                <svg className="w-3.5 h-3.5 opacity-60" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+                {(() => {
+                  const R = 6371
+                  const toRad = (v: number) => v * Math.PI / 180
+                  const dLat = toRad(place.lat! - userLocation.lat)
+                  const dLon = toRad(place.lng! - userLocation.lng)
+                  const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(userLocation.lat)) * Math.cos(toRad(place.lat!)) * Math.sin(dLon / 2) ** 2
+                  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+                  const km = R * c
+                  const mi = km * 0.621371
+                  return `${mi.toFixed(1)} mi away`
+                })()}
+              </div>
+            )}
             
             <div className="flex gap-3">
               <button

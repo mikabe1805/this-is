@@ -2,7 +2,7 @@ import { GlassPanel } from '../ui/primitives/Glass';
 import Button from '../ui/Button';
 import HubImage from '../HubImage';
 import { humanizeTag } from '../../utils/posterMapping';
-import { useState, useEffect, useRef } from 'react';
+import { useState } from 'react';
 
 interface SuggestedHubCardProps {
   id: string;
@@ -22,6 +22,7 @@ interface SuggestedHubCardProps {
     photos?: { name: string }[];
   };
   isFirstCard?: boolean; // For selective sunlight
+  distanceKm?: number;
 }
 
 export function SuggestedHubCard({
@@ -34,22 +35,16 @@ export function SuggestedHubCard({
   onNotInterested,
   onViewDetails,
   place,
-  isFirstCard = false
+  isFirstCard = false,
+  distanceKm
 }: SuggestedHubCardProps) {
   const [showMenu, setShowMenu] = useState(false);
   const { name, address } = place;
   const displayReason = reason || place.reason;
-  const createBtnRef = useRef<HTMLButtonElement | null>(null)
 
-  useEffect(() => {
-    if (createBtnRef.current) {
-      console.log('[UI] button:create-hub', createBtnRef.current.className)
-    }
-  }, [])
-
-  // Calculate distance (placeholder - will need user location)
-  // For now, show a simple distance indicator
-  const distance = "0.5 mi away"; // TODO: Calculate actual distance
+  const distance = typeof distanceKm === 'number'
+    ? `${(distanceKm * 0.621371).toFixed(1)} mi away`
+    : '—';
 
   return (
     <GlassPanel
@@ -101,7 +96,7 @@ export function SuggestedHubCard({
         {exists ? (
           <Button variant="primary" size="sm" className="flex-1" onClick={onOpen}>Open</Button>
         ) : (
-          <Button ref={createBtnRef as any} variant="primary" size="sm" className="flex-1" onClick={onCreate}>Create</Button>
+          <Button variant="primary" size="sm" className="flex-1" onClick={onCreate}>Create</Button>
         )}
         <Button variant="ghost" size="sm" className="px-3" onClick={onNotInterested}>
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
