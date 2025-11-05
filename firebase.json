@@ -45,18 +45,7 @@
   "apphosting": [
     {
       "backendId": "this-is",
-      "rootDir": "/src",
-      "ignore": [
-        "node_modules",
-        ".git",
-        "firebase-debug.log",
-        "firebase-debug.*.log",
-        "functions"
-      ]
-    },
-    {
-      "backendId": "this-is",
-      "rootDir": "/src",
+      "rootDir": ".",
       "ignore": [
         "node_modules",
         ".git",
