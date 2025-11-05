@@ -117,9 +117,9 @@ const ListCard = ({
   const hasMorePlaces = places.length > 3
 
   return (
-    <div className="bg-white/90 backdrop-blur-glass rounded-2xl shadow-crystal border border-white/30 overflow-hidden hover:shadow-xl transition-all duration-300 group">
+    <div className="bg-white rounded-xl shadow-botanical border border-linen-200 overflow-hidden hover:shadow-liquid transition-all duration-300 group">
       {/* Header */}
-      <div className="p-6 border-b border-warm-100">
+      <div className="p-6 border-b border-linen-100">
         <div className="flex items-start justify-between mb-4">
           <div className="flex-1">
             <h3 className="font-serif font-semibold text-earth-800 text-xl mb-2">
@@ -210,7 +210,7 @@ const ListCard = ({
       <div className="p-6">
         <div className="space-y-4">
           {visiblePlaces.map((place) => (
-            <div key={place.id} className="p-4 bg-gradient-to-r from-linen-50 to-cream-50 rounded-xl border border-linen-100 hover:bg-linen-100/50 transition-all duration-300 group/place">
+            <div key={place.id} className="p-4 bg-gradient-to-r from-linen-50 to-cream-50 rounded-lg border border-linen-100 hover:bg-linen-100/50 transition-all duration-300 group/place">
               <div className="flex items-start gap-4">
                 {/* Place image */}
                 <div className="relative">
@@ -290,7 +290,7 @@ const ListCard = ({
         )}
 
         {/* Place count */}
-        <div className="text-center mt-6 pt-4 border-t border-warm-100">
+        <div className="text-center mt-6 pt-4 border-t border-linen-100">
           <div className="flex items-center justify-center gap-2 text-sm text-earth-500">
             <StarIcon className="w-4 h-4" />
             <span>{places.length} place{places.length !== 1 ? 's' : ''}</span>

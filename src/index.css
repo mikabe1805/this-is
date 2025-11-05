@@ -24,37 +24,58 @@
 }
 
 @layer components {
+  /* Typography utilities */
   .text-cozy-title { @apply text-[1.125rem] sm:text-lg font-serif font-semibold text-charcoal-800; }
   .text-cozy-sub { @apply text-[0.95rem] sm:text-base text-charcoal-600; }
   .text-cozy-meta { @apply text-[0.875rem] text-charcoal-500; }
+
+  /* Type scale helpers - use these for consistent hierarchy */
+  .type-title { @apply text-[1.125rem] sm:text-xl font-serif font-semibold text-charcoal-800; }
+  .type-subtitle { @apply text-[1rem] sm:text-[1.05rem] font-medium text-charcoal-700; }
+  .type-body { @apply text-[0.95rem] text-charcoal-700; }
+  .type-caption { @apply text-[0.8125rem] text-charcoal-500; }
+  .type-label { @apply text-sm font-medium text-charcoal-700; }
+
+  /* Card utilities */
   .cozy-card { @apply bg-white/98 rounded-2xl border border-linen-200 shadow-botanical; }
-  /* Semantic tokens */
+  .card-standard { @apply bg-white rounded-xl border border-linen-200 shadow-botanical; }
+  .card-interactive { @apply bg-white rounded-xl border border-linen-200 shadow-soft hover:shadow-botanical transition-all duration-200 cursor-pointer; }
+
+  /* Semantic color tokens */
   .bg-surface { background-color: var(--surface); }
   .bg-surface-2 { background-color: var(--surface-2); }
   .text-muted { color: var(--muted); }
   .text-primary { color: var(--primary); }
   .border-token { border-color: var(--border); }
-  /* Buttons */
-  .btn { @apply inline-flex items-center justify-center rounded-full transition-colors duration-200 ease-out gap-2; min-height: 40px; }
+
+  /* Button utilities - use Button component instead when possible */
+  .btn { @apply inline-flex items-center justify-center rounded-full transition-all duration-200 ease-out gap-2 focus-visible:ring-2 focus-visible:ring-sage-300; min-height: 40px; }
   .btn-sm { @apply px-3 py-1.5 text-sm; min-height: 36px; }
   .btn-md { @apply px-3.5 py-2 text-sm; min-height: 40px; }
   .btn-lg { @apply px-4 py-2.5 text-base; min-height: 44px; }
 
-  .btn-primary { @apply btn btn-md font-semibold text-white; background-color: var(--primary); }
+  .btn-primary { @apply btn btn-md font-semibold text-white shadow-soft hover:shadow-cozy; background-color: var(--primary); }
   .btn-primary:hover { background-color: var(--primary-strong); }
   .btn-primary:disabled { @apply opacity-60 cursor-not-allowed; }
 
-  .btn-secondary { @apply btn btn-md font-medium border; background-color: var(--surface-2); border-color: var(--border); color: var(--text); }
+  .btn-secondary { @apply btn btn-md font-medium border shadow-soft; background-color: var(--surface-2); border-color: var(--border); color: var(--text); }
   .btn-secondary:hover { background-color: #F5F3EE; }
   .btn-secondary:disabled { @apply opacity-60 cursor-not-allowed; }
 
-  .btn-icon { @apply inline-flex items-center justify-center rounded-full border border-linen-200 bg-white text-charcoal-600 hover:bg-linen-100 transition-colors; width: 40px; height: 40px; }
+  .btn-icon { @apply inline-flex items-center justify-center rounded-full border border-linen-200 bg-white text-charcoal-600 hover:bg-linen-100 transition-colors focus-visible:ring-2 focus-visible:ring-sage-300; width: 40px; height: 40px; }
   .btn-icon:disabled { @apply opacity-60 cursor-not-allowed; }
-  /* Type scale helpers */
-  .type-title { @apply text-[1.125rem] sm:text-xl font-serif font-semibold; }
-  .type-subtitle { @apply text-[1rem] sm:text-[1.05rem] font-medium; }
-  .type-body { @apply text-[0.95rem]; }
-  .type-caption { @apply text-[0.8125rem] text-charcoal-500; }
+
+  /* Input utilities */
+  .input-standard { @apply w-full px-4 py-2.5 text-sm bg-white border border-linen-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-sage-300 focus:border-sage-300 transition-colors placeholder:text-charcoal-400; }
+  .input-error { @apply border-coral-300 focus:ring-coral-300 focus:border-coral-300; }
+
+  /* Badge utilities */
+  .badge { @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium; }
+  .badge-primary { @apply badge bg-sage-100 text-sage-700; }
+  .badge-secondary { @apply badge bg-linen-100 text-charcoal-700; }
+  .badge-success { @apply badge bg-sage-100 text-sage-700; }
+  .badge-warning { @apply badge bg-gold-100 text-gold-700; }
+  .badge-danger { @apply badge bg-coral-100 text-coral-700; }
 }
 
 /* Line clamp utilities for text truncation */
