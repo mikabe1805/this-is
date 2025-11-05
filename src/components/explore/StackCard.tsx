@@ -70,7 +70,7 @@ export function StackCard({
                 }}
               />
             )}
-            <div className="scrim absolute inset-0" style={{background: 'linear-gradient(to bottom, rgba(0,0,0,0.35), rgba(0,0,0,0.08))'}} />
+            <div className="scrim absolute inset-0" />
             
             {/* Badge */}
             {item.type === 'place' && Math.random() > 0.7 && (
@@ -100,14 +100,14 @@ export function StackCard({
           
           {/* Content */}
           <div className="flex-1 p-4 flex flex-col">
-            <h3 className="font-semibold text-title line-clamp-2 mb-2">
+            <h3 className="text-title-glass font-semibold line-clamp-2 mb-2">
               {item.title}
             </h3>
-            <p className="text-body text-sm line-clamp-2 mb-3 flex-1">
+            <p className="text-body-glass text-sm line-clamp-2 mb-3 flex-1">
               {item.description}
             </p>
             {(item.location || typeof item.distanceKm === 'number') && (
-              <p className="text-meta text-xs mb-3">
+              <p className="text-meta-glass text-xs mb-3">
                 {typeof item.distanceKm === 'number' && (
                   <>
                     {((item.distanceKm || 0) * 0.621371).toFixed(1)} mi{item.location ? ' • ' : ''}

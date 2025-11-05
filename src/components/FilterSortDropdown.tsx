@@ -230,7 +230,7 @@ const FilterSortDropdown: React.FC<FilterSortDropdownProps> = ({
             {availableTags.filter(t => t.toLowerCase().includes(tagQuery.toLowerCase())).length > 12 && (
               <button
                 onClick={() => setShowTagSearch(true)}
-                className="px-3 py-2 rounded-full text-sm font-medium bg-linen-100 border border-linen-200 text-charcoal-600 hover:bg-linen-200 transition"
+                className="pill pill--quiet h-[32px] px-3 text-[13px]"
               >
                 More tags
               </button>
@@ -240,7 +240,7 @@ const FilterSortDropdown: React.FC<FilterSortDropdownProps> = ({
         {onOpenAdvanced && (
           <div className="mt-4 mb-2 flex justify-end">
             <button
-              className="btn-secondary btn-sm"
+              className="pill pill--quiet h-[36px] px-4 text-[13px]"
               onClick={() => { onOpenAdvanced(); onClose(); }}
             >
               Advanced filters
@@ -249,7 +249,7 @@ const FilterSortDropdown: React.FC<FilterSortDropdownProps> = ({
         )}
         <div className="mt-4 flex gap-2">
           <button
-            className="flex-1 btn-primary"
+            className="flex-1 pill pill--primary h-[44px]"
             onClick={() => {
               if (onApplyFilters) {
                 onApplyFilters()
@@ -260,7 +260,7 @@ const FilterSortDropdown: React.FC<FilterSortDropdownProps> = ({
             Apply Filters
           </button>
           <button
-            className="btn-secondary"
+            className="pill pill--quiet h-[44px]"
             onClick={() => {
               // Reset both general and advanced filters
               resetFilters()

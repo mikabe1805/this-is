@@ -42,11 +42,11 @@ export default function CreateHubModal({ isOpen, onClose, place, onCreate }: Cre
 
   return (
     <div className="fixed inset-0 z-[10020] flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/30" onClick={onClose} />
-      <div className="relative w-full max-w-md rounded-3xl overflow-hidden shadow-2xl border border-white/25"
-           style={{ background: 'linear-gradient(135deg, rgba(248, 252, 255, 0.75), rgba(220, 236, 255, 0.45))', backdropFilter: 'blur(18px) saturate(1.2)' }}>
+      <div className="absolute inset-0 bg-black/35 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative w-full max-w-md rounded-3xl overflow-hidden shadow-2xl border border-white/35"
+           style={{ background: 'linear-gradient(145deg, rgba(255,255,255,0.85), rgba(255,255,255,0.70))', backdropFilter: 'blur(18px) saturate(1.08)' }}>
         <div className="absolute top-3 right-3 z-10">
-          <button onClick={onClose} className="w-9 h-9 rounded-full bg-white/60 hover:bg-white/80 border border-white/40 shadow-md flex items-center justify-center">
+          <button onClick={onClose} className="pill pill--quiet h-[36px] min-w-[36px] px-0">
             <XMarkIcon className="w-5 h-5 text-blue-900" />
           </button>
         </div>
@@ -73,13 +73,13 @@ export default function CreateHubModal({ isOpen, onClose, place, onCreate }: Cre
 
         {/* Form */}
         <div className="px-5 pb-5">
-          <label className="block text-sm text-blue-900/90 mb-1">Name</label>
+          <label className="block text-sm text-bark-800 mb-1">Name</label>
           <input value={name} onChange={e=>setName(e.target.value)} className="w-full px-3 py-2 rounded-xl border border-white/40 bg-white/70 focus:outline-none" placeholder="Hub name" />
 
-          <label className="block text-sm text-blue-900/90 mt-3 mb-1">Description (optional)</label>
+          <label className="block text-sm text-bark-800 mt-3 mb-1">Description (optional)</label>
           <textarea value={description} onChange={e=>setDescription(e.target.value)} rows={3} className="w-full px-3 py-2 rounded-xl border border-white/40 bg-white/70 focus:outline-none" placeholder="Short description" />
 
-          <label className="block text-sm text-blue-900/90 mt-3 mb-1">Location</label>
+          <label className="block text-sm text-bark-800 mt-3 mb-1">Location</label>
           <div className="flex items-center gap-2">
             <MapPinIcon className="w-4 h-4 text-blue-800" />
             <div className="flex-1">
@@ -99,8 +99,7 @@ export default function CreateHubModal({ isOpen, onClose, place, onCreate }: Cre
           <button
             disabled={!name || !address}
             onClick={async () => { await onCreate({ name, description: description || undefined, address, coordinates: coords, mainImage: selectedImage }); onClose() }}
-            className="mt-4 w-full py-3 rounded-xl font-semibold text-white shadow-lg disabled:opacity-50"
-            style={{ background: 'linear-gradient(135deg, #1ea4ff, #1d4ed8)' }}
+            className="mt-4 w-full pill pill--primary h-[44px] text-[15px] font-semibold disabled:opacity-50"
           >
             Create Hub
           </button>

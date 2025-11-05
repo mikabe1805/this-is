@@ -448,7 +448,7 @@ const Search = () => {
             onApplyFilters={() => performSearch(searchQuery, { sortBy, tags: activeFilters })}
             onOpenAdvanced={() => setShowAdvanced(true)}
           />
-          <button type="button" onClick={() => console.log('Map view - coming soon!')} className="btn-primary text-sm">
+          <button type="button" onClick={() => console.log('Map view - coming soon!')} className="pill pill--primary h-[36px] px-4 text-[13px]">
             <MapIcon className="w-4 h-4" /><span>Map</span>
           </button>
         </form>
@@ -492,7 +492,7 @@ const Search = () => {
                 onClick={() => setActiveFiltersState(prev => prev.filter(x => x !== t))}
               />
             ))}
-            <button className="btn-secondary btn-sm" onClick={() => setActiveFiltersState([])}>Clear</button>
+            <button className="pill pill--quiet h-[32px] px-3 text-[13px]" onClick={() => setActiveFiltersState([])}>Clear</button>
           </div>
         )}
         {isSearching ? (
@@ -509,7 +509,7 @@ const Search = () => {
                   <div className="mb-3 text-sm text-charcoal-600">
                     Improve recommendations by using your location.
                     <button
-                      className="ml-2 btn-secondary btn-sm"
+                      className="ml-2 pill pill--quiet h-[32px] px-3 text-[13px]"
                       onClick={async () => {
                         try {
                           if ('geolocation' in navigator) {
@@ -529,7 +529,7 @@ const Search = () => {
                   <div className="mb-3 text-sm flex items-center gap-2 bg-linen-50 border border-linen-200 rounded-xl p-2">
                     <span>You often like â€œ{suggestedTag}â€.</span>
                     <button
-                      className="px-3 py-1.5 rounded-full bg-gold-100 text-gold-700 hover:bg-gold-200 border border-gold-200"
+                      className="pill pill--quiet h-[32px] px-3 text-[13px]"
                       onClick={async () => {
                         try {
                           const prefs = await firebaseDataService.getUserPreferences(currentUser!.id);
@@ -582,18 +582,18 @@ const Search = () => {
                         <img src={(p as any).mainImage || '/assets/leaf.png'} alt={p.name} className="w-14 h-14 rounded-xl2 object-cover shadow-soft" />
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center justify-between">
-                            <h4 className="text-title truncate">{p.name}</h4>
-                            <span className="text-meta text-xs">{(p.tags||[]).slice(0,2).map(t=>`#${t}`).join(' ')}</span>
+                            <h4 className="text-title-glass truncate">{p.name}</h4>
+                            <span className="text-meta-glass text-xs">{(p.tags||[]).slice(0,2).map(t=>`#${t}`).join(' ')}</span>
                           </div>
-                          <div className="text-body text-sm line-clamp-1">{p.address}</div>
+                          <div className="text-body-glass text-sm line-clamp-1">{p.address}</div>
                         </div>
                       </div>
                       <div className="mt-3 flex items-center justify-end gap-2 bg-white/60 backdrop-blur-md rounded-xl p-1">
-                        <button onClick={() => handlePlaceClick(p)} className="btn-primary text-sm shimmer shimmer-run">View</button>
+                        <button onClick={() => handlePlaceClick(p)} className="pill pill--primary h-[36px] px-4 text-[13px] shimmer shimmer-run">View</button>
                         {currentUser && (
                           <>
-                          <button onClick={async (e) => { e.stopPropagation(); setSelectedPlace(p as any); setShowSaveModal(true) }} className="btn-secondary text-sm">Save</button>
-                          <button onClick={async (e) => { e.stopPropagation(); await firebaseDataService.markPlaceNotInterested(currentUser.id, p.id); setRecommendedHubs(prev=>prev.filter(x=>x.id!==p.id)); setExternalHubs(prev=>prev.filter(x=>x.id!==p.id)); }} className="btn-secondary text-sm">Hide</button>
+                          <button onClick={async (e) => { e.stopPropagation(); setSelectedPlace(p as any); setShowSaveModal(true) }} className="pill pill--quiet h-[36px] px-4 text-[13px]">Save</button>
+                          <button onClick={async (e) => { e.stopPropagation(); await firebaseDataService.markPlaceNotInterested(currentUser.id, p.id); setRecommendedHubs(prev=>prev.filter(x=>x.id!==p.id)); setExternalHubs(prev=>prev.filter(x=>x.id!==p.id)); }} className="pill pill--quiet h-[36px] px-4 text-[13px]">Hide</button>
                           </>
                         )}
                       </div>

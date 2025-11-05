@@ -28,16 +28,17 @@ export default function TagPill({
   ariaLabel
 }: TagPillProps) {
   const sizeClasses = size === 'sm'
-    ? 'text-xs px-2.5 py-1'
-    : 'text-sm px-3 py-1.5'
+    ? 'h-[28px] px-3 text-[12px]'
+    : 'h-[32px] px-3.5 text-[13px]'
 
-  const baseClasses = `inline-flex items-center gap-1.5 rounded-full border transition-colors duration-200 ease-out focus:outline-none focus-visible:ring-2 focus-visible:ring-white/50 focus-visible:ring-offset-1 focus-visible:ring-offset-transparent hover-lift`
+  // Use design-system pill primitives for consistent look
+  const baseClasses = `pill pill--quiet inline-flex items-center gap-1.5 hover-lift`
 
   const stateClasses = selected
-    ? 'bg-white/28 border-white/30 text-bark-900'
-    : 'bg-white/22 border-white/26 text-bark-900 backdrop-blur-md hover:bg-white/28 shimmer shimmer-run'
+    ? 'ring-2 ring-white/50'
+    : ''
 
-  const disabledClasses = disabled ? 'opacity-60 cursor-not-allowed hover:bg-inherit' : 'cursor-pointer active:scale-[0.98]'
+  const disabledClasses = disabled ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer active:scale-[0.98]'
 
   const labelText = `#${label}`
   const computedAria = ariaLabel || `${labelText}${typeof count === 'number' ? ` (${count})` : ''}`
@@ -55,7 +56,7 @@ export default function TagPill({
         {icon ? <span className="shrink-0 text-current/80">{icon}</span> : null}
         <span className="whitespace-nowrap">{labelText}</span>
         {typeof count === 'number' && (
-          <span className="ml-0.5 inline-flex items-center justify-center rounded-full bg-linen-100 text-charcoal-600 text-[0.7rem] leading-none px-1.5 py-0.5">
+          <span className="ml-0.5 inline-flex items-center justify-center rounded-full bg-white/60 text-bark-800 text-[11px] leading-none px-1.5 py-0.5">
             {count}
           </span>
         )}

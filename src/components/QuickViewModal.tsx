@@ -32,9 +32,9 @@ export default function QuickViewModal({ isOpen, onClose, title, subtitle, image
         )}
         {/* content */}
         <div className="p-4">
-          <h3 className="font-semibold text-charcoal-800 text-base line-clamp-2">{title}</h3>
-          {subtitle && <p className="text-sm text-charcoal-600 mt-1 line-clamp-2">{subtitle}</p>}
-          {meta && <p className="text-xs text-charcoal-500 mt-2">{meta}</p>}
+          <h3 className="text-title-glass text-base font-semibold line-clamp-2">{title}</h3>
+          {subtitle && <p className="text-body-glass text-sm mt-1 line-clamp-2">{subtitle}</p>}
+          {meta && <p className="text-meta-glass text-xs mt-2">{meta}</p>}
           {chips.length > 0 && (
             <div className="mt-2 flex items-center gap-1 flex-wrap">
               {chips.map((c, i)=> <InfoChip key={i} label={c.label} tone={c.tone} />)}
@@ -46,5 +46,4 @@ export default function QuickViewModal({ isOpen, onClose, title, subtitle, image
     </div>
   )
 }
-
 

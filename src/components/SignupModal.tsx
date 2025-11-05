@@ -462,22 +462,22 @@ export default function SignupModal({ isOpen, onClose, onSwitchToLogin, onStartT
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-white/90 backdrop-blur-md rounded-2xl shadow-xl border border-warmGray-200 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 bg-black/45 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      <div className="rounded-2xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto" style={{ background: 'linear-gradient(145deg, rgba(255,255,255,0.88), rgba(255,255,255,0.74))', backdropFilter: 'blur(18px) saturate(1.06)', border: '1px solid rgba(255,255,255,0.45)' }}>
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-warmGray-200">
           <div className="flex items-center space-x-3">
             {getStepIcon(currentStep)}
             <div>
-              <h2 className="text-2xl font-serif font-semibold text-brown-700 tracking-wide">Join This Is</h2>
-              <p className="text-sm text-brown-500">{getStepTitle(currentStep)} ({currentStep}/5)</p>
+              <h2 className="text-2xl font-serif font-semibold text-title-glass tracking-wide">Join This Is</h2>
+              <p className="text-sm text-meta-glass">{getStepTitle(currentStep)} ({currentStep}/5)</p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-2 rounded-full hover:bg-warmGray-100 transition-colors"
+            className="pill pill--quiet h-[36px] min-w-[36px] px-0"
           >
-            <XMarkIcon className="w-6 h-6 text-brown-600" />
+            <XMarkIcon className="w-5 h-5" />
           </button>
         </div>
 

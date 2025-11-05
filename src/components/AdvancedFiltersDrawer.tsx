@@ -49,7 +49,7 @@ export default function AdvancedFiltersDrawer({ isOpen, onClose, onApply }: Prop
           <h3 className="text-lg font-semibold">Advanced Filters</h3>
           <div className="flex items-center gap-3">
             <button
-              className="btn-secondary btn-sm"
+              className="pill pill--quiet h-[36px] px-4 text-[13px]"
             onClick={() => {
               // Reset only advanced fields; preserve global tags
               const reset = { origin: 'profile' as const, unit: 'mi' as const, distanceKm: 80, priceLevels: [], openNow: false }
@@ -131,8 +131,8 @@ export default function AdvancedFiltersDrawer({ isOpen, onClose, onApply }: Prop
         </div>
 
         <div className="mt-4 flex gap-2">
-          <button className="flex-1 btn-secondary" onClick={onClose}>Cancel</button>
-          <button className="flex-1 btn-primary"
+          <button className="flex-1 pill pill--quiet h-[44px]" onClick={onClose}>Cancel</button>
+          <button className="flex-1 pill pill--primary h-[44px]"
             onClick={()=>{
               // Apply only advanced fields; keep existing tags
               const { origin, unit, distanceKm, priceLevels, openNow, location } = local
@@ -156,7 +156,6 @@ export default function AdvancedFiltersDrawer({ isOpen, onClose, onApply }: Prop
     document.body
   )
 }
-
 
 
 

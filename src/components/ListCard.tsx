@@ -117,12 +117,12 @@ const ListCard = ({
   const hasMorePlaces = places.length > 3
 
   return (
-    <div className="glass-card sun-edge rounded-2xl overflow-hidden hover:shadow-lg transition-all duration-300 group">
+    <div className="glass-card sun-edge rounded-2xl overflow-hidden hover-lift hover-lift-on transition-all duration-300 group">
       {/* Header */}
       <div className="p-5 border-b border-white/20">
         <div className="flex items-start justify-between mb-4">
           <div className="flex-1">
-            <h3 className="text-title text-[18px] mb-2">
+            <h3 className="text-title-glass text-[18px] mb-2">
               {title}
             </h3>
             {description && (
@@ -174,7 +174,7 @@ const ListCard = ({
               className="w-8 h-8 rounded-full object-cover border-2 border-white shadow-sm"
             />
             <div>
-              <span className="text-[13px] font-medium text-body">{owner.name}</span>
+              <span className="text-[13px] font-medium text-body-glass">{owner.name}</span>
               {isPrivate && (
                 <span className="text-[11px] badge-moss ml-2">
                   Private
@@ -186,22 +186,12 @@ const ListCard = ({
           <div className="flex items-center gap-2">
             <button
               onClick={onLike}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[13px] font-medium transition-all ${
-                isLiked
-                  ? 'bg-moss-600 text-white'
-                  : 'bg-white/25 text-bark-700 hover:bg-white/35 backdrop-blur-sm'
-              }`}
+              className={`pill pill--quiet h-[32px] px-3 text-[13px] font-medium ${isLiked ? 'ring-2 ring-moss-600 !text-bark-900' : ''}`}
             >
               {isLiked ? <HeartIconSolid className="w-3.5 h-3.5" /> : <HeartIcon className="w-3.5 h-3.5" />}
               <span>{likes}</span>
             </button>
-
-            <button
-              onClick={onView}
-              className="px-4 py-1.5 btn-primary text-[13px] font-medium"
-            >
-              View
-            </button>
+            <button onClick={onView} className="pill pill--primary h-[36px] px-4 text-[13px] font-medium">View</button>
           </div>
         </div>
       </div>
@@ -239,7 +229,7 @@ const ListCard = ({
                 {/* Place details */}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-1.5">
-                    <h4 className="text-title text-[14px] truncate">
+                    <h4 className="text-title-glass text-[14px] truncate">
                       {place.name}
                     </h4>
                     <span className={`text-[10px] px-1.5 py-0.5 rounded-full text-white font-medium ${
@@ -254,7 +244,7 @@ const ListCard = ({
                   {/* Note */}
                   {place.note && (
                     <div className="bg-white/30 backdrop-blur-sm rounded-lg p-2 mb-2 border border-white/20">
-                      <p className="text-meta text-[12px] italic leading-relaxed">
+                      <p className="text-meta-glass text-[12px] italic leading-relaxed">
                         "{place.note}"
                       </p>
                     </div>
