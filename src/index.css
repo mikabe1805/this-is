@@ -23,6 +23,10 @@
     position: fixed;
     inset: 0;
     overscroll-behavior: none;
+    /* Block native gestures (pinch-zoom, two-finger scroll, pull-to-refresh)
+       at the document root. Inner scroll containers re-enable pan-y on
+       themselves below. */
+    touch-action: none;
   }
   body {
     color: var(--ink);
@@ -36,16 +40,23 @@
     background-attachment: fixed;
     -webkit-tap-highlight-color: transparent;
   }
-  #root { height: 100%; }
-
-  /* Smooth momentum scrolling + isolated overscroll for any scroll region.
-     `[data-scroll-root]` is the main feed in App.tsx. */
-  [data-scroll-root],
-  .modal-paper {
-    -webkit-overflow-scrolling: touch;
-    overscroll-behavior: contain;
+  #root {
+    position: fixed;
+    inset: 0;
+    overflow: hidden;
   }
-  main { overscroll-behavior-y: contain; }
+
+  /* Inner scroll regions: re-enable vertical pan, smooth momentum, and
+     stop any overscroll glow/bounce so iOS doesn't drag content past
+     scrollTop=0 at the top of the feed. `none` is stricter than `contain`
+     and is what kills the residual top-of-page bounce. */
+  [data-scroll-root],
+  .modal-paper,
+  main {
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: none;
+    touch-action: pan-y;
+  }
 
   button:focus { outline: none; }
   button:focus-visible {
