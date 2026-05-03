@@ -46,7 +46,7 @@ export default function CreateHubModal({ isOpen, onClose, place, onCreate }: Cre
       <div className="relative w-full max-w-md rounded-3xl overflow-hidden shadow-2xl border border-white/35"
            style={{ background: 'linear-gradient(145deg, rgba(255,255,255,0.85), rgba(255,255,255,0.70))', backdropFilter: 'blur(18px) saturate(1.08)' }}>
         <div className="absolute top-3 right-3 z-10">
-          <button onClick={onClose} className="pill pill--quiet h-[36px] min-w-[36px] px-0">
+          <button onClick={onClose} className="pill pill--quiet h-[36px] min-w-[36px] px-0" aria-label="Close">
             <XMarkIcon className="w-5 h-5 text-blue-900" />
           </button>
         </div>

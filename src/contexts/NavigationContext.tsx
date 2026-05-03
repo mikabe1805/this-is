@@ -76,39 +76,77 @@ export const NavigationProvider = ({ children }: NavigationProviderProps) => {
   };
 
 
-  const openHubModal = async (hub: Hub, from: string = 'unknown', options: { initialTab?: 'overview' | 'posts', postId?: string, showPostOverlay?: boolean } = {}) => {
-    console.log('Opening hub modal from:', from, 'hub:', hub.name, 'options:', options)
-    
-    // Refresh hub data from Firebase to ensure we have the latest banner and description
-    try {
-      console.log('NavigationContext: Refreshing hub data for:', hub.id)
-      const refreshedHub = await firebaseDataService.getPlace(hub.id)
-      if (refreshedHub) {
-        console.log('NavigationContext: Hub data refreshed:', refreshedHub)
-        hub = refreshedHub // Use the refreshed data
-      }
-    } catch (error) {
-      console.error('NavigationContext: Error refreshing hub data:', error)
-    }
-    
-    if (from !== 'back') {
-      navigationHistory.push({ type: 'hub', id: hub.id, from })
-    }
-    
-    if (showListModal) {
-      setShowListModal(false)
-    } else if (showProfileModal) {
-      setShowProfileModal(false)
-    }
-    
-    closePostOverlay();
+  // UX refresh: hubs are routes now, not modals. Keep the function name for
+  // call-site compatibility, but just navigate to /place/:id. Optional postId is
+  // forwarded as a query param so PlaceHub can scroll to a specific post.
+  //
+  // Google-candidates: silently materialize on open. The id we get from a
+  // Google card is the Places API placeId; that doc doesn't exist in the
+  // `places/` collection yet, so navigating directly would 404. Calling
+  // `ensureHubFromPlace` first creates the hub doc (or returns the existing
+  // id when one already matches), so the route is always valid.
+  const openHubModal = async (hub: Hub, from: string = 'unknown', options: { initialTab?: 'overview' | 'posts', postId?: string } = {}) => {
+    const candidateId = hub?.id
+    if (!candidateId) return
 
-    setSelectedHub(hub)
-    setHubModalOptions(options)
-    setShowHubModal(true)
-    if (!from.endsWith('-back')) {
-      setHubModalFrom(from)
+    // Resolve the hub id (silently materialize a Google place into a hub
+    // doc if it doesn't exist yet).
+    let resolvedId = candidateId
+    let resolvedHub: Hub = hub
+    try {
+      const ensured = await firebaseDataService.ensureHubFromPlace({
+        id: candidateId,
+        placeId: (hub as Hub & { placeId?: string }).placeId,
+        name: hub.name,
+        address: (hub as Hub & { address?: string; location?: { address?: string } }).address
+          || (hub as Hub & { location?: { address?: string } }).location?.address,
+        description: (hub as Hub & { description?: string }).description,
+        coordinates: (hub as Hub & { coordinates?: { lat?: number; lng?: number }; location?: { lat?: number; lng?: number } }).coordinates
+          || (hub as Hub & { location?: { lat?: number; lng?: number } }).location,
+        photos: (hub as Hub & { photos?: { name: string }[] }).photos,
+        primaryType: (hub as Hub & { primaryType?: string }).primaryType,
+        types: (hub as Hub & { types?: string[] }).types,
+      })
+      if (ensured?.id) {
+        resolvedId = ensured.id
+        resolvedHub = { ...hub, id: ensured.id } as Hub
+      }
+    } catch (e) {
+      console.warn('[openHubModal] ensureHubFromPlace failed; using raw id', e)
     }
+
+    // Modal-stack mode: when invoked from inside an existing modal flow,
+    // keep the user in the modal stack rather than navigating to the
+    // /place/:id route. Clicking a place inside ListModal used to bounce
+    // the user out to a full-screen page and lose the breadcrumb back to
+    // the list — now we keep the list modal underneath, push the hub onto
+    // navigationHistory, and render an inline HubModal on top.
+    const inModalContext = showListModal || showProfileModal || showHubModal
+    if (inModalContext) {
+      if (from !== 'back') {
+        navigationHistory.push({ type: 'hub', id: resolvedId, from })
+      }
+      setSelectedHub(resolvedHub)
+      setHubModalOptions(options)
+      setShowHubModal(true)
+      // Keep list/profile underneath visually but hide them so the hub modal
+      // is the foreground panel. Closing the hub modal will pop history and
+      // re-open the underlying list/profile via goBack.
+      if (showListModal) setShowListModal(false)
+      if (showProfileModal) setShowProfileModal(false)
+      if (!from.endsWith('-back')) setHubModalFrom(from)
+      return
+    }
+
+    // Standalone mode: navigate to the route as before.
+    closePostOverlay()
+    setShowHubModal(false)
+    setSelectedHub(null)
+    const params = new URLSearchParams()
+    if (options.postId) params.set('post', options.postId)
+    if (options.initialTab) params.set('tab', options.initialTab)
+    const qs = params.toString()
+    navigate(`/place/${resolvedId}${qs ? `?${qs}` : ''}`)
   }
 
   const openListModal = (list: List, from: string = 'unknown') => {
@@ -192,23 +230,47 @@ export const NavigationProvider = ({ children }: NavigationProviderProps) => {
 
   
   const goBack = async () => {
+    // History-driven where modal stack applies (list/user/hub). Pops the
+    // current entry, then re-opens whatever was underneath it.
     const lastState = navigationHistory.pop();
     const currentState = navigationHistory.peek();
     console.log('Going back from:', lastState, 'to:', currentState);
 
+    // Always close the current hub modal first if one is open — popping the
+    // history entry alone leaves it on screen.
+    if (lastState?.type === 'hub' && showHubModal) {
+      setShowHubModal(false);
+      setSelectedHub(null);
+      setHubModalOptions(null);
+      setHubModalFrom(null);
+    }
+
     if (currentState) {
-      if (currentState.type === 'hub') {
-        const hub = await firebaseDataService.getPlace(currentState.id);
-        if (hub) openHubModal(hub, 'back');
-      } else if (currentState.type === 'list') {
+      if (currentState.type === 'list') {
         const list = await firebaseDataService.getList(currentState.id);
         if (list) openListModal(list, 'back');
-      } else if (currentState.type === 'user') {
-        openProfileModal(currentState.id, 'back');
+        return;
       }
-    } else {
-      exitModalFlow();
+      if (currentState.type === 'user') {
+        openProfileModal(currentState.id, 'back');
+        return;
+      }
+      if (currentState.type === 'hub') {
+        // Re-open the underlying hub from history.
+        const place = await firebaseDataService.getPlace(currentState.id);
+        if (place) {
+          setSelectedHub(place as unknown as Hub);
+          setShowHubModal(true);
+        }
+        return;
+      }
     }
+    // Empty stack — exit the modal flow entirely.
+    if (showHubModal || showListModal || showProfileModal) {
+      exitModalFlow();
+      return;
+    }
+    try { navigate(-1) } catch { exitModalFlow() }
   };
 
   const openFullScreenHub = (hub: Hub) => {
@@ -231,6 +293,19 @@ export const NavigationProvider = ({ children }: NavigationProviderProps) => {
     setShowListModal(false)
     setShowProfileModal(false)
     setShowPostModal(false)
+    // Clear the associated data too — otherwise the next time a modal is
+    // opened via the same context, stale `selectedHub` / `selectedList` flash
+    // before the new data resolves.
+    setSelectedHub(null)
+    setSelectedList(null)
+    setSelectedUserId(null)
+    setSelectedPostId(null)
+    setHubModalOptions(null)
+    setHubModalFrom(null)
+    setListModalFrom(null)
+    setProfileModalFrom(null)
+    setPreviousList(null)
+    setPreviousUserId(null)
     navigationHistory.clear()
   }
 

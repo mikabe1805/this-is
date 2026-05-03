@@ -1,7 +1,8 @@
 import { XMarkIcon, LinkIcon, ShareIcon, ChatBubbleLeftIcon, EnvelopeIcon, DocumentDuplicateIcon, CheckIcon } from '@heroicons/react/24/outline'
-import { useState } from 'react'
+import { useRef, useState } from 'react'
+import { useModalDismiss } from '../hooks/useModalDismiss'
+import { useSwipeToDismiss } from '../hooks/useSwipeToDismiss'
 import { createPortal } from 'react-dom'
-import Button from './Button'
 
 interface ShareModalProps {
   isOpen: boolean
@@ -117,80 +118,69 @@ const ShareModal = ({ isOpen, onClose, title, description, url, image, type }: S
     onClose()
   }
 
+  const sheetRef = useRef<HTMLDivElement>(null)
+  useModalDismiss(isOpen, handleClose)
+  useSwipeToDismiss({ ref: sheetRef, onDismiss: handleClose, enabled: isOpen })
+
   if (!isOpen) return null
 
   const modalContent = (
-    <div className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center p-4">
-      {/* Backdrop */}
-      <div 
-        className="absolute inset-0 bg-charcoal-900/50 backdrop-blur-sm"
+    <div className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center">
+      <div
+        className="absolute inset-0"
+        style={{ background: 'rgba(46, 28, 13, 0.55)', backdropFilter: 'blur(6px)' }}
         onClick={handleClose}
       />
-      
-      {/* Modal */}
-      <div className="relative w-full max-w-md bg-white rounded-t-2xl sm:rounded-2xl shadow-botanical border border-linen-200">
-        {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-linen-200">
-          <h2 className="text-lg font-serif font-semibold text-charcoal-800">Share</h2>
+      <div
+        ref={sheetRef}
+        className="modal-paper relative w-full sm:max-w-md max-h-[88vh] rounded-t-[24px] sm:rounded-[24px] overflow-hidden flex flex-col"
+        style={{ boxShadow: '0 -8px 40px rgba(46, 28, 13, 0.25), 0 24px 60px rgba(46, 28, 13, 0.30)' }}
+      >
+        <div data-drag-handle className="sm:hidden flex justify-center py-3 shrink-0 touch-none" aria-hidden>
+          <span className="w-10 h-1 rounded-full bg-ink-faint" />
+        </div>
+        <div data-drag-handle className="flex items-center justify-between px-5 py-4 border-b border-edge relative z-10">
+          <p className="label-eyebrow text-ink-mute">Share</p>
           <button
             onClick={handleClose}
-            className="btn-icon"
+            className="h-9 w-9 rounded-full hover:bg-paper-deep flex items-center justify-center"
+            aria-label="Close"
           >
-            <XMarkIcon className="w-5 h-5" />
+            <XMarkIcon className="w-5 h-5 text-ink" />
           </button>
         </div>
 
-        {/* Content Preview */}
-        <div className="p-4 border-b border-linen-200">
-          <div className="flex gap-3">
-            {image && (
-              <div className="w-16 h-16 rounded-xl overflow-hidden bg-linen-100 flex-shrink-0">
-                <img 
-                  src={image} 
-                  alt={title}
-                  className="w-full h-full object-cover"
-                />
-              </div>
-            )}
-            <div className="flex-1 min-w-0">
-              <h3 className="font-semibold text-charcoal-800 mb-1 line-clamp-2">{title}</h3>
-              <p className="text-sm text-charcoal-600 line-clamp-2">{description}</p>
-              <div className="flex items-center gap-2 mt-2">
-                <span className="text-xs px-2 py-1 rounded-full bg-sage-100 text-sage-700 font-medium">
-                  {type}
-                </span>
-              </div>
+        <div className="px-5 py-5 border-b border-edge flex items-center gap-3.5">
+          {image && (
+            <div className="w-14 h-14 rounded-[10px] overflow-hidden bg-paper-deep flex-shrink-0 ring-1 ring-edge">
+              <img src={image} alt={title} className="w-full h-full object-cover" />
             </div>
+          )}
+          <div className="flex-1 min-w-0">
+            <h3 className="font-display text-[20px] leading-tight text-ink truncate">{title}</h3>
+            {description && (
+              <p className="text-[12px] text-ink-soft truncate mt-1">{description}</p>
+            )}
           </div>
         </div>
 
-        {/* Share Options */}
-        <div className="p-4">
-          <div className="grid grid-cols-2 gap-3">
+        <div className="px-5 py-5">
+          <div className="grid grid-cols-2 gap-2">
             {shareOptions.map((option) => {
               const Icon = option.icon
-              const isSelected = selectedOption === option.id
               const isCopied = copied && option.id === 'copy-link'
-              
               return (
                 <button
                   key={option.id}
                   onClick={() => handleOptionClick(option.id)}
-                  className={`p-4 rounded-xl border border-linen-200 transition-all duration-200 flex flex-col items-center gap-2 ${
-                    isSelected 
-                      ? 'bg-sage-50 border-sage-200 shadow-soft' 
-                      : `${option.bgColor} ${option.hoverColor} hover:shadow-soft`
-                  }`}
+                  className="btn-secondary px-4 py-3.5 flex flex-col items-start gap-2 text-left"
+                  style={{ borderRadius: 14 }}
                 >
-                  <div className={`p-2 rounded-full ${option.bgColor} ${option.color}`}>
-                    {isCopied ? (
-                      <CheckIcon className="w-5 h-5" />
-                    ) : (
-                      <Icon className="w-5 h-5" />
-                    )}
-                  </div>
-                  <span className="text-sm font-medium text-charcoal-700">
-                    {isCopied ? 'Copied!' : option.label}
+                  <span className="w-8 h-8 rounded-full glass-honey flex items-center justify-center">
+                    {isCopied ? <CheckIcon className="w-4 h-4" /> : <Icon className="w-4 h-4" />}
+                  </span>
+                  <span className="label-eyebrow">
+                    {isCopied ? 'Copied' : option.label}
                   </span>
                 </button>
               )
@@ -198,14 +188,14 @@ const ShareModal = ({ isOpen, onClose, title, description, url, image, type }: S
           </div>
         </div>
 
-        {/* Quick Actions */}
-        <div className="p-4 border-t border-linen-200">
-          <Button onClick={handleCopyLink} className="w-full">
-            <span className="inline-flex items-center gap-2">
-              <DocumentDuplicateIcon className="w-5 h-5" />
-              {copied ? 'Link Copied!' : 'Copy Link'}
-            </span>
-          </Button>
+        <div className="px-5 py-4 border-t border-edge">
+          <button
+            onClick={handleCopyLink}
+            className="btn-cta w-full h-12 font-semibold text-[15px] flex items-center justify-center gap-2"
+          >
+            <DocumentDuplicateIcon className="w-5 h-5" />
+            {copied ? 'Link copied' : 'Copy link'}
+          </button>
         </div>
       </div>
     </div>

@@ -3,28 +3,7 @@
  * Use these classes for consistent glass/panel styling
  */
 
-/* Card material - white-tinted glass */
-.glass {
-  position: relative;
-  backdrop-filter: blur(16px) saturate(1.06);
-  background: linear-gradient(145deg, rgba(255,255,255,0.20), rgba(255,255,255,0.08));
-  border: 1px solid rgba(255,255,255,0.32);
-  box-shadow: 0 8px 24px rgba(61,54,48,0.10);
-  border-radius: 16px;
-}
-
-/* Very subtle "sunlight" – keep tiny */
-.sun-edge::before {
-  content: "";
-  position: absolute;
-  inset: -1px;
-  border-radius: inherit;
-  pointer-events: none;
-  background:
-    radial-gradient(420px 300px at 8% 9%, rgba(255,255,255,0.30), rgba(255,255,255,0) 55%),
-    radial-gradient(260px 190px at 10% 12%, rgba(240,230,206,0.08), rgba(240,230,206,0) 60%);
-  mix-blend-mode: screen;
-}
+/* (Glass + sun-edge canonical definitions live in src/styles/glass.css) */
 
 /* Accent rim utility: use sparingly, not on every card */
 .accent-rim {

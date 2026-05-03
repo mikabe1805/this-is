@@ -2,7 +2,10 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { firebaseDataService, type FirebaseSearchData } from '../services/firebaseDataService';
 import { aiSearchService } from '../services/aiSearchService';
-import { searchIntelligently, type IntelligentSearchResult, type SearchContext } from '../utils/intelligentSearchService';
+// Heavy AI-search code path is lazy-loaded — most users never trigger it
+// (gated by aiSearchService.isAISearchEnabled()), and pulling it into the
+// Search route's chunk bloats the page even when the path is dead.
+import type { IntelligentSearchResult, SearchContext } from '../utils/intelligentSearchService';
 import { useFilters } from '../contexts/FiltersContext';
 
 export const useSearch = () => {
@@ -55,6 +58,9 @@ export const useSearch = () => {
       };
 
       if (aiSearchService.isAISearchEnabled() && searchContext) {
+        // Dynamic import: only fetch the intelligent-search bundle when the
+        // feature is actually on AND the path is taken.
+        const { searchIntelligently } = await import('../utils/intelligentSearchService');
         results = await searchIntelligently(query, searchContext, mergedOptions);
       } else {
         results = await firebaseDataService.performSearch(query, mergedOptions);
@@ -63,7 +69,7 @@ export const useSearch = () => {
       if (results && Array.isArray((results as any).users) && authUser) {
         (results as any).users = (results as any).users.filter((u: any) => {
           const item = 'item' in u ? u.item : u;
-          return item?.id !== authUser.id && item?.uid !== authUser.uid;
+          return item?.id !== authUser.id;
         });
       }
       if (results && Array.isArray((results as any).places)) {

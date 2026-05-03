@@ -1,5 +1,5 @@
 import { Routes, Route, useNavigate, useLocation } from 'react-router-dom'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, lazy, Suspense } from 'react'
 import { NavigationProvider } from './contexts/NavigationContext.tsx'
 import { FiltersProvider } from './contexts/FiltersContext.tsx'
 import { ModalProvider, useModal } from './contexts/ModalContext.tsx'
@@ -9,34 +9,42 @@ import Navbar from './components/Navbar.tsx'
 import CreatePost from './components/CreatePost.tsx'
 import CreateListModal from './components/CreateListModal.tsx'
 import NavigationModals from './components/NavigationModals.tsx';
+import InstallPrompt from './components/InstallPrompt.tsx';
+// Eager-load Home so the most common landing page doesn't show a loader.
 import Home from './pages/Home.tsx'
-import Profile from './pages/Profile.tsx'
-import EditProfile from './pages/EditProfile.tsx'
-import Following from './pages/Following.tsx'
-import Settings from './pages/Settings.tsx'
-import Search from './pages/Search.tsx'
-import SearchV2 from './pages/SearchV2.tsx'
-import Explore from './pages/Explore.tsx'
-import ListView from './pages/ListView.tsx'
-import ViewAllLists from './pages/ViewAllLists.tsx'
-import Favorites from './pages/SavedLists.tsx'
-import { featureFlags } from './config/featureFlags'
-import PlaceHub from './pages/PlaceHub.tsx'
-import UserProfile from './pages/UserProfile.tsx'
-import Demo from './pages/Demo.tsx'
-import EnhancedSearchDemo from './components/EnhancedSearchDemo.tsx'
-import DatabaseSeeder from './components/DatabaseSeeder.tsx'
 import Auth from './pages/Auth.tsx'
+// Code-split everything else. Each becomes its own chunk so the entry bundle
+// is much smaller and pages download lazily as the user navigates. Was a
+// 1.4MB monolith on first load — now Home loads first and the rest stream in.
+const Profile = lazy(() => import('./pages/Profile.tsx'))
+const EditProfile = lazy(() => import('./pages/EditProfile.tsx'))
+const Following = lazy(() => import('./pages/Following.tsx'))
+const Settings = lazy(() => import('./pages/Settings.tsx'))
+const Search = lazy(() => import('./pages/Search.tsx'))
+const Explore = lazy(() => import('./pages/Explore.tsx'))
+const ListView = lazy(() => import('./pages/ListView.tsx'))
+const ViewAllLists = lazy(() => import('./pages/ViewAllLists.tsx'))
+const Favorites = lazy(() => import('./pages/SavedLists.tsx'))
+const PlaceHub = lazy(() => import('./pages/PlaceHub.tsx'))
+const UserProfile = lazy(() => import('./pages/UserProfile.tsx'))
 import { setupViewportHandler } from './utils/viewportHandler.ts'
 import EmbedFromModal from './components/EmbedFromModal.tsx'
 import SaveModal from './components/SaveModal.tsx'
+import CoverPhotoPicker from './components/CoverPhotoPicker.tsx'
 import { firebaseDataService } from './services/firebaseDataService.js'
+
+const RouteFallback = () => (
+  <div className="flex items-center justify-center h-full py-20">
+    <span className="font-mono text-[10px] tracking-[0.18em] uppercase text-ink-mute">Loading…</span>
+  </div>
+)
 
 // Global modals component (moved above usage)
 const GlobalModals = () => {
   const { showSaveModal, showCreatePost, saveModalData, createPostData, closeSaveModal, closeCreatePostModal } = useModal()
   const { currentUser } = useAuth()
   const [userLists, setUserLists] = useState<List[]>([]);
+  const [coverPick, setCoverPick] = useState<{ hubId: string; googlePlaceId: string; hubName: string } | null>(null)
 
   useEffect(() => {
     const fetchLists = async () => {
@@ -77,61 +85,121 @@ const GlobalModals = () => {
           }}
           userLists={userLists}
           onSave={async (status, rating, listIds, note) => {
-            console.log('SaveModal onSave called with:', { status, rating, listIds, note });
             if (!currentUser) return;
-            const placeId = saveModalData.hub?.id || saveModalData.list!.id;
-            console.log('Saving placeId:', placeId, 'to lists:', listIds);
+            // Silent Google→Hub conversion: if the place isn't a real hub yet, ensure one
+            // before any list operation. This makes "save" the implicit claim action.
+            const seedHub: any = saveModalData.hub
+            const seedList: any = saveModalData.list
+            const googlePlaceId = seedHub?.id  // when seedHub came from a card it's the Places API id
+            const ensured = seedHub
+              ? await firebaseDataService.ensureHubFromPlace({
+                  id: seedHub.id,
+                  name: seedHub.name,
+                  address: seedHub.address,
+                  photos: seedHub.photos,
+                  primaryType: seedHub.primaryType,
+                  types: seedHub.types,
+                })
+              : null
+            const placeId = ensured?.id || (seedHub ? seedHub.id : seedList.id)
+            // Show the cover-photo picker either when this user just created
+            // the hub, or when an earlier auto-claimed hub exists but doesn't
+            // have a cover yet — same intent: "first user with photos available
+            // gets to set the cover."
+            const needsCover = !!(seedHub && ensured && (ensured.created || !ensured.mainImage))
 
             const owned = userLists || []
             const ids = Array.isArray(listIds) ? listIds : []
 
             // Check for duplicates
-            const already = [] as string[]
+            const already: string[] = []
             for (const lid of ids) {
               const exists = await firebaseDataService.isPlaceInList(lid, placeId)
               if (exists) already.push(lid)
             }
             if (already.length > 0) {
-              const names = owned.filter(l=>already.includes(l.id)).map(l=>l.name).join(', ')
+              const names = owned.filter(l => already.includes(l.id)).map(l => l.name).join(', ')
               const overwrite = window.confirm(`You've already saved this hub to the following lists: ${names}.\nWould you like to overwrite your previous save?`)
-              if (!overwrite) {
-                return
-              }
+              if (!overwrite) return
             }
 
-            // Save to selected lists
             for (const listId of ids) {
               await firebaseDataService.savePlaceToList(placeId, listId, currentUser.id, note, undefined, status, rating);
             }
-
-            // Centralized auto-list save
             await firebaseDataService.saveToAutoList(placeId, currentUser.id, status, note, rating)
-            
-            // Track
-            if (saveModalData.hub) {
-              await firebaseDataService.trackUserInteraction(currentUser.id, 'save', { 
-                placeId: saveModalData.hub.id,
-                query: saveModalData.hub.name 
+            // Idempotent save-count bump — once per user-place pair, not once per list.
+            await firebaseDataService.recordUserSave(placeId, currentUser.id)
+
+            if (seedHub) {
+              await firebaseDataService.trackUserInteraction(currentUser.id, 'save', {
+                placeId,
+                query: seedHub.name
               });
             }
-            
-            console.log('Saving with status:', status, rating, listIds, note)
+            // Notify subscribers (Home stats, Profile lists, etc.) so they can
+            // refresh their saved counts and saved-state markers.
+            window.dispatchEvent(new CustomEvent('this-is:saved', { detail: { placeId, status } }))
             closeSaveModal()
+            // First-saver perk: pick a cover photo. Only fires when this user
+            // just materialized a Google candidate into a hub.
+            if (needsCover && googlePlaceId) {
+              setCoverPick({ hubId: placeId, googlePlaceId, hubName: seedHub.name })
+            }
           }}
           onCreateList={async (listData) => {
             if (!currentUser) return;
-            const placeId = saveModalData.hub?.id || saveModalData.list!.id;
-            const newListId = await firebaseDataService.createList({ 
-              ...listData, 
+            const seedHub: any = saveModalData.hub
+            const seedList: any = saveModalData.list
+            const googlePlaceId = seedHub?.id
+            const ensured = seedHub
+              ? await firebaseDataService.ensureHubFromPlace({
+                  id: seedHub.id,
+                  name: seedHub.name,
+                  address: seedHub.address,
+                  photos: seedHub.photos,
+                  primaryType: seedHub.primaryType,
+                  types: seedHub.types,
+                })
+              : null
+            const placeId = ensured?.id || (seedHub ? seedHub.id : seedList.id)
+            // Show the cover-photo picker either when this user just created
+            // the hub, or when an earlier auto-claimed hub exists but doesn't
+            // have a cover yet — same intent: "first user with photos available
+            // gets to set the cover."
+            const needsCover = !!(seedHub && ensured && (ensured.created || !ensured.mainImage))
+            const newListId = await firebaseDataService.createList({
+              ...listData,
               userId: currentUser.id,
               tags: listData.tags || []
             });
             if (newListId) {
-              await firebaseDataService.savePlaceToList(placeId, newListId, currentUser.id, undefined, undefined, 'loved'); // Default to loved status
+              await firebaseDataService.savePlaceToList(placeId, newListId, currentUser.id, undefined, undefined, 'loved');
+              await firebaseDataService.recordUserSave(placeId, currentUser.id)
+              // Keep local cache fresh so the next save flow shows the new list
+              // immediately without waiting for the modal-open re-fetch.
+              try {
+                const fresh = await firebaseDataService.getUserLists(currentUser.id)
+                setUserLists(fresh)
+              } catch (e) {
+                console.warn('[GlobalModals] failed to refresh user lists after create', e)
+              }
+              window.dispatchEvent(new CustomEvent('this-is:saved', { detail: { placeId, status: 'loved', newListId } }))
             }
-            console.log('Creating new list:', listData)
             closeSaveModal()
+            if (needsCover && googlePlaceId) {
+              setCoverPick({ hubId: placeId, googlePlaceId, hubName: seedHub.name })
+            }
           }}
+        />
+      )}
+
+      {coverPick && (
+        <CoverPhotoPicker
+          isOpen
+          onClose={() => setCoverPick(null)}
+          hubId={coverPick.hubId}
+          googlePlaceId={coverPick.googlePlaceId}
+          hubName={coverPick.hubName}
         />
       )}
 
@@ -202,24 +270,24 @@ function AppContent() {
     console.log('[UI] tailwind=on', (window as any).__build)
   }, [])
 
-  // Update active tab based on current route
+  // Update active tab based on current route. Was only matching the four
+  // root routes — every deep route (/place/:id, /list/:id, /user/:id,
+  // /profile/edit, etc.) left whatever tab was last highlighted, which gave
+  // the wrong indicator when the user landed directly on a shared URL
+  // (defaulting to 'home' without actually being on home).
   useEffect(() => {
     const path = location.pathname
-    if (path === '/' || path === '/home') {
-      setActiveTab('home')
-    } else if (path === '/search') {
-      setActiveTab('search')
-    } else if (path === '/explore') {
-      setActiveTab('explore')
-    } else if (path === '/reels') {
-      setActiveTab('favorites') // 'favorites' tab is now used for reels
-    } else if (path === '/favorites') {
-      setActiveTab('favorites')
-    } else if (path === '/profile') {
-      setActiveTab('profile')
-    } else if (path === '/demo') {
-      setActiveTab('home') // Keep home active when on demo
-    }
+    if (path === '/' || path === '/home') setActiveTab('home')
+    else if (path.startsWith('/explore')) setActiveTab('explore')
+    else if (path.startsWith('/search')) setActiveTab('search')
+    else if (
+      path.startsWith('/profile') ||
+      path === '/lists' ||
+      path === '/favorites' ||
+      path === '/settings' ||
+      path.startsWith('/user/')
+    ) setActiveTab('profile')
+    else setActiveTab('') // /place/:id, /list/:id — no nav root owns these
   }, [location.pathname])
 
   // Listen for create list event
@@ -236,32 +304,12 @@ function AppContent() {
 
   const handleTabChange = (tab: string) => {
     setActiveTab(tab)
-    
-    // If we're on the demo page, stay on demo but show different content
-    if (location.pathname === '/demo') {
-      // For demo, we'll just update the active tab without navigating
-      return
-    }
-    
-    // Normal navigation for other pages
     switch (tab) {
-      case 'home':
-        navigate('/')
-        break
-      case 'search':
-        navigate('/search')
-        break
-      case 'explore':
-        navigate('/explore')
-        break
-      case 'favorites':
-        navigate('/reels') // Navigate to reels instead of favorites
-        break
-      case 'profile':
-        navigate('/profile')
-        break
-      default:
-        navigate('/')
+      case 'home': navigate('/'); break
+      case 'explore': navigate('/explore'); break
+      case 'search': navigate('/search'); break
+      case 'profile': navigate('/profile'); break
+      default: navigate('/')
     }
   }
 
@@ -272,87 +320,39 @@ function AppContent() {
 
   return (
     <>
-      {/* Render full-screen components outside the normal layout */}
-      {location.pathname === '/reels' ? (
-        <div className="relative h-screen w-screen">
-          <Routes>
-            {/* Reels route - quarantined behind feature flag */}
-            {featureFlags.keep_reels_route && (
-              <Route path="/reels" element={
-                <div className="min-h-screen bg-bark-50 p-8 text-center">
-                  <div className="max-w-md mx-auto mt-12 panel p-6">
-                    <h1 className="text-2xl font-bold text-stone-900 mb-2">⚠️ Deprecated</h1>
-                    <p className="text-stone-600 mb-4">
-                      Reels has been replaced by Explore Deck.
-                    </p>
-                    <button
-                      onClick={() => window.location.href = '/explore'}
-                      className="px-6 py-3 bg-moss-500 text-white rounded-xl font-medium hover:bg-moss-600 transition-colors"
-                    >
-                      Go to Explore
-                    </button>
-                  </div>
-                </div>
-              } />
-            )}
-          </Routes>
-          {/* Navbar for Reels - positioned absolutely to ensure visibility */}
-          <div className="absolute bottom-0 left-0 right-0 z-[1002]">
-            <Navbar 
-              activeTab={activeTab} 
-              setActiveTab={handleTabChange} 
-              onCreatePost={() => setShowCreatePost(true)}
-              onEmbedFrom={() => setShowEmbedFromModal(true)}
-            />
-          </div>
-        </div>
-      ) : location.pathname === '/search-demo' ? (
-        <div className="relative h-screen w-screen">
-          <Routes>
-            <Route path="/search-demo" element={<EnhancedSearchDemo />} />
-          </Routes>
-        </div>
-      ) : location.pathname === '/seed-database' ? (
-        <div className="relative h-screen w-screen">
-          <Routes>
-            <Route path="/seed-database" element={<DatabaseSeeder />} />
-          </Routes>
-        </div>
-      ) : (
-        <div className="h-dvh">
-          <div className="max-w-md mx-auto h-full">
-            <div className="flex flex-col h-full">
+      <div className="h-dvh">
+        <div className="max-w-md mx-auto h-full">
+          <div className="flex flex-col h-full">
               {/* Main Content Area */}
               <main className="flex-1 overflow-y-auto pb-28 overflow-x-hidden" data-scroll-root>
-                <Routes>
-                  <Route path="/" element={<Home />} />
-                  <Route path="/home" element={<Home />} />
-                  <Route path="/profile" element={<Profile />} />
-                  <Route path="/profile/edit" element={<EditProfile />} />
-                  <Route path="/profile/following" element={<Following />} />
-                  <Route path="/settings" element={<Settings />} />
-                  <Route path="/search" element={featureFlags.search_v2 ? <SearchV2 /> : <Search />} />
-                  <Route path="/explore" element={<Explore />} />
-                  <Route path="/list/:id" element={<ListView />} />
-                  <Route path="/lists" element={<ViewAllLists />} />
-                  <Route path="/favorites" element={<Favorites />} />
-                  <Route path="/place/:id" element={<PlaceHub />} />
-                  <Route path="/user/:userId" element={<UserProfile />} />
-                  <Route path="/demo" element={<Demo activeTab={activeTab} />} />
-                  <Route path="/search-demo-mobile" element={<EnhancedSearchDemo />} />
-                </Routes>
+                <Suspense fallback={<RouteFallback />}>
+                  <Routes>
+                    <Route path="/" element={<Home />} />
+                    <Route path="/home" element={<Home />} />
+                    <Route path="/profile" element={<Profile />} />
+                    <Route path="/profile/edit" element={<EditProfile />} />
+                    <Route path="/profile/following" element={<Following />} />
+                    <Route path="/settings" element={<Settings />} />
+                    <Route path="/search" element={<Search />} />
+                    <Route path="/explore" element={<Explore />} />
+                    <Route path="/list/:id" element={<ListView />} />
+                    <Route path="/lists" element={<ViewAllLists />} />
+                    <Route path="/favorites" element={<Favorites />} />
+                    <Route path="/place/:id" element={<PlaceHub />} />
+                    <Route path="/user/:userId" element={<UserProfile />} />
+                  </Routes>
+                </Suspense>
               </main>
               {/* Bottom Navigation */}
-              <Navbar 
-                activeTab={activeTab} 
-                setActiveTab={handleTabChange} 
+              <Navbar
+                activeTab={activeTab}
+                setActiveTab={handleTabChange}
                 onCreatePost={() => setShowCreatePost(true)}
                 onEmbedFrom={() => setShowEmbedFromModal(true)}
               />
             </div>
           </div>
         </div>
-      )}
 
       {/* Create Post Modal */}
       <CreatePost 
@@ -399,6 +399,7 @@ function Providers({ children }: { children: React.ReactNode }) {
         <FiltersProvider>
           <ModalProvider>
             {children}
+            <InstallPrompt />
           </ModalProvider>
         </FiltersProvider>
       </NavigationProvider>

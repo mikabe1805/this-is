@@ -82,9 +82,13 @@ service cloud.firestore {
         allow read: if isAuthenticated();
         allow write: if isAuthenticated();
       }
-      
-      // Allow authenticated users to add posts to lists
+
+      // Allow authenticated users to add posts to lists.
+      // Read was missing — getPostsForList iterates this subcollection to
+      // discover which posts belong to a list, so without `allow read` the
+      // ListModal hit "Missing or insufficient permissions" on every open.
       match /posts/{postId} {
+        allow read: if true;
         allow write: if isAuthenticated();
       }
     }

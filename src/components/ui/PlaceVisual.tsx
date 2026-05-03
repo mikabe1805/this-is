@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { categoryFromTypes, getPosterPath, type PosterCategory } from '../../utils/posterMapping'
+import PlacePoster from './PlacePoster'
 
 interface PlaceVisualProps {
   types?: string[]
@@ -51,8 +51,6 @@ export default function PlaceVisual({
   const [showGooglePhoto, setShowGooglePhoto] = useState(false)
   const [googlePhotoLoaded, setGooglePhotoLoaded] = useState(false)
   
-  const category = categoryFromTypes(types)
-  const posterSrc = fallbackSrc || getPosterPath(category)
   const hasUserPhotos = userPhotos.length > 0
   const hasGooglePhoto = PHOTOS_ENABLED && photoResourceName && canFetchGooglePhoto()
   
@@ -81,23 +79,26 @@ export default function PlaceVisual({
   
   return (
     <div className={`relative w-full h-full overflow-hidden ${className}`}>
-      {/* Tier 1: Poster (always show as base layer) */}
-      <img 
-        src={posterSrc} 
-        alt={alt} 
-        className="absolute inset-0 w-full h-full object-cover"
-        onError={(e) => {
-          if (!fallbackSrc) {
-            (e.currentTarget as HTMLImageElement).src = '/assets/leaf.png';
-          }
-        }}
-      />
-      
+      {/* Tier 1: CSS-painted poster (always show as base layer) */}
+      {fallbackSrc ? (
+        <img
+          src={fallbackSrc}
+          alt={alt}
+          className="absolute inset-0 w-full h-full object-cover"
+        />
+      ) : (
+        <PlacePoster
+          types={types}
+          name={alt}
+          className="absolute inset-0 w-full h-full"
+        />
+      )}
+
       {/* Tier 2: User Photos (if available) */}
       {hasUserPhotos && userPhotos[0] && (
-        <img 
-          src={userPhotos[0]} 
-          alt={alt} 
+        <img
+          src={userPhotos[0]}
+          alt={alt}
           className="absolute inset-0 w-full h-full object-cover"
         />
       )}

@@ -8,6 +8,7 @@ import { useNavigation } from '../contexts/NavigationContext.tsx';
 import { useAuth } from '../contexts/AuthContext.tsx';
 import { useModal } from '../contexts/ModalContext.tsx';
 import { formatTimestamp } from '../utils/dateUtils.ts';
+import { useSwipeToDismiss } from '../hooks/useSwipeToDismiss';
 import TagPill from './TagPill'
 
 interface PostModalProps {
@@ -31,6 +32,7 @@ const PostModal = ({ postId, from, isOpen, onClose, showBackButton, onBack }: Po
   const { openHubModal, openProfileModal } = useNavigation();
   const [isVisible, setIsVisible] = useState(false);
   const modalRef = useRef<HTMLDivElement>(null);
+  useSwipeToDismiss({ ref: modalRef, onDismiss: onClose, enabled: isOpen });
 
   const [comments, setComments] = useState<PostComment[]>([]);
   const [commentCount, setCommentCount] = useState(0);
@@ -178,119 +180,151 @@ const PostModal = ({ postId, from, isOpen, onClose, showBackButton, onBack }: Po
 
   const modalContent = (
     <>
-      <div className={`fixed inset-0 z-[10000] flex items-center justify-center transition-opacity duration-300 ${isVisible ? 'opacity-100' : 'opacity-0'}`}>
-        <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose}></div>
+      <div className={`fixed inset-0 z-[10000] flex items-end sm:items-center justify-center transition-opacity duration-300 ${isVisible ? 'opacity-100' : 'opacity-0'}`}>
+        <div className="absolute inset-0 bg-[#1A1815]/55 backdrop-blur-sm" onClick={onClose}></div>
         <div
           ref={modalRef}
-          className={`relative bg-gradient-to-br from-[#FDFBF7] to-[#F3EBE2] rounded-2xl w-full max-w-2xl max-h-[90vh] flex flex-col shadow-2xl border border-white/20 transition-all duration-300 ${isVisible ? 'scale-100 opacity-100' : 'scale-95 opacity-0'}`}
-          style={{ fontFamily: "'Inter', sans-serif" }}
+          className={`relative modal-paper rounded-t-3xl sm:rounded-3xl border border-edge w-full sm:max-w-2xl max-h-[90vh] flex flex-col overflow-hidden transition-all duration-300 ${isVisible ? 'scale-100 opacity-100' : 'scale-95 opacity-0'}`}
+          style={{ boxShadow: '0 18px 60px rgba(46, 28, 13, 0.22), 0 4px 14px rgba(46, 28, 13, 0.08)' }}
         >
+          {/* Drag handle (mobile) */}
+          <div data-drag-handle className="sm:hidden flex justify-center py-3 shrink-0 touch-none" aria-hidden>
+            <span className="w-10 h-1 rounded-full bg-ink-faint" />
+          </div>
           {/* Header */}
-          <div className="p-4 flex items-center justify-between border-b border-[#E8D4C0]/50">
+          <div data-drag-handle className="px-5 py-4 flex items-center justify-between border-b border-edge">
             <div className="w-10"></div>
-            <h2 className="text-xl font-bold text-[#5D4A2E] font-serif truncate">{post?.description.substring(0, 30) || 'Post'}...</h2>
-            <button onClick={onClose} className="p-2 rounded-full hover:bg-[#E8D4C0]/30 transition-colors">
-              <XMarkIcon className="w-6 h-6 text-[#7A5D3F]" />
+            <p className="label-eyebrow text-ink-mute">Post</p>
+            <button onClick={onClose} className="h-9 w-9 rounded-full hover:bg-paper-deep flex items-center justify-center" aria-label="Close">
+              <XMarkIcon className="w-5 h-5 text-ink" />
             </button>
           </div>
 
           {/* Content */}
-          <div className="overflow-y-auto flex-1">
+          <div className="overflow-y-auto flex-1 relative z-10">
             {loading ? (
-              <div className="flex justify-center items-center h-full">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#9A7B5A]"></div>
+              <div className="flex justify-center items-center h-full py-16">
+                <span className="font-mono text-[10px] tracking-[0.18em] uppercase text-ink-mute">Loading…</span>
               </div>
             ) : !post ? (
-              <div className="text-center py-10 text-[#7A5D3F]">Post not found.</div>
+              <div className="text-center py-10 text-ink-soft">Post not found.</div>
             ) : (
               <div>
                 {post.images && post.images.length > 0 && (
-                  <img src={post.images[0]} alt="Post" className="w-full h-80 object-cover" />
+                  <img src={post.images[0]} alt="" className="w-full h-72 object-cover" />
                 )}
-                <div className="p-6">
-                  <div className="flex justify-between items-start mb-4">
-                    <div>
+                <div className="px-5 pt-5 pb-4">
+                  <div className="flex justify-between items-start mb-3">
+                    <div className="min-w-0">
                       {hub && (
-                        <div onClick={handleHubClick} className="flex items-center gap-2 text-lg text-[#7A5D3F] mb-2 cursor-pointer group">
-                          <MapPinIcon className="w-5 h-5 text-[#9A7B5A]"/>
-                          <span className="font-semibold text-[#5D4A2E] group-hover:underline">{hub.name}</span>
-                        </div>
+                        <button
+                          type="button"
+                          onClick={handleHubClick}
+                          className="inline-flex items-center gap-1.5 text-ink-soft hover:text-ink transition-colors group"
+                        >
+                          <MapPinIcon className="w-4 h-4 text-accent-deep" />
+                          <span className="font-display text-[18px] leading-tight text-ink group-hover:underline truncate">{hub.name}</span>
+                        </button>
                       )}
-                       <p className="text-sm text-[#7A5D3F]">{formatTimestamp(post.createdAt)}</p>
+                      <p className="font-mono text-[10px] tracking-[0.12em] uppercase text-ink-mute mt-1">{formatTimestamp(post.createdAt)}</p>
                     </div>
                     {renderPostTypeIcon()}
                   </div>
 
-                  <p className="text-[#5D4A2E] leading-relaxed font-sans text-base mb-6">{post.description}</p>
+                  <p className="text-[14px] text-ink-soft leading-relaxed mb-5 whitespace-pre-wrap">{post.description}</p>
 
                   {post.tags && post.tags.length > 0 && (
-                    <div className="flex flex-wrap gap-2 mb-6">
+                    <div className="flex flex-wrap gap-2 mb-5">
                       {post.tags.map(tag => (
                         <TagPill key={tag} label={tag} size="sm" />
                       ))}
                     </div>
                   )}
 
-                  <div className="flex items-center justify-between mb-6 pb-6 border-b border-[#E8D4C0]/50">
-                    <div className="flex items-center space-x-4 text-sm text-[#8B7355]">
-                      <button onClick={handleLike} className="flex items-center active:scale-95 transition-transform duration-200">
-                        {isLiked ? <SolidHeartIcon className="w-6 h-6 mr-2 text-[#FF6B6B]" /> : <HeartIcon className="w-6 h-6 mr-2 text-[#FF6B6B]" />}
-                        <span className="font-semibold">{likeCount}</span>
+                  <div className="flex items-center justify-between mb-5 pb-4 border-b border-edge">
+                    <div className="flex items-center gap-4">
+                      <button
+                        type="button"
+                        onClick={handleLike}
+                        aria-label={isLiked ? 'Unlike post' : 'Like post'}
+                        aria-pressed={isLiked}
+                        className="inline-flex items-center gap-1.5 text-ink-mute hover:text-ink transition-colors"
+                      >
+                        {isLiked
+                          ? <SolidHeartIcon className="w-5 h-5" style={{ color: 'var(--bloom-deep)' }} />
+                          : <HeartIcon className="w-5 h-5" />
+                        }
+                        <span className="font-mono text-[12px] tracking-wide">{likeCount}</span>
                       </button>
-                      <div className="flex items-center">
-                        <ChatBubbleLeftIcon className="w-6 h-6 mr-2 text-[#7A5D3F]" />
-                        <span className="font-semibold">{commentCount}</span>
+                      <div className="inline-flex items-center gap-1.5 text-ink-mute">
+                        <ChatBubbleLeftIcon className="w-5 h-5" />
+                        <span className="font-mono text-[12px] tracking-wide">{commentCount}</span>
                       </div>
                     </div>
-                    <button onClick={handleSaveHub} className="text-[#A67C52] text-sm font-medium font-serif active:scale-95 transition-transform duration-200 bg-[#E8D4C0]/40 px-4 py-2 rounded-lg border border-transparent hover:border-[#A67C52]/50">
-                      Save to List
+                    <button
+                      type="button"
+                      onClick={handleSaveHub}
+                      className="btn-secondary h-9 px-4 label-eyebrow"
+                    >
+                      Save to list
                     </button>
                   </div>
-                  
+
                   {/* Comments Section */}
                   <div className="space-y-4">
-                    <h3 className="text-lg font-bold text-[#5D4A2E]">Comments ({commentCount})</h3>
-                    
-                    {/* Comment Input Form */}
-                    <div className="flex items-start gap-2 pb-4 border-b border-[#E8D4C0]/50">
-                      <img src={currentUser?.avatar || '/assets/default-avatar.png'} alt="Your avatar" className="w-10 h-10 rounded-full border-2 border-white" />
+                    <p className="label-eyebrow text-ink-mute">Comments · {commentCount}</p>
+
+                    {/* Comment Input */}
+                    <div className="flex items-start gap-2 pb-4 border-b border-edge">
+                      <img src={currentUser?.avatar || '/assets/default-avatar.svg'} alt="" className="w-9 h-9 rounded-full ring-1 ring-edge object-cover" />
                       <div className="flex-1">
                         <textarea
                           value={newComment}
                           onChange={(e) => setNewComment(e.target.value)}
-                          placeholder="Add a comment..."
-                          className="w-full px-4 py-2 border border-linen-300 rounded-xl bg-linen-100 text-charcoal-700 focus:outline-none focus:ring-2 focus:ring-sage-300 transition"
+                          placeholder="Add a comment…"
+                          className="w-full px-3.5 py-2.5 border border-edge rounded-xl bg-card text-[14px] text-ink placeholder:text-ink-mute outline-none focus:border-ink/40 resize-none"
                           rows={2}
                         />
-                        <button onClick={handlePostComment} className="mt-2 px-4 py-2 bg-sage-500 text-white rounded-xl hover:bg-sage-600 transition-colors font-semibold disabled:bg-sage-300" disabled={!newComment.trim()}>
-                          Post Comment
+                        <button
+                          type="button"
+                          onClick={handlePostComment}
+                          className="btn-cta mt-2 h-10 px-4 label-eyebrow disabled:opacity-50"
+                          disabled={!newComment.trim()}
+                        >
+                          Post comment
                         </button>
                       </div>
                     </div>
 
                     {/* Comments List */}
-                    <div className="space-y-4 max-h-60 overflow-y-auto pr-2">
+                    <ul className="divide-y divide-edge">
                       {comments.map(comment => (
-                        <div key={comment.id} className="flex items-start gap-3">
-                          <img src={comment.userAvatar || '/assets/default-avatar.png'} alt={comment.username} className="w-10 h-10 rounded-full border-2 border-white" />
-                          <div>
-                            <p className="font-semibold text-[#5D4A2E]">{comment.username}</p>
-                            <p className="text-sm text-[#7A5D3F]">{comment.text}</p>
-                            <p className="text-xs text-[#A67C52] mt-1">{formatTimestamp(comment.createdAt)}</p>
+                        <li key={comment.id} className="flex items-start gap-3 py-3">
+                          <img src={comment.userAvatar || '/assets/default-avatar.svg'} alt="" className="w-9 h-9 rounded-full ring-1 ring-edge object-cover shrink-0" />
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-baseline gap-2">
+                              <span className="text-[14px] font-medium text-ink truncate">{comment.username}</span>
+                              <span className="font-mono text-[10px] tracking-[0.10em] uppercase text-ink-mute">{formatTimestamp(comment.createdAt)}</span>
+                            </div>
+                            <p className="text-[14px] text-ink-soft leading-relaxed mt-1 whitespace-pre-wrap">{comment.text}</p>
                           </div>
-                        </div>
+                        </li>
                       ))}
-                    </div>
+                    </ul>
                   </div>
-                  
+
                   {author && (
-                    <div onClick={handleAuthorClick} className="flex items-center gap-3 bg-white/50 backdrop-blur-sm rounded-xl p-3 shadow-md border border-white/30 mt-6 cursor-pointer">
-                       <img src={author.avatar || '/assets/default-avatar.png'} alt={author.name} className="w-12 h-12 rounded-full border-2 border-white" />
-                       <div>
-                         <p className="font-semibold text-[#5D4A2E]">{author.name}</p>
-                         <p className="text-sm text-[#7A5D3F]">@{author.username}</p>
-                       </div>
-                    </div>
+                    <button
+                      type="button"
+                      onClick={handleAuthorClick}
+                      className="w-full flex items-center gap-3 bg-card border border-edge rounded-2xl p-3 mt-5 hover:border-ink/30 transition-colors text-left"
+                    >
+                      <img src={author.avatar || '/assets/default-avatar.svg'} alt="" className="w-11 h-11 rounded-full ring-1 ring-edge object-cover" />
+                      <div className="min-w-0">
+                        <p className="font-display text-[16px] leading-tight text-ink truncate">{author.name}</p>
+                        <p className="font-mono text-[10px] tracking-[0.10em] uppercase text-ink-mute mt-0.5 truncate">@{author.username}</p>
+                      </div>
+                    </button>
                   )}
                 </div>
               </div>

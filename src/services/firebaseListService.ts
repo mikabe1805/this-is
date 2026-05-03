@@ -11,7 +11,10 @@ import {
   query,
   where,
   getDocs,
-  orderBy
+  orderBy,
+  arrayUnion,
+  arrayRemove,
+  increment
 } from 'firebase/firestore'
 import { firebaseStorageService } from './firebaseStorageService'
 import type { List, ListPlace } from '../types'
@@ -98,18 +101,23 @@ class FirebaseListService {
           if (placeSnap.exists()) {
             const placeData = placeSnap.data();
             const subcollectionData = subcollectionMap.get(hubId) || {};
-            
+            const lat = placeData.location?.lat ?? placeData.coordinates?.lat
+            const lng = placeData.location?.lng ?? placeData.coordinates?.lng
+
             places.push({
               id: hubId,
               placeId: hubId,
               place: {
                 id: hubId,
                 name: placeData.name || 'Unknown Place',
-                address: placeData.location?.address || 'No address',
+                address: placeData.location?.address || placeData.address || 'No address',
                 tags: placeData.tags || [],
                 hubImage: placeData.mainImage || '',
-                location: placeData.location || { lat: 0, lng: 0, address: '' }
-              },
+                coordinates: (typeof lat === 'number' && typeof lng === 'number') ? { lat, lng } : undefined,
+                posts: [],
+                savedCount: 0,
+                createdAt: placeData.createdAt || ''
+              } as any,
               status: subcollectionData.status || 'loved', // Include status from subcollection
               triedRating: subcollectionData.triedRating || null, // Include rating from subcollection
               addedBy: subcollectionData.addedBy || '',
@@ -125,18 +133,23 @@ class FirebaseListService {
               if (hubSnap.exists()) {
                 const hubData = hubSnap.data();
                 const subcollectionData = subcollectionMap.get(hubId) || {};
-                
+                const lat = hubData.location?.lat ?? hubData.coordinates?.lat
+                const lng = hubData.location?.lng ?? hubData.coordinates?.lng
+
                 places.push({
                   id: hubId,
                   placeId: hubId,
                   place: {
                     id: hubId,
                     name: hubData.name || 'Unknown Place',
-                    address: hubData.location?.address || 'No address',
+                    address: hubData.location?.address || hubData.address || 'No address',
                     tags: hubData.tags || [],
                     hubImage: hubData.mainImage || '',
-                    location: hubData.location || { lat: 0, lng: 0, address: '' }
-                  },
+                    coordinates: (typeof lat === 'number' && typeof lng === 'number') ? { lat, lng } : undefined,
+                    posts: [],
+                    savedCount: 0,
+                    createdAt: hubData.createdAt || ''
+                  } as any,
                   status: subcollectionData.status || 'loved', // Include status from subcollection
                   triedRating: subcollectionData.triedRating || null, // Include rating from subcollection
                   addedBy: subcollectionData.addedBy || '',
@@ -166,20 +179,14 @@ class FirebaseListService {
   async likeList(listId: string, userId: string): Promise<void> {
     const listRef = doc(db, 'lists', listId);
     const listSnap = await getDoc(listRef);
-    if (listSnap.exists()) {
-      const list = listSnap.data() as List;
-      const likedBy = list.likedBy || [];
-      if (likedBy.includes(userId)) {
-        await updateDoc(listRef, {
-          likes: (list.likes || 1) - 1,
-          likedBy: likedBy.filter(id => id !== userId)
-        });
-      } else {
-        await updateDoc(listRef, {
-          likes: (list.likes || 0) + 1,
-          likedBy: [...likedBy, userId]
-        });
-      }
+    if (!listSnap.exists()) return;
+    const list = listSnap.data() as List;
+    const alreadyLiked = (list.likedBy || []).includes(userId);
+    // Atomic — see firebaseDataService.likePost.
+    if (alreadyLiked) {
+      await updateDoc(listRef, { likedBy: arrayRemove(userId), likes: increment(-1) });
+    } else {
+      await updateDoc(listRef, { likedBy: arrayUnion(userId), likes: increment(1) });
     }
   }
 
@@ -211,9 +218,42 @@ class FirebaseListService {
     });
   }
 
+  /**
+   * Update fields on an existing list-place entry (note, status, feeling/rating)
+   * without clobbering addedBy/addedAt. Used by the Edit Place modal — was
+   * previously not wired to anything, so user edits silently disappeared.
+   */
+  async updateListPlace(
+    listId: string,
+    placeId: string,
+    updates: { note?: string; status?: 'loved' | 'tried' | 'want'; triedRating?: 'amazing' | 'good' | 'okay' | 'disappointing' | 'liked' | 'neutral' | 'disliked' | null }
+  ): Promise<void> {
+    const ref = doc(db, `lists/${listId}/places`, placeId);
+    const patch: Record<string, unknown> = {};
+    if (typeof updates.note === 'string') patch.note = updates.note;
+    if (updates.status) patch.status = updates.status;
+    // Clear rating when status leaves 'tried'.
+    if (updates.status && updates.status !== 'tried') {
+      patch.triedRating = null;
+    } else if (updates.triedRating !== undefined) {
+      patch.triedRating = updates.triedRating;
+    }
+    if (Object.keys(patch).length === 0) return;
+    await updateDoc(ref, patch);
+  }
+
   async removePlaceFromList(listId: string, placeId: string): Promise<void> {
     const listPlaceRef = doc(db, `lists/${listId}/places`, placeId);
     await deleteDoc(listPlaceRef);
+    // Atomic remove from the parent list's hubs[] array. arrayRemove is a
+    // server-side merge so this won't race with a concurrent savePlaceToList
+    // on the same list.
+    try {
+      const listRef = doc(db, 'lists', listId);
+      await updateDoc(listRef, { hubs: arrayRemove(placeId), updatedAt: Timestamp.now() });
+    } catch (e) {
+      console.warn('[removePlaceFromList] failed to sync parent hubs[]', e);
+    }
   }
 
   async updateList(listId: string, data: Partial<List>): Promise<void> {
@@ -226,6 +266,18 @@ class FirebaseListService {
   }
 
   async deleteList(listId: string): Promise<void> {
+    // Clean up subcollections before deleting the parent doc — Firestore does
+    // NOT cascade. Without this, places/posts under the deleted list become
+    // orphaned (still consume storage and can leak via direct queries).
+    try {
+      const subcollections = ['places', 'posts'];
+      for (const sub of subcollections) {
+        const subSnap = await getDocs(collection(db, `lists/${listId}/${sub}`));
+        await Promise.all(subSnap.docs.map(d => deleteDoc(d.ref)));
+      }
+    } catch (e) {
+      console.warn('[deleteList] subcollection cleanup failed', e);
+    }
     const listRef = doc(db, 'lists', listId);
     await deleteDoc(listRef);
   }

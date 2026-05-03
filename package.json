@@ -16,6 +16,7 @@
     "db:deploy-rules": "firebase deploy --only firestore:rules",
     "db:deploy-indexes": "firebase deploy --only firestore:indexes",
     "db:deploy": "npm run db:deploy-rules && npm run db:deploy-indexes",
+    "db:reset": "node scripts/reset-database.js",
     "setup": "npm run db:setup",
     "audit:places": "node scripts/audit/scan_places.js",
     "status:screens": "node scripts/audit/screenshot_pages.js",

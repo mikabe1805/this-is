@@ -5,16 +5,6 @@ import { useAuth } from '../contexts/AuthContext.js'
 import { firebaseDataService } from '../services/firebaseDataService.js'
 import type { User } from '../types/index.js'
 
-// SVG botanical accent
-const BotanicalAccent = () => (
-  <svg width="60" height="60" viewBox="0 0 60 60" fill="none" xmlns="http://www.w3.org/2000/svg" className="absolute -top-6 -left-6 opacity-30 select-none pointer-events-none">
-    <path d="M10 50 Q30 10 50 50" stroke="#A3B3A3" strokeWidth="3" fill="none"/>
-    <ellipse cx="18" cy="38" rx="4" ry="8" fill="#C7D0C7"/>
-    <ellipse cx="30" cy="28" rx="4" ry="8" fill="#A3B3A3"/>
-    <ellipse cx="42" cy="38" rx="4" ry="8" fill="#7A927A"/>
-  </svg>
-)
-
 interface FollowingUser {
   id: string
   name: string
@@ -109,156 +99,121 @@ const Following = () => {
 
 
   return (
-    <div className="relative min-h-full overflow-x-hidden bg-linen-50">
-      {/* Enhanced background */}
-      <div className="absolute inset-0 z-0 pointer-events-none">
-        <div className="absolute inset-0 bg-linen-texture opacity-80 mix-blend-multiply"></div>
-        <div className="absolute inset-0 bg-gradient-to-br from-gold-50/60 via-linen-100/80 to-sage-100/70 opacity-80"></div>
-        <div className="absolute inset-0 bg-gradient-radial from-transparent via-transparent to-charcoal-900/10"></div>
-      </div>
-
-      {/* Header */}
-      <div className="relative z-10 p-4 border-b border-linen-200 bg-white/95 backdrop-blur-glass">
-        <div className="flex items-center justify-between mb-4">
+    <div className="relative min-h-full overflow-x-hidden">
+      <header className="sticky top-0 z-30 bg-paper/90 backdrop-blur-md">
+        <div className="px-5 pt-5 pb-3 flex items-center justify-between gap-3">
           <button
             onClick={() => { if (window.history.length > 1) navigate(-1); else navigate('/profile') }}
-            className="p-2 rounded-xl bg-linen-100 text-charcoal-600 hover:bg-linen-200 transition-colors"
+            className="h-10 w-10 rounded-full hover:bg-paper-deep flex items-center justify-center"
+            aria-label="Back"
           >
-            <ArrowLeftIcon className="w-5 h-5" />
+            <ArrowLeftIcon className="w-5 h-5 text-ink" />
           </button>
-          <h1 className="text-lg font-serif font-semibold text-charcoal-800">Following</h1>
-          <div className="w-10"></div> {/* Spacer for centering */}
+          <h1 className="font-display text-[22px] leading-none text-ink">Friends</h1>
+          <span className="w-10" />
         </div>
 
-        {/* Search Bar */}
-        <div className="relative">
-          <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-charcoal-400" />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search following..."
-            className="w-full pl-10 pr-4 py-3 rounded-xl border border-linen-200 bg-linen-50 text-charcoal-700 focus:outline-none focus:ring-2 focus:ring-sage-200 focus:border-sage-300 transition-colors"
-          />
+        <div className="px-5 pb-3">
+          <div className="flex items-center gap-2 h-10 px-3.5 rounded-full bg-card border border-edge focus-within:border-ink/40">
+            <MagnifyingGlassIcon className="w-4 h-4 text-ink-mute shrink-0" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Filter people"
+              className="flex-1 bg-transparent outline-none text-[13px] text-ink placeholder:text-ink-mute"
+            />
+          </div>
         </div>
 
-        {/* Tab Navigation */}
-        <div className="flex mt-4 bg-linen-100 rounded-xl p-1">
-          <button
-            onClick={() => setActiveTab('following')}
-            className={`flex-1 py-2 px-4 rounded-lg font-medium transition-colors ${
-              activeTab === 'following'
-                ? 'bg-white text-sage-700 shadow-soft'
-                : 'text-charcoal-600 hover:text-charcoal-800'
-            }`}
-          >
-            Following ({followingOnlyUsers.length})
-          </button>
-          <button
-            onClick={() => setActiveTab('friends')}
-            className={`flex-1 py-2 px-4 rounded-lg font-medium transition-colors ${
-              activeTab === 'friends'
-                ? 'bg-white text-sage-700 shadow-soft'
-                : 'text-charcoal-600 hover:text-charcoal-800'
-            }`}
-          >
-            Friends ({friendsUsers.length})
-          </button>
-          <button
-            onClick={() => setActiveTab('followers')}
-            className={`flex-1 py-2 px-4 rounded-lg font-medium transition-colors ${
-              activeTab === 'followers'
-                ? 'bg-white text-sage-700 shadow-soft'
-                : 'text-charcoal-600 hover:text-charcoal-800'
-            }`}
-          >
-            Followers ({followersUsers.length})
-          </button>
+        <div className="px-5 pb-2 flex gap-1.5 overflow-x-auto no-scrollbar">
+          {([
+            ['following', `Following · ${followingOnlyUsers.length}`],
+            ['friends', `Friends · ${friendsUsers.length}`],
+            ['followers', `Followers · ${followersUsers.length}`],
+          ] as const).map(([key, label]) => {
+            const active = activeTab === key
+            return (
+              <button
+                key={key}
+                onClick={() => setActiveTab(key)}
+                className={`shrink-0 h-8 px-3.5 rounded-full label-eyebrow transition-colors ${
+                  active ? 'bg-ink text-paper' : 'bg-transparent text-ink-soft hover:text-ink border border-edge'
+                }`}
+              >
+                {label}
+              </button>
+            )
+          })}
         </div>
-      </div>
+        <div className="border-b border-edge mx-5" />
+      </header>
 
-      {/* Main Content */}
-      <div className="relative z-10 p-4 space-y-4 max-w-2xl mx-auto">
+      <div className="relative z-10 px-5 py-5 max-w-2xl mx-auto">
         {filteredUsers.length === 0 ? (
-          <div className="text-center py-12">
-            <div className="w-16 h-16 bg-linen-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <UserIcon className="w-8 h-8 text-charcoal-400" />
-            </div>
-            <h3 className="text-lg font-serif font-semibold text-charcoal-700 mb-2">
-              {searchQuery ? 'No users found' : `No ${activeTab} yet`}
-            </h3>
-            <p className="text-charcoal-500">
-              {searchQuery 
-                ? 'Try adjusting your search terms'
-                : activeTab === 'following' 
-                  ? 'Start following people to see them here'
+          <div className="border border-edge rounded-[14px] px-5 py-12 text-center bg-card">
+            <p className="font-display text-[24px] text-ink leading-tight">
+              {searchQuery ? 'No matches.' : `No ${activeTab} yet.`}
+            </p>
+            <p className="text-[13px] text-ink-soft mt-2">
+              {searchQuery
+                ? 'Try a different name.'
+                : activeTab === 'following'
+                  ? 'Follow someone whose taste you trust.'
                   : activeTab === 'friends'
-                    ? 'When you follow each other, you\'ll appear here as friends'
-                    : 'When people follow you, they\'ll appear here'
-              }
+                    ? 'When you follow each other, you\'ll appear here.'
+                    : 'When people follow you, they\'ll appear here.'}
             </p>
           </div>
         ) : (
-          filteredUsers.map((user) => (
-            <div
-              key={user.id}
-              className="relative rounded-2xl shadow-botanical border border-linen-200 bg-white/95 p-4 transition hover:shadow-cozy hover:-translate-y-1"
-            >
-              <BotanicalAccent />
-              <div className="flex items-start gap-4">
-                {/* Avatar */}
-                <div className="flex-shrink-0">
+          <ul className="divide-y divide-edge border-y border-edge">
+            {filteredUsers.map((user) => (
+              <li key={user.id} className="py-4">
+                <div className="flex items-start gap-3.5">
                   <img
                     src={user.avatar}
                     alt={user.name}
-                    className="w-16 h-16 rounded-2xl border-2 border-linen-100 shadow-soft object-cover"
+                    className="shrink-0 w-12 h-12 rounded-full object-cover bg-paper-deep ring-1 ring-edge"
                   />
-                </div>
-
-                {/* User Info */}
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-start justify-between mb-2">
-                    <div className="min-w-0 flex-1">
-                      <h3 className="font-serif font-semibold text-charcoal-800 truncate">{user.name}</h3>
-                      <p className="text-sm text-charcoal-500">@{user.username}</p>
-                    </div>
-                    <button
-                      onClick={() => isFollowing(user.id) ? handleUnfollow(user.id) : handleFollow(user.id)}
-                      className={`px-4 py-2 rounded-xl text-sm font-medium transition-colors ${
-                        isFollowing(user.id)
-                          ? 'bg-linen-100 text-charcoal-600 hover:bg-linen-200'
-                          : 'bg-sage-500 text-white hover:bg-sage-600 shadow-soft'
-                      }`}
-                    >
-                      {isFollowing(user.id) ? 'Following' : 'Follow'}
-                    </button>
-                  </div>
-
-                  <p className="text-sm text-charcoal-600 mb-2 line-clamp-2">{user.bio}</p>
-
-                  {/* Location and Activity */}
-
-
-                  {/* Tags */}
-                  <div className="flex flex-wrap gap-1">
-                    {user.tags.slice(0, 3).map(tag => (
-                      <span
-                        key={tag}
-                        className="px-2 py-1 rounded-full text-xs font-medium bg-sage-50 border border-sage-100 text-sage-700"
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="font-display text-[18px] leading-tight text-ink truncate">{user.name}</p>
+                        <p className="font-mono text-[10px] tracking-[0.10em] uppercase text-ink-mute mt-0.5 truncate">@{user.username}</p>
+                      </div>
+                      <button
+                        onClick={() => isFollowing(user.id) ? handleUnfollow(user.id) : handleFollow(user.id)}
+                        className={
+                          isFollowing(user.id)
+                            ? 'btn-secondary h-9 px-4 label-eyebrow shrink-0'
+                            : 'btn-cta h-9 px-4 label-eyebrow shrink-0'
+                        }
                       >
-                        #{tag}
-                      </span>
-                    ))}
-                    {user.tags.length > 3 && (
-                      <span className="px-2 py-1 rounded-full text-xs font-medium bg-linen-100 text-charcoal-500">
-                        +{user.tags.length - 3} more
-                      </span>
+                        {isFollowing(user.id) ? 'Following' : 'Follow'}
+                      </button>
+                    </div>
+                    {user.bio && (
+                      <p className="text-[13px] text-ink-soft line-clamp-2 mt-1.5">{user.bio}</p>
+                    )}
+                    {user.tags && user.tags.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5 mt-2">
+                        {user.tags.slice(0, 3).map(tag => (
+                          <span key={tag} className="glass-honey px-2.5 h-6 rounded-full label-eyebrow inline-flex items-center">
+                            {tag}
+                          </span>
+                        ))}
+                        {user.tags.length > 3 && (
+                          <span className="font-mono text-[10px] tracking-[0.10em] uppercase text-ink-mute self-center">
+                            +{user.tags.length - 3} more
+                          </span>
+                        )}
+                      </div>
                     )}
                   </div>
                 </div>
-              </div>
-            </div>
-          ))
+              </li>
+            ))}
+          </ul>
         )}
       </div>
     </div>

@@ -1,64 +1,68 @@
 /**
- * Maps Google Place types to poster categories
+ * Maps Google Place types to poster categories.
+ *
+ * The bitmap poster pipeline (`getPosterPath` / `posterPathFor`) was retired
+ * in the UX refresh in favor of the CSS-painted <PlacePoster> component.
+ * Only the type→category resolver remains; <PlacePoster> consumes it.
  */
 
 export type PosterCategory = 'coffee' | 'park' | 'restaurant' | 'museum' | 'library' | 'default'
 
 const TYPE_TO_POSTER: Record<string, PosterCategory> = {
   // Coffee & Cafe
-  'cafe': 'coffee',
-  'coffee_shop': 'coffee',
-  'coffee': 'coffee',
-  'bakery': 'coffee',
-  'tea_house': 'coffee',
-  'boba_tea_shop': 'coffee',
-  
+  cafe: 'coffee',
+  coffee_shop: 'coffee',
+  coffee: 'coffee',
+  bakery: 'coffee',
+  tea_house: 'coffee',
+  boba_tea_shop: 'coffee',
+
   // Parks & Outdoors
-  'park': 'park',
-  'botanical_garden': 'park',
-  'garden': 'park',
-  'nature_preserve': 'park',
-  'tourist_attraction': 'park',
-  'hiking_area': 'park',
-  'campground': 'park',
-  'beach': 'park',
-  'national_park': 'park',
-  
+  park: 'park',
+  botanical_garden: 'park',
+  garden: 'park',
+  nature_preserve: 'park',
+  tourist_attraction: 'park',
+  hiking_area: 'park',
+  campground: 'park',
+  beach: 'park',
+  national_park: 'park',
+
   // Restaurants & Food
-  'restaurant': 'restaurant',
-  'food': 'restaurant',
-  'meal_delivery': 'restaurant',
-  'meal_takeaway': 'restaurant',
-  'brunch_restaurant': 'restaurant',
-  'vegan_restaurant': 'restaurant',
-  'vegetarian_restaurant': 'restaurant',
-  'american_restaurant': 'restaurant',
-  'italian_restaurant': 'restaurant',
-  'chinese_restaurant': 'restaurant',
-  'japanese_restaurant': 'restaurant',
-  'mexican_restaurant': 'restaurant',
-  'pizza_restaurant': 'restaurant',
-  'bar': 'restaurant',
-  'wine_bar': 'restaurant',
-  'brewery': 'restaurant',
-  'pub': 'restaurant',
-  'night_club': 'restaurant',
-  
+  restaurant: 'restaurant',
+  food: 'restaurant',
+  meal_delivery: 'restaurant',
+  meal_takeaway: 'restaurant',
+  brunch_restaurant: 'restaurant',
+  vegan_restaurant: 'restaurant',
+  vegetarian_restaurant: 'restaurant',
+  american_restaurant: 'restaurant',
+  italian_restaurant: 'restaurant',
+  chinese_restaurant: 'restaurant',
+  japanese_restaurant: 'restaurant',
+  mexican_restaurant: 'restaurant',
+  pizza_restaurant: 'restaurant',
+  bar: 'restaurant',
+  wine_bar: 'restaurant',
+  brewery: 'restaurant',
+  pub: 'restaurant',
+  night_club: 'restaurant',
+
   // Museums & Culture
-  'museum': 'museum',
-  'art_gallery': 'museum',
-  'cultural_center': 'museum',
-  'historical_landmark': 'museum',
-  'performing_arts_theater': 'museum',
-  'movie_theater': 'museum',
-  'zoo': 'museum',
-  'aquarium': 'museum',
-  
+  museum: 'museum',
+  art_gallery: 'museum',
+  cultural_center: 'museum',
+  historical_landmark: 'museum',
+  performing_arts_theater: 'museum',
+  movie_theater: 'museum',
+  zoo: 'museum',
+  aquarium: 'museum',
+
   // Libraries & Books
-  'library': 'library',
-  'book_store': 'library',
-  'university': 'library',
-  'school': 'library',
+  library: 'library',
+  book_store: 'library',
+  university: 'library',
+  school: 'library',
 }
 
 export function categoryFromTypes(types: string[] = []): PosterCategory {
@@ -69,8 +73,10 @@ export function categoryFromTypes(types: string[] = []): PosterCategory {
   return 'default'
 }
 
-export function getPosterPath(category: PosterCategory): string {
-  return `/src/assets/posters/${category}.svg`
+export function resolvePosterCategory(primaryType?: string | null, types: string[] = []): PosterCategory {
+  const candidates = [primaryType, ...types].filter(Boolean) as string[]
+  if (candidates.length === 0) return 'default'
+  return categoryFromTypes(candidates)
 }
 
 export function humanizeTag(tag: string): string {
@@ -79,17 +85,3 @@ export function humanizeTag(tag: string): string {
     .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
     .join(' ')
 }
-
-// New helpers: resolve category from primaryType and/or types, and emit a public poster path.
-export function resolvePosterCategory(primaryType?: string | null, types: string[] = []): PosterCategory {
-  const candidates = [primaryType, ...types].filter(Boolean) as string[]
-  if (candidates.length === 0) return 'default'
-  return categoryFromTypes(candidates)
-}
-
-export function posterPathFor(primaryType?: string | null, types: string[] = []): string {
-  const cat = resolvePosterCategory(primaryType, types)
-  // Public posters use png names matching category; default fallback is provided
-  return `/posters/${cat}.png`
-}
-

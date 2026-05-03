@@ -1,744 +1,536 @@
-import type { Hub, Post, List } from '../types/index.js'
-import { MapPinIcon, HeartIcon, BookmarkIcon, PlusIcon, ShareIcon, CameraIcon, ChatBubbleLeftIcon, ArrowLeftIcon, MagnifyingGlassIcon } from '@heroicons/react/24/outline'
-import { useState, useEffect } from 'react'
+import {
+  ArrowLeftIcon,
+  BookmarkIcon,
+  ChatBubbleLeftIcon,
+  HeartIcon,
+  MapPinIcon,
+  PlusIcon,
+  ShareIcon,
+} from '@heroicons/react/24/outline'
+import { BookmarkIcon as BookmarkIconSolid, HeartIcon as HeartIconSolid } from '@heroicons/react/24/solid'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
+import HubImage from '../components/HubImage'
+import { useDocumentTitle } from '../hooks/useDocumentTitle'
+import CommentsModal from '../components/CommentsModal'
 import CreatePost from '../components/CreatePost'
 import SaveModal from '../components/SaveModal'
-import CommentsModal from '../components/CommentsModal'
-import ReplyModal from '../components/ReplyModal'
 import ShareModal from '../components/ShareModal'
-import type { Place } from '../types/index.js'
-import { useNavigation } from '../contexts/NavigationContext.tsx'
+import { pickTheme } from '../components/ui/categoryTheme'
 import { useAuth } from '../contexts/AuthContext.tsx'
 import { firebaseDataService } from '../services/firebaseDataService.js'
-import { PageHeader } from '../components/primitives/PageHeader'
-import { ActionBar } from '../components/primitives/ActionBar'
-import { CardShell } from '../components/primitives/CardShell'
-import { SkeletonHero, SkeletonCard } from '../components/primitives/SkeletonLoader'
+import type { List, Place, Post } from '../types/index.js'
+import { formatTimestamp } from '../utils/dateUtils'
+
+type LoosePlace = Place & {
+  primaryType?: string
+  types?: string[]
+  photos?: { name: string }[]
+  mainImage?: string
+  category?: string
+  posts?: Post[]
+  description?: string
+  savedCount?: number
+  coordinates?: { lat?: number; lng?: number }
+}
+
+const prettyType = (t?: string) => (t ? t.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) : null)
 
 const PlaceHub = () => {
-  const { goBack } = useNavigation()
-  const { currentUser: authUser } = useAuth()
   const { id } = useParams<{ id: string }>()
-  const [tab, setTab] = useState<'overview' | 'posts'>('overview')
-  const [showCreatePost, setShowCreatePost] = useState(false)
-  const [showSaveModal, setShowSaveModal] = useState(false)
-  const [showCommentsModal, setShowCommentsModal] = useState(false)
-  const [showReplyModal, setShowReplyModal] = useState(false)
-  const [showShareModal, setShowShareModal] = useState(false)
-  const [selectedPlace, setSelectedPlace] = useState<Place | null>(null)
-  const [selectedPost, setSelectedPost] = useState<Post | null>(null)
-  const [likedPosts, setLikedPosts] = useState<Set<string>>(new Set())
-  const [savedPosts, setSavedPosts] = useState<Set<string>>(new Set())
-  const [postSearch, setPostSearch] = useState('')
-  
-  // Real data state
-  const [hub, setHub] = useState<Hub | null>(null)
+  const navigate = useNavigate()
+  const { currentUser: authUser } = useAuth()
+
+  const [place, setPlace] = useState<LoosePlace | null>(null)
   const [posts, setPosts] = useState<Post[]>([])
   const [userLists, setUserLists] = useState<List[]>([])
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
-  const navigate = useNavigate()
+  const [error, setError] = useState<string | null>(null)
 
-  // Load real hub data from Firebase
+  // Browser-tab title + meta description while this page is mounted.
+  useDocumentTitle(
+    place?.name,
+    place ? `${place.name}${place.address ? ` · ${place.address.split(',')[0]}` : ''}${place.description ? ` — ${place.description.slice(0, 120)}` : ''}` : null,
+  )
+
+  const [showSaveModal, setShowSaveModal] = useState(false)
+  const [showShareModal, setShowShareModal] = useState(false)
+  const [showCreatePost, setShowCreatePost] = useState(false)
+  const [showCommentsModal, setShowCommentsModal] = useState(false)
+  const [activePost, setActivePost] = useState<Post | null>(null)
+
+  const [likedPosts, setLikedPosts] = useState<Set<string>>(new Set())
+  const [savedPosts, setSavedPosts] = useState<Set<string>>(new Set())
+  const [tab, setTab] = useState<'posts' | 'about'>('posts')
+
+  // Privacy filter for embedded `place.posts` — public always, friends only
+  // to author + mutual-follow friends, private only to author. Without this,
+  // private posts denormalized onto the place doc would render to anyone
+  // who opens the hub.
+  const filterPostsByPrivacy = async (posts: Post[]): Promise<Post[]> => {
+    if (!authUser) return posts.filter(p => {
+      const privacy = (p as { privacy?: string }).privacy
+      return !privacy || privacy === 'public'
+    })
+    let friendIds = new Set<string>()
+    try {
+      const fr = await firebaseDataService.getUserFriends(authUser.id)
+      friendIds = new Set(fr.map(u => u.id))
+    } catch (e) {
+      console.warn('[place-hub] friend lookup failed', e)
+    }
+    return posts.filter(p => {
+      const privacy = (p as { privacy?: string }).privacy
+      if (!privacy || privacy === 'public') return true
+      if (privacy === 'friends') return p.userId === authUser.id || friendIds.has(p.userId)
+      return p.userId === authUser.id
+    })
+  }
+
+  const reloadPlace = async () => {
+    if (!id) return
+    try {
+      const p = (await firebaseDataService.getPlace(id)) as unknown as LoosePlace | null
+      if (!p) return
+      setPlace(p)
+      setPosts(await filterPostsByPrivacy(p.posts || []))
+    } catch (e) {
+      console.error('[place-hub] reload failed', e)
+    }
+  }
+
   useEffect(() => {
     if (!id) {
-      setError('No place ID provided');
-      setLoading(false);
-      return;
+      setError('No place ID provided')
+      setLoading(false)
+      return
     }
-
-    const loadHubData = async () => {
+    let cancelled = false
+    void (async () => {
       try {
         setLoading(true)
-        setError('')
-        
-        // Get place data from Firebase
-        const place = await firebaseDataService.getPlace(id)
-        if (!place) {
+        setError(null)
+        const p = (await firebaseDataService.getPlace(id)) as unknown as LoosePlace | null
+        if (cancelled) return
+        if (!p) {
           setError('Place not found')
           setLoading(false)
           return
         }
-
-        // Convert Place to Hub format for display
-        const hubData: Hub = {
-          id: place.id,
-          name: place.name,
-          description: `Discover ${place.name}, a ${place.category || 'great'} place in ${place.address}`,
-          tags: place.tags,
-          images: (place as any).mainImage ? [(place as any).mainImage] : [],
-          location: {
-            address: place.address,
-            lat: place.coordinates?.lat || 0,
-            lng: place.coordinates?.lng || 0,
-          },
-          googleMapsUrl: `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(place.address)}`,
-          mainImage: (place as any).mainImage || '',
-          posts: [],
-          lists: [],
-        }
-        
-        setHub(hubData)
-        setPosts(place.posts || [])
-      } catch (error) {
-        console.error('Error loading hub data:', error)
-        setError('Failed to load place data')
+        setPlace(p)
+        const visiblePosts = await filterPostsByPrivacy(p.posts || [])
+        if (cancelled) return
+        setPosts(visiblePosts)
+      } catch (e) {
+        console.error('[place-hub] load failed', e)
+        if (!cancelled) setError('Failed to load place')
       } finally {
-        setLoading(false)
+        if (!cancelled) setLoading(false)
       }
-    }
+    })()
+    return () => { cancelled = true }
+  }, [id])
 
-    loadHubData()
+  // Refresh posts when a new post is created elsewhere for this place,
+  // or when a save toggles savedCount.
+  useEffect(() => {
+    if (!id) return
+    const onPosted = (e: Event) => {
+      const detail = (e as CustomEvent).detail as { placeId?: string } | undefined
+      if (!detail?.placeId || detail.placeId === id) void reloadPlace()
+    }
+    const onSaved = (e: Event) => {
+      const detail = (e as CustomEvent).detail as { placeId?: string } | undefined
+      if (detail?.placeId === id) void reloadPlace()
+    }
+    const onHubUpdated = (e: Event) => {
+      const detail = (e as CustomEvent).detail as { hubId?: string } | undefined
+      if (detail?.hubId === id) void reloadPlace()
+    }
+    window.addEventListener('this-is:posted', onPosted)
+    window.addEventListener('this-is:saved', onSaved)
+    window.addEventListener('this-is:hubUpdated', onHubUpdated)
+    return () => {
+      window.removeEventListener('this-is:posted', onPosted)
+      window.removeEventListener('this-is:saved', onSaved)
+      window.removeEventListener('this-is:hubUpdated', onHubUpdated)
+    }
   }, [id])
 
   useEffect(() => {
-    const fetchUserLists = async () => {
-      if (authUser) {
-        const lists = await firebaseDataService.getUserLists(authUser.id);
-        setUserLists(lists);
+    if (!authUser) return
+    firebaseDataService.getUserLists(authUser.id).then(setUserLists).catch(() => setUserLists([]))
+  }, [authUser])
+
+  const meta = useMemo(() => {
+    if (!place) return ''
+    const parts = [prettyType(place.primaryType || place.types?.[0]), place.address?.split(',')[0]?.trim()]
+      .filter(Boolean)
+    return parts.join(' · ')
+  }, [place])
+
+  const theme = useMemo(() => pickTheme(place?.primaryType, place?.types), [place?.primaryType, place?.types])
+
+  const handleSaveAction = async (status: 'loved' | 'tried' | 'want', rating?: 'liked' | 'neutral' | 'disliked', listIds?: string[], note?: string) => {
+    if (!place || !authUser) return
+    try {
+      const ids = Array.isArray(listIds) ? listIds : []
+      for (const lid of ids) {
+        await firebaseDataService.savePlaceToList(place.id, lid, authUser.id, note, undefined, status, rating)
       }
-    };
-    fetchUserLists();
-  }, [authUser]);
+      await firebaseDataService.saveToAutoList(place.id, authUser.id, status, note, rating)
+      // Idempotent — bumps savedCount once per user-place pair regardless of list count.
+      const incremented = await firebaseDataService.recordUserSave(place.id, authUser.id)
+      if (incremented) {
+        setPlace(p => (p ? { ...p, savedCount: (p.savedCount || 0) + 1 } : p))
+      }
+    } catch (e) {
+      console.error('[place-hub] save failed', e)
+    } finally {
+      setShowSaveModal(false)
+    }
+  }
+
+  const handleCreateList = async (data: { name: string; description: string; privacy: 'public' | 'private' | 'friends'; tags?: string[]; coverImage?: string }) => {
+    if (!place || !authUser) return
+    const newId = await firebaseDataService.createList({ ...data, tags: data.tags || [], userId: authUser.id })
+    if (newId) {
+      await firebaseDataService.savePlaceToList(place.id, newId, authUser.id, undefined, undefined, 'loved')
+      const lists = await firebaseDataService.getUserLists(authUser.id)
+      setUserLists(lists)
+    }
+    setShowSaveModal(false)
+  }
 
   const handleLikePost = async (postId: string) => {
     setLikedPosts(prev => {
-      const newSet = new Set(prev)
-      if (newSet.has(postId)) newSet.delete(postId)
-      else newSet.add(postId)
-      return newSet
+      const next = new Set(prev)
+      if (next.has(postId)) next.delete(postId)
+      else next.add(postId)
+      return next
     })
     try {
       if (authUser) await firebaseDataService.likePost(postId, authUser.id)
-      setPosts(ps => ps.map(p => p.id === postId ? {
-        ...p,
-        likes: (p.likes || 0) + (likedPosts.has(postId) ? -1 : 1),
-        likedBy: likedPosts.has(postId)
-          ? (p.likedBy || []).filter(id => id !== authUser?.id)
-          : ([...(p.likedBy || []), authUser?.id].filter(Boolean) as string[])
-      } : p))
-    } catch (e) {
-      console.warn('Failed to like post', e)
+    } catch {
+      // ignore optimistic-only failure
     }
   }
 
-  const handleSavePost = (postId: string) => {
-    setSavedPosts(prev => {
-      const newSet = new Set(prev)
-      if (newSet.has(postId)) {
-        newSet.delete(postId)
-      } else {
-        newSet.add(postId)
-      }
-      return newSet
-    })
-  }
-
-  const handleCreatePost = () => {
-    setShowCreatePost(true)
-  }
-
-  const handleSaveToPlace = (place: Place) => {
-    setSelectedPlace(place)
-    setShowSaveModal(true)
-  }
-
-  const handleSave = async (status: 'loved' | 'tried' | 'want', rating?: 'liked' | 'neutral' | 'disliked', listIds?: string[], note?: string) => {
-    if (!selectedPlace || !authUser) return;
-
-    try {
-      const ids = Array.isArray(listIds) ? listIds : []
-      const already: string[] = []
-      for (const lid of ids) {
-        if (await firebaseDataService.isPlaceInList(lid, selectedPlace.id)) already.push(lid)
-      }
-      if (already.length > 0) {
-        const names = userLists.filter(l=>already.includes(l.id)).map(l=>l.name).join(', ')
-        const overwrite = window.confirm(`You've already saved this hub to the following lists: ${names}.\nWould you like to overwrite your previous save?`)
-        if (!overwrite) return
-      }
-
-      if (ids.length > 0) {
-        await Promise.all(
-          ids.map(listId =>
-            firebaseDataService.savePlaceToList(selectedPlace.id, listId, authUser.id, note, undefined, status, rating)
-          )
-        )
-      }
-
-      await firebaseDataService.saveToAutoList(selectedPlace.id, authUser.id, status, note, rating)
-    } catch (e) {
-      console.error('Error saving place:', e)
-    }
-
-    setShowSaveModal(false)
-    setSelectedPlace(null)
-  }
-
-  const handleCreateList = async (listData: { name: string; description: string; privacy: 'public' | 'private' | 'friends'; tags?: string[]; coverImage?: string }) => {
-    if (!selectedPlace || !authUser) return;
-    
-    const newListId = await firebaseDataService.createList({
-      ...listData,
-      tags: listData.tags || [],
-      userId: authUser.id,
-    });
-
-    if (newListId) {
-      await firebaseDataService.savePlaceToList(selectedPlace.id, newListId, authUser.id, undefined, undefined, 'loved'); // Default to loved status
-      // Refresh user lists
-      const lists = await firebaseDataService.getUserLists(authUser.id);
-      setUserLists(lists);
-    }
-
-    setShowSaveModal(false)
-    setSelectedPlace(null)
-  }
-
-  const handleBack = () => {
-    goBack()
-  }
-
-
-  const handleViewAllLists = () => {
-    if (id) {
-      navigate(`/lists?type=popular&hub=${encodeURIComponent(id)}`)
-    } else {
-      navigate('/lists?type=popular')
-    }
-  }
-
-  // (friends lists navigation handler removed as unused)
-
-  const filteredPosts = postSearch.trim()
-    ? posts.filter(p => (
-        (p.description || '').toLowerCase().includes(postSearch.toLowerCase()) ||
-        (p.username || '').toLowerCase().includes(postSearch.toLowerCase()) ||
-        (Array.isArray((p as any).tags) && ((p as any).tags as string[]).some(t => t.toLowerCase().includes(postSearch.toLowerCase())))
-      ))
-    : posts
-
-  const handleReply = (post: Post) => {
-    setSelectedPost(post)
-    setShowReplyModal(true)
-  }
-
-  const handleViewComments = async (post: Post) => {
-    setSelectedPost(post)
-    setShowCommentsModal(true)
-    try {
-      const comments = await firebaseDataService.getCommentsForPost(post.id)
-      setSelectedPost(prev => prev ? { ...prev, comments } as Post : prev)
-    } catch (e) {
-      console.warn('Failed to load comments', e)
-    }
-  }
-
-  const handleAddComment = async (text: string) => {
-    if (!selectedPost || !authUser) return
-    const created = await firebaseDataService.postComment(selectedPost.id, authUser.id, text)
-    if (created) {
-      setSelectedPost(prev => prev ? { ...prev, comments: [created, ...(prev.comments || [])] } as Post : prev)
-    }
-  }
-
-  const handleLikeComment = async (commentId: string) => {
-    if (!selectedPost || !authUser) return
-    await firebaseDataService.likeComment(selectedPost.id, commentId, authUser.id)
-    setSelectedPost(prev => {
-      if (!prev) return prev
-      const updated = (prev.comments || []).map(c => c.id === commentId ? {
-        ...c,
-        likes: (c.likes || 0) + ((c.likedBy || []).includes(authUser.id) ? -1 : 1),
-        likedBy: (c.likedBy || []).includes(authUser.id)
-          ? (c.likedBy || []).filter(id => id !== authUser.id)
-          : ([...(c.likedBy || []), authUser.id])
-      } : c)
-      return { ...prev, comments: updated } as Post
-    })
-  }
-
-  const handleReplyToComment = async (commentId: string, text: string) => {
-    if (!selectedPost || !authUser) return
-    const reply = await firebaseDataService.addReplyToComment(selectedPost.id, commentId, authUser.id, text)
-    if (reply) {
-      setSelectedPost(prev => {
-        if (!prev) return prev
-        const updated = (prev.comments || []).map(c => c.id === commentId ? {
-          ...c,
-          replies: [...(c.replies || []), reply]
-        } : c)
-        return { ...prev, comments: updated } as Post
-      })
-    }
-  }
-
-  const handlePostReply = async (text: string, images?: string[]) => {
-    if (!selectedPost) return
-    // In a real app, this would make an API call to create a reply post
-    console.log('Creating reply to post:', selectedPost.id, 'Text:', text, 'Images:', images)
-  }
-
-  // (save post to list handler removed as unused)
-
-  // Loading state
   if (loading) {
     return (
-      <div className="min-h-full bg-gradient-to-br from-[#FEF6E9] via-[#FBF0D9] to-[#F7E8CC] relative overflow-hidden overflow-x-hidden">
-        {/* Botanical Accents - same as main view */}
-        <div className="absolute inset-0 pointer-events-none z-0 overflow-hidden">
-          <div className="absolute bottom-0 left-0 h-full w-12 sm:w-14 md:w-16 pointer-events-none">
-            <img
-              src="/assets/leaf2.png"
-              alt=""
-              className="absolute bottom-0 left-0 h-full w-full object-contain opacity-8 sm:opacity-10 pointer-events-none blur-[0.5px] sm:blur-[0.3px]"
-              style={{
-                transform: 'scaleY(1.2) translateY(-12%) rotate(-5deg)',
-                filter: 'brightness(0.8) contrast(0.9) saturate(1.1) hue-rotate(5deg)'
-              }}
-            />
-          </div>
-        </div>
-        {/* Hero Skeleton */}
-        <SkeletonHero />
-        {/* Content Skeleton */}
-        <div className="relative z-10 p-4 space-y-4 max-w-2xl mx-auto pb-24">
-          <SkeletonCard variant="solid" />
-          <SkeletonCard variant="solid" />
-          <SkeletonCard variant="solid" />
+      <div className="min-h-full">
+        <div className="aspect-[4/3] bg-stone-100 animate-pulse" />
+        <div className="px-5 pt-5 space-y-3">
+          <div className="h-7 bg-stone-100 rounded animate-pulse w-3/4" />
+          <div className="h-4 bg-stone-100 rounded animate-pulse w-1/2" />
+          <div className="h-12 bg-stone-100 rounded-xl animate-pulse w-full mt-6" />
         </div>
       </div>
     )
   }
 
-  // Error state
-  if (error) {
+  if (error || !place) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-[#FEF6E9] via-[#FBF0D9] to-[#F7E8CC] flex items-center justify-center">
-        <div className="text-center">
-          <p className="text-red-600 text-lg mb-4">{error}</p>
-          <button 
-            onClick={() => navigate(-1)}
-            className="px-6 py-3 bg-[#E17373] text-white rounded-lg hover:bg-[#D55F5F] transition-colors"
-          >
-            Go Back
-          </button>
-        </div>
+      <div className="min-h-full px-6 py-20 text-center">
+        <p className="text-[15px] text-stone-700 mb-1">{error || 'Place not found'}</p>
+        <button onClick={() => navigate(-1)} className="mt-4 text-[14px] font-medium text-stone-600 underline">
+          Go back
+        </button>
       </div>
     )
   }
 
-  // No hub data
-  if (!hub) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-[#FEF6E9] via-[#FBF0D9] to-[#F7E8CC] flex items-center justify-center">
-        <div className="text-center">
-          <p className="text-[#8B7355] text-lg mb-4">Place not found</p>
-          <button 
-            onClick={() => navigate(-1)}
-            className="px-6 py-3 bg-[#E17373] text-white rounded-lg hover:bg-[#D55F5F] transition-colors"
-          >
-            Go Back
-          </button>
-        </div>
-      </div>
-    )
-  }
+  const directionsUrl = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(place.address || place.name)}`
 
   return (
-    <div className="min-h-full bg-gradient-to-br from-[#FEF6E9] via-[#FBF0D9] to-[#F7E8CC] relative overflow-hidden overflow-x-hidden">
-      {/* Botanical Accents - Matching HubModal Style */}
-      <div className="absolute inset-0 pointer-events-none z-0 overflow-hidden">
-        {/* Primary climbing vine - larger and warmer */}
-        <div className="absolute bottom-0 left-0 h-full w-12 sm:w-14 md:w-16 pointer-events-none">
-          <img
-            src="/assets/leaf2.png"
-            alt=""
-            className="absolute bottom-0 left-0 h-full w-full object-contain opacity-8 sm:opacity-10 pointer-events-none blur-[0.5px] sm:blur-[0.3px]"
-            style={{
-              transform: 'scaleY(1.2) translateY(-12%) rotate(-5deg)',
-              filter: 'brightness(0.8) contrast(0.9) saturate(1.1) hue-rotate(5deg)'
-            }}
-          />
-        </div>
-        
-        {/* Secondary vine - positioned to avoid overlap */}
-        <div className="absolute top-56 sm:top-64 right-0 h-[calc(100%-14rem)] sm:h-[calc(100%-16rem)] w-8 sm:w-10 md:w-12 pointer-events-none">
-          <img
-            src="/assets/leaf2.png"
-            alt=""
-            className="absolute top-0 right-0 h-full w-full object-contain opacity-6 sm:opacity-8 pointer-events-none blur-[0.4px] sm:blur-[0.2px]"
-            style={{
-              transform: 'scaleY(1.1) translateY(-8%) rotate(8deg)',
-              filter: 'brightness(0.9) contrast(0.8) saturate(1.0) hue-rotate(-3deg)'
-            }}
-          />
-        </div>
-        
-        {/* Connected Leaf Clusters - Cozy and Intertwined */}
-        <img
-          src="/assets/leaf2.png"
-          alt=""
-          className="absolute top-6 sm:top-8 md:top-10 left-4 sm:left-6 md:left-8 w-12 h-12 sm:w-14 sm:h-14 md:w-16 md:h-16 lg:w-18 lg:h-18 opacity-15 sm:opacity-18 md:opacity-20 pointer-events-none blur-[0.3px] sm:blur-[0.2px]"
-          style={{
-            transform: 'rotate(-25deg) scale(0.8)',
-            filter: 'brightness(0.9) contrast(0.9) saturate(1.1) hue-rotate(8deg)'
-          }}
+    <div className="min-h-full bg-paper">
+      <div className="relative aspect-[4/5] sm:aspect-[4/3] overflow-hidden">
+        <HubImage
+          photos={place.photos}
+          userImage={(place as any).mainImage || (place as any).hubImage || (place as any).coverImage}
+          primaryType={place.primaryType}
+          types={place.types}
+          alt={place.name}
+          load
+          aspect="aspect-[4/5] sm:aspect-[4/3]"
+          className="w-full h-full"
         />
-        
-        <img
-          src="/assets/leaf2.png"
-          alt=""
-          className="absolute top-8 sm:top-10 md:top-12 left-6 sm:left-8 md:left-10 w-10 h-10 sm:w-12 sm:h-12 md:w-14 md:h-14 lg:w-16 lg:h-16 opacity-12 sm:opacity-15 md:opacity-18 pointer-events-none blur-[0.4px] sm:blur-[0.3px]"
-          style={{
-            transform: 'rotate(15deg) scale(0.7)',
-            filter: 'brightness(1.0) contrast(0.8) saturate(1.0) hue-rotate(-5deg)'
-          }}
-        />
-        
-        <img
-          src="/assets/leaf2.png"
-          alt=""
-          className="absolute top-44 sm:top-48 md:top-52 left-3 sm:left-4 w-14 h-14 sm:w-16 sm:h-16 md:w-18 md:h-18 lg:w-20 lg:h-20 opacity-12 sm:opacity-15 md:opacity-18 pointer-events-none blur-[0.4px] sm:blur-[0.3px]"
-          style={{
-            transform: 'rotate(35deg) scale(0.9)',
-            filter: 'brightness(1.0) contrast(0.8) saturate(1.0) hue-rotate(-5deg)'
-          }}
-        />
-        
-        <img
-          src="/assets/leaf2.png"
-          alt=""
-          className="absolute bottom-4 sm:bottom-6 md:bottom-8 right-3 sm:right-4 md:right-6 w-16 h-16 sm:w-18 sm:h-18 md:w-20 md:h-20 lg:w-22 lg:h-22 opacity-15 sm:opacity-17 md:opacity-20 pointer-events-none blur-[0.4px] sm:blur-[0.3px]"
-          style={{
-            transform: 'rotate(45deg) scale(1.0)',
-            filter: 'brightness(0.9) contrast(0.9) saturate(1.1) hue-rotate(6deg)'
-          }}
-        />
+        <div className="absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-black/40 to-transparent pointer-events-none" />
+        <button
+          onClick={() => navigate(-1)}
+          className="absolute top-4 left-4 h-10 w-10 rounded-full bg-paper/95 backdrop-blur-sm flex items-center justify-center"
+          aria-label="Back"
+        >
+          <ArrowLeftIcon className="w-5 h-5 text-ink" />
+        </button>
+        <button
+          onClick={() => setShowShareModal(true)}
+          className="absolute top-4 right-4 h-10 w-10 rounded-full bg-paper/95 backdrop-blur-sm flex items-center justify-center"
+          aria-label="Share"
+        >
+          <ShareIcon className="w-5 h-5 text-ink" />
+        </button>
       </div>
-      {/* Header */}
-      <PageHeader
-        coverUrl={hub?.mainImage}
-        title={hub?.name || ''}
-        subtitle={hub?.location?.address}
-        rightActions={
-          <button 
-            onClick={() => {
-              if (window.history.length > 1) {
-                navigate(-1)
-              } else {
-                handleBack()
-              }
-            }}
-            className="w-10 h-10 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center hover:bg-white/30 transition-colors"
-            aria-label="Go back"
-          >
-            <ArrowLeftIcon className="w-5 h-5 text-white" />
-          </button>
-        }
-      />
 
-      <div className="relative z-10 p-4 space-y-4 max-w-2xl mx-auto pb-24">
-        {/* About Section */}
-        <CardShell variant="solid" className="p-6">
-          <h2 className="text-2xl font-serif font-bold text-bark-900 mb-4">{hub.name}</h2>
-          <p className="text-bark-600 text-sm mb-4 leading-relaxed">{hub?.description || ''}</p>
-          <div className="flex flex-wrap gap-2 mb-4">
-            {(hub?.tags || []).map(tag => (
-              <span key={tag} className="px-3 py-1 text-xs rounded-full bg-moss-100 text-moss-700 font-medium border border-moss-200">#{tag}</span>
+      <div className="relative px-5 pt-7 -mt-8 z-10">
+        <div className="bg-paper rounded-t-[24px] -mx-5 px-5 pt-7">
+          <p className="label-eyebrow flex items-center gap-1.5 mb-3" style={{ color: 'var(--accent-deep)' }}>
+            <span className="accent-bead-sm accent-bead" />
+            {theme.label}
+          </p>
+          <h1 className="font-display text-[44px] leading-[0.95] text-ink">
+            {place.name}
+          </h1>
+          {meta && (
+            <p className="font-mono text-[11px] tracking-[0.14em] uppercase text-ink-mute mt-3 flex items-center gap-1.5">
+              <MapPinIcon className="w-3.5 h-3.5 shrink-0" />
+              <span className="truncate">{meta}</span>
+            </p>
+          )}
+          {(place.savedCount || posts.length) ? (
+            <div className="flex items-center gap-3 mt-4">
+              {place.savedCount ? (
+                <span className="label-eyebrow text-ink-soft">
+                  <span className="text-ink font-semibold">{place.savedCount}</span> {place.savedCount === 1 ? 'save' : 'saves'}
+                </span>
+              ) : null}
+              {place.savedCount && posts.length ? (
+                <span className="text-ink-faint">·</span>
+              ) : null}
+              {posts.length ? (
+                <span className="label-eyebrow text-ink-soft">
+                  <span className="text-ink font-semibold">{posts.length}</span> {posts.length === 1 ? 'post' : 'posts'}
+                </span>
+              ) : null}
+            </div>
+          ) : null}
+
+          <div className="mt-6 flex gap-2">
+            <div className="relative flex-1">
+              <span
+                aria-hidden
+                className="absolute pointer-events-none rounded-full"
+                style={{
+                  inset: -8,
+                  background: 'radial-gradient(60% 100% at 28% 30%, rgba(240, 208, 138, 0.55) 0%, rgba(198, 139, 59, 0.30) 45%, transparent 70%)',
+                  filter: 'blur(6px)',
+                  zIndex: 0,
+                }}
+              />
+              <button
+                onClick={() => setShowSaveModal(true)}
+                className="btn-cta relative w-full h-12 text-[14px] font-semibold flex items-center justify-center gap-2 z-10"
+              >
+                <BookmarkIcon className="w-[18px] h-[18px]" />
+                Save
+              </button>
+            </div>
+            <button
+              onClick={() => setShowCreatePost(true)}
+              className="btn-secondary flex-1 h-12 text-[14px] font-medium flex items-center justify-center gap-2"
+            >
+              <PlusIcon className="w-[18px] h-[18px]" />
+              Post
+            </button>
+            <a
+              href={directionsUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="btn-secondary h-12 px-5 font-medium text-[14px] flex items-center justify-center gap-2"
+              aria-label="Directions"
+            >
+              <MapPinIcon className="w-[18px] h-[18px]" />
+            </a>
+          </div>
+
+          <div className="mt-8 border-b border-edge flex gap-6">
+            {(['posts', 'about'] as const).map(t => (
+              <button
+                key={t}
+                onClick={() => setTab(t)}
+                className={`pb-3 label-eyebrow transition-colors ${
+                  tab === t
+                    ? 'text-ink border-b-2 border-ink -mb-px'
+                    : 'text-ink-mute hover:text-ink-soft'
+                }`}
+              >
+                {t === 'posts' ? `Posts${posts.length ? ` · ${posts.length}` : ''}` : 'About'}
+              </button>
             ))}
           </div>
-        </CardShell>
+        </div>
+      </div>
 
-        {/* Tabs */}
-        <CardShell variant="solid" className="p-2">
-          <div className="flex gap-2">
-            <button
-              onClick={() => setTab('overview')}
-              className={`flex-1 py-3 px-4 rounded-lg font-semibold text-sm transition-all duration-300 ${
-                tab === 'overview' 
-                  ? 'bg-moss-500 text-white shadow-soft' 
-                  : 'text-bark-700 bg-bark-100 hover:bg-bark-200'
-              }`}
-              aria-label="View overview tab"
-              aria-pressed={tab === 'overview'}
-            >
-              Overview
-            </button>
-            <button
-              onClick={() => setTab('posts')}
-              className={`flex-1 py-3 px-4 rounded-lg font-semibold text-sm transition-all duration-300 ${
-                tab === 'posts' 
-                  ? 'bg-moss-500 text-white shadow-soft' 
-                  : 'text-bark-700 bg-bark-100 hover:bg-bark-200'
-              }`}
-              aria-label="View posts tab"
-              aria-pressed={tab === 'posts'}
-            >
-              Posts ({posts.length})
-            </button>
-          </div>
-        </CardShell>
-
-        {/* Tab Content */}
-        {tab === 'overview' && (
-          <div className="space-y-4 pb-6">
-            {/* Popular Lists */}
-            <CardShell variant="solid" className="p-4">
-              <h3 className="text-lg font-semibold text-bark-900 mb-3">Lists Featuring This Place</h3>
-              {hub.lists && hub.lists.length > 0 ? (
-                <div className="space-y-2">
-                  {hub.lists.slice(0, 3).map(list => (
-                    <div key={list.id} className="text-bark-600 text-sm">- {list.name}</div>
+      <div className="px-5 pt-6 pb-14">
+        {tab === 'about' ? (
+          <div className="space-y-6">
+            {place.description && (
+              <p className="font-display-italic text-[18px] text-ink leading-snug max-w-prose">
+                {place.description}
+              </p>
+            )}
+            {place.address && (
+              <div>
+                <div className="label-eyebrow text-ink-mute mb-1.5">Address</div>
+                <p className="text-[14px] text-ink-soft">{place.address}</p>
+              </div>
+            )}
+            {Array.isArray(place.tags) && place.tags.length > 0 && (
+              <div>
+                <div className="label-eyebrow text-ink-mute mb-2.5">Tags</div>
+                <div className="flex flex-wrap gap-1.5">
+                  {place.tags.slice(0, 12).map(t => (
+                    <span key={t} className="px-3 h-7 rounded-full bg-card border border-edge font-mono text-[11px] tracking-wide text-ink-soft inline-flex items-center">
+                      {t}
+                    </span>
                   ))}
                 </div>
-              ) : (
-                <div className="italic text-bark-500 text-sm">No public lists feature this place yet.</div>
-              )}
-              <button 
-                onClick={handleViewAllLists}
-                className="mt-3 text-moss-600 text-sm font-medium hover:text-moss-700"
-                aria-label="View all lists featuring this place"
-              >
-                See All
-              </button>
-            </CardShell>
-
-            {/* Comments Section */}
-            <CardShell variant="solid" className="p-4">
-              <h3 className="text-lg font-semibold text-bark-900 mb-4">What people are saying</h3>
-              <div className="italic text-bark-600 text-sm">"The cold brew here is absolutely divine!"</div>
-              {/* TODO: Add real comments */}
-            </CardShell>
-          </div>
-        )}
-        {tab === 'posts' && (
-          <div className="space-y-4 pb-6">
-            <div className="mb-3">
-              <div className="relative">
-                <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-[#8B7355]" />
-                <input
-                  type="text"
-                  value={postSearch}
-                  onChange={(e) => setPostSearch(e.target.value)}
-                  placeholder={`Search posts in ${hub.name}...`}
-                  className="w-full pl-10 pr-4 py-2 rounded-xl border border-[#E4D5C7] bg-[#FEF6E9] text-[#6B5B47] focus:outline-none focus:ring-2 focus:ring-sage-200 focus:border-sage-300"
-                />
-              </div>
-            </div>
-            {filteredPosts.length > 0 ? (
-              filteredPosts.map((post) => (
-                <div
-                  key={post.id}
-                  className="bg-[#E4D5C7]/15 backdrop-blur-sm rounded-xl p-4 shadow-lg border border-[#E4D5C7]/30"
-                >
-                <div className="flex items-start space-x-3 mb-3">
-                  <div className="w-10 h-10 rounded-lg border border-[#E4D5C7] bg-[#FDF8F0] shadow-sm relative overflow-hidden">
-                    <img
-                      src={post.userAvatar}
-                      alt={post.username}
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
-                  <div className="flex-1">
-                    <div className="flex items-center space-x-2">
-                      <span className="font-serif font-semibold text-[#6B5B47] text-sm">{post.username}</span>
-                    </div>
-                    <p className="text-xs text-[#8B7355] font-serif">{require('../utils/dateUtils').formatTimestamp(post.createdAt)}</p>
-                  </div>
-                </div>
-                {post.images && post.images[0] && (
-                  <div className="mb-4 relative overflow-hidden rounded-2xl shadow-botanical">
-                    <img
-                      src={post.images[0]}
-                      alt="Post"
-                      className="w-full h-56 object-cover"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/10 via-transparent to-transparent"></div>
-                    <div className="absolute inset-0 border border-white/30 rounded-2xl"></div>
-                  </div>
-                )}
-                <p className="text-sm text-[#7A5D3F] mb-3 leading-relaxed">{post.description}</p>
-                
-                {/* Post Actions */}
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-4">
-                    <button
-                      onClick={() => handleLikePost(post.id)}
-                      className={`flex items-center space-x-1 ${
-                        likedPosts.has(post.id) ? 'text-[#C17F59]' : 'text-[#8B7355]'
-                      } hover:text-[#C17F59] transition-colors`}
-                      aria-label={likedPosts.has(post.id) ? "Unlike post" : "Like post"}
-                    >
-                      <HeartIcon className={`w-5 h-5 ${likedPosts.has(post.id) ? 'fill-current' : ''}`} />
-                      <span className="text-sm font-medium">{post.likes}</span>
-                    </button>
-                    <button
-                      onClick={() => handleViewComments(post)}
-                      className="flex items-center space-x-1 text-[#8B7355] hover:text-[#7A5D3F] transition-colors"
-                      aria-label="View comments"
-                    >
-                      <ChatBubbleLeftIcon className="w-5 h-5" />
-                      <span className="text-sm font-medium">{post.comments?.length || 0}</span>
-                    </button>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <button
-                      onClick={() => handleSavePost(post.id)}
-                      className={`p-2 rounded-full ${
-                        savedPosts.has(post.id) ? 'bg-[#B08968]/25 text-[#B08968]' : 'bg-[#E8D4C0]/50 text-[#8B7355]'
-                      } hover:bg-[#B08968]/35 transition-colors`}
-                      aria-label={savedPosts.has(post.id) ? "Remove from saved" : "Save post"}
-                    >
-                      <BookmarkIcon className={`w-4 h-4 ${savedPosts.has(post.id) ? 'fill-current' : ''}`} />
-                    </button>
-                    <button
-                      onClick={() => handleReply(post)}
-                      className="p-2 rounded-full bg-[#E8D4C0]/50 text-[#8B7355] hover:bg-[#E8D4C0]/70 transition-colors"
-                      aria-label="Reply to post"
-                    >
-                      <ShareIcon className="w-4 h-4" />
-                    </button>
-                  </div>
-                </div>
-              </div>
-              ))
-            ) : (
-              <div className="text-center py-12">
-                <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-[#E8D4C0]/50 flex items-center justify-center">
-                  <CameraIcon className="w-8 h-8 text-[#8B7355]" />
-                </div>
-                <h3 className="text-lg font-serif font-semibold text-[#6B5B47] mb-2">{postSearch ? 'No posts found' : 'No posts yet'}</h3>
-                <p className="text-[#7A5D3F] mb-4">{postSearch ? 'Try a different search.' : 'Be the first to share your experience!'}</p>
-                <button
-                  onClick={handleCreatePost}
-                  className="bg-gradient-to-r from-[#D4A574] to-[#B08968] text-[#FEF6E9] px-4 py-2 rounded-xl text-sm font-semibold shadow-lg border border-[#B08968]/30 active:scale-95 transition-all duration-200"
-                  aria-label="Create a new post"
-                >
-                  <PlusIcon className="w-4 h-4 mr-1 inline" />
-                  Add Post
-                </button>
               </div>
             )}
           </div>
+        ) : posts.length === 0 ? (
+          <div className="border border-edge rounded-[14px] px-5 py-12 text-center bg-card">
+            <p className="font-display text-[26px] text-ink leading-tight">No posts yet.</p>
+            <p className="text-[13px] text-ink-soft mt-2 max-w-xs mx-auto">Be the first to share what you thought of this place.</p>
+            <button
+              onClick={() => setShowCreatePost(true)}
+              className="btn-cta mt-5 inline-flex items-center gap-1.5 px-5 h-10 label-eyebrow"
+            >
+              <PlusIcon className="w-4 h-4" /> Write a post
+            </button>
+          </div>
+        ) : (
+          <ul className="divide-y divide-edge border-y border-edge">
+            {posts.map(p => {
+              const liked = likedPosts.has(p.id)
+              const saved = savedPosts.has(p.id)
+              const likeCount = (p.likes || 0) + (liked && !((p.likedBy || []).includes(authUser?.id || '')) ? 1 : 0)
+              return (
+                <li key={p.id} className="py-5">
+                  <div className="flex items-center gap-2.5">
+                    {p.userAvatar ? (
+                      <img src={p.userAvatar} alt={p.username || 'user'} className="w-9 h-9 rounded-full object-cover" />
+                    ) : (
+                      <div className="w-9 h-9 rounded-full bg-paper-deep flex items-center justify-center font-mono text-[10px] tracking-wider text-ink-soft ring-1 ring-edge">
+                        {(p.username || '?').slice(0, 2).toUpperCase()}
+                      </div>
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[14px] font-medium text-ink truncate leading-tight">{p.username || 'Anonymous'}</p>
+                      <p className="font-mono text-[10px] tracking-[0.12em] uppercase text-ink-mute mt-0.5">{formatTimestamp(p.createdAt)}</p>
+                    </div>
+                  </div>
+                  {p.images?.[0] && (
+                    <img src={p.images[0]} alt={p.description || 'post'} loading="lazy" className="mt-4 w-full aspect-[4/3] object-cover rounded-[10px]" />
+                  )}
+                  {p.description && (
+                    <p className="mt-3 text-[14px] text-ink-soft leading-relaxed whitespace-pre-wrap">
+                      {p.description}
+                    </p>
+                  )}
+                  <div className="flex items-center gap-1 mt-3 -ml-2">
+                    <button
+                      onClick={() => handleLikePost(p.id)}
+                      aria-label={liked ? 'Unlike post' : 'Like post'}
+                      aria-pressed={liked}
+                      className={`h-9 px-3 rounded-full font-mono text-[11px] tracking-wide flex items-center gap-1.5 transition-colors ${
+                        liked ? 'text-accent' : 'text-ink-mute hover:text-ink'
+                      }`}
+                    >
+                      {liked ? <HeartIconSolid className="w-[18px] h-[18px]" /> : <HeartIcon className="w-[18px] h-[18px]" />}
+                      {likeCount > 0 ? likeCount : ''}
+                    </button>
+                    <button
+                      onClick={() => { setActivePost(p); setShowCommentsModal(true) }}
+                      aria-label={`View comments (${p.comments?.length || 0})`}
+                      className="h-9 px-3 rounded-full font-mono text-[11px] tracking-wide text-ink-mute hover:text-ink flex items-center gap-1.5"
+                    >
+                      <ChatBubbleLeftIcon className="w-[18px] h-[18px]" />
+                      {p.comments?.length || ''}
+                    </button>
+                    <button
+                      onClick={() => setSavedPosts(prev => { const n = new Set(prev); n.has(p.id) ? n.delete(p.id) : n.add(p.id); return n })}
+                      aria-label={saved ? 'Remove bookmark' : 'Bookmark post'}
+                      aria-pressed={saved}
+                      className={`h-9 px-3 rounded-full font-mono text-[11px] flex items-center gap-1.5 transition-colors ml-auto ${
+                        saved ? 'text-ink' : 'text-ink-mute hover:text-ink'
+                      }`}
+                    >
+                      {saved ? <BookmarkIconSolid className="w-[18px] h-[18px]" /> : <BookmarkIcon className="w-[18px] h-[18px]" />}
+                    </button>
+                  </div>
+                </li>
+              )
+            })}
+          </ul>
         )}
       </div>
 
-      {/* Modals */}
-      <CreatePost
-        isOpen={showCreatePost}
-        onClose={() => setShowCreatePost(false)}
-        preSelectedHub={{
-          id: hub.id,
-          name: hub.name,
-          address: hub.location.address,
-          description: hub.description,
-          lat: hub.location.lat,
-          lng: hub.location.lng
+      <SaveModal
+        isOpen={showSaveModal}
+        onClose={() => setShowSaveModal(false)}
+        place={{
+          id: place.id,
+          name: place.name,
+          address: place.address || '',
+          tags: place.tags || [],
+          posts: place.posts || [],
+          savedCount: place.savedCount || 0,
+          createdAt: (place as { createdAt?: string }).createdAt || '',
         }}
+        userLists={userLists}
+        onSave={handleSaveAction}
+        onCreateList={handleCreateList}
       />
-
-      {selectedPlace && (
-        <SaveModal
-          isOpen={showSaveModal}
-          onClose={() => {
-            setShowSaveModal(false)
-            setSelectedPlace(null)
-          }}
-          place={selectedPlace}
-          userLists={userLists}
-          onSave={handleSave}
-          onCreateList={handleCreateList}
-        />
-      )}
-
-      {/* Comments Modal */}
-      {selectedPost && (
-        <CommentsModal
-          isOpen={showCommentsModal}
-          onClose={() => {
-            setShowCommentsModal(false)
-            setSelectedPost(null)
-          }}
-          comments={selectedPost.comments || []}
-          onAddComment={handleAddComment}
-          onLikeComment={handleLikeComment}
-          onReplyToComment={handleReplyToComment}
-        />
-      )}
-
-      {/* Reply Modal */}
-      {selectedPost && (
-        <ReplyModal
-          isOpen={showReplyModal}
-          onClose={() => {
-            setShowReplyModal(false)
-            setSelectedPost(null)
-          }}
-          postId={selectedPost.id}
-          postAuthor={selectedPost.username}
-          postContent={selectedPost.description}
-          postImage={selectedPost.images?.[0]}
-          onReply={handlePostReply}
-        />
-      )}
-
-      {/* Share Modal */}
       <ShareModal
         isOpen={showShareModal}
         onClose={() => setShowShareModal(false)}
-        title={hub.name}
-        description={hub.description}
-        url={window.location.href}
-        image={hub.mainImage}
+        title={place.name}
+        description={place.description || place.address || ''}
+        url={typeof window !== 'undefined' ? window.location.href : ''}
         type="place"
       />
-
-      {/* Action Bar */}
-      <ActionBar
-        primary={
-          <button
-            onClick={() => handleSaveToPlace({
-              id: hub.id,
-              name: hub.name,
-              address: hub.location.address,
-              tags: hub.tags,
-              posts: hub.posts,
-              savedCount: 0,
-              createdAt: new Date().toISOString()
-            })}
-            className="w-full bg-moss-500 text-white py-3 px-4 rounded-xl font-semibold hover:bg-moss-600 transition-colors"
-            aria-label="Save this place to your lists"
-          >
-            Save
-          </button>
-        }
-        secondary={[
-          <button
-            key="add-post"
-            onClick={handleCreatePost}
-            className="flex items-center justify-center gap-2 bg-bark-100 text-bark-700 py-3 px-4 rounded-xl font-medium hover:bg-bark-200 transition-colors"
-            aria-label="Add a post about this place"
-          >
-            <PlusIcon className="w-4 h-4" />
-            Add Post
-          </button>,
-          <a
-            key="directions"
-            href={hub.googleMapsUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center justify-center gap-2 bg-bark-100 text-bark-700 py-3 px-4 rounded-xl font-medium hover:bg-bark-200 transition-colors"
-            aria-label="Get directions to this place"
-          >
-            <MapPinIcon className="w-4 h-4" />
-            Directions
-          </a>
-        ]}
+      <CreatePost
+        isOpen={showCreatePost}
+        onClose={() => setShowCreatePost(false)}
+        preSelectedHub={{ id: place.id, name: place.name, address: place.address || '', description: place.description, lat: place.coordinates?.lat, lng: place.coordinates?.lng }}
       />
+      {activePost && (
+        <CommentsModal
+          isOpen={showCommentsModal}
+          onClose={() => { setShowCommentsModal(false); setActivePost(null) }}
+          comments={activePost.comments || []}
+          onAddComment={async (text: string) => {
+            if (!authUser) return
+            const created = await firebaseDataService.postComment(activePost.id, authUser.id, text)
+            if (created) {
+              const next = [...(activePost.comments || []), created]
+              setActivePost({ ...activePost, comments: next })
+              // Keep the post in the page-level list in sync too so the count
+              // under the Comment button updates without a reload.
+              setPosts(prev => prev.map(p => p.id === activePost.id ? { ...p, comments: next } : p))
+            }
+          }}
+          onLikeComment={async (commentId: string) => {
+            if (!authUser) return
+            await firebaseDataService.likeComment(activePost.id, commentId, authUser.id)
+          }}
+          onReplyToComment={async (commentId: string, text: string) => {
+            if (!authUser) return
+            // Replies are stored as flat comments mentioning the parent. Until
+            // a real reply schema exists, fall back to a regular comment so
+            // the thought isn't dropped.
+            const created = await firebaseDataService.postComment(activePost.id, authUser.id, `@${commentId.slice(0, 6)} ${text}`)
+            if (created) {
+              const next = [...(activePost.comments || []), created]
+              setActivePost({ ...activePost, comments: next })
+              setPosts(prev => prev.map(p => p.id === activePost.id ? { ...p, comments: next } : p))
+            }
+          }}
+        />
+      )}
     </div>
   )
 }
 
-export default PlaceHub 
+export default PlaceHub

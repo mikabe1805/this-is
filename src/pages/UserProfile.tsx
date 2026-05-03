@@ -10,6 +10,7 @@ import firebaseDataService from '../services/firebaseDataService.js';
 import SearchAndFilter from '../components/SearchAndFilter';
 import TagPill from '../components/TagPill';
 import TagSearchModal from '../components/TagSearchModal';
+import { useDocumentTitle } from '../hooks/useDocumentTitle';
 
 const UserProfile = () => {
   const { userId } = useParams<{ userId: string }>();
@@ -24,24 +25,71 @@ const UserProfile = () => {
   const [savedPosts, setSavedPosts] = useState<Set<string>>(new Set());
   const [likedLists, setLikedLists] = useState<Set<string>>(new Set());
   const [searchQuery, setSearchQuery] = useState('');
+  const [loadState, setLoadState] = useState<'loading' | 'ready' | 'not-found'>('loading');
+
+  useDocumentTitle(
+    user ? `@${user.username || user.name}` : null,
+    user ? `${user.name}${user.bio ? ` — ${user.bio.slice(0, 120)}` : ''}` : null,
+  );
 
   useEffect(() => {
     const fetchData = async () => {
-      if (userId) {
-        const userData = await firebaseDataService.getCurrentUser(userId);
-        setUser(userData);
-        const userPosts = await firebaseDataService.getUserPosts(userId);
-        setPosts(userPosts);
-        const userLists = await firebaseDataService.getUserLists(userId);
-        setLists(userLists);
-        if (currentUser) {
-          const following = await firebaseDataService.getUserFollowing(currentUser.id);
-          setIsFollowing(following.some(u => u.id === userId));
-          const liked = await firebaseDataService.getSavedPosts(currentUser.id);
-          setLikedPosts(new Set(liked.map(p => p.id)));
-          const likedL = await firebaseDataService.getSavedLists(currentUser.id);
-          setLikedLists(new Set(likedL.map(l => l.id)));
+      if (!userId) { setLoadState('not-found'); return }
+      const userData = await firebaseDataService.getCurrentUser(userId);
+      if (!userData) { setLoadState('not-found'); return }
+      setUser(userData);
+      setLoadState('ready');
+
+      // Privacy gate. Determine what relationship the *viewer* has to the
+      // owner: self / friend / stranger. Then filter the owner's lists and
+      // posts accordingly so private items don't leak to other accounts.
+      const isSelf = !!currentUser && currentUser.id === userId
+      let isFriend = false
+      if (currentUser && !isSelf) {
+        try {
+          const following = await firebaseDataService.getUserFollowing(currentUser.id)
+          setIsFollowing(following.some(u => u.id === userId))
+          // Mutual-follow == friend, since the app auto-friends on follow.
+          const friends = await firebaseDataService.getUserFriends(currentUser.id)
+          isFriend = friends.some(u => u.id === userId)
+        } catch (e) {
+          console.warn('[user-profile] relationship lookup failed', e)
         }
+      }
+
+      const visibleToViewer = (privacy?: string) => {
+        if (isSelf) return true
+        if (!privacy || privacy === 'public') return true
+        if (privacy === 'friends') return isFriend
+        return false // private
+      }
+
+      const userPosts = await firebaseDataService.getUserPosts(userId);
+      const visiblePosts = userPosts.filter(p => visibleToViewer((p as { privacy?: string }).privacy))
+      setPosts(visiblePosts);
+
+      const userLists = await firebaseDataService.getUserLists(userId);
+      setLists(userLists.filter(l => visibleToViewer(l.privacy)));
+
+      if (currentUser) {
+        // Bookmark icons (savedPosts) hydrate from the user's saved-posts
+        // subcollection — that's the source of truth for "I bookmarked this".
+        const saved = await firebaseDataService.getSavedPosts(currentUser.id);
+        setSavedPosts(new Set(saved.map(p => p.id)));
+
+        // Heart icons (likedPosts) are derived from each visible post's own
+        // `likedBy` array — that's the source of truth for "I liked this".
+        // Previously this was conflated with saved-posts, so the heart state
+        // was wrong for any post the user liked but didn't bookmark.
+        const likedSet = new Set(
+          visiblePosts
+            .filter(p => Array.isArray(p.likedBy) && p.likedBy.includes(currentUser.id))
+            .map(p => p.id)
+        )
+        setLikedPosts(likedSet);
+
+        const likedL = await firebaseDataService.getSavedLists(currentUser.id);
+        setLikedLists(new Set(likedL.map(l => l.id)));
       }
     };
     fetchData();
@@ -70,30 +118,60 @@ const UserProfile = () => {
   };
 
   const handleLikePost = async (postId: string) => {
-    if (currentUser) {
+    if (!currentUser) return;
+    const wasLiked = likedPosts.has(postId);
+    // Optimistic toggle. Bump the post's count locally too so the heart
+    // number updates immediately. Reverts on Firestore failure.
+    setLikedPosts(prev => {
+      const next = new Set(prev);
+      if (wasLiked) next.delete(postId); else next.add(postId);
+      return next;
+    });
+    setPosts(prev => prev.map(p => p.id === postId
+      ? { ...p, likes: Math.max(0, (p.likes || 0) + (wasLiked ? -1 : 1)) }
+      : p
+    ));
+    try {
       await firebaseDataService.likePost(postId, currentUser.id);
+    } catch (e) {
+      console.error('[user-profile] like post failed', e);
       setLikedPosts(prev => {
-        const newSet = new Set(prev);
-        if (newSet.has(postId)) {
-          newSet.delete(postId);
-        } else {
-          newSet.add(postId);
-        }
-        return newSet;
+        const next = new Set(prev);
+        if (wasLiked) next.add(postId); else next.delete(postId);
+        return next;
       });
+      setPosts(prev => prev.map(p => p.id === postId
+        ? { ...p, likes: Math.max(0, (p.likes || 0) + (wasLiked ? 1 : -1)) }
+        : p
+      ));
     }
   };
 
-  const handleSavePost = (postId: string) => {
+  const handleSavePost = async (postId: string) => {
+    if (!currentUser) return
+    const wasSaved = savedPosts.has(postId)
+    // Optimistic flip; revert if Firestore write fails so the UI doesn't lie.
     setSavedPosts(prev => {
       const newSet = new Set(prev)
-      if (newSet.has(postId)) {
-        newSet.delete(postId)
-      } else {
-        newSet.add(postId)
-      }
+      if (wasSaved) newSet.delete(postId)
+      else newSet.add(postId)
       return newSet
     })
+    try {
+      if (wasSaved) {
+        await firebaseDataService.unsavePost(currentUser.id, postId)
+      } else {
+        await firebaseDataService.savePost(currentUser.id, postId)
+      }
+    } catch (e) {
+      console.error('[user-profile] save post failed', e)
+      setSavedPosts(prev => {
+        const newSet = new Set(prev)
+        if (wasSaved) newSet.add(postId)
+        else newSet.delete(postId)
+        return newSet
+      })
+    }
   }
 
   const handleLikeList = async (listId: string) => {
@@ -124,6 +202,16 @@ const UserProfile = () => {
       navigator.clipboard.writeText(window.location.href)
       alert('Profile link copied to clipboard!')
     }
+  }
+
+  if (loadState === 'not-found') {
+    return (
+      <div className="flex flex-col items-center justify-center h-full px-6 py-16 text-center">
+        <p className="font-display text-[24px] text-ink leading-tight">User not found.</p>
+        <p className="text-[13px] text-ink-soft mt-2">This account may have been deleted.</p>
+        <button onClick={() => navigate('/')} className="btn-secondary mt-5 h-10 px-4 label-eyebrow">Go home</button>
+      </div>
+    )
   }
 
   if (!user) {
@@ -354,8 +442,10 @@ const UserProfile = () => {
                     {/* Action Buttons */}
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-4 text-sm text-charcoal-600">
-                        <button 
+                        <button
                           onClick={() => handleLikePost(post.id)}
+                          aria-label={likedPosts.has(post.id) ? 'Unlike post' : 'Like post'}
+                          aria-pressed={likedPosts.has(post.id)}
                           className="flex items-center gap-1 hover:text-red-500 transition-colors"
                         >
                           {likedPosts.has(post.id) ? (
@@ -363,15 +453,17 @@ const UserProfile = () => {
                           ) : (
                             <HeartIcon className="w-5 h-5" />
                           )}
-                          {post.likes + (likedPosts.has(post.id) ? 1 : 0) - (post.likedBy.includes(currentUser.id) && !likedPosts.has(post.id) ? 1 : 0)}
+                          {post.likes || 0}
                         </button>
                         <span className="flex items-center gap-1">
                           <BookmarkIcon className="w-5 h-5" />
                           {post.comments?.length || 0}
                         </span>
                       </div>
-                      <button 
+                      <button
                         onClick={() => handleSavePost(post.id)}
+                        aria-label={savedPosts.has(post.id) ? 'Remove bookmark' : 'Bookmark post'}
+                        aria-pressed={savedPosts.has(post.id)}
                         className={`p-2 rounded-full transition-colors ${
                           savedPosts.has(post.id)
                             ? 'bg-sage-100 text-sage-700'

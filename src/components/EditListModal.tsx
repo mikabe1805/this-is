@@ -1,9 +1,10 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import { XMarkIcon, CameraIcon, EyeIcon, EyeSlashIcon, UsersIcon, PencilIcon } from '@heroicons/react/24/outline'
 import AddressAutocomplete from './AddressAutocomplete'
 import TagAutocomplete from './TagAutocomplete'
-import { useMemo } from 'react'
 import { firebaseDataService } from '../services/firebaseDataService.js'
+import { firebaseStorageService } from '../services/firebaseStorageService.js'
 import Button from './Button'
 
 interface EditListModalProps {
@@ -40,6 +41,9 @@ const EditListModal = ({ isOpen, onClose, list, onSave }: EditListModalProps) =>
   const [isSaving, setIsSaving] = useState(false)
   const [location, setLocation] = useState<{ address: string; lat?: number; lng?: number }>({ address: '' })
   const [availableTags, setAvailableTags] = useState<string[]>([])
+  const [isUploadingCover, setIsUploadingCover] = useState(false)
+  const [coverError, setCoverError] = useState<string | null>(null)
+  const coverInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     if (isOpen && list) {
@@ -83,6 +87,22 @@ const EditListModal = ({ isOpen, onClose, list, onSave }: EditListModalProps) =>
     }))
   }
 
+  const handleCoverFileChosen = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file || !list) return
+    setCoverError(null)
+    setIsUploadingCover(true)
+    try {
+      const url = await firebaseStorageService.uploadListImage(list.id, file)
+      setFormData(prev => ({ ...prev, coverImage: url }))
+    } catch (err) {
+      setCoverError(err instanceof Error ? err.message : 'Upload failed.')
+    } finally {
+      setIsUploadingCover(false)
+    }
+  }
+
   const handleSave = async () => {
     if (!formData.name.trim()) return
     
@@ -102,7 +122,7 @@ const EditListModal = ({ isOpen, onClose, list, onSave }: EditListModalProps) =>
 
   if (!isOpen || !list) return null
 
-  return (
+  const modalContent = (
     <div className="fixed inset-0 z-[100200] flex items-center justify-center p-4">
       {/* Backdrop */}
       <div 
@@ -119,6 +139,7 @@ const EditListModal = ({ isOpen, onClose, list, onSave }: EditListModalProps) =>
             <button
               onClick={onClose}
               className="btn-icon"
+              aria-label="Close"
             >
               <XMarkIcon className="w-5 h-5" />
             </button>
@@ -130,19 +151,42 @@ const EditListModal = ({ isOpen, onClose, list, onSave }: EditListModalProps) =>
           {/* Cover Image */}
           <div>
             <label className="block text-sm font-medium text-charcoal-700 mb-3">Cover Image</label>
-            <div className="relative">
-              <img
-                src={formData.coverImage || undefined as any}
-                alt="List cover"
-                className="w-full h-32 rounded-2xl object-cover border border-linen-200"
-                onError={(e) => {
-                  e.currentTarget.src = '/assets/leaf.png'
-                }}
+            <div className="relative w-full h-32 rounded-2xl border border-linen-200 overflow-hidden bg-linen-100">
+              {formData.coverImage ? (
+                <img
+                  src={formData.coverImage}
+                  alt="List cover"
+                  className="w-full h-full object-cover"
+                  onError={(e) => { e.currentTarget.src = '/assets/leaf.png' }}
+                />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center font-serif text-3xl text-charcoal-400" aria-hidden>
+                  {(formData.name || '?').slice(0, 1).toUpperCase()}
+                </div>
+              )}
+              {isUploadingCover && (
+                <div className="absolute inset-0 bg-charcoal-900/40 backdrop-blur-sm flex items-center justify-center">
+                  <span className="text-xs uppercase tracking-wider text-white">Uploading…</span>
+                </div>
+              )}
+              <input
+                ref={coverInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handleCoverFileChosen}
               />
-              <button className="absolute bottom-2 right-2 btn-icon bg-sage-500 text-white hover:bg-sage-600 border-0">
+              <button
+                type="button"
+                onClick={() => coverInputRef.current?.click()}
+                disabled={isUploadingCover}
+                className="absolute bottom-2 right-2 btn-icon bg-sage-500 text-white hover:bg-sage-600 border-0 disabled:opacity-60"
+                aria-label="Change cover"
+              >
                 <CameraIcon className="w-4 h-4" />
               </button>
             </div>
+            {coverError && <p className="text-[12px] text-red-700 mt-1.5">{coverError}</p>}
           </div>
 
           {/* List Name */}
@@ -285,6 +329,8 @@ const EditListModal = ({ isOpen, onClose, list, onSave }: EditListModalProps) =>
       </div>
     </div>
   )
+
+  return createPortal(modalContent, document.body)
 }
 
-export default EditListModal 
+export default EditListModal

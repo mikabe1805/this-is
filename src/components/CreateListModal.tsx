@@ -125,21 +125,24 @@ const CreateListModal = ({ isOpen, onClose, onCreate }: CreateListModalProps) =>
   const filteredTags = availableTags.filter(tag => tag.toLowerCase().includes(newTag.toLowerCase()) && !tags.includes(tag));
 
   return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
-      {/* Backdrop */}
-      <div 
-        className="absolute inset-0 bg-charcoal-900/50 backdrop-blur-sm"
-        onClick={handleClose}
-      />
-      
-      {/* Modal */}
-      <div className="relative w-full max-w-md bg-white rounded-2xl shadow-botanical border border-linen-200 max-h-[92vh] overflow-hidden">
+    <div className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center sm:p-4 bg-[#1A1815]/55 backdrop-blur-sm" onClick={handleClose}>
+      {/* Modal — paper surface, drag-handle on mobile, edge token border. */}
+      <div
+        className="relative modal-paper w-full sm:max-w-md rounded-t-3xl sm:rounded-3xl border border-edge max-h-[92vh] overflow-hidden"
+        style={{ boxShadow: '0 18px 60px rgba(46, 28, 13, 0.22)' }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="sm:hidden flex justify-center py-3 shrink-0" aria-hidden>
+          <span className="w-10 h-1 rounded-full bg-ink-faint" />
+        </div>
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-linen-200">
-          <h2 className="text-xl font-serif font-semibold text-charcoal-800">Create New List</h2>
+        <div className="flex items-center justify-between px-5 sm:px-6 py-4 border-b border-edge">
+          <p className="label-eyebrow text-ink-mute">Create new list</p>
           <button
+            type="button"
             onClick={handleClose}
-            className="p-2 rounded-xl text-charcoal-400 hover:text-charcoal-600 hover:bg-linen-100 transition"
+            aria-label="Close"
+            className="h-9 w-9 rounded-full hover:bg-paper-deep flex items-center justify-center text-ink"
           >
             <XMarkIcon className="w-5 h-5" />
           </button>

@@ -38,9 +38,10 @@ export default function TagAutocomplete({
       setFilteredTags([])
       setShowDropdown(false)
     } else {
+      const currentLower = currentTags.map(t => t.toLowerCase())
       const filtered = availableTags.filter(tag =>
         tag.toLowerCase().includes(value.toLowerCase()) &&
-        !currentTags.includes(tag)
+        !currentLower.includes(tag.toLowerCase())
       )
       setFilteredTags(filtered)
       setShowDropdown(filtered.length > 0)
@@ -60,10 +61,12 @@ export default function TagAutocomplete({
   }
 
   const handleSelectTag = async (tag: string) => {
-    onChange(tag)
+    const normalized = tag.toLowerCase().trim()
+    onChange(normalized)
     setShowDropdown(false)
-    if (!availableTags.includes(tag)) {
-      await persistTag(tag)
+    const lowerAvailable = availableTags.map(t => t.toLowerCase())
+    if (!lowerAvailable.includes(normalized)) {
+      await persistTag(normalized)
     }
   }
 
@@ -75,10 +78,13 @@ export default function TagAutocomplete({
   }
 
   const handleAddTag = async () => {
-    if (value.trim() && !currentTags.includes(value.trim()) && currentTags.length < maxTags) {
+    const normalized = value.toLowerCase().trim()
+    const currentLower = currentTags.map(t => t.toLowerCase())
+    if (normalized && !currentLower.includes(normalized) && currentTags.length < maxTags) {
       onAdd()
-      if (!availableTags.includes(value.trim())) {
-        await persistTag(value.trim())
+      const lowerAvailable = availableTags.map(t => t.toLowerCase())
+      if (!lowerAvailable.includes(normalized)) {
+        await persistTag(normalized)
       }
     }
   }
@@ -110,6 +116,7 @@ export default function TagAutocomplete({
           disabled={disabled || currentTags.length >= maxTags}
         />
         <button
+          type="button"
           onClick={handleAddTag}
           className="px-4 py-2 bg-sage-400 text-white rounded-xl hover:bg-sage-500 transition disabled:bg-gray-300 disabled:cursor-not-allowed"
           disabled={disabled || currentTags.length >= maxTags || !value.trim()}
@@ -123,6 +130,7 @@ export default function TagAutocomplete({
           {filteredTags.map((tag) => (
             <button
               key={tag}
+              type="button"
               onClick={() => handleSelectTag(tag)}
               className="w-full px-4 py-2 text-left text-charcoal-600 hover:bg-linen-50"
             >
@@ -139,6 +147,7 @@ export default function TagAutocomplete({
             {availableTags.slice(0, 6).map((tag) => (
               <button
                 key={tag}
+                type="button"
                 onClick={() => !currentTags.includes(tag) && currentTags.length < maxTags && handleSelectTag(tag)}
                 disabled={currentTags.includes(tag) || currentTags.length >= maxTags}
                 className={`px-2 py-1 rounded-full text-xs transition ${

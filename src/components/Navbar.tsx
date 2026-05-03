@@ -1,8 +1,11 @@
 import { HomeIcon, MagnifyingGlassIcon, UserIcon, GlobeAltIcon } from '@heroicons/react/24/outline'
-import { HomeIcon as HomeIconSolid, MagnifyingGlassIcon as MagnifyingGlassIconSolid, UserIcon as UserIconSolid, GlobeAltIcon as GlobeAltIconSolid } from '@heroicons/react/24/solid'
+import {
+  HomeIcon as HomeIconSolid,
+  MagnifyingGlassIcon as MagnifyingGlassIconSolid,
+  UserIcon as UserIconSolid,
+  GlobeAltIcon as GlobeAltIconSolid,
+} from '@heroicons/react/24/solid'
 import PlusDropdown from './PlusDropdown'
-import { useEffect, useRef } from 'react'
-import { featureFlags } from '../config/featureFlags'
 
 interface NavbarProps {
   activeTab: string
@@ -11,131 +14,76 @@ interface NavbarProps {
   onEmbedFrom?: () => void
 }
 
+const TABS = [
+  { id: 'home', label: 'Home', icon: HomeIcon, activeIcon: HomeIconSolid },
+  { id: 'explore', label: 'Discover', icon: GlobeAltIcon, activeIcon: GlobeAltIconSolid },
+  { id: 'search', label: 'Search', icon: MagnifyingGlassIcon, activeIcon: MagnifyingGlassIconSolid },
+  { id: 'profile', label: 'You', icon: UserIcon, activeIcon: UserIconSolid },
+] as const
+
 const Navbar = ({ activeTab, setActiveTab, onCreatePost, onEmbedFrom }: NavbarProps) => {
-  const navRef = useRef<HTMLElement>(null);
-  
-  // Build tabs array dynamically based on feature flags
-  const tabs = [
-    { id: 'home', label: 'Home', icon: HomeIcon, activeIcon: HomeIconSolid },
-    { id: 'search', label: 'Search', icon: MagnifyingGlassIcon, activeIcon: MagnifyingGlassIconSolid },
-    { id: 'explore', label: 'Explore', icon: GlobeAltIcon, activeIcon: GlobeAltIconSolid },
-    { id: 'profile', label: 'Profile', icon: UserIcon, activeIcon: UserIconSolid },
-  ]
-
-  useEffect(() => {
-    const nav = navRef.current;
-    if (!nav) return;
-
-    const handleWheel = (e: WheelEvent) => {
-      e.preventDefault();
-    };
-
-    nav.addEventListener('wheel', handleWheel, { passive: false });
-
-    return () => {
-      nav.removeEventListener('wheel', handleWheel);
-    };
-  }, []);
-
   return (
     <nav
-      ref={navRef}
-      className="fixed bottom-0 left-1/2 transform -translate-x-1/2 w-full max-w-md z-[1001] rounded-t-2xl overflow-hidden"
-      style={{
-        bottom: 'env(safe-area-inset-bottom, 0px)',
-        background: 'linear-gradient(180deg, rgba(255,255,255,0.65) 0%, rgba(255,255,255,0.75) 100%)',
-        backdropFilter: 'blur(32px) saturate(1.1)',
-        WebkitBackdropFilter: 'blur(32px) saturate(1.1)',
-        boxShadow: `
-          0 -8px 32px rgba(61,54,48,0.12),
-          0 0 0 1px rgba(255,255,255,0.4),
-          inset 0 1px 0 0 rgba(255,255,255,0.5)
-        `,
-        border: '1px solid rgba(255,255,255,0.35)',
-        borderBottom: 'none',
-      }}
+      className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md z-[1001]"
+      style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
     >
-      <div className="flex items-center px-4" style={{ paddingTop: '12px', paddingBottom: '8px' }}>
-        {/* Left side tabs */}
-        <div className="flex flex-1 justify-around">
-          {tabs.slice(0, 2).map((tab) => {
-            const Icon = activeTab === tab.id ? tab.activeIcon : tab.icon
-            const isActive = activeTab === tab.id
+      {/* Soft fade above the bar so feed content doesn't slam into it */}
+      <div
+        className="absolute -top-8 left-0 right-0 h-8 pointer-events-none"
+        style={{ background: 'linear-gradient(to top, rgba(244,241,235,0.85), rgba(244,241,235,0))' }}
+      />
 
-            return (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`flex flex-col items-center py-2.5 px-3 rounded-xl transition-all duration-200 group relative min-h-[56px] ${
-                  isActive
-                    ? 'text-bark-900 bg-white/20 border border-white/30 nav-active'
-                    : 'text-bark-600/70 hover:text-bark-800 hover:bg-white/10'
-                }`}
-                style={isActive ? {
-                  boxShadow: '0 0 8px rgba(255,240,200,0.4), 0 2px 6px rgba(0,0,0,0.06)'
-                } : undefined}
-                aria-label={tab.label}
-              >
-                <Icon className={`w-7 h-7 mb-1 transition-all duration-200 ${
-                  isActive ? 'scale-105' : 'group-hover:scale-105'
-                }`} />
-                <span className={`text-[11px] font-medium transition-colors ${
-                  isActive ? 'text-bark-900' : 'text-bark-700/70 group-hover:text-bark-900'
-                }`}>
-                  {tab.label}
-                </span>
-                {/* indicator handled via .nav-active pseudo */}
-              </button>
-            )
-          })}
-        </div>
+      {/* Dock — translucent cream pill with backdrop-blur. The page content
+          actually liquifies through it (real CSS glass, not a PNG). Clean
+          neutral surface, readability first. */}
+      <div className="dock-glass mx-3 mb-3 relative">
+        <div className="grid grid-cols-5 items-center px-1.5 py-1.5 relative z-[1]">
+          {TABS.slice(0, 2).map(tab => (
+            <NavTab key={tab.id} tab={tab} active={activeTab === tab.id} onClick={() => setActiveTab(tab.id)} />
+          ))}
 
-        {/* Center create post button */}
-        <div className="flex justify-center mx-2">
-          <div className="-mt-6">
-            <PlusDropdown
-              onCreatePost={onCreatePost}
-              onEmbedFrom={onEmbedFrom}
-              variant="main"
-            />
+          <div className="flex items-center justify-center">
+            <PlusDropdown onCreatePost={onCreatePost} onEmbedFrom={onEmbedFrom} variant="main" />
           </div>
-        </div>
 
-        {/* Right side tabs */}
-        <div className="flex flex-1 justify-around">
-          {tabs.slice(2).map((tab) => {
-            const Icon = activeTab === tab.id ? tab.activeIcon : tab.icon
-            const isActive = activeTab === tab.id
-
-            return (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`flex flex-col items-center py-2.5 px-3 rounded-xl transition-all duration-200 group relative min-h-[56px] ${
-                  isActive
-                    ? 'text-bark-900 bg-white/20 border border-white/30 nav-active'
-                    : 'text-bark-600/70 hover:text-bark-800 hover:bg-white/10'
-                }`}
-                style={isActive ? {
-                  boxShadow: '0 0 8px rgba(255,240,200,0.4), 0 2px 6px rgba(0,0,0,0.06)'
-                } : undefined}
-                aria-label={tab.label}
-              >
-                <Icon className={`w-7 h-7 mb-1 transition-all duration-200 ${
-                  isActive ? 'scale-105' : 'group-hover:scale-105'
-                }`} />
-                <span className={`text-[11px] font-medium transition-colors ${
-                  isActive ? 'text-bark-900' : 'text-bark-700/70 group-hover:text-bark-900'
-                }`}>
-                  {tab.label}
-                </span>
-                {/* indicator handled via .nav-active pseudo */}
-              </button>
-            )
-          })}
+          {TABS.slice(2).map(tab => (
+            <NavTab key={tab.id} tab={tab} active={activeTab === tab.id} onClick={() => setActiveTab(tab.id)} />
+          ))}
         </div>
       </div>
     </nav>
+  )
+}
+
+const NavTab = ({
+  tab,
+  active,
+  onClick,
+}: {
+  tab: (typeof TABS)[number]
+  active: boolean
+  onClick: () => void
+}) => {
+  const Icon = active ? tab.activeIcon : tab.icon
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={tab.label}
+      aria-current={active ? 'page' : undefined}
+      className={`relative flex flex-col items-center justify-center gap-0.5 py-2 rounded-full transition-colors ${
+        active ? 'text-ink' : 'text-ink-mute hover:text-ink-soft'
+      }`}
+    >
+      <Icon className="w-[22px] h-[22px]" />
+      <span className="font-mono text-[9px] tracking-[0.14em] uppercase mt-0.5">{tab.label}</span>
+      {active && (
+        <span
+          className="accent-bead-sm accent-bead absolute -bottom-0 left-1/2 -translate-x-1/2"
+          aria-hidden="true"
+        />
+      )}
+    </button>
   )
 }
 

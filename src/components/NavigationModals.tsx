@@ -5,6 +5,9 @@ import { useModal } from '../contexts/ModalContext.tsx'
 import { useAuth } from '../contexts/AuthContext.tsx'
 import { firebaseDataService } from '../services/firebaseDataService'
 import { navigationHistory } from '../utils/navigationHistory.js'
+// HubModal restored: only used for the in-modal stack flow (e.g. user clicks
+// a place from inside ListModal). Direct /place/:id navigation still goes
+// to the full PlaceHub route.
 import HubModal from './HubModal'
 import ListModal from './ListModal'
 import ProfileModal from './ProfileModal'
@@ -13,12 +16,12 @@ import PostModal from './PostModal'
 const NavigationModals = () => {
   const navigate = useNavigate()
   const { currentUser: authUser } = useAuth()
-  const { 
-    showHubModal, 
-    showListModal, 
-    selectedHub, 
-    selectedList, 
-    closeHubModal, 
+  const {
+    showHubModal,
+    showListModal,
+    selectedHub,
+    selectedList,
+    closeHubModal,
     closeListModal,
     openHubModal,
     goBack,
@@ -30,7 +33,7 @@ const NavigationModals = () => {
     openFullScreenUser,
     showPostOverlay,
     closePostOverlay,
-    exitModalFlow
+    exitModalFlow,
   } = useNavigation()
   const { openSaveModal, openCreatePostModal } = useModal()
 
@@ -38,27 +41,7 @@ const NavigationModals = () => {
 
   return (
     <>
-      {/* Hub Modal */}
-      {selectedHub && lastHistoryItem?.type === 'hub' && (
-        <HubModal
-          isOpen={showHubModal}
-          onClose={exitModalFlow}
-          hub={selectedHub}
-          initialTab={hubModalOptions?.initialTab}
-          initialPostId={hubModalOptions?.postId}
-          showPostOverlay={hubModalOptions?.showPostOverlay}
-          showBackButton={navigationHistory.history.length > 1}
-          onBack={goBack}
-          onSave={(hub) => openSaveModal(hub)}
-          onAddPost={(hub) => openCreatePostModal(hub)}
-          onOpenFullScreen={(hub) => {
-            closeHubModal()
-            navigate(`/place/${hub.id}`)
-          }}
-        />
-      )}
-
-      {/* Post Overlay - rendered on top of HubModal */}
+      {/* Post Overlay - standalone */}
       {showPostOverlay && selectedPostId && (
         <PostModal
           isOpen={true}
@@ -101,6 +84,34 @@ const NavigationModals = () => {
           onDeleteList={(list) => {
             window.dispatchEvent(new CustomEvent('openDeleteFromModal', { detail: { listId: list.id } }))
           }}
+        />
+      )}
+
+      {/* Hub Modal — only renders during in-modal-stack flow. Standalone
+          /place/:id navigation still uses the full PlaceHub route. */}
+      {selectedHub && showHubModal && (
+        <HubModal
+          isOpen={showHubModal}
+          onClose={goBack}
+          hub={selectedHub}
+          showBackButton={navigationHistory.history.length > 1}
+          onBack={goBack}
+          onOpenFullScreen={() => {
+            // Tear down the modal stack and route to the full page.
+            exitModalFlow()
+            navigate(`/place/${selectedHub.id}`)
+          }}
+          onSave={() => {
+            const placeShape = {
+              id: selectedHub.id,
+              name: selectedHub.name,
+              location: { address: (selectedHub as any).address || '' },
+              tags: (selectedHub as any).tags || [],
+              posts: [],
+            }
+            try { openSaveModal(placeShape as any) } catch {}
+          }}
+          onShare={() => {}}
         />
       )}
 

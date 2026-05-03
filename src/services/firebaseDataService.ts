@@ -1,11 +1,13 @@
-﻿import { collection, doc, getDoc, getDocs, setDoc, updateDoc, query, where, orderBy, limit as fsLimit, startAfter, endBefore, onSnapshot, Timestamp, QueryConstraint, addDoc, deleteDoc, increment } from 'firebase/firestore'
+﻿import { collection, doc, getDoc, getDocs, setDoc, updateDoc, query, where, orderBy, limit as fsLimit, startAfter, endBefore, onSnapshot, Timestamp, QueryConstraint, addDoc, deleteDoc, increment, writeBatch, arrayUnion, arrayRemove } from 'firebase/firestore'
 import { db } from '../firebase/config'
 import { serverTimestamp } from 'firebase/firestore'
 import type { User, Place, List, Post, PostComment, Activity, Hub } from '../types'
 import { auth } from '../firebase/config'
 import { firebaseStorageService } from './firebaseStorageService'
+import { firebaseListService } from './firebaseListService'
 import { stablePlaceKey } from '../utils/stablePlaceKey'
 import { mapInterestsToTypes, getComplementaryTypes } from '../utils/placeTypes'
+import { searchNearby, getDetails } from '../lib/placesNew'
 
 
 
@@ -50,11 +52,44 @@ export interface FirebaseSearchData {
   }
 }
 
+// Mulberry32 — small, deterministic PRNG. Stable shuffle keyed off `seed` so
+// successive Refresh taps produce different orders without throwing away signal.
+function seededRandom(seed: string): () => number {
+  let h = 1779033703 ^ seed.length
+  for (let i = 0; i < seed.length; i++) {
+    h = Math.imul(h ^ seed.charCodeAt(i), 3432918353)
+    h = (h << 13) | (h >>> 19)
+  }
+  let a = h
+  return () => {
+    a |= 0; a = (a + 0x6D2B79F5) | 0
+    let t = Math.imul(a ^ (a >>> 15), 1 | a)
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296
+  }
+}
+
+function shuffleIfSeed<T>(arr: T[], seed: number | string | undefined): T[] {
+  if (seed === undefined || arr.length < 2) return arr
+  const out = arr.slice()
+  const rng = seededRandom(String(seed))
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1))
+    ;[out[i], out[j]] = [out[j], out[i]]
+  }
+  return out
+}
+
 class FirebaseDataService {
   private userPreferencesCache = new Map<string, UserPreferences>()
   private searchCache = new Map<string, { data: FirebaseSearchData; timestamp: number }>()
   private userCache = new Map<string, { user: User; timestamp: number }>()
   private userActivityCache = new Map<string, { activities: Activity[]; timestamp: number }>()
+  // In-flight dedup for getCurrentUser. ProfileModal + UserProfile + comment
+  // hydration etc. fire concurrent fetches for the same user; without this
+  // they all race to Firestore and burn quota. With it, the first request
+  // wins and everyone else awaits the same promise.
+  private getCurrentUserInFlight = new Map<string, Promise<User | null>>()
   private readonly CACHE_DURATION = 5 * 60 * 1000 // 5 minutes
 
   // ====================
@@ -67,18 +102,33 @@ class FirebaseDataService {
       return cached.user
     }
 
-    try {
-      const userDoc = await getDoc(doc(db, 'users', userId))
-      if (userDoc.exists()) {
-        const user = { id: userDoc.id, ...userDoc.data() } as User
-        this.userCache.set(userId, { user, timestamp: Date.now() })
-        return user
+    const existing = this.getCurrentUserInFlight.get(userId)
+    if (existing) return existing
+
+    const work = (async () => {
+      try {
+        const userDoc = await getDoc(doc(db, 'users', userId))
+        if (userDoc.exists()) {
+          const user = { id: userDoc.id, ...userDoc.data() } as User
+          this.userCache.set(userId, { user, timestamp: Date.now() })
+          return user
+        }
+        return null
+      } catch (error) {
+        console.error('Error fetching current user:', error)
+        return null
+      } finally {
+        this.getCurrentUserInFlight.delete(userId)
       }
-      return null
-    } catch (error) {
-      console.error('Error fetching current user:', error)
-      return null
-    }
+    })()
+
+    this.getCurrentUserInFlight.set(userId, work)
+    return work
+  }
+
+  invalidateUserCache(userId: string): void {
+    this.userCache.delete(userId)
+    this.getCurrentUserInFlight.delete(userId)
   }
 
   async createUser(user: User): Promise<void> {
@@ -161,6 +211,14 @@ class FirebaseDataService {
         updatedAt: Timestamp.now()
       });
       this.clearUserCache(userId); // Invalidate cache
+      // Notify subscribers (Profile page, comments, post avatars, etc.) so
+      // they can re-render with the latest name/bio/avatar.
+      try {
+        window.dispatchEvent(new CustomEvent('this-is:userUpdated', { detail: { userId, fields: Object.keys(profileData) } }))
+      } catch (e) {
+        // window may not exist in non-DOM contexts (SSR, tests)
+        console.warn('[updateUserProfile] dispatch failed', e)
+      }
     } catch (error) {
       console.error('Error updating user profile:', error);
       throw error;
@@ -168,47 +226,40 @@ class FirebaseDataService {
   }
 
   async followUser(currentUserId: string, targetUserId: string): Promise<void> {
-    // Prevent self-following
     if (currentUserId === targetUserId) {
       console.log('Cannot follow yourself');
       return;
     }
 
-    console.log(`Attempting to follow: ${currentUserId} -> ${targetUserId}`);
-
-    const currentUserFollowingRef = doc(db, 'users', currentUserId, 'following', targetUserId);
-    const targetUserFollowersRef = doc(db, 'users', targetUserId, 'followers', currentUserId);
+    // Atomic bidirectional write: both the "I'm following" doc and the
+    // "they have a follower" doc must commit together. Without writeBatch,
+    // a failure between the two leaves follower/following counts permanently
+    // out of sync.
+    const followingRef = doc(db, 'users', currentUserId, 'following', targetUserId);
+    const followersRef = doc(db, 'users', targetUserId, 'followers', currentUserId);
+    const ts = Timestamp.now();
 
     try {
-      console.log('Setting follow document for current user...');
-      console.log('Document path:', currentUserFollowingRef.path);
-      await setDoc(currentUserFollowingRef, {
-        userId: targetUserId,
-        followedAt: Timestamp.now()
-      });
-      console.log('Follow document set for current user');
+      const batch = writeBatch(db);
+      batch.set(followingRef, { userId: targetUserId, followedAt: ts });
+      batch.set(followersRef, { userId: currentUserId, followedAt: ts });
+      await batch.commit();
 
-      console.log('Setting follower document for target user...');
-      console.log('Document path:', targetUserFollowersRef.path);
-      await setDoc(targetUserFollowersRef, {
-        userId: currentUserId,
-        followedAt: Timestamp.now()
-      });
-      console.log('Follower document set for target user');
+      // Friend relation kept separate (legacy "auto-friend" behavior); not in
+      // the same batch because it's not strictly part of the follow contract.
+      try { await this.addUserAsFriend(currentUserId, targetUserId); } catch (e) {
+        console.warn('[followUser] auto-friend failed', e);
+      }
 
-      // For testing: automatically add as friend
-      console.log('Adding as friend...');
-      await this.addUserAsFriend(currentUserId, targetUserId);
-
-      console.log(`User ${currentUserId} successfully followed ${targetUserId}`);
-    } catch (error) {
+      try {
+        window.dispatchEvent(new CustomEvent('this-is:followed', {
+          detail: { followerId: currentUserId, followedId: targetUserId, delta: 1 }
+        }))
+      } catch (err) {
+        console.warn('[followUser] dispatch failed', err)
+      }
+    } catch (error: any) {
       console.error('Error following user:', error);
-      console.error('Error details:', {
-        currentUserId,
-        targetUserId,
-        errorMessage: error.message,
-        errorCode: error.code
-      });
       throw error;
     }
   }
@@ -235,12 +286,30 @@ class FirebaseDataService {
   }
 
   async unfollowUser(currentUserId: string, targetUserId: string): Promise<void> {
-    const currentUserFollowingRef = doc(db, 'users', currentUserId, 'following', targetUserId);
-    const targetUserFollowersRef = doc(db, 'users', targetUserId, 'followers', currentUserId);
+    // Same atomic-pair concern as followUser — unfollow must clean up both
+    // docs together or counts drift. Also tear down the auto-friended
+    // mirror docs (followUser → addUserAsFriend writes them both ways);
+    // without this, unfollowing leaves a permanent "ghost friendship" and
+    // the user keeps appearing in friends-only feeds and recommendations.
+    const followingRef = doc(db, 'users', currentUserId, 'following', targetUserId);
+    const followersRef = doc(db, 'users', targetUserId, 'followers', currentUserId);
+    const myFriendRef = doc(db, 'users', currentUserId, 'friends', targetUserId);
+    const theirFriendRef = doc(db, 'users', targetUserId, 'friends', currentUserId);
 
     try {
-      await deleteDoc(currentUserFollowingRef);
-      await deleteDoc(targetUserFollowersRef);
+      const batch = writeBatch(db);
+      batch.delete(followingRef);
+      batch.delete(followersRef);
+      batch.delete(myFriendRef);
+      batch.delete(theirFriendRef);
+      await batch.commit();
+      try {
+        window.dispatchEvent(new CustomEvent('this-is:followed', {
+          detail: { followerId: currentUserId, followedId: targetUserId, delta: -1 }
+        }))
+      } catch (err) {
+        console.warn('[unfollowUser] dispatch failed', err)
+      }
     } catch (error) {
       console.error('Error unfollowing user:', error);
       throw error;
@@ -248,9 +317,53 @@ class FirebaseDataService {
   }
 
   async deleteUser(userId: string): Promise<void> {
+    // Was a one-line `deleteDoc(users/{userId})` — left every subcollection
+    // (savedPosts, savedLists, activity, friends, following, followers,
+    // comments, suggestSuppress) AND every authored list and post orphaned
+    // in Firestore. Account deletion was effectively a no-op for privacy.
+    // This now does a best-effort cascade.
     try {
-      const userRef = doc(db, 'users', userId);
-      await deleteDoc(userRef);
+      const userSubcollections = [
+        'savedPosts',
+        'savedLists',
+        'activity',
+        'friends',
+        'following',
+        'followers',
+        'comments',
+        'suggestSuppress',
+      ];
+      for (const sub of userSubcollections) {
+        try {
+          const snap = await getDocs(collection(db, 'users', userId, sub));
+          await Promise.all(snap.docs.map(d => deleteDoc(d.ref)));
+        } catch (e) {
+          console.warn(`[deleteUser] subcollection ${sub} cleanup failed`, e);
+        }
+      }
+
+      // Delete authored lists (deleteList itself recursively cleans places + posts).
+      try {
+        const lists = await this.getUserLists(userId, 500);
+        await Promise.all(lists.map(l => firebaseListService.deleteList(l.id).catch(err => {
+          console.warn(`[deleteUser] failed to delete list ${l.id}`, err);
+        })));
+      } catch (e) {
+        console.warn('[deleteUser] authored-lists cleanup failed', e);
+      }
+
+      // Delete authored posts.
+      try {
+        const posts = await this.getUserPosts(userId, 500);
+        await Promise.all(posts.map(p => deleteDoc(doc(db, 'posts', p.id)).catch(err => {
+          console.warn(`[deleteUser] failed to delete post ${p.id}`, err);
+        })));
+      } catch (e) {
+        console.warn('[deleteUser] authored-posts cleanup failed', e);
+      }
+
+      // Finally the user doc itself.
+      await deleteDoc(doc(db, 'users', userId));
     } catch (error) {
       console.error('Error deleting user:', error);
       throw error;
@@ -258,8 +371,6 @@ class FirebaseDataService {
   }
   
   async getSavedPosts(userId: string): Promise<Post[]> {
-    // This assumes you have a 'savedPosts' subcollection for each user.
-    // You might need to adjust this based on your actual data model.
     try {
       const savedPostsQuery = query(
         collection(db, 'users', userId, 'savedPosts'),
@@ -275,18 +386,39 @@ class FirebaseDataService {
     }
   }
 
-  async getUserPosts(userId: string): Promise<Post[]> {
+  async savePost(userId: string, postId: string): Promise<void> {
     try {
+      const ref = doc(db, 'users', userId, 'savedPosts', postId);
+      await setDoc(ref, { postId, savedAt: Timestamp.now() });
+    } catch (error) {
+      console.error('Error saving post:', error);
+      throw error;
+    }
+  }
+
+  async unsavePost(userId: string, postId: string): Promise<void> {
+    try {
+      const ref = doc(db, 'users', userId, 'savedPosts', postId);
+      await deleteDoc(ref);
+    } catch (error) {
+      console.error('Error unsaving post:', error);
+      throw error;
+    }
+  }
+
+  async getUserPosts(userId: string, max = 50): Promise<Post[]> {
+    try {
+      // Cap with fsLimit so a power user with thousands of posts doesn't
+      // pull the whole collection into memory and choke the renderer. The
+      // orderBy is intentionally still client-side because adding a
+      // (userId asc, createdAt desc) index requires a Firestore migration.
       const postsQuery = query(
         collection(db, 'posts'),
-        where('userId', '==', userId)
-        // Temporarily removed orderBy to avoid index requirement
-        // orderBy('createdAt', 'desc')
+        where('userId', '==', userId),
+        fsLimit(Math.max(max, 1))
       );
       const postsSnapshot = await getDocs(postsQuery);
       const posts = postsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Post[];
-      
-      // Sort posts client-side instead
       return posts.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
     } catch (error) {
       console.error('Error fetching user posts:', error);
@@ -770,6 +902,20 @@ class FirebaseDataService {
       }); */
 
       console.log('[firebaseDataService] new user setup completed successfully with AI-enhanced preferences')
+
+      // Notify subscribers (Home For-You feed, profile widgets, etc.) so they
+      // re-fetch with the now-populated location/categories instead of waiting
+      // for the next route change.
+      try {
+        this.invalidateUserCache(userId)
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('this-is:userUpdated', {
+            detail: { userId, fields: ['location', 'tags', 'bio', 'avatar', 'username'] }
+          }))
+        }
+      } catch (e) {
+        console.warn('[setupNewUser] post-setup dispatch failed', e)
+      }
     } catch (error) {
       console.error('Error setting up new user:', error)
       throw error
@@ -1148,7 +1294,7 @@ class FirebaseDataService {
     }
   }
 
-  async getPostsForHub(hubId: string): Promise<Post[]> {
+  async getPostsForHub(hubId: string, viewerId?: string): Promise<Post[]> {
     try {
       const postsQuery = query(
         collection(db, 'posts'),
@@ -1156,8 +1302,28 @@ class FirebaseDataService {
         orderBy('createdAt', 'desc')
       );
       const postsSnapshot = await getDocs(postsQuery);
-      const posts = postsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Post[];
-      
+      const allPosts = postsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Post[];
+
+      // Privacy gate. 'public' is always visible. 'friends' is visible to the
+      // author and to mutual-follow friends of the author. 'private' is only
+      // ever visible to the author. Without this filter, calling this method
+      // with no viewerId leaks private posts on the hub feed.
+      let friendsOfViewer = new Set<string>();
+      if (viewerId) {
+        try {
+          const fr = await this.getUserFriends(viewerId)
+          friendsOfViewer = new Set(fr.map(u => u.id))
+        } catch (e) {
+          console.warn('[getPostsForHub] friend lookup failed', e)
+        }
+      }
+      const posts = allPosts.filter(p => {
+        const privacy = (p as { privacy?: string }).privacy
+        if (!privacy || privacy === 'public') return true
+        if (privacy === 'friends') return !!viewerId && (p.userId === viewerId || friendsOfViewer.has(p.userId))
+        return p.userId === viewerId
+      })
+
       // Enrich posts with user information
       const enrichedPosts = await Promise.all(
         posts.map(async (post) => {
@@ -1165,8 +1331,8 @@ class FirebaseDataService {
             try {
               const username = await this.getUserDisplayName(post.userId);
               const user = await this.getCurrentUser(post.userId);
-              return { 
-                ...post, 
+              return {
+                ...post,
                 username,
                 userAvatar: user?.avatar || ''
               };
@@ -1178,7 +1344,7 @@ class FirebaseDataService {
           return post;
         })
       );
-      
+
       return enrichedPosts;
     } catch (error) {
       console.error('Error fetching posts for hub:', error);
@@ -1339,41 +1505,61 @@ class FirebaseDataService {
     }
   }
 
+  /**
+   * Delete a guestbook comment from a profile. Only the comment author or
+   * the profile owner is allowed to remove it. Caller is responsible for
+   * passing `actingUserId`; the function refuses if it doesn't match.
+   */
+  async deleteProfileComment(
+    profileUserId: string,
+    commentId: string,
+    actingUserId: string,
+  ): Promise<boolean> {
+    try {
+      const ref = doc(db, 'users', profileUserId, 'comments', commentId);
+      const snap = await getDoc(ref);
+      if (!snap.exists()) return false;
+      const data = snap.data() as PostComment;
+      const allowed = data.userId === actingUserId || profileUserId === actingUserId;
+      if (!allowed) {
+        console.warn('[deleteProfileComment] forbidden — actor is neither author nor profile owner');
+        return false;
+      }
+      await deleteDoc(ref);
+      return true;
+    } catch (error) {
+      console.error('Error deleting profile comment:', error);
+      return false;
+    }
+  }
+
   async likePost(postId: string, userId: string): Promise<void> {
     const postRef = doc(db, 'posts', postId);
     const postSnap = await getDoc(postRef);
+    if (!postSnap.exists()) return;
 
-    if (postSnap.exists()) {
-      const post = postSnap.data() as Post;
-      const likedBy = post.likedBy || [];
-      let newLikes = post.likes || 0;
+    const post = postSnap.data() as Post;
+    const alreadyLiked = (post.likedBy || []).includes(userId);
 
-      if (likedBy.includes(userId)) {
-        // User has already liked, so unlike
-        newLikes -= 1;
-        const index = likedBy.indexOf(userId);
-        likedBy.splice(index, 1);
-      } else {
-        // User has not liked, so like
-        newLikes += 1;
-        likedBy.push(userId);
-      }
-
+    // Atomic update: arrayUnion/arrayRemove are server-side merges, so two
+    // concurrent likes from different users no longer overwrite each other.
+    // The likes counter uses increment() for the same reason.
+    if (alreadyLiked) {
       await updateDoc(postRef, {
-        likes: newLikes,
-        likedBy: likedBy,
+        likedBy: arrayRemove(userId),
+        likes: increment(-1),
       });
-
-      // Update hub banner image if this post might now be the most popular
-      // Temporarily disabled to prevent banner flickering
-      /*
-      if (post.hubId) {
-        // Use setTimeout to avoid blocking the UI
-        setTimeout(() => {
-          this.updateHubBannerImage(post.hubId);
-        }, 100);
+    } else {
+      await updateDoc(postRef, {
+        likedBy: arrayUnion(userId),
+        likes: increment(1),
+      });
+      // Log a 'like' activity so it shows up in the friends feed.
+      try {
+        await this.logActivity(userId, { type: 'like', userId, postId, placeId: post.hubId });
+      } catch (e) {
+        console.warn('[likePost] activity log failed', e);
       }
-      */
     }
   }
 
@@ -1437,25 +1623,27 @@ class FirebaseDataService {
   async likeList(listId: string, userId: string): Promise<void> {
     const listRef = doc(db, 'lists', listId);
     const listSnap = await getDoc(listRef);
+    if (!listSnap.exists()) return;
 
-    if (listSnap.exists()) {
-      const list = listSnap.data() as List;
-      const likedBy = list.likedBy || [];
-      let newLikes = list.likes || 0;
+    const list = listSnap.data() as List;
+    const alreadyLiked = (list.likedBy || []).includes(userId);
 
-      if (likedBy.includes(userId)) {
-        newLikes -= 1;
-        const index = likedBy.indexOf(userId);
-        likedBy.splice(index, 1);
-      } else {
-        newLikes += 1;
-        likedBy.push(userId);
-      }
-
+    // Atomic update — see likePost for rationale.
+    if (alreadyLiked) {
       await updateDoc(listRef, {
-        likes: newLikes,
-        likedBy: likedBy,
+        likedBy: arrayRemove(userId),
+        likes: increment(-1),
       });
+    } else {
+      await updateDoc(listRef, {
+        likedBy: arrayUnion(userId),
+        likes: increment(1),
+      });
+      try {
+        await this.logActivity(userId, { type: 'like', userId, listId });
+      } catch (e) {
+        console.warn('[likeList] activity log failed', e);
+      }
     }
   }
 
@@ -1464,16 +1652,15 @@ class FirebaseDataService {
     const userSavedListSnap = await getDoc(userSavedListsRef);
 
     if (userSavedListSnap.exists()) {
-      // Remove from saved lists
       await deleteDoc(userSavedListsRef);
-      // Decrement like count
-      await this.updateListLikeCount(listId, -1);
+      // Decrement the SAVES counter, not likes — these are separate concepts.
+      // Was incrementing `list.likes` too, which double-counted: liking +
+      // saving the same list bumped `likes` by 2, throwing off the influence
+      // calc and any "popular lists" sort.
+      await this.updateListSaveCount(listId, -1);
     } else {
-      // Add to saved lists
       await setDoc(userSavedListsRef, { listId, savedAt: Timestamp.now() });
-      // Increment like count
-      await this.updateListLikeCount(listId, 1);
-      // Log activity
+      await this.updateListSaveCount(listId, 1);
       try {
         await this.logActivity(userId, { type: 'save', userId, listId })
       } catch (e) {
@@ -1482,11 +1669,11 @@ class FirebaseDataService {
     }
   }
 
-  private async updateListLikeCount(listId: string, incrementAmount: number): Promise<void> {
+  private async updateListSaveCount(listId: string, incrementAmount: number): Promise<void> {
     try {
       const listRef = doc(db, 'lists', listId);
       await updateDoc(listRef, {
-        likes: increment(incrementAmount)
+        saves: increment(incrementAmount)
       });
     } catch (error) {
       console.error('Error updating list like count:', error);
@@ -1573,27 +1760,21 @@ class FirebaseDataService {
       });
       console.log('Added to subcollection successfully with status:', status);
 
-      // Update the main list document's hubs array
-      const updatedHubs = listData.hubs || [];
-      console.log('Current hubs:', updatedHubs);
-      if (!updatedHubs.includes(placeId)) {
-        await updateDoc(listRef, {
-          hubs: [...updatedHubs, placeId],
-          updatedAt: Timestamp.now()
-        });
-        console.log('Updated hubs array successfully');
-      } else {
-        console.log('Place already in hubs array');
-      }
+      // Atomic union — two concurrent saves of different places to the same
+      // list no longer race-overwrite each other.
+      await updateDoc(listRef, {
+        hubs: arrayUnion(placeId),
+        updatedAt: Timestamp.now()
+      });
 
       if (savedFromListId) {
+        // Atomic increment — was a read-modify-write that could race with a
+        // concurrent save sourced from the same list and lose a count.
         const fromListRef = doc(db, 'lists', savedFromListId);
-        const fromListDoc = await getDoc(fromListRef);
-        if (fromListDoc.exists()) {
-          const fromList = fromListDoc.data() as List;
-          await updateDoc(fromListRef, {
-            savesFrom: (fromList.savesFrom || 0) + 1
-          });
+        try {
+          await updateDoc(fromListRef, { savesFrom: increment(1) });
+        } catch (e) {
+          console.warn('[savePlaceToList] failed to bump savesFrom', e);
         }
       }
 
@@ -1604,14 +1785,9 @@ class FirebaseDataService {
         console.warn('Failed to log save place activity:', e)
       }
 
-      // Increment savedCount on the place to support discovery ranking
-      try {
-        const placeRef = doc(db, 'places', placeId)
-        await updateDoc(placeRef, { savedCount: increment(1) })
-      } catch (e) {
-        console.warn('Failed to increment place savedCount', e)
-      }
-
+      // savedCount is now incremented idempotently via recordUserSave() at the
+      // end of the SaveModal flow — not here. Otherwise picking N lists would
+      // bump the count by N, plus the auto-list path would add another +1.
       console.log(`Place ${placeId} successfully saved to list ${listId}`);
     } catch (error) {
       console.error('Error saving place to list:', error);
@@ -1689,16 +1865,18 @@ class FirebaseDataService {
     }
   }
 
-  async getUserLists(userId: string): Promise<List[]> {
+  async getUserLists(userId: string, max = 100): Promise<List[]> {
     if (!userId) {
       console.warn('getUserLists called with undefined userId');
       return [];
     }
     try {
+      // Cap so a viewer doesn't render unbounded lists at once.
       const listsQuery = query(
         collection(db, 'lists'),
         where('userId', '==', userId),
-        orderBy('createdAt', 'desc')
+        orderBy('createdAt', 'desc'),
+        fsLimit(Math.max(max, 1))
       );
       const listsSnapshot = await getDocs(listsQuery);
       return listsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as List[];
@@ -1710,25 +1888,18 @@ class FirebaseDataService {
 
   async getListsContainingHub(hubId: string): Promise<List[]> {
     try {
-      // Get all lists and check their places subcollections
-      const listsQuery = query(collection(db, 'lists'));
+      // Was: scan every list, then per-list check whether `lists/{id}/places/{hubId}`
+      // exists. That's O(N) reads per call (one per list in the database) and
+      // grows linearly forever. Replaced with a single `hubs` array-contains
+      // query — list docs already maintain a `hubs[]` denormalized array of
+      // place IDs that's kept in sync via savePlaceToList / removePlaceFromList.
+      const listsQuery = query(
+        collection(db, 'lists'),
+        where('hubs', 'array-contains', hubId),
+        fsLimit(50)
+      );
       const listsSnapshot = await getDocs(listsQuery);
-      
-      const listsWithHub: List[] = [];
-      
-      for (const listDoc of listsSnapshot.docs) {
-        const listData = listDoc.data() as List;
-        
-        // Check if this hub is in the list's places subcollection
-        const placeRef = doc(db, 'lists', listDoc.id, 'places', hubId);
-        const placeSnap = await getDoc(placeRef);
-        
-        if (placeSnap.exists()) {
-          listsWithHub.push({ id: listDoc.id, ...listData });
-        }
-      }
-      
-      return listsWithHub;
+      return listsSnapshot.docs.map(d => ({ id: d.id, ...(d.data() as Omit<List, 'id'>) }));
     } catch (error) {
       console.error('Error fetching lists containing hub:', error);
       return [];
@@ -1737,52 +1908,67 @@ class FirebaseDataService {
 
   async getFriendsListsContainingHub(hubId: string, currentUserId: string): Promise<List[]> {
     try {
-      // Get current user's friends (mutual follows)
       const friends = await this.getUserFriends(currentUserId);
-      const friendIds = friends.map(friend => friend.id);
-      
-      if (friendIds.length === 0) {
-        return [];
-      }
+      const friendIds = new Set(friends.map(friend => friend.id));
+      if (friendIds.size === 0) return [];
 
-      // Get lists from friends and check their places subcollections
+      // Was: get every list owned by any friend, then per-list getDoc to
+      // check the places subcollection. With N friends owning M lists each,
+      // that's M*N reads. Now one query against the denormalized `hubs[]`
+      // array, then filter by friend ownership client-side. Also avoids
+      // Firestore's 30-element `in` cap that the old code would hit for
+      // a user with many friends.
       const listsQuery = query(
         collection(db, 'lists'),
-        where('userId', 'in', friendIds)
+        where('hubs', 'array-contains', hubId),
+        fsLimit(100)
       );
-      const listsSnapshot = await getDocs(listsQuery);
-      
-      const friendsListsWithHub: List[] = [];
-      
-      for (const listDoc of listsSnapshot.docs) {
-        const listData = listDoc.data() as List;
-        
-        // Check if this hub is in the list's places subcollection
-        const placeRef = doc(db, 'lists', listDoc.id, 'places', hubId);
-        const placeSnap = await getDoc(placeRef);
-        
-        if (placeSnap.exists()) {
-          friendsListsWithHub.push({ id: listDoc.id, ...listData });
+      const snap = await getDocs(listsQuery);
+      const out: List[] = [];
+      snap.forEach(d => {
+        const data = d.data() as List;
+        if (data.userId && friendIds.has(data.userId)) {
+          out.push({ id: d.id, ...data });
         }
-      }
-      
-      return friendsListsWithHub;
+      });
+      return out;
     } catch (error) {
       console.error('Error fetching friends lists containing hub:', error);
       return [];
     }
   }
 
-  async getPostsForList(listId: string): Promise<Post[]> {
+  async getPostsForList(listId: string, viewerId?: string): Promise<Post[]> {
     try {
-      const postsQuery = query(
-        collection(db, 'posts'),
-        where('listId', '==', listId),
-        orderBy('createdAt', 'desc')
-      );
-      const postsSnapshot = await getDocs(postsQuery);
-      const posts = postsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Post[];
-      
+      // Read from `lists/{id}/posts` subcollection (canonical) rather than
+      // `posts where listId == X`. Posts saved to multiple lists used to
+      // appear only in the *last* one because the legacy `listId` field
+      // was overwritten on each save. Subcollection IDs are the source of
+      // truth — every list the post was attached to has a doc.
+      const subSnap = await getDocs(collection(db, 'lists', listId, 'posts'));
+      const postIds = subSnap.docs.map(d => d.id);
+      if (postIds.length === 0) return [];
+      const fetched = await Promise.all(postIds.map(id => this.getPost(id)));
+      const allPosts = fetched.filter((p): p is Post => p !== null)
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+      // Privacy gate — same logic as getPostsForHub.
+      let friendsOfViewer = new Set<string>();
+      if (viewerId) {
+        try {
+          const fr = await this.getUserFriends(viewerId)
+          friendsOfViewer = new Set(fr.map(u => u.id))
+        } catch (e) {
+          console.warn('[getPostsForList] friend lookup failed', e)
+        }
+      }
+      const posts = allPosts.filter(p => {
+        const privacy = (p as { privacy?: string }).privacy
+        if (!privacy || privacy === 'public') return true
+        if (privacy === 'friends') return !!viewerId && (p.userId === viewerId || friendsOfViewer.has(p.userId))
+        return p.userId === viewerId
+      })
+
       // Enrich posts with user information
       const enrichedPosts = await Promise.all(
         posts.map(async (post) => {
@@ -1798,7 +1984,7 @@ class FirebaseDataService {
           return post;
         })
       );
-      
+
       return enrichedPosts;
     } catch (error) {
       console.error('Error fetching posts for list:', error);
@@ -1909,24 +2095,60 @@ class FirebaseDataService {
         ...doc.data()
       })) as Activity[]
 
-      // Enrich activities with referenced data for UI convenience
-      const enriched: Activity[] = []
+      // Collapse "same place saved to multiple lists at once" into a single
+      // entry. SaveModal calls savePlaceToList per selected list, each of
+      // which logs an activity — so picking 5 lists made 5 friend-feed rows
+      // for what's emotionally one save event. Group by (type, placeId)
+      // within a 60-second window and keep the most recent. Likes/posts/etc
+      // are unaffected because they don't have this fan-out shape.
+      const COLLAPSE_WINDOW_MS = 60_000
+      const seen = new Map<string, Activity>()
+      const deduped: Activity[] = []
       for (const a of activities) {
-        const activity: any = { ...a }
-        try {
-          if (a.listId && !a.list) {
-            const list = await this.getList(a.listId)
-            if (list) activity.list = list
-          }
-          if (a.placeId && !a.place) {
-            const place = await this.getPlace(a.placeId)
-            if (place) activity.place = place
-          }
-        } catch {}
-        enriched.push(activity as Activity)
+        if (a.type !== 'save' || !a.placeId) {
+          deduped.push(a)
+          continue
+        }
+        const key = `${a.type}|${a.placeId}`
+        const prev = seen.get(key)
+        if (prev) {
+          const dt = Math.abs(new Date(prev.createdAt).getTime() - new Date(a.createdAt).getTime())
+          if (dt < COLLAPSE_WINDOW_MS) continue // skip — older sibling already kept
+        }
+        seen.set(key, a)
+        deduped.push(a)
       }
+      activities = deduped
 
-      activities = enriched
+      // Enrich activities with referenced data. Was a serial loop — for 50
+      // activities with both listId and placeId set, that was up to 100
+      // sequential getDoc roundtrips. Now batched: dedupe the ids, fetch
+      // each unique list/place once in parallel, hydrate the activities
+      // from the resulting maps.
+      const listIds = new Set<string>()
+      const placeIds = new Set<string>()
+      for (const a of activities) {
+        if (a.listId && !a.list) listIds.add(a.listId)
+        if (a.placeId && !a.place) placeIds.add(a.placeId)
+      }
+      const [lists, places] = await Promise.all([
+        Promise.all(Array.from(listIds).map(id => this.getList(id).catch(() => null))),
+        Promise.all(Array.from(placeIds).map(id => this.getPlace(id).catch(() => null))),
+      ])
+      const listById = new Map(Array.from(listIds).map((id, i) => [id, lists[i]]))
+      const placeById = new Map(Array.from(placeIds).map((id, i) => [id, places[i]]))
+      activities = activities.map(a => {
+        const activity: any = { ...a }
+        if (a.listId && !a.list) {
+          const l = listById.get(a.listId)
+          if (l) activity.list = l
+        }
+        if (a.placeId && !a.place) {
+          const p = placeById.get(a.placeId)
+          if (p) activity.place = p
+        }
+        return activity as Activity
+      })
 
       this.userActivityCache.set(userId, { activities, timestamp: Date.now() })
       return activities
@@ -2114,11 +2336,13 @@ class FirebaseDataService {
     }
   }
 
-  // Suggest places for cold-start users based on interests and optional location
-  async getSuggestedPlaces(options: { tags?: string[]; location?: { lat: number; lng: number }; limit?: number } = {}): Promise<Place[]> {
-    const { tags = [], location, limit = 12 } = options
+  // Suggest places for cold-start users based on interests and optional location.
+  // `seed` (any number/string) shuffles the candidate pool deterministically — pass
+  // a fresh value (e.g. Date.now()) to surface different picks on Refresh.
+  async getSuggestedPlaces(options: { tags?: string[]; location?: { lat: number; lng: number }; limit?: number; seed?: number | string } = {}): Promise<Place[]> {
+    const { tags = [], location, limit = 12, seed } = options
     try {
-      // Try to fetch top places by savedCount/popularity first
+      // Pull a wide candidate pool so we have room to rotate.
       const q = query(
         collection(db, 'places'),
         orderBy('savedCount', 'desc'),
@@ -2135,24 +2359,37 @@ class FirebaseDataService {
           const ptags = (p.tags || []).map((t: string) => String(t).toLowerCase())
           const overlap = ptags.filter((t: string) => tagSet.has(t)).length
           let score = overlap * 5 + (p.savedCount || 0)
-          // Light distance boost if user location available
           if (location && p.coordinates && typeof p.coordinates.lat === 'number' && typeof p.coordinates.lng === 'number') {
             const dlat = (p.coordinates.lat - location.lat)
             const dlng = (p.coordinates.lng - location.lng)
             const approxKm = Math.sqrt(dlat * dlat + dlng * dlng) * 111
-            const distBoost = Math.max(0, 30 - Math.min(30, approxKm)) // up to +30 near
+            const distBoost = Math.max(0, 30 - Math.min(30, approxKm))
             score += distBoost
           }
           return { p, score }
         })
         places = scored.sort((a, b) => b.score - a.score).map(s => s.p)
       } else if (location) {
-        // No tags: lightly sort by proximity if location given
         places = places.sort((a, b) => {
           const da = a.coordinates ? Math.hypot(a.coordinates.lat - location.lat, a.coordinates.lng - location.lng) : 1e9
           const db = b.coordinates ? Math.hypot(b.coordinates.lat - location.lat, b.coordinates.lng - location.lng) : 1e9
           return da - db
         })
+      }
+      // No tags AND no location: just top-by-savedCount as already ordered.
+      // (Previously fell through with no output transform; now explicit.)
+
+      // When a seed is provided, do a windowed shuffle: keep the top half ranked,
+      // shuffle the rest, then take a randomized slice across both halves. This
+      // surfaces fresh picks on Refresh without throwing away signal entirely.
+      if (seed !== undefined && places.length > limit) {
+        const top = places.slice(0, Math.min(places.length, limit * 3))
+        const rng = seededRandom(String(seed))
+        for (let i = top.length - 1; i > 0; i--) {
+          const j = Math.floor(rng() * (i + 1))
+          ;[top[i], top[j]] = [top[j], top[i]]
+        }
+        places = top
       }
 
       return places.slice(0, limit)
@@ -2254,6 +2491,54 @@ class FirebaseDataService {
     this.searchCache.clear()
   }
 
+  /**
+   * Clear ALL in-memory caches and any user-keyed localStorage/sessionStorage
+   * entries. Called on logout so the next user (or this same user logging
+   * back in) doesn't see stale data — both for correctness AND because
+   * shared-device sign-outs would otherwise leak the previous user's
+   * recommendations, recents, suggested-refresh seen-set, etc.
+   */
+  clearAllUserScopedState(): void {
+    this.userPreferencesCache.clear()
+    this.userCache.clear()
+    this.userActivityCache.clear()
+    this.searchCache.clear()
+    this.externalRecoCache.clear()
+    this.ensureHubInFlight.clear()
+    this.getCurrentUserInFlight.clear()
+    if (typeof sessionStorage !== 'undefined') {
+      try {
+        // Drop user-scoped keys; leave anything we don't recognise alone so
+        // we don't blow away unrelated app state that a future feature might
+        // legitimately store in sessionStorage.
+        const known = ['home_for_you_seen', 'suggested_refresh_counter']
+        for (const k of known) sessionStorage.removeItem(k)
+      } catch (e) {
+        console.warn('[clearAllUserScopedState] sessionStorage cleanup failed', e)
+      }
+    }
+    if (typeof localStorage !== 'undefined') {
+      try {
+        // recentSearches is shown on Home/Explore/Search and is per-user.
+        localStorage.removeItem('recentSearches')
+        // External-rec cache entries are keyed by lat,lng — they're not
+        // strictly user-scoped, but the seed/jitter mixes in user context
+        // so it's safer to drop them on logout.
+        const remove: string[] = []
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i)
+          if (!key) continue
+          if (key.startsWith('reco:') || key.startsWith('places:v1:near|') || key.startsWith('map:')) {
+            remove.push(key)
+          }
+        }
+        for (const k of remove) localStorage.removeItem(k)
+      } catch (e) {
+        console.warn('[clearAllUserScopedState] localStorage cleanup failed', e)
+      }
+    }
+  }
+
   // Record a suppression for a suggestion by stable key for ~14 days
   async suppressSuggestion(params: { userId?: string | null; stableKey: string; reason?: string }): Promise<void> {
     try {
@@ -2300,8 +2585,8 @@ class FirebaseDataService {
   ): Promise<any[]> {
     try {
       // Use Places (New) API directly - cost optimized with field masks
-      const { searchNearby, getDetails } = await import('../lib/placesNew');
-      
+      // (searchNearby + getDetails are imported statically at module top.)
+
       // Use shared type mapping utilities
       const interestInputs = [ ...(options.interests || []), ...tags ];
       const primaryTypes = mapInterestsToTypes(interestInputs, false);
@@ -2386,26 +2671,44 @@ class FirebaseDataService {
       const calls: Promise<any[]>[] = [];
 
       if (limit >= 40) {
-        // Large request (60): Make 3 strategic calls
-        console.log('[firebaseDataService] multi-call strategy (3 calls)', {
-          primaryTypes,
-          complementaryTypes,
+        // Multi-call strategy. Each refresh rotates through different cardinal
+        // wedges *and* different type slices so successive Refresh taps land
+        // on a fresh chunk of the surrounding map. Without this rotation the
+        // same 3 lat/lng offsets keep returning the same ~60 places.
+        const compass: Array<[number, number]> = [
+          [0,    0],     // center
+          [0.3,  0],     // N
+          [-0.3, 0],     // S
+          [0,    0.3],   // E
+          [0,   -0.3],   // W
+          [0.3,  0.3],   // NE
+          [-0.3, 0.3],   // SE
+          [-0.3,-0.3],   // SW
+          [0.3, -0.3],   // NW
+        ];
+        const rot = options.cacheBypass ? refreshCount : 0;
+        const pick = (i: number) => compass[(rot * 3 + i) % compass.length];
+        const [a1, a2, a3] = [pick(0), pick(1), pick(2)];
+
+        // Type rotation: each refresh slides the primary/complementary slices.
+        const rotArr = <T,>(arr: T[], n: number) => arr.length === 0 ? arr : arr.slice(n % arr.length).concat(arr.slice(0, n % arr.length));
+        const rotatedPrimary = rotArr(primaryTypes, rot);
+        const rotatedComplementary = rotArr(complementaryTypes, rot);
+        const mixedTypes = [...rotatedPrimary.slice(0, 2), ...rotatedComplementary.slice(0, 2)];
+
+        console.log('[firebaseDataService] multi-call (rotated)', {
+          rot, refreshCount,
+          offsets: [a1, a2, a3],
+          rotatedPrimary,
+          rotatedComplementary,
+          mixedTypes,
           radiusMeters,
-          queryRadiusKm,
           jitterMeters,
-          cacheBypass: !!options.cacheBypass,
-          refreshCount
         });
 
-        // Call 1: Primary types, center point
-        calls.push(doSearch(primaryTypes, 20, !!options.cacheBypass, 0, 0));
-
-        // Call 2: Complementary types, north offset (0.3° ≈ 33km for diversity)
-        calls.push(doSearch(complementaryTypes, 20, !!options.cacheBypass, 0.3, 0));
-
-        // Call 3: Mixed types, southeast offset (0.3° both directions ≈ 47km diagonal)
-        const mixedTypes = [...primaryTypes.slice(0, 2), ...complementaryTypes.slice(0, 2)];
-        calls.push(doSearch(mixedTypes, 20, !!options.cacheBypass, -0.3, 0.3));
+        calls.push(doSearch(rotatedPrimary,        20, !!options.cacheBypass, a1[0], a1[1]));
+        calls.push(doSearch(rotatedComplementary,  20, !!options.cacheBypass, a2[0], a2[1]));
+        calls.push(doSearch(mixedTypes,            20, !!options.cacheBypass, a3[0], a3[1]));
       } else {
         // Small request (<40): Single call with mixed types
         const allTypes = [...primaryTypes, ...complementaryTypes.slice(0, 2)];
@@ -2649,13 +2952,29 @@ class FirebaseDataService {
   // EFFECTIVE LOCATION (current > profile > null)
   // ====================
   async getEffectiveLocation(userId?: string): Promise<{ lat: number; lng: number; address?: string; source: 'current' | 'profile' } | null> {
+    // Skip the browser prompt if the user has already denied — otherwise we
+    // pay a 4-second timeout on every page load AND get nothing back.
+    let permissionState: PermissionState | null = null
     try {
-      const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
-        if (!('geolocation' in navigator)) return reject(new Error('no geolocation'))
-        navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy: false, timeout: 4000 })
-      })
-      return { lat: pos.coords.latitude, lng: pos.coords.longitude, source: 'current' }
-    } catch {}
+      if ('permissions' in navigator && (navigator.permissions as Permissions)?.query) {
+        const res = await (navigator.permissions as Permissions).query({ name: 'geolocation' as PermissionName })
+        permissionState = res.state
+      }
+    } catch {
+      // Permissions API not available; just try geolocation and let it fail.
+    }
+
+    if (permissionState !== 'denied') {
+      try {
+        const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
+          if (!('geolocation' in navigator)) return reject(new Error('no geolocation'))
+          navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy: false, timeout: 4000 })
+        })
+        return { lat: pos.coords.latitude, lng: pos.coords.longitude, source: 'current' }
+      } catch {
+        // fall through to profile fallback
+      }
+    }
 
     try {
       if (userId) {
@@ -2666,7 +2985,9 @@ class FirebaseDataService {
           if (geo) return { lat: geo.lat, lng: geo.lng, address: geo.address, source: 'profile' }
         }
       }
-    } catch {}
+    } catch (e) {
+      console.warn('[getEffectiveLocation] profile fallback failed', e)
+    }
     return null
   }
 
@@ -2689,28 +3010,52 @@ class FirebaseDataService {
   async getBatchedExternalRecommendations(
     lat: number,
     lng: number,
-    opts: { tags?: string[]; limit?: number } = {}
+    opts: { tags?: string[]; limit?: number; forceFresh?: boolean; seed?: number | string } = {}
   ) {
-    const key = `reco:${lat.toFixed(2)},${lng.toFixed(2)}|${(opts.tags || []).map(t=>t.toLowerCase()).sort().join('+')}|${opts.limit || 20}`
+    // 3-decimal precision (~110m) so users a block apart don't share cache.
+    const key = `reco:${lat.toFixed(3)},${lng.toFixed(3)}|${(opts.tags || []).map(t=>t.toLowerCase()).sort().join('+')}|${opts.limit || 20}`
     const now = Date.now()
-    const mem = this.externalRecoCache.get(key)
-    if (mem && now - mem.t < 24*60*60*1000) return mem.v
-    try {
-      const raw = localStorage.getItem(key)
-      if (raw) {
-        const { t, v } = JSON.parse(raw)
-        if (now - t < 24*60*60*1000) { this.externalRecoCache.set(key, { t, v }); return v }
-      }
-    } catch {}
-    const v = await this.getExternalSuggestedPlaces(lat, lng, opts.tags || [], opts.limit || 20)
+    const useCache = !opts.forceFresh
+    if (useCache) {
+      const mem = this.externalRecoCache.get(key)
+      if (mem && now - mem.t < 24*60*60*1000) return shuffleIfSeed(mem.v, opts.seed)
+      try {
+        const raw = localStorage.getItem(key)
+        if (raw) {
+          const { t, v } = JSON.parse(raw)
+          if (now - t < 24*60*60*1000) { this.externalRecoCache.set(key, { t, v }); return shuffleIfSeed(v, opts.seed) }
+        }
+      } catch {}
+    }
+    // Pass cacheBypass down so the underlying searchNearby skips its own
+    // localStorage cache too — without this, Refresh would re-fetch from
+    // Google but Google's results came from a cached query the layer below
+    // already had, so the user saw the same suggestions.
+    const v = await this.getExternalSuggestedPlaces(
+      lat,
+      lng,
+      opts.tags || [],
+      opts.limit || 20,
+      opts.forceFresh ? { cacheBypass: true } : undefined,
+    )
     this.externalRecoCache.set(key, { t: now, v })
-    try { localStorage.setItem(key, JSON.stringify({ t: now, v })) } catch {}
-    return v
+    try { localStorage.setItem(key, JSON.stringify({ t: now, v })) } catch {
+      // localStorage full or denied; not fatal
+    }
+    return shuffleIfSeed(v, opts.seed)
   }
 
   
 
-  async createHub(hubData: { name: string, address: string, description: string, coordinates?: { lat: number, lng: number } }): Promise<string> {
+  async createHub(hubData: {
+    name: string
+    address: string
+    description: string
+    coordinates?: { lat: number, lng: number }
+    photos?: { name: string }[]
+    primaryType?: string
+    types?: string[]
+  }): Promise<{ id: string; created: boolean }> {
     // Prevent duplicates: look for matching name and similar address first
     try {
       const nameLower = (hubData.name || '').toLowerCase().trim()
@@ -2723,7 +3068,7 @@ class FirebaseDataService {
           const data: any = d.data()
           const existingAddr = data.address || data.location?.address || ''
           if (normalize(existingAddr) === addrNorm) {
-            return d.id // Return existing hub id instead of creating a duplicate
+            return { id: d.id, created: false }
           }
         }
       }
@@ -2732,12 +3077,12 @@ class FirebaseDataService {
     const hubRef = await addDoc(collection(db, 'places'), {
       name: hubData.name,
       description: hubData.description,
+      address: hubData.address,
       location: {
         address: hubData.address,
         lat: hubData.coordinates?.lat || 0,
         lng: hubData.coordinates?.lng || 0
       },
-      // Store coordinates in a dedicated field as well; other parts of the app read from this
       coordinates: {
         lat: hubData.coordinates?.lat || 0,
         lng: hubData.coordinates?.lng || 0
@@ -2746,11 +3091,168 @@ class FirebaseDataService {
       savedCount: 0,
       name_lowercase: hubData.name.toLowerCase(),
       createdAt: Timestamp.now(),
-      mainImage: '/assets/leaf.png' // Default banner image
+      // Carry through Google metadata so getPlace() can render real images
+      // and category-aware posters without needing a follow-up details fetch.
+      photos: Array.isArray(hubData.photos) ? hubData.photos : [],
+      primaryType: hubData.primaryType || null,
+      types: Array.isArray(hubData.types) ? hubData.types : [],
+      // mainImage is set by the first-saver via CoverPhotoPicker. Until then,
+      // HubImage falls back to the duotone <PlacePoster>.
     });
-    return hubRef.id;
+    return { id: hubRef.id, created: true };
   }
-  
+
+  /**
+   * Idempotent "user X has saved place Y" marker. Increments savedCount on the
+   * place exactly once per user-place pair. Subsequent calls from the same
+   * user for the same place are no-ops. Use this from the SaveModal flow
+   * after savePlaceToList / saveToAutoList have run.
+   */
+  async recordUserSave(placeId: string, userId: string): Promise<boolean> {
+    try {
+      if (!placeId || !userId) return false
+      const markerRef = doc(db, 'places', placeId, 'saves', userId)
+      const existing = await getDoc(markerRef)
+      if (existing.exists()) return false
+      await setDoc(markerRef, { userId, savedAt: Timestamp.now() })
+      const placeRef = doc(db, 'places', placeId)
+      await updateDoc(placeRef, { savedCount: increment(1) })
+      return true
+    } catch (e) {
+      console.warn('[recordUserSave] failed', e)
+      return false
+    }
+  }
+
+  /**
+   * Inverse of recordUserSave. Idempotent — only decrements savedCount if
+   * a marker doc actually exists for this user, so removing a place that
+   * was never personally saved (e.g. removing it from a friend's view) is
+   * a no-op rather than dragging the global counter negative.
+   */
+  async recordUserUnsave(placeId: string, userId: string): Promise<boolean> {
+    try {
+      if (!placeId || !userId) return false
+      const markerRef = doc(db, 'places', placeId, 'saves', userId)
+      const existing = await getDoc(markerRef)
+      if (!existing.exists()) return false
+      await deleteDoc(markerRef)
+      const placeRef = doc(db, 'places', placeId)
+      await updateDoc(placeRef, { savedCount: increment(-1) })
+      return true
+    } catch (e) {
+      console.warn('[recordUserUnsave] failed', e)
+      return false
+    }
+  }
+
+  /**
+   * Returns the set of place ids the current user has saved. Used to render
+   * "saved" state on cards without N+1 reads.
+   */
+  async getUserSavedPlaceIds(userId: string): Promise<Set<string>> {
+    // Lightweight: rely on the auto-list (loved/tried/want) memberships.
+    try {
+      const out = new Set<string>()
+      const lists = await this.getUserLists(userId)
+      for (const l of lists) {
+        const hubs = (l as { hubs?: string[] }).hubs || []
+        for (const id of hubs) out.add(id)
+      }
+      return out
+    } catch {
+      return new Set()
+    }
+  }
+
+  /**
+   * Silent Google→Hub conversion. Used wherever a save/post/comment fires on a
+   * place card whose origin is a Google Places candidate. If the place already
+   * exists as a hub (by id, or by name+address), returns the existing hub id.
+   * Otherwise creates a new hub doc and returns its id. Callers should pass
+   * the resulting id into savePlaceToList / saveToAutoList instead of the raw
+   * Google placeId.
+   */
+  // In-flight dedup: when SaveModal + NavigationContext + a card click all
+  // request ensureHubFromPlace for the same candidate at once, only one
+  // network roundtrip runs and all callers await the same promise. Without
+  // this, concurrent calls each pass the duplicate-check before either
+  // writes — producing two near-identical hub docs.
+  private ensureHubInFlight = new Map<string, Promise<{ id: string | null; created: boolean; mainImage?: string | null }>>()
+
+  async ensureHubFromPlace(p: {
+    id?: string
+    placeId?: string
+    name?: string
+    address?: string
+    description?: string
+    coordinates?: { lat?: number; lng?: number }
+    location?: { address?: string; lat?: number; lng?: number }
+    photos?: { name: string }[]
+    primaryType?: string
+    types?: string[]
+  }): Promise<{ id: string | null; created: boolean; mainImage?: string | null }> {
+    const candidateId = p.id || p.placeId || ''
+    const dedupKey = candidateId || `${(p.name || '').toLowerCase().trim()}|${(p.address || p.location?.address || '').toLowerCase().trim()}`
+    const existing = this.ensureHubInFlight.get(dedupKey)
+    if (existing) return existing
+
+    const work = (async () => {
+      try {
+        if (candidateId) {
+          const found = await this.getPlace(candidateId) as (Place & { mainImage?: string | null }) | null
+          if (found && found.id) {
+            return { id: found.id, created: false, mainImage: found.mainImage || null }
+          }
+        }
+        const name = (p.name || '').trim()
+        if (!name) return { id: candidateId || null, created: false }
+        const address = (p.address || p.location?.address || '').trim()
+        const lat = p.coordinates?.lat ?? p.location?.lat ?? 0
+        const lng = p.coordinates?.lng ?? p.location?.lng ?? 0
+        const result = await this.createHub({
+          name,
+          address,
+          description: p.description || '',
+          coordinates: { lat, lng },
+          photos: p.photos,
+          primaryType: p.primaryType,
+          types: p.types,
+        })
+        return { id: result.id, created: result.created, mainImage: null }
+      } catch (e) {
+        console.warn('[ensureHubFromPlace] failed', e)
+        return { id: p.id || null, created: false }
+      } finally {
+        // Release the slot so a future save (e.g. in a different session)
+        // can re-check for an existing hub.
+        this.ensureHubInFlight.delete(dedupKey)
+      }
+    })()
+
+    this.ensureHubInFlight.set(dedupKey, work)
+    return work
+  }
+
+  /**
+   * Updates a hub's mainImage. Use after a user picks a cover photo for a
+   * just-materialized hub.
+   */
+  async setHubMainImage(placeId: string, imageUrl: string): Promise<void> {
+    try {
+      if (!placeId || !imageUrl) return
+      const placeRef = doc(db, 'places', placeId)
+      await updateDoc(placeRef, { mainImage: imageUrl })
+      try {
+        window.dispatchEvent(new CustomEvent('this-is:hubUpdated', { detail: { hubId: placeId, mainImage: imageUrl } }))
+      } catch (err) {
+        console.warn('[setHubMainImage] dispatch failed', err)
+      }
+    } catch (e) {
+      console.warn('[setHubMainImage] failed', e)
+    }
+  }
+
   async searchHubs(queryText: string, count: number = 10): Promise<Hub[]> {
     try {
       const text = queryText.toLowerCase();
@@ -2998,14 +3500,6 @@ class FirebaseDataService {
     }
   }
 
-  async setHubMainImage(hubId: string, imageUrl: string): Promise<void> {
-    try {
-      await updateDoc(doc(db, 'places', hubId), { mainImage: imageUrl })
-    } catch (error) {
-      console.error('Error setting hub main image:', error)
-      throw error
-    }
-  }
 }
 
 // Export singleton instance

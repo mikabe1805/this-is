@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { XMarkIcon, PhotoIcon, HeartIcon, BookmarkIcon, EyeIcon, EyeSlashIcon, UsersIcon, TagIcon, PlusIcon } from '@heroicons/react/24/outline'
+import { XMarkIcon, BookmarkIcon, EyeSlashIcon } from '@heroicons/react/24/outline'
 import { createPortal } from 'react-dom'
 import { extractEmbedData, createEmbedPreview, parseSocialMediaUrl, validateUrl, getPlatformPlaceholder, getPlatformDisplayName, type EmbedData, type EmbedPreview } from '../utils/embedUtils'
 import { firebasePostService } from '../services/firebasePostService'
@@ -175,111 +175,120 @@ const EmbedFromModal = ({ isOpen, onClose, onEmbed }: EmbedFromModalProps) => {
   if (!isOpen) return null
 
   return createPortal(
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/20 backdrop-blur-md">
-      <div className="w-full max-w-md bg-white rounded-3xl shadow-2xl border border-linen-200 overflow-hidden max-h-[90vh] flex flex-col">
+    <div className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center sm:p-4 bg-[#1A1815]/55 backdrop-blur-sm" onClick={handleClose}>
+      <div
+        className="modal-paper w-full sm:max-w-md rounded-t-3xl sm:rounded-3xl border border-edge overflow-hidden max-h-[92vh] flex flex-col"
+        style={{ boxShadow: '0 18px 60px rgba(46, 28, 13, 0.22)' }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div data-drag-handle className="sm:hidden flex justify-center py-3 shrink-0" aria-hidden>
+          <span className="w-10 h-1 rounded-full bg-ink-faint" />
+        </div>
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-linen-200">
-          <div className="flex items-center gap-3">
+        <div className="flex items-center justify-between px-5 sm:px-6 py-4 border-b border-edge relative z-10">
+          <div className="flex items-center gap-2 min-w-0">
             {step === 'details' && (
               <button
+                type="button"
                 onClick={handleBack}
-                className="p-2 rounded-full hover:bg-linen-100 transition-colors"
+                aria-label="Back"
+                className="h-9 w-9 rounded-full hover:bg-paper-deep flex items-center justify-center text-ink"
               >
-                <XMarkIcon className="w-5 h-5 text-charcoal-600 rotate-45" />
+                <XMarkIcon className="w-5 h-5 rotate-45" />
               </button>
             )}
-            <div>
-              <h2 className="text-xl font-serif font-semibold text-charcoal-700">
-                {step === 'url' ? 'Embed from...' : 'Add to Lists'}
-              </h2>
-              <p className="text-sm text-charcoal-500">
-                {step === 'url' ? 'Paste a social media link' : 'Choose lists and settings'}
-              </p>
+            <div className="min-w-0">
+              <p className="label-eyebrow text-ink-mute">{step === 'url' ? 'Embed from…' : 'Add to lists'}</p>
             </div>
           </div>
           <button
+            type="button"
             onClick={handleClose}
-            className="p-2 rounded-full hover:bg-linen-100 transition-colors"
+            aria-label="Close"
+            className="h-9 w-9 rounded-full hover:bg-paper-deep flex items-center justify-center text-ink"
           >
-            <XMarkIcon className="w-6 h-6 text-charcoal-600" />
+            <XMarkIcon className="w-5 h-5" />
           </button>
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto">
+        <div className="flex-1 overflow-y-auto relative z-10">
           {step === 'url' && (
-            <div className="p-6 space-y-6">
+            <div className="px-5 sm:px-6 py-5 space-y-5">
               {/* Platform Selection */}
               <div>
-                <label className="block text-sm font-medium text-charcoal-700 mb-3">Platform</label>
-                <div className="grid grid-cols-3 gap-3">
+                <p className="label-eyebrow text-ink-mute mb-2.5">Platform</p>
+                <div className="grid grid-cols-3 gap-2">
                   {[
                     { key: 'instagram', label: 'Instagram', icon: '📷' },
                     { key: 'tiktok', label: 'TikTok', icon: '🎵' },
                     { key: 'other', label: 'Other', icon: '🔗' }
-                  ].map(({ key, label, icon }) => (
-                    <button
-                      key={key}
-                      onClick={() => setPlatform(key as any)}
-                      className={`p-4 rounded-xl border-2 transition-all ${
-                        platform === key
-                          ? 'border-sage-400 bg-sage-50 text-sage-700'
-                          : 'border-linen-200 bg-white text-charcoal-600 hover:border-sage-200'
-                      }`}
-                    >
-                      <div className="text-2xl mb-1">{icon}</div>
-                      <div className="text-sm font-medium">{label}</div>
-                    </button>
-                  ))}
+                  ].map(({ key, label, icon }) => {
+                    const active = platform === key
+                    return (
+                      <button
+                        key={key}
+                        type="button"
+                        onClick={() => setPlatform(key as any)}
+                        aria-pressed={active}
+                        className={`p-3 rounded-xl border transition-colors ${active ? 'border-ink bg-paper-deep' : 'border-edge bg-card hover:border-ink/40'}`}
+                      >
+                        <div className="text-2xl mb-1">{icon}</div>
+                        <div className="text-[13px] font-medium text-ink">{label}</div>
+                      </button>
+                    )
+                  })}
                 </div>
-                <p className="text-xs text-charcoal-500 mt-2">
-                  Platform will be auto-detected from your URL
+                <p className="font-mono text-[10px] tracking-[0.10em] uppercase text-ink-mute mt-2">
+                  Platform auto-detected from URL
                 </p>
               </div>
 
               {/* URL Input */}
               <form onSubmit={handleUrlSubmit} className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-charcoal-700 mb-2">
+                  <label htmlFor="embed-url" className="label-eyebrow text-ink-mute mb-1.5 block">
                     {platform === 'instagram' ? 'Instagram Post URL' :
                      platform === 'tiktok' ? 'TikTok Video URL' : 'Social Media URL'}
                   </label>
                   <input
+                    id="embed-url"
                     type="url"
                     value={url}
                     onChange={(e) => setUrl(e.target.value)}
                     placeholder={getPlatformPlaceholder(platform)}
-                    className="w-full px-4 py-3 border border-linen-200 rounded-xl text-charcoal-600 placeholder-charcoal-400 focus:outline-none focus:ring-2 focus:ring-sage-200 focus:border-sage-300"
+                    className="w-full h-11 px-4 rounded-full border border-edge bg-card text-[14px] text-ink placeholder:text-ink-mute outline-none focus:border-ink/40"
                     required
+                    autoComplete="url"
                   />
                   {error && (
-                    <p className="text-sm text-coral-600 mt-2">{error}</p>
+                    <p className="text-[12px] text-red-700 mt-2">{error}</p>
                   )}
                 </div>
-                
+
                 <button
                   type="submit"
                   disabled={!url.trim() || isLoading}
-                  className="w-full py-3 bg-sage-500 text-white rounded-xl font-semibold hover:bg-sage-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  className="btn-cta w-full h-12 font-semibold text-[15px] disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {isLoading ? 'Loading...' : 'Continue'}
+                  {isLoading ? 'Loading…' : 'Continue'}
                 </button>
               </form>
             </div>
           )}
 
           {step === 'details' && embedPreview && (
-            <div className="p-6 space-y-6">
+            <div className="px-5 sm:px-6 py-5 space-y-5">
               {/* Embed Preview */}
-              <div className="bg-linen-50 rounded-xl p-4 border border-linen-200">
+              <div className="bg-card rounded-xl p-4 border border-edge">
                 <div className="space-y-3">
                   {/* Header with platform and author */}
                   <div className="flex items-center gap-2">
-                    <span className="text-xs px-2 py-1 bg-sage-100 text-sage-700 rounded-full font-medium">
+                    <span className="text-xs px-2 py-1 bg-paper-deep text-ink rounded-full font-medium">
                       {getPlatformDisplayName(embedPreview.platform)}
                     </span>
-                    <span className="font-medium text-charcoal-700">{embedPreview.author}</span>
-                    <span className="text-sm text-charcoal-500">{embedPreview.timestamp}</span>
+                    <span className="text-[13px] font-medium text-ink">{embedPreview.author}</span>
+                    <span className="text-[12px] text-ink-mute">{embedPreview.timestamp}</span>
                   </div>
                   
                   {/* Content preview with thumbnail */}
@@ -288,22 +297,19 @@ const EmbedFromModal = ({ isOpen, onClose, onEmbed }: EmbedFromModalProps) => {
                       <img
                         src={embedPreview.mediaUrl}
                         alt="Content preview"
-                        className="w-20 h-20 object-cover rounded-lg flex-shrink-0"
+                        className="w-20 h-20 object-cover rounded-[10px] ring-1 ring-edge flex-shrink-0"
                       />
                     )}
                     <div className="flex-1 min-w-0">
-                      {/* Title */}
                       {embedPreview.title && (
-                        <h4 className="font-semibold text-charcoal-800 mb-1 line-clamp-2">
+                        <h4 className="font-display text-[16px] leading-tight text-ink mb-1 line-clamp-2">
                           {embedPreview.title}
                         </h4>
                       )}
-                      {/* Description/Content */}
-                      <p className="text-sm text-charcoal-600 line-clamp-3">
+                      <p className="text-[13px] text-ink-soft line-clamp-3">
                         {embedPreview.description || embedPreview.content}
                       </p>
-                      {/* URL for reference */}
-                      <p className="text-xs text-charcoal-400 mt-2 truncate">
+                      <p className="font-mono text-[10px] tracking-[0.06em] text-ink-mute mt-2 truncate">
                         {embedPreview.url}
                       </p>
                     </div>
@@ -313,33 +319,38 @@ const EmbedFromModal = ({ isOpen, onClose, onEmbed }: EmbedFromModalProps) => {
 
               {/* Status Selection */}
               <div>
-                <label className="block text-sm font-medium text-charcoal-700 mb-3">How do you feel about this?</label>
-                <div className="grid grid-cols-3 gap-3">
+                <label className="label-eyebrow text-ink-mute mb-2.5 block">How do you feel about this?</label>
+                <div className="grid grid-cols-3 gap-2">
                   {[
-                    { key: 'want', label: 'Want', icon: '💭', color: 'gold' },
-                    { key: 'tried', label: 'Tried', icon: '✅', color: 'sage' },
-                    { key: 'loved', label: 'Loved', icon: '❤️', color: 'coral' }
-                  ].map(({ key, label, icon, color }) => (
-                    <button
-                      key={key}
-                      onClick={() => setStatus(key as any)}
-                      className={`p-4 rounded-xl border-2 transition-all ${
-                        status === key
-                          ? `border-${color}-400 bg-${color}-50 text-${color}-700`
-                          : 'border-linen-200 bg-white text-charcoal-600 hover:border-sage-200'
-                      }`}
-                    >
-                      <div className="text-2xl mb-1">{icon}</div>
-                      <div className="text-sm font-medium">{label}</div>
-                    </button>
-                  ))}
+                    { key: 'want', label: 'Want', icon: '💭' },
+                    { key: 'tried', label: 'Tried', icon: '✅' },
+                    { key: 'loved', label: 'Loved', icon: '❤️' }
+                  ].map(({ key, label, icon }) => {
+                    const active = status === key
+                    return (
+                      <button
+                        key={key}
+                        type="button"
+                        onClick={() => setStatus(key as any)}
+                        aria-pressed={active}
+                        className={`p-3 rounded-xl border transition-colors ${
+                          active
+                            ? 'border-ink bg-paper-deep text-ink'
+                            : 'border-edge bg-card text-ink hover:border-ink/40'
+                        }`}
+                      >
+                        <div className="text-2xl mb-1">{icon}</div>
+                        <div className="text-[13px] font-medium">{label}</div>
+                      </button>
+                    )
+                  })}
                 </div>
               </div>
 
               {/* Tried Feeling (only if status is 'tried') */}
               {status === 'tried' && (
                 <div>
-                  <label className="block text-sm font-medium text-charcoal-700 mb-3">How was it?</label>
+                  <label className="label-eyebrow text-ink-mute mb-2.5 block">How was it?</label>
                   <div className="grid grid-cols-3 gap-3">
                     {[
                       { key: 'liked', label: 'Liked', icon: '😊' },
@@ -351,8 +362,8 @@ const EmbedFromModal = ({ isOpen, onClose, onEmbed }: EmbedFromModalProps) => {
                         onClick={() => setTriedFeeling(key as any)}
                         className={`p-3 rounded-xl border-2 transition-all ${
                           triedFeeling === key
-                            ? 'border-sage-400 bg-sage-50 text-sage-700'
-                            : 'border-linen-200 bg-white text-charcoal-600 hover:border-sage-200'
+                            ? 'border-ink bg-paper-deep text-ink'
+                            : 'border-edge bg-card text-ink hover:border-ink/40'
                         }`}
                       >
                         <div className="text-xl mb-1">{icon}</div>
@@ -365,29 +376,31 @@ const EmbedFromModal = ({ isOpen, onClose, onEmbed }: EmbedFromModalProps) => {
 
               {/* Description */}
               <div>
-                <label className="block text-sm font-medium text-charcoal-700 mb-2">Add your thoughts</label>
+                <label htmlFor="embed-description" className="label-eyebrow text-ink-mute mb-1.5 block">Add your thoughts</label>
                 <textarea
+                  id="embed-description"
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                   placeholder="Share your experience or thoughts..."
                   rows={3}
-                  className="w-full px-4 py-3 border border-linen-200 rounded-xl text-charcoal-600 placeholder-charcoal-400 focus:outline-none focus:ring-2 focus:ring-sage-200 focus:border-sage-300 resize-none"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-edge bg-card text-[14px] text-ink placeholder:text-ink-mute outline-none focus:border-ink/40 resize-none"
                 />
               </div>
 
               {/* Tags */}
               <div>
-                <label className="block text-sm font-medium text-charcoal-700 mb-2">Tags</label>
+                <label className="label-eyebrow text-ink-mute mb-1.5 block">Tags</label>
                 <div className="flex flex-wrap gap-2 mb-3">
                   {tags.map(tag => (
                     <span
                       key={tag}
-                      className="inline-flex items-center gap-1 px-3 py-1 bg-sage-100 text-sage-700 rounded-full text-sm"
+                      className="inline-flex items-center gap-1 px-3 py-1 bg-paper-deep text-ink rounded-full text-sm"
                     >
                       #{tag}
                       <button
                         onClick={() => handleRemoveTag(tag)}
-                        className="hover:text-sage-800"
+                        aria-label={`Remove tag ${tag}`}
+                        className="hover:text-ink"
                       >
                         <XMarkIcon className="w-3 h-3" />
                       </button>
@@ -400,12 +413,12 @@ const EmbedFromModal = ({ isOpen, onClose, onEmbed }: EmbedFromModalProps) => {
                     value={newTag}
                     onChange={(e) => setNewTag(e.target.value)}
                     placeholder="Add a tag..."
-                    className="flex-1 px-3 py-2 border border-linen-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-sage-200 focus:border-sage-300"
+                    className="flex-1 h-10 px-3.5 rounded-full border border-edge bg-card text-[13px] text-ink placeholder:text-ink-mute outline-none focus:border-ink/40"
                     onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddTag())}
                   />
                   <button
                     onClick={handleAddTag}
-                    className="px-3 py-2 bg-sage-500 text-white rounded-lg text-sm hover:bg-sage-600 transition-colors"
+                    className="btn-secondary h-10 px-4 label-eyebrow"
                   >
                     Add
                   </button>
@@ -413,12 +426,12 @@ const EmbedFromModal = ({ isOpen, onClose, onEmbed }: EmbedFromModalProps) => {
               </div>
 
               {/* Privacy Notice */}
-              <div className="bg-sage-50 rounded-xl p-4 border border-sage-200">
+              <div className="bg-accent-soft rounded-xl p-4 border border-edge">
                 <div className="flex items-start gap-3">
-                  <EyeSlashIcon className="w-5 h-5 text-sage-600 mt-0.5" />
+                  <EyeSlashIcon className="w-5 h-5 text-accent-deep mt-0.5" />
                   <div>
-                    <div className="font-medium text-sage-700 mb-1">Private Embed</div>
-                    <div className="text-sm text-sage-600">
+                    <div className="text-[14px] font-medium text-ink mb-1">Private Embed</div>
+                    <div className="text-[13px] text-ink-soft">
                       Embedded content is always private to respect copyright and avoid content theft. Only you can see this post.
                     </div>
                   </div>
@@ -427,8 +440,8 @@ const EmbedFromModal = ({ isOpen, onClose, onEmbed }: EmbedFromModalProps) => {
 
               {/* Lists */}
               <div>
-                <label className="block text-sm font-medium text-charcoal-700 mb-3">Add to Lists</label>
-                <div className="text-xs text-sage-600 mb-3 bg-sage-50 rounded-lg p-3 border border-sage-200">
+                <label className="label-eyebrow text-ink-mute mb-2.5 block">Add to Lists</label>
+                <div className="text-[12px] text-ink-soft mb-3 bg-accent-soft rounded-lg p-3 border border-edge">
                   💡 Your selection will automatically be added to "{status === 'loved' ? 'All Loved' : status === 'tried' ? 'All Tried' : 'All Want'}"
                 </div>
                 <input
@@ -436,21 +449,27 @@ const EmbedFromModal = ({ isOpen, onClose, onEmbed }: EmbedFromModalProps) => {
                   value={listSearchQuery}
                   onChange={(e) => setListSearchQuery(e.target.value)}
                   placeholder="Search lists..."
-                  className="w-full px-4 py-3 border border-linen-200 rounded-xl text-charcoal-600 placeholder-charcoal-400 focus:outline-none focus:ring-2 focus:ring-sage-200 focus:border-sage-300 mb-3"
+                  className="w-full h-11 px-4 rounded-full border border-edge bg-card text-[14px] text-ink placeholder:text-ink-mute outline-none focus:border-ink/40 mb-3"
                 />
-                <div className="space-y-2 max-h-40 overflow-y-auto">
-                  {filteredLists.map(list => (
-                    <label key={list.id} className="flex items-center gap-3 p-3 rounded-lg cursor-pointer border border-transparent hover:border-sage-200 hover:bg-sage-50">
-                      <input
-                        type="checkbox"
-                        checked={selectedListIds.has(list.id)}
-                        onChange={() => handleToggleList(list.id)}
-                        className="w-4 h-4 text-sage-500 focus:ring-sage-400 rounded"
-                      />
-                      <BookmarkIcon className="w-5 h-5 text-sage-600" />
-                      <span className="font-medium text-charcoal-700">{list.name}</span>
-                    </label>
-                  ))}
+                <div className="space-y-1.5 max-h-44 overflow-y-auto">
+                  {filteredLists.map(list => {
+                    const checked = selectedListIds.has(list.id)
+                    return (
+                      <label
+                        key={list.id}
+                        className={`flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-colors ${checked ? 'bg-paper-deep' : 'hover:bg-paper-deep'}`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => handleToggleList(list.id)}
+                          className="w-4 h-4 accent-ink rounded"
+                        />
+                        <BookmarkIcon className="w-5 h-5 text-ink-mute" />
+                        <span className="text-[14px] font-medium text-ink truncate">{list.name}</span>
+                      </label>
+                    )
+                  })}
                 </div>
               </div>
             </div>
@@ -459,10 +478,11 @@ const EmbedFromModal = ({ isOpen, onClose, onEmbed }: EmbedFromModalProps) => {
 
         {/* Footer */}
         {step === 'details' && (
-          <div className="p-6 border-t border-linen-200">
+          <div className="px-5 sm:px-6 py-4 border-t border-edge relative z-10">
             <button
+              type="button"
               onClick={handleSubmit}
-              className="w-full py-3 bg-sage-500 text-white rounded-xl font-semibold hover:bg-sage-600 transition-colors"
+              className="btn-cta w-full h-12 font-semibold text-[15px]"
             >
               Create Embed Post
             </button>

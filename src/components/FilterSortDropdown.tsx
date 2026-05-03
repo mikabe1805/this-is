@@ -4,6 +4,7 @@ import { EllipsisHorizontalIcon } from '@heroicons/react/24/outline'
 import TagSearchModal from './TagSearchModal'
 import TagPill from './TagPill'
 import { useFilters } from '../contexts/FiltersContext'
+import { useBodyScrollLock } from '../hooks/useBodyScrollLock'
 
 interface Option {
   key: string
@@ -80,18 +81,8 @@ const FilterSortDropdown: React.FC<FilterSortDropdownProps> = ({
     return () => mq.removeEventListener?.('change', handler)
   }, [])
 
-  // Lock body scroll while open
-  useEffect(() => {
-    if (!show) return
-    const previousOverflow = document.body.style.overflow
-    const previousPosition = document.body.style.position
-    document.body.style.overflow = 'hidden'
-    document.body.style.position = 'relative'
-    return () => {
-      document.body.style.overflow = previousOverflow
-      document.body.style.position = previousPosition
-    }
-  }, [show])
+  // Body scroll-lock — refcounted across stacked modals (see useBodyScrollLock).
+  useBodyScrollLock(show)
 
   // Positioning: center panel on desktop, bottom sheet on mobile
   const panelStyle = useMemo(() => {

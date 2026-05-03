@@ -6,16 +6,6 @@ import { firebaseDataService } from '../services/firebaseDataService.js'
 import type { UserPreferences } from '../services/firebaseDataService.js'
 import ConfirmModal from '../components/ConfirmModal.js'
 
-// SVG botanical accent
-const BotanicalAccent = () => (
-  <svg width="60" height="60" viewBox="0 0 60 60" fill="none" xmlns="http://www.w3.org/2000/svg" className="absolute -top-6 -left-6 opacity-30 select-none pointer-events-none">
-    <path d="M10 50 Q30 10 50 50" stroke="#A3B3A3" strokeWidth="3" fill="none"/>
-    <ellipse cx="18" cy="38" rx="4" ry="8" fill="#C7D0C7"/>
-    <ellipse cx="30" cy="28" rx="4" ry="8" fill="#A3B3A3"/>
-    <ellipse cx="42" cy="38" rx="4" ry="8" fill="#7A927A"/>
-  </svg>
-)
-
 interface SettingItem {
   id: string
   title: string
@@ -78,7 +68,7 @@ const Settings = () => {
       onConfirm: async () => {
         if (authUser) {
           await firebaseDataService.deleteUser(authUser.id);
-          logout();
+          await logout();
           navigate('/');
         }
       }
@@ -191,8 +181,8 @@ const Settings = () => {
       description: 'Sign out of your account',
       icon: Cog6ToothIcon,
       type: 'button',
-      action: () => {
-        logout();
+      action: async () => {
+        await logout();
         navigate('/');
       }
     },
@@ -207,147 +197,123 @@ const Settings = () => {
   ]
 
   const renderSettingItem = (item: SettingItem) => (
-    <div
-      key={item.id}
-      className="relative rounded-2xl shadow-botanical border border-linen-200 bg-white/95 p-4 transition hover:shadow-cozy hover:-translate-y-1"
-    >
-      <BotanicalAccent />
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4 flex-1">
-          <div className="w-10 h-10 rounded-xl bg-sage-100 flex items-center justify-center">
-            <item.icon className="w-5 h-5 text-sage-600" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <h3 className="font-serif font-semibold text-charcoal-800 mb-1">{item.title}</h3>
-            <p className="text-sm text-charcoal-500">{item.description}</p>
-          </div>
+    <li key={item.id} className="py-3.5">
+      <div className="flex items-center gap-3.5">
+        <span className="shrink-0 w-9 h-9 rounded-full glass-honey flex items-center justify-center">
+          <item.icon className="w-4 h-4" />
+        </span>
+        <div className="flex-1 min-w-0">
+          <h3 className="text-[14px] font-medium text-ink leading-tight">{item.title}</h3>
+          <p className="font-mono text-[10px] tracking-[0.10em] uppercase text-ink-mute mt-0.5 truncate">{item.description}</p>
         </div>
-
-        <div className="flex-shrink-0">
+        <div className="shrink-0">
           {item.type === 'toggle' && (
             <button
               onClick={() => handleToggle(item.id)}
-              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                item.value ? 'bg-sage-500' : 'bg-linen-200'
-              }`}
+              className="relative inline-flex h-6 w-11 items-center rounded-full transition-colors"
+              style={{ background: item.value ? 'var(--accent)' : 'var(--card-edge)' }}
+              aria-pressed={!!item.value}
             >
               <span
-                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                className={`inline-block h-4 w-4 transform rounded-full bg-paper transition-transform ${
                   item.value ? 'translate-x-6' : 'translate-x-1'
                 }`}
+                style={{ boxShadow: '0 1px 2px rgba(46, 28, 13, 0.30)' }}
               />
             </button>
           )}
-
           {item.type === 'select' && item.options && (
             <select
               value={item.value as string}
               onChange={(e) => handleSelect(item.id, e.target.value)}
-              className="px-3 py-2 rounded-xl border border-linen-200 bg-linen-50 text-charcoal-700 focus:outline-none focus:ring-2 focus:ring-sage-200 text-sm"
+              className="h-9 px-3 rounded-full bg-card border border-edge text-[13px] text-ink focus:outline-none focus:border-ink/40"
             >
               {item.options.map(option => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
+                <option key={option.value} value={option.value}>{option.label}</option>
               ))}
             </select>
           )}
-
           {item.type === 'button' && (
             <button
               onClick={item.action}
-              className={`px-4 py-2 rounded-xl text-sm font-medium transition-colors shadow-soft ${
+              className={`h-9 px-4 rounded-full label-eyebrow transition-colors ${
                 item.id === 'deleteAccount'
-                  ? 'bg-red-500 text-white hover:bg-red-600'
-                  : 'bg-sage-500 text-white hover:bg-sage-600'
+                  ? 'bg-card border border-edge text-[#9C2A2A] hover:border-[#9C2A2A]/40'
+                  : 'btn-secondary'
               }`}
             >
-              {item.id === 'logout' ? 'Sign Out' : item.id === 'deleteAccount' ? 'Delete' : 'Edit'}
+              {item.id === 'logout' ? 'Sign out' : item.id === 'deleteAccount' ? 'Delete' : 'Edit →'}
             </button>
           )}
         </div>
       </div>
-    </div>
+    </li>
   )
 
   return (
     <>
-      <div className="relative min-h-full overflow-x-hidden bg-linen-50">
-        {/* Enhanced background */}
-        <div className="absolute inset-0 z-0 pointer-events-none">
-          <div className="absolute inset-0 bg-linen-texture opacity-80 mix-blend-multiply"></div>
-          <div className="absolute inset-0 bg-gradient-to-br from-gold-50/60 via-linen-100/80 to-sage-100/70 opacity-80"></div>
-          <div className="absolute inset-0 bg-gradient-radial from-transparent via-transparent to-charcoal-900/10"></div>
-        </div>
-
-        {/* Header */}
-        <div className="relative z-10 p-4 border-b border-linen-200 bg-white/95 backdrop-blur-glass">
-          <div className="flex items-center justify-between">
+      <div className="relative min-h-full overflow-x-hidden">
+        <header className="sticky top-0 z-30 bg-paper/90 backdrop-blur-md">
+          <div className="px-5 pt-5 pb-3 flex items-center justify-between">
             <button
               onClick={() => { if (window.history.length > 1) navigate(-1); else navigate('/profile') }}
-              className="p-2 rounded-xl bg-linen-100 text-charcoal-600 hover:bg-linen-200 transition-colors"
+              className="h-10 w-10 rounded-full hover:bg-paper-deep flex items-center justify-center"
+              aria-label="Back"
             >
-              <ArrowLeftIcon className="w-5 h-5" />
+              <ArrowLeftIcon className="w-5 h-5 text-ink" />
             </button>
-            <h1 className="text-lg font-serif font-semibold text-charcoal-800">Settings</h1>
-            <div className="w-10"></div> {/* Spacer for centering */}
+            <h1 className="font-display text-[22px] leading-none text-ink">Settings</h1>
+            <span className="w-10" />
           </div>
-        </div>
+          <div className="border-b border-edge mx-5" />
+        </header>
 
-        {/* Main Content */}
-        <div className="relative z-10 p-4 space-y-6 max-w-2xl mx-auto">
-          {/* Notifications Section */}
-          <div>
-            <h2 className="text-lg font-serif font-semibold text-charcoal-800 mb-4 flex items-center gap-2">
-              <BellIcon className="w-5 h-5 text-sage-600" />
-              Notifications
-            </h2>
-            <div className="space-y-3">
+        <div className="relative z-10 px-5 py-6 space-y-8 max-w-2xl mx-auto">
+          <section>
+            <p className="label-eyebrow flex items-center gap-1.5 mb-3" style={{ color: 'var(--accent-deep)' }}>
+              <span className="accent-bead-sm accent-bead" /> Notifications
+            </p>
+            <ul className="divide-y divide-edge border-y border-edge">
               {notificationSettings.map(renderSettingItem)}
-            </div>
-          </div>
+            </ul>
+          </section>
 
-          {/* Privacy Section */}
-          <div>
-            <h2 className="text-lg font-serif font-semibold text-charcoal-800 mb-4 flex items-center gap-2">
-              <ShieldCheckIcon className="w-5 h-5 text-sage-600" />
-              Privacy & Security
-            </h2>
-            <div className="space-y-3">
+          <section>
+            <p className="label-eyebrow flex items-center gap-1.5 mb-3" style={{ color: 'var(--accent-deep)' }}>
+              <span className="accent-bead-sm accent-bead" /> Privacy & security
+            </p>
+            <ul className="divide-y divide-edge border-y border-edge">
               {privacySettings.map(renderSettingItem)}
-            </div>
-          </div>
+            </ul>
+          </section>
 
-          {/* Appearance Section */}
-          <div>
-            <h2 className="text-lg font-serif font-semibold text-charcoal-800 mb-4 flex items-center gap-2">
-              <DevicePhoneMobileIcon className="w-5 h-5 text-sage-600" />
-              Appearance
-            </h2>
-            <div className="space-y-3">
+          <section>
+            <p className="label-eyebrow flex items-center gap-1.5 mb-3" style={{ color: 'var(--accent-deep)' }}>
+              <span className="accent-bead-sm accent-bead" /> Appearance
+            </p>
+            <ul className="divide-y divide-edge border-y border-edge">
               {appearanceSettings.map(renderSettingItem)}
-            </div>
-          </div>
+            </ul>
+          </section>
 
-          {/* Account Section */}
-          <div>
-            <h2 className="text-lg font-serif font-semibold text-charcoal-800 mb-4 flex items-center gap-2">
-              <UserIcon className="w-5 h-5 text-sage-600" />
-              Account
-            </h2>
-            <div className="space-y-3">
+          <section>
+            <p className="label-eyebrow flex items-center gap-1.5 mb-3" style={{ color: 'var(--accent-deep)' }}>
+              <span className="accent-bead-sm accent-bead" /> Account
+            </p>
+            <ul className="divide-y divide-edge border-y border-edge">
               {accountSettings.map(renderSettingItem)}
-            </div>
-          </div>
+            </ul>
+          </section>
 
-          {/* App Info */}
-          <div className="rounded-3xl shadow-botanical border border-linen-200 bg-white/95 p-6 text-center">
-            <h3 className="text-lg font-serif font-semibold text-charcoal-800 mb-2">this.is</h3>
-            <p className="text-sm text-charcoal-500 mb-4">Version 1.0.0</p>
-            <div className="flex justify-center gap-4 text-xs text-charcoal-400">
-              <button className="hover:text-charcoal-600 transition-colors">Privacy Policy</button>
-              <button className="hover:text-charcoal-600 transition-colors">Terms of Service</button>
-              <button className="hover:text-charcoal-600 transition-colors">Help & Support</button>
+          <div className="text-center pt-4">
+            <p className="font-display-italic text-[18px] text-ink">this · is</p>
+            <p className="font-mono text-[10px] tracking-[0.14em] uppercase text-ink-mute mt-1">Version 1.0.0</p>
+            <div className="flex justify-center gap-4 mt-4 font-mono text-[10px] tracking-[0.10em] uppercase">
+              <button className="text-ink-mute hover:text-ink transition-colors">Privacy</button>
+              <span className="text-ink-faint">·</span>
+              <button className="text-ink-mute hover:text-ink transition-colors">Terms</button>
+              <span className="text-ink-faint">·</span>
+              <button className="text-ink-mute hover:text-ink transition-colors">Help</button>
             </div>
           </div>
         </div>

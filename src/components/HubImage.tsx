@@ -1,33 +1,36 @@
-import React, { useMemo, useState } from 'react'
-import { posterPathFor } from '../utils/posterMapping'
+import { useMemo, useState } from 'react'
+import PlacePoster from './ui/PlacePoster'
 
 type PlaceLike = {
   name?: string
   photos?: { name: string }[]
   primaryType?: string
+  mainImage?: string
+  hubImage?: string
+  coverImage?: string
 }
 
 type Props = {
   photos?: { name: string }[]
   primaryType?: string
   types?: string[]
-  place?: PlaceLike // compatibility path
+  place?: PlaceLike
+  /** User-uploaded image (mainImage/hubImage/coverImage). Wins over Google photo when present. */
+  userImage?: string
   className?: string
-  aspect?: string // e.g. aspect-[4/3]
-  maxWidthPx?: number // default 480; 960 on detail page
+  aspect?: string
+  maxWidthPx?: number
   alt?: string
-  load?: boolean // default false to minimize costs
-  // legacy compatibility
+  load?: boolean
   loadStrategy?: 'fallback' | 'load'
 }
-
-// Deprecated local mapping is replaced by posterMapping helpers
 
 export default function HubImage({
   photos,
   primaryType,
   types,
   place,
+  userImage,
   className = 'rounded-xl2 shadow-soft',
   aspect = 'aspect-[4/3]',
   maxWidthPx = 480,
@@ -40,32 +43,38 @@ export default function HubImage({
 
   const doLoad = loadStrategy ? loadStrategy === 'load' : load
 
+  // Image priority:
+  //   1. User-uploaded photo (mainImage/hubImage/coverImage on the place doc)
+  //   2. Google Places photo (only when load is enabled)
+  //   3. Risograph poster fallback (PlacePoster behind the figure)
+  // The user-uploaded URL is treated as an absolute URL — never run through
+  // the Places photo media endpoint.
+  const resolvedUserImage = userImage || place?.mainImage || place?.hubImage || place?.coverImage || ''
+
   const src = useMemo(() => {
+    if (resolvedUserImage) return resolvedUserImage
     if (!doLoad) return ''
     const name = (photos || place?.photos)?.[0]?.name
     const key = (import.meta as any).env?.VITE_GOOGLE_MAPS_API_KEY || (import.meta as any).env?.VITE_PLACES_NEW_KEY
     if (!name || !key) return ''
     return `https://places.googleapis.com/v1/${name}/media?maxWidthPx=${maxWidthPx}&key=${key}`
-  }, [photos?.[0]?.name, place?.photos?.[0]?.name, maxWidthPx, doLoad])
+  }, [resolvedUserImage, photos?.[0]?.name, place?.photos?.[0]?.name, maxWidthPx, doLoad])
 
-  const fallback = useMemo(() => {
-    const t = types || (place as any)?.types
-    return posterPathFor(primaryType || place?.primaryType, Array.isArray(t) ? t : [])
-  }, [types, primaryType, place?.primaryType, (place as any)?.types])
+  const resolvedTypes = (types || (place as any)?.types || []) as string[]
+  const resolvedName = alt || place?.name || ''
 
   return (
-    <figure className={`relative overflow-hidden poster-grade poster-noise ${aspect} ${className}`}>
-      <img
-        src={fallback}
-        alt={alt || place?.name || ''}
-        className='absolute inset-0 w-full h-full object-cover'
-        loading='lazy'
-        onError={(e) => { (e.currentTarget as HTMLImageElement).src = '/assets/leaf.png' }}
+    <figure className={`relative overflow-hidden ${aspect} ${className}`}>
+      <PlacePoster
+        primaryType={primaryType || place?.primaryType}
+        types={resolvedTypes}
+        name={resolvedName}
+        className="absolute inset-0 w-full h-full"
       />
       {src && !failed && (
         <img
           src={src}
-          alt={alt || place?.name || ''}
+          alt={resolvedName}
           className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-300 ${loaded ? 'opacity-100' : 'opacity-0'}`}
           loading='lazy'
           onLoad={() => setLoaded(true)}

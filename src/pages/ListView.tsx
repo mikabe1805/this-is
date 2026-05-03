@@ -13,16 +13,20 @@ import EditListModal from '../components/EditListModal'
 import EditPlaceModal from '../components/EditPlaceModal'
 import ConfirmModal from '../components/ConfirmModal'
 import PrivacyModal from '../components/PrivacyModal'
-import SearchAndFilter from '../components/SearchAndFilter'
+// SearchAndFilter removed in UX refresh — replaced by inline editorial input
 import { firebaseListService } from '../services/firebaseListService';
 import { firebaseDataService } from '../services/firebaseDataService';
 import { useAuth } from '../contexts/AuthContext'
-import AdvancedFiltersDrawer from '../components/AdvancedFiltersDrawer'
+// AdvancedFiltersDrawer removed in UX refresh
 import { useFilters } from '../contexts/FiltersContext'
 import { PageHeader } from '../components/primitives/PageHeader'
 import { ActionBar } from '../components/primitives/ActionBar'
 import { CardShell } from '../components/primitives/CardShell'
 import { MapCalloutCard } from '../components/primitives/MapCalloutCard'
+import HubImage from '../components/HubImage'
+import ListMap from '../components/ListMap'
+import { XMarkIcon } from '@heroicons/react/24/outline'
+import { useDocumentTitle } from '../hooks/useDocumentTitle'
 
 const ListView = () => {
   const { id } = useParams<{ id: string }>()
@@ -70,22 +74,60 @@ const ListView = () => {
   const [showAdvanced, setShowAdvanced] = useState(false)
   const { filters, setFilters } = useFilters()
 
-  useEffect(() => {
-    const fetchList = async () => {
-      if (id) {
-        const fetchedList = await firebaseListService.getList(id)
-        setList(fetchedList)
-        if (fetchedList) {
-          const places = await firebaseListService.getPlacesForList(id)
-          setListPlaces(places.map(p => ({ ...p, status: 'loved' }))) // Mock status for now
-          if (fetchedList.userId) {
-            const name = await firebaseDataService.getUserDisplayName(fetchedList.userId);
-            setCreatorName(name);
-          }
+  const [loadState, setLoadState] = useState<'loading' | 'ready' | 'not-found' | 'error'>('loading')
+
+  useDocumentTitle(
+    list?.name,
+    list ? `${list.name}${creatorName ? ` by ${creatorName}` : ''}${list.description ? ` — ${list.description.slice(0, 120)}` : ''}` : null,
+  )
+
+  const fetchList = async () => {
+    if (!id) {
+      setLoadState('not-found')
+      return
+    }
+    setLoadState('loading')
+    try {
+      const fetchedList = await firebaseListService.getList(id)
+      if (!fetchedList) {
+        setList(null)
+        setLoadState('not-found')
+        return
+      }
+      setList(fetchedList)
+      const places = await firebaseListService.getPlacesForList(id)
+      setListPlaces(places.map(p => ({ ...p, status: 'loved' })))
+      if (fetchedList.userId) {
+        try {
+          const name = await firebaseDataService.getUserDisplayName(fetchedList.userId)
+          setCreatorName(name)
+        } catch {
+          /* creator name is decorative; ignore */
         }
       }
+      setLoadState('ready')
+    } catch (e) {
+      console.error('[list-view] fetch failed', e)
+      setLoadState('error')
     }
-    fetchList()
+  }
+
+  useEffect(() => {
+    void fetchList()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id])
+
+  // Refresh when a save targets this list (or any save — cheap to refetch).
+  useEffect(() => {
+    if (!id) return
+    const onSaved = () => {
+      // Refresh on any save — the place may have been added to or removed
+      // from any list, and we don't always get listIds in the event detail.
+      void fetchList()
+    }
+    window.addEventListener('this-is:saved', onSaved)
+    return () => window.removeEventListener('this-is:saved', onSaved)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id])
 
   // Sync selectedTags with global FiltersContext
@@ -421,18 +463,44 @@ const ListView = () => {
   }
   
   const handleLike = async () => {
-    if (list && currentUser) {
-      await firebaseListService.likeList(list.id, currentUser.id)
-      setIsLiked(prev => !prev)
-      setList(prev => prev ? { ...prev, likes: isLiked ? (prev.likes || 1) - 1 : (prev.likes || 0) + 1 } : null)
+    if (!list) return
+    if (!currentUser) {
+      navigate('/auth')
+      return
     }
+    await firebaseListService.likeList(list.id, currentUser.id)
+    setIsLiked(prev => !prev)
+    setList(prev => prev ? { ...prev, likes: isLiked ? (prev.likes || 1) - 1 : (prev.likes || 0) + 1 } : null)
   }
 
   const handleSaveList = async () => {
-    if (list && currentUser) {
-      await firebaseListService.saveList(list.id, currentUser.id)
-      setIsSaved(prev => !prev)
+    if (!list) return
+    if (!currentUser) {
+      navigate('/auth')
+      return
     }
+    await firebaseListService.saveList(list.id, currentUser.id)
+    setIsSaved(prev => !prev)
+  }
+
+  if (loadState === 'not-found') {
+    return (
+      <div className="flex flex-col items-center justify-center h-full px-6 py-16 text-center">
+        <p className="font-display text-[24px] text-ink leading-tight">List not found.</p>
+        <p className="text-[13px] text-ink-soft mt-2">It may have been deleted or made private.</p>
+        <button onClick={() => navigate('/')} className="btn-secondary mt-5 h-10 px-4 label-eyebrow">Go home</button>
+      </div>
+    )
+  }
+
+  if (loadState === 'error') {
+    return (
+      <div className="flex flex-col items-center justify-center h-full px-6 py-16 text-center">
+        <p className="font-display text-[24px] text-ink leading-tight">Couldn't load this list.</p>
+        <p className="text-[13px] text-ink-soft mt-2">Check your connection and try again.</p>
+        <button onClick={() => void fetchList()} className="btn-cta mt-5 h-10 px-4 label-eyebrow">Retry</button>
+      </div>
+    )
   }
 
   if (!list) {
@@ -462,87 +530,57 @@ const ListView = () => {
       />
 
       {/* List Info */}
-      <div className="relative z-10 p-4 space-y-4">
-        {/* Tabs */}
-        <CardShell variant="glass" className="p-1">
-          <div className="flex gap-1 overflow-x-auto no-scrollbar">
-            <button
-              onClick={() => setActiveTab('overview')}
-              className={`flex-shrink-0 py-2 px-4 rounded-lg font-semibold text-sm transition-all ${
-                activeTab === 'overview' 
-                  ? 'bg-white/20 text-bark-900 shadow-soft border border-white/30' 
-                  : 'text-body hover:bg-white/10'
-              }`}
-              aria-label="View overview tab"
-              aria-pressed={activeTab === 'overview'}
-            >
-              Overview
-            </button>
-            <button
-              onClick={() => setActiveTab('places')}
-              className={`flex-shrink-0 py-2 px-4 rounded-lg font-semibold text-sm transition-all ${
-                activeTab === 'places' 
-                  ? 'bg-white/20 text-bark-900 shadow-soft border border-white/30' 
-                  : 'text-body hover:bg-white/10'
-              }`}
-              aria-label="View places tab"
-              aria-pressed={activeTab === 'places'}
-            >
-              Places ({sortedPlaces.length})
-            </button>
-            <button
-              onClick={() => setActiveTab('posts')}
-              className={`flex-shrink-0 py-2 px-4 rounded-lg font-semibold text-sm transition-all ${
-                activeTab === 'posts' 
-                  ? 'bg-white/20 text-bark-900 shadow-soft border border-white/30' 
-                  : 'text-body hover:bg-white/10'
-              }`}
-              aria-label="View posts tab"
-              aria-pressed={activeTab === 'posts'}
-            >
-              Posts
-            </button>
-            <button
-              onClick={() => setActiveTab('map')}
-              className={`flex-shrink-0 py-2 px-4 rounded-lg font-semibold text-sm transition-all ${
-                activeTab === 'map' 
-                  ? 'bg-white/20 text-bark-900 shadow-soft border border-white/30' 
-                  : 'text-body hover:bg-white/10'
-              }`}
-              aria-label="View map tab"
-              aria-pressed={activeTab === 'map'}
-            >
-              Map
-            </button>
-          </div>
-        </CardShell>
+      <div className="relative z-10 p-5 space-y-5">
+        {/* Editorial tabs */}
+        <div className="border-b border-edge flex gap-6">
+          {(['overview', 'places', 'posts', 'map'] as const).map(t => {
+            const active = activeTab === t
+            const count = t === 'places' ? sortedPlaces.length : null
+            return (
+              <button
+                key={t}
+                onClick={() => setActiveTab(t)}
+                className={`pb-3 label-eyebrow transition-colors ${
+                  active ? 'text-ink border-b-2 border-ink -mb-px' : 'text-ink-mute hover:text-ink-soft'
+                }`}
+                aria-pressed={active}
+              >
+                {t === 'overview' ? 'Overview' : t === 'places' ? `Places${count !== null ? ` · ${count}` : ''}` : t === 'posts' ? 'Posts' : 'Map'}
+              </button>
+            )
+          })}
+        </div>
 
         {/* List Info - Only show in overview tab */}
         {activeTab === 'overview' && (
         <CardShell variant="glass" className="p-4">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
-              <button 
+              <button
                 onClick={handleLike}
+                aria-label={isLiked ? 'Unlike list' : 'Like list'}
+                aria-pressed={isLiked}
                 className={`p-2 rounded-lg transition glass ${
-                  isLiked 
-                    ? 'text-aurum-300' 
+                  isLiked
+                    ? 'text-aurum-300'
                     : 'text-body hover:bg-white/10'
                 }`}
               >
                 <HeartIcon className={`w-5 h-5 ${isLiked ? 'fill-current' : ''}`} />
               </button>
-              <button 
+              <button
                 onClick={handleSaveList}
+                aria-label={isSaved ? 'Unsave list' : 'Save list'}
+                aria-pressed={isSaved}
                 className={`p-2 rounded-lg transition glass ${
-                  isSaved 
-                    ? 'text-aurum-300' 
+                  isSaved
+                    ? 'text-aurum-300'
                     : 'text-body hover:bg-white/10'
                 }`}
               >
                 <BookmarkIcon className={`w-5 h-5 ${isSaved ? 'fill-current' : ''}`} />
               </button>
-              <button className="p-2 rounded-lg glass text-body hover:bg-white/10 transition">
+              <button className="p-2 rounded-lg glass text-body hover:bg-white/10 transition" aria-label="Share list">
                 <ShareIcon className="w-5 h-5" />
               </button>
               <button
@@ -592,115 +630,99 @@ const ListView = () => {
         )}
       </div>
 
-      {/* Scoped Search - Only show in places tab */}
+      {/* Scoped search - editorial input */}
       {activeTab === 'places' && (
-      <div className="relative z-10 px-4 pb-4">
-        <div className="glass p-1 rounded-xl">
-          <div className="relative">
-            <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-bark-700/70" />
+        <div className="relative z-10 px-5 pb-4">
+          <div className="flex items-center gap-2 h-11 px-4 rounded-full bg-card border border-edge focus-within:border-ink/40 transition-colors">
+            <MagnifyingGlassIcon className="w-[18px] h-[18px] text-ink-mute shrink-0" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search within this list..."
-              className="w-full pl-10 pr-4 py-2 rounded-lg border-none bg-transparent text-body placeholder-bark-700/70 focus:outline-none focus:ring-0"
+              placeholder="Filter places in this list"
+              className="flex-1 bg-transparent outline-none text-[14px] text-ink placeholder:text-ink-mute"
               aria-label="Search places in this list"
             />
           </div>
         </div>
-      </div>
-      )}
-
-      {/* Search and Filter - Original position, only show when not in specific tab views */}
-      {false && (
-      <div className="relative z-10 px-4 pb-4">
-        <form onSubmit={(e) => { e.preventDefault(); /* search is applied in-place via searchQuery state */ }}>
-          <SearchAndFilter
-            placeholder="Search places in this list..."
-            sortOptions={sortOptions}
-            filterOptions={filterOptions}
-            availableTags={availableTags}
-            sortBy={sortBy}
-            setSortBy={setSortBy}
-            activeFilters={activeFilters}
-            setActiveFilters={setActiveFilters}
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            dropdownPosition="top-right"
-            onSubmitQuery={() => {/* keep in place filtering */}}
-            selectedTags={selectedTags}
-            setSelectedTags={(tags)=>{ setSelectedTags(tags); setFilters({ tags }) }}
-            onOpenAdvanced={() => setShowAdvanced(true)}
-          />
-        </form>
-      </div>
       )}
 
       {/* Recommended for your list - Only show in overview tab */}
       {activeTab === 'overview' && recommended.length > 0 && (
-        <div className="relative z-10 px-4 pb-2">
-          <h3 className="text-lg font-serif font-semibold text-title mb-2">Recommended for your list</h3>
-          <div className="space-y-2">
-            {recommended.slice(0,6).map((p)=> (
-              <div key={p.id} onClick={()=> handlePlaceClick({ id: '', place: p, status: 'loved', addedAt: new Date().toISOString() } as any)} className="glass rounded-2xl p-4 shadow-soft hover:shadow-cozy transition cursor-pointer">
-                <div className="flex items-start gap-3">
-                  <img src={(p as any).mainImage || 'https://images.unsplash.com/photo-1565299624946-b28f40a0ca4b?w=200&h=150&fit=crop'} alt={p.name} className="w-16 h-16 rounded-xl2 object-cover shadow-soft" />
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between">
-                      <h4 className="font-semibold text-title truncate">{p.name}</h4>
-                      <span className="text-xs text-meta">{(p.tags||[]).slice(0,2).map(t=>`#${t}`).join(' ')}</span>
-                    </div>
-                    <div className="text-sm text-body line-clamp-1">{p.address}</div>
-                  </div>
-                </div>
-              </div>
-            ))}
+        <div className="relative z-10 px-5 pb-3">
+          <div className="mb-3">
+            <span className="label-eyebrow flex items-center gap-1.5" style={{ color: 'var(--accent-deep)' }}>
+              <span className="accent-bead-sm accent-bead" />
+              Picked for this list
+            </span>
+            <h3 className="font-display text-[24px] leading-tight text-ink mt-1.5">
+              You might add<span style={{ color: 'var(--accent)' }}>.</span>
+            </h3>
+            <div className="amber-hairline mt-2 w-12" />
           </div>
+          <ul className="divide-y divide-edge border-y border-edge">
+            {recommended.slice(0, 6).map((p) => (
+              <li key={p.id}>
+                <button
+                  onClick={() => handlePlaceClick({ id: '', place: p, status: 'loved', addedAt: new Date().toISOString() } as any)}
+                  className="w-full flex items-center gap-3.5 py-3.5 text-left hover:bg-paper-deep -mx-1 px-1 transition-colors"
+                >
+                  <div className="w-12 h-12 rounded-[10px] overflow-hidden bg-paper-deep ring-1 ring-edge shrink-0">
+                    {(p as any).mainImage ? (
+                      <img
+                        src={(p as any).mainImage}
+                        alt={p.name}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <HubImage
+                        place={p as any}
+                        primaryType={(p as any).primaryType}
+                        types={(p as any).types}
+                        photos={(p as any).photos}
+                        aspect=""
+                        className="w-full h-full"
+                        loadStrategy="fallback"
+                      />
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="font-display text-[18px] leading-tight text-ink truncate">{p.name}</div>
+                    <div className="font-mono text-[10px] tracking-[0.12em] uppercase text-ink-mute mt-1 truncate">
+                      {p.address}
+                    </div>
+                  </div>
+                </button>
+              </li>
+            ))}
+          </ul>
         </div>
       )}
 
       {/* Empty state for overview tab */}
       {activeTab === 'overview' && sortedPlaces.length === 0 && (
-        <div className="relative z-10 px-4">
-          <CardShell variant="glass" className="p-8 text-center">
-            <BookmarkIcon className="w-16 h-16 text-bark-700/50 mx-auto mb-4" />
-            <h3 className="text-lg font-serif font-semibold text-title mb-2">Empty List</h3>
-            <p className="text-body mb-4">Start adding places to build your list</p>
-          </CardShell>
+        <div className="relative z-10 px-5">
+          <div className="border border-edge rounded-[14px] px-5 py-12 text-center bg-card">
+            <p className="font-display text-[26px] text-ink leading-tight">An empty page.</p>
+            <p className="text-[13px] text-ink-soft mt-2">Add a place and the list comes to life.</p>
+          </div>
         </div>
       )}
 
       {/* Selected Tags */}
       {selectedTags.length > 0 && (
-        <div className="relative z-10 px-4 pb-2">
-          <div className="flex flex-wrap gap-2">
+        <div className="relative z-10 px-5 pb-3">
+          <div className="flex flex-wrap gap-1.5">
             {selectedTags.map(tag => (
               <button
                 key={tag}
                 onClick={() => toggleTag(tag)}
-                className="px-3 py-1 rounded-full text-sm font-medium bg-aurum-200/50 text-bark-900 border border-aurum-200/70 hover:bg-aurum-200/70 transition flex items-center gap-1"
+                className="glass-leaf px-3 h-7 rounded-full label-eyebrow flex items-center gap-1.5 transition-transform press"
               >
-                #{tag}
-                <span className="text-bark-700/70">Ã—</span>
+                {tag}
+                <span aria-hidden>×</span>
               </button>
             ))}
-          </div>
-          {/* Sticky search/filter for long lists */}
-          <div className="sticky top-0 z-10 glass border-b border-white/20">
-            <form onSubmit={(e) => { e.preventDefault(); /* search is applied in-place via searchQuery state */ }}>
-              <SearchAndFilter
-                placeholder="Search places in this list..."
-                sortOptions={sortOptions}
-                filterOptions={filterOptions}
-                availableTags={availableTags}
-                sortBy={sortBy}
-                setSortBy={setSortBy}
-                activeFilters={activeFilters}
-                setActiveFilters={setActiveFilters}
-                dropdownPosition="top-right"
-                onSubmitQuery={() => {/* keep in place filtering */}}
-              />
-            </form>
           </div>
         </div>
       )}
@@ -746,12 +768,24 @@ const ListView = () => {
               )}
             </div>
             {/* Hub Image on top */}
-            <div className="w-full h-40 bg-white/10 flex-shrink-0 relative">
-              <img 
-                src={(listPlace.place as any).mainImage || 'https://images.unsplash.com/photo-1442512595331-e89e73853f31?w=150&h=150&fit=crop'} 
-                alt={listPlace.place.name} 
-                className="w-full h-full object-cover rounded-t-3xl"
-              />
+            <div className="w-full h-40 bg-white/10 flex-shrink-0 relative overflow-hidden rounded-t-3xl">
+              {(listPlace.place as any).mainImage ? (
+                <img
+                  src={(listPlace.place as any).mainImage}
+                  alt={listPlace.place.name}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <HubImage
+                  place={listPlace.place as any}
+                  primaryType={(listPlace.place as any).primaryType}
+                  types={(listPlace.place as any).types}
+                  photos={(listPlace.place as any).photos}
+                  aspect=""
+                  className="w-full h-full"
+                  loadStrategy="fallback"
+                />
+              )}
             </div>
             {/* Content below image */}
             <div className="flex-1 p-6 flex flex-col gap-2">
@@ -849,22 +883,21 @@ const ListView = () => {
 
       {/* Map Tab */}
       {activeTab === 'map' && (
-        <div className="relative z-10 p-4">
-          <CardShell variant="glass" className="overflow-hidden relative" style={{ height: '60vh' }}>
-            <div className="w-full h-full bg-white/10 flex items-center justify-center text-body font-semibold">
-              [Interactive Map Placeholder]
-              <br />
-              <span className="text-sm font-normal">Click a marker to see details</span>
-            </div>
-            
-            {/* Map Callout Card - Anchored inside map container */}
+        <div className="relative z-10 px-4 pb-6">
+          <div className="relative">
+            <ListMap
+              places={listPlaces}
+              height="65vh"
+              selectedPlaceId={mapCalloutPlace?.place.id || null}
+              onSelectPlace={(lp) => setMapCalloutPlace(lp)}
+            />
             {mapCalloutPlace && (
               <MapCalloutCard
                 place={{
                   id: mapCalloutPlace.place.id,
                   name: mapCalloutPlace.place.name,
                   address: mapCalloutPlace.place.address,
-                  distance: '0.5 km',
+                  distance: '',
                   mainImage: (mapCalloutPlace.place as any).mainImage,
                   tags: mapCalloutPlace.place.tags
                 }}
@@ -874,24 +907,54 @@ const ListView = () => {
                 anchoredToMap={true}
               />
             )}
-          </CardShell>
+          </div>
         </div>
       )}
-      {/* Map Modal placeholder */}
+      {/* Map Modal — fullscreen view of all list places */}
       {showMapModal && (
-        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/30">
-          <div className="glass rounded-3xl shadow-botanical p-8 max-w-2xl w-full relative">
-            <button
-              className="absolute top-4 right-4 text-body hover:text-title glass rounded-full p-2 shadow-soft"
-              onClick={() => setShowMapModal(false)}
-              aria-label="Close map"
-            >
-              <EllipsisHorizontalIcon className="w-6 h-6" />
-            </button>
-            <div className="text-center text-lg font-serif font-semibold text-title mb-4">Map view coming soon!</div>
-            {/* TODO: Add real map here */}
-            <div className="h-80 bg-white/10 rounded-2xl flex items-center justify-center text-meta font-bold text-2xl">
-              [Map Placeholder]
+        <div className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center sm:p-4 bg-[#1A1815]/55 backdrop-blur-sm" onClick={() => setShowMapModal(false)}>
+          <div
+            className="modal-paper relative w-full sm:max-w-3xl rounded-t-3xl sm:rounded-3xl border border-edge max-h-[92vh] flex flex-col overflow-hidden"
+            style={{ boxShadow: '0 18px 60px rgba(46, 28, 13, 0.22)' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div data-drag-handle className="sm:hidden flex justify-center py-3 shrink-0" aria-hidden>
+              <span className="w-10 h-1 rounded-full bg-ink-faint" />
+            </div>
+            <div className="flex items-center justify-between px-5 sm:px-6 py-4 border-b border-edge relative z-10">
+              <p className="label-eyebrow text-ink-mute">Map view</p>
+              <button
+                type="button"
+                onClick={() => setShowMapModal(false)}
+                aria-label="Close map"
+                className="h-9 w-9 rounded-full hover:bg-paper-deep flex items-center justify-center text-ink"
+              >
+                <XMarkIcon className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="flex-1 p-4 relative">
+              <ListMap
+                places={listPlaces}
+                height="70vh"
+                selectedPlaceId={mapCalloutPlace?.place.id || null}
+                onSelectPlace={(lp) => setMapCalloutPlace(lp)}
+              />
+              {mapCalloutPlace && (
+                <MapCalloutCard
+                  place={{
+                    id: mapCalloutPlace.place.id,
+                    name: mapCalloutPlace.place.name,
+                    address: mapCalloutPlace.place.address,
+                    distance: '',
+                    mainImage: (mapCalloutPlace.place as any).mainImage,
+                    tags: mapCalloutPlace.place.tags
+                  }}
+                  onSave={() => handleSaveToPlace(mapCalloutPlace.place)}
+                  onAddPost={() => handleCreatePost()}
+                  onClose={() => setMapCalloutPlace(null)}
+                  anchoredToMap={true}
+                />
+              )}
             </div>
           </div>
         </div>
@@ -1000,9 +1063,27 @@ const ListView = () => {
             setSelectedPlaceToEdit(null)
           }}
           listPlace={selectedPlaceToEdit}
-          onSave={(placeData) => {
-            // In a real app, this would make an API call to update the place
-            console.log('Saving place:', placeData)
+          onSave={async (placeData) => {
+            // Was a no-op (just `console.log`); user edits silently disappeared
+            // on Save. Now persists via updateListPlace and refreshes locally
+            // so the card reflects the new note/status/feeling immediately.
+            const placeId = selectedPlaceToEdit.place?.id || selectedPlaceToEdit.placeId || selectedPlaceToEdit.id
+            if (list && placeId) {
+              try {
+                await firebaseListService.updateListPlace(list.id, placeId, {
+                  note: placeData.note,
+                  status: placeData.status,
+                  triedRating: placeData.feeling,
+                })
+                setListPlaces(prev => prev.map(lp => {
+                  const id = (lp as any).place?.id || (lp as any).placeId
+                  if (id !== placeId) return lp
+                  return { ...lp, note: placeData.note, status: placeData.status, feeling: placeData.feeling }
+                }))
+              } catch (e) {
+                console.error('[list-view] failed to save place edits', e)
+              }
+            }
             setShowEditPlaceModal(false)
             setSelectedPlaceToEdit(null)
           }}
@@ -1028,7 +1109,7 @@ const ListView = () => {
         onPrivacyChange={handlePrivacyChange}
         listName={list.name}
       />
-      <AdvancedFiltersDrawer isOpen={showAdvanced} onClose={()=> setShowAdvanced(false)} onApply={()=>{/* derived filtering applies automatically */}} />
+      {/* AdvancedFiltersDrawer removed in UX refresh */}
 
       {/* Action Bar */}
       <ActionBar

@@ -40,6 +40,19 @@ const SavePostToListModal: React.FC<SavePostToListModalProps> = ({
     }
   }, [isOpen, currentUser]);
 
+  // Flush form state on close so the next open is clean. Without this, the
+  // "Create new list" toggle and any half-typed name/description carry over
+  // between save flows.
+  useEffect(() => {
+    if (!isOpen) {
+      setSelectedListId('');
+      setShowCreateList(false);
+      setNewListName('');
+      setNewListDescription('');
+      setNewListPrivacy('public');
+    }
+  }, [isOpen]);
+
   const handleSave = () => {
     if (selectedListId) {
       onSave(selectedListId);
@@ -54,13 +67,17 @@ const SavePostToListModal: React.FC<SavePostToListModalProps> = ({
             description: newListDescription.trim(),
             privacy: newListPrivacy,
             tags: [],
-            userId: currentUser.uid,
+            userId: currentUser.id,
         };
         const newListId = await firebaseDataService.createList(newListData);
         if (newListId) {
             onSave(newListId);
         }
+        // Clear form before closing so reopen is fresh.
         setShowCreateList(false);
+        setNewListName('');
+        setNewListDescription('');
+        setNewListPrivacy('public');
         onClose();
     }
   };
@@ -68,51 +85,116 @@ const SavePostToListModal: React.FC<SavePostToListModalProps> = ({
   if (!isOpen) return null;
 
   return createPortal(
-    <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4 bg-black/20 backdrop-blur-sm">
-      <div className="w-full max-w-md rounded-2xl shadow-lg border border-gray-200 bg-white overflow-hidden">
-        <div className="flex items-center justify-between p-4 border-b">
-          <h2 className="text-lg font-semibold">Save Post to List</h2>
-          <button onClick={onClose} className="p-2 rounded-full hover:bg-gray-100">
+    <div className="fixed inset-0 z-[10000] flex items-end sm:items-center justify-center sm:p-4 bg-[#1A1815]/55 backdrop-blur-sm" onClick={onClose}>
+      <div
+        className="modal-paper w-full sm:max-w-md rounded-t-3xl sm:rounded-3xl border border-edge overflow-hidden"
+        style={{ boxShadow: '0 18px 60px rgba(46, 28, 13, 0.22)' }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div data-drag-handle className="sm:hidden flex justify-center py-3 shrink-0" aria-hidden>
+          <span className="w-10 h-1 rounded-full bg-ink-faint" />
+        </div>
+        <div className="flex items-center justify-between px-5 py-4 border-b border-edge relative z-10">
+          <p className="label-eyebrow text-ink-mute">Save post to list</p>
+          <button type="button" onClick={onClose} aria-label="Close" className="h-9 w-9 rounded-full hover:bg-paper-deep flex items-center justify-center text-ink">
             <XMarkIcon className="w-5 h-5" />
           </button>
         </div>
-        <div className="p-4">
+        <div className="px-5 py-5 relative z-10">
           {!showCreateList ? (
             <>
-              <div className="mb-4">
-                <label className="block font-medium text-sm mb-2">Choose a list</label>
-                <div className="space-y-2 max-h-48 overflow-y-auto">
-                  {userLists.map(list => (
-                    <label key={list.id} className={`flex items-center gap-3 p-3 rounded-lg cursor-pointer border ${selectedListId === list.id ? 'border-blue-500 bg-blue-50' : 'hover:bg-gray-50'}`}>
-                      <input type="radio" name="selectedList" value={list.id} checked={selectedListId === list.id} onChange={(e) => setSelectedListId(e.target.value)} className="w-4 h-4 text-blue-600 focus:ring-blue-500"/>
-                      <div className="flex-1">
-                        <span className="font-medium">{list.name}</span>
-                        {list.privacy === 'private' && <LockClosedIcon className="w-4 h-4 inline-block ml-2 text-gray-400" />}
+              <p className="label-eyebrow text-ink-mute mb-2.5">Choose a list</p>
+              <div className="space-y-1.5 max-h-48 overflow-y-auto -mx-1 px-1 mb-4">
+                {userLists.map(list => {
+                  const checked = selectedListId === list.id
+                  return (
+                    <label
+                      key={list.id}
+                      className={`flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer transition-colors ${checked ? 'bg-paper-deep' : 'hover:bg-paper-deep'}`}
+                    >
+                      <input
+                        type="radio"
+                        name="selectedList"
+                        value={list.id}
+                        checked={checked}
+                        onChange={(e) => setSelectedListId(e.target.value)}
+                        className="w-4 h-4 accent-ink"
+                      />
+                      <div className="flex-1 min-w-0 flex items-center gap-1.5">
+                        <span className="text-[14px] font-medium text-ink truncate">{list.name}</span>
+                        {list.privacy === 'private' && <LockClosedIcon className="w-3.5 h-3.5 text-ink-mute shrink-0" />}
                       </div>
                     </label>
-                  ))}
-                </div>
+                  )
+                })}
               </div>
-              <button onClick={() => setShowCreateList(true)} className="w-full p-2 rounded-lg border-2 border-dashed text-gray-500 hover:border-gray-400 hover:bg-gray-50 flex items-center justify-center gap-2 mb-4">
-                <PlusIcon className="w-5 h-5" /> Create New List
+              <button
+                type="button"
+                onClick={() => setShowCreateList(true)}
+                className="w-full h-11 rounded-full border border-dashed border-edge text-ink-soft hover:border-ink/30 hover:text-ink transition-colors inline-flex items-center justify-center gap-2 mb-4 label-eyebrow"
+              >
+                <PlusIcon className="w-4 h-4" />
+                New list
               </button>
-              <button onClick={handleSave} disabled={!selectedListId} className="w-full py-2 rounded-lg font-semibold bg-blue-500 text-white hover:bg-blue-600 disabled:opacity-50">
-                Save to List
+              <button
+                type="button"
+                onClick={handleSave}
+                disabled={!selectedListId}
+                className="btn-cta w-full h-12 font-semibold text-[15px] disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Save to list
               </button>
             </>
           ) : (
-            <div className="space-y-4">
-              <input type="text" value={newListName} onChange={(e) => setNewListName(e.target.value)} placeholder="List name" className="w-full p-2 rounded-lg border" />
-              <textarea value={newListDescription} onChange={(e) => setNewListDescription(e.target.value)} placeholder="Description" className="w-full p-2 rounded-lg border" rows={3} />
-              <select value={newListPrivacy} onChange={(e) => setNewListPrivacy(e.target.value as any)} className="w-full p-2 rounded-lg border">
-                <option value="public">Public</option>
-                <option value="friends">Friends</option>
-                <option value="private">Private</option>
-              </select>
-              <div className="flex gap-2">
-                <button onClick={() => setShowCreateList(false)} className="flex-1 py-2 rounded-lg border">Cancel</button>
-                <button onClick={handleCreateList} disabled={!newListName.trim()} className="flex-1 py-2 rounded-lg font-semibold bg-blue-500 text-white hover:bg-blue-600 disabled:opacity-50">
-                  Create and Save
+            <div className="space-y-3">
+              <div>
+                <label htmlFor="post-to-list-name" className="label-eyebrow text-ink-mute mb-1.5 block">List name</label>
+                <input
+                  id="post-to-list-name"
+                  type="text"
+                  value={newListName}
+                  onChange={(e) => setNewListName(e.target.value)}
+                  placeholder="e.g., Coffee spots"
+                  className="w-full h-11 px-4 rounded-full border border-edge bg-card text-[14px] text-ink placeholder:text-ink-mute outline-none focus:border-ink/40"
+                />
+              </div>
+              <div>
+                <label htmlFor="post-to-list-desc" className="label-eyebrow text-ink-mute mb-1.5 block">
+                  Description <span className="text-ink-faint">· optional</span>
+                </label>
+                <textarea
+                  id="post-to-list-desc"
+                  value={newListDescription}
+                  onChange={(e) => setNewListDescription(e.target.value)}
+                  placeholder="What's this list about?"
+                  rows={3}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-edge bg-card text-[14px] text-ink placeholder:text-ink-mute outline-none focus:border-ink/40 resize-none"
+                />
+              </div>
+              <div>
+                <label htmlFor="post-to-list-privacy" className="label-eyebrow text-ink-mute mb-1.5 block">Privacy</label>
+                <select
+                  id="post-to-list-privacy"
+                  value={newListPrivacy}
+                  onChange={(e) => setNewListPrivacy(e.target.value as 'public' | 'friends' | 'private')}
+                  className="w-full h-11 px-4 rounded-full border border-edge bg-card text-[14px] text-ink outline-none focus:border-ink/40"
+                >
+                  <option value="public">Public</option>
+                  <option value="friends">Friends only</option>
+                  <option value="private">Private</option>
+                </select>
+              </div>
+              <div className="flex gap-2 pt-1">
+                <button type="button" onClick={() => setShowCreateList(false)} className="btn-secondary flex-1 h-12 font-medium text-[15px]">
+                  Back
+                </button>
+                <button
+                  type="button"
+                  onClick={handleCreateList}
+                  disabled={!newListName.trim()}
+                  className="btn-cta flex-1 h-12 font-semibold text-[15px] disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Create &amp; save
                 </button>
               </div>
             </div>

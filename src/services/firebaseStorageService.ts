@@ -341,51 +341,66 @@ export class FirebaseStorageService {
    */
   async compressImage(file: File, maxWidth = 1200, quality = 0.8): Promise<File> {
     return new Promise((resolve) => {
+      // Hard timeout — without this, a wedged decode (HEIC the browser can't
+      // read, OOM, denied canvas access) leaves the promise hanging forever
+      // and the upload UI stuck on "uploading".
+      let settled = false
+      const finish = (out: File) => { if (!settled) { settled = true; resolve(out) } }
+      const watchdog = setTimeout(() => {
+        console.warn('[compressImage] timed out, falling back to original')
+        finish(file)
+      }, 8000)
+
+      const objectUrl = URL.createObjectURL(file)
+      const cleanup = () => { try { URL.revokeObjectURL(objectUrl) } catch {/* ignore */} }
       const canvas = document.createElement('canvas')
-      const ctx = canvas.getContext('2d')!
+      const ctx = canvas.getContext('2d')
+      if (!ctx) { clearTimeout(watchdog); cleanup(); return finish(file) }
       const img = new Image()
-      
-      img.onload = () => {
-        // Calculate new dimensions
-        const ratio = Math.min(maxWidth / img.width, maxWidth / img.height)
-        canvas.width = img.width * ratio
-        canvas.height = img.height * ratio
-        
-        // Draw and compress
-        ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
-        
-        // Choose an output type compatible with canvas encoders
-        const lowerType = (file.type || '').toLowerCase()
-        const needsConversion = lowerType.includes('heic') || lowerType.includes('heif') || lowerType === ''
-        const outputType = needsConversion ? 'image/jpeg' : file.type
 
-        // Ensure filename extension matches outputType
-        const getExtFromMime = (mime: string) => {
-          if (mime === 'image/png') return 'png'
-          if (mime === 'image/webp') return 'webp'
-          return 'jpg'
-        }
-        const baseName = file.name.includes('.') ? file.name.substring(0, file.name.lastIndexOf('.')) : file.name
-        const newName = `${baseName}.${getExtFromMime(outputType)}`
-
-        canvas.toBlob(
-          (blob) => {
-            if (blob) {
-              const compressedFile = new File([blob], newName, {
-                type: outputType,
-                lastModified: Date.now()
-              })
-              resolve(compressedFile)
-            } else {
-              resolve(file) // Fallback to original
-            }
-          },
-          outputType,
-          quality
-        )
+      img.onerror = () => {
+        clearTimeout(watchdog); cleanup(); finish(file)
       }
-      
-      img.src = URL.createObjectURL(file)
+
+      img.onload = () => {
+        try {
+          const ratio = Math.min(maxWidth / img.width, maxWidth / img.height)
+          canvas.width = img.width * ratio
+          canvas.height = img.height * ratio
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
+
+          const lowerType = (file.type || '').toLowerCase()
+          const needsConversion = lowerType.includes('heic') || lowerType.includes('heif') || lowerType === ''
+          const outputType = needsConversion ? 'image/jpeg' : file.type
+
+          const getExtFromMime = (mime: string) => {
+            if (mime === 'image/png') return 'png'
+            if (mime === 'image/webp') return 'webp'
+            return 'jpg'
+          }
+          const baseName = file.name.includes('.') ? file.name.substring(0, file.name.lastIndexOf('.')) : file.name
+          const newName = `${baseName}.${getExtFromMime(outputType)}`
+
+          canvas.toBlob(
+            (blob) => {
+              clearTimeout(watchdog)
+              cleanup()
+              if (blob) {
+                finish(new File([blob], newName, { type: outputType, lastModified: Date.now() }))
+              } else {
+                finish(file)
+              }
+            },
+            outputType,
+            quality
+          )
+        } catch (e) {
+          console.warn('[compressImage] draw/encode failed', e)
+          clearTimeout(watchdog); cleanup(); finish(file)
+        }
+      }
+
+      img.src = objectUrl
     })
   }
 }

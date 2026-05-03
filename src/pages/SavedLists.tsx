@@ -135,16 +135,37 @@ const Favorites = () => {
     setShowSaveModal(true)
   }
 
-  const handleSave = (status: 'loved' | 'tried' | 'want', rating?: 'liked' | 'neutral' | 'disliked', listIds?: string[], note?: string) => {
-    console.log('Saving place:', { place: selectedPlace, status, rating, listIds, note })
-    setShowSaveModal(false)
-    setSelectedPlace(null)
+  const handleSave = async (status: 'loved' | 'tried' | 'want', rating?: 'liked' | 'neutral' | 'disliked', listIds?: string[], note?: string) => {
+    if (!selectedPlace || !currentUser) { setShowSaveModal(false); return }
+    try {
+      const ids = Array.isArray(listIds) ? listIds : []
+      for (const lid of ids) {
+        await firebaseDataService.savePlaceToList(selectedPlace.id, lid, currentUser.id, note, undefined, status, rating)
+      }
+      await firebaseDataService.saveToAutoList(selectedPlace.id, currentUser.id, status, note, rating)
+      await firebaseDataService.recordUserSave(selectedPlace.id, currentUser.id)
+    } catch (e) {
+      console.error('[saved-lists] save failed', e)
+    } finally {
+      setShowSaveModal(false)
+      setSelectedPlace(null)
+    }
   }
 
-  const handleCreateList = (listData: { name: string; description: string; privacy: 'public' | 'private' | 'friends'; tags?: string[]; coverImage?: string }) => {
-    console.log('Creating new list:', listData)
-    setShowSaveModal(false)
-    setSelectedPlace(null)
+  const handleCreateList = async (listData: { name: string; description: string; privacy: 'public' | 'private' | 'friends'; tags?: string[]; coverImage?: string }) => {
+    if (!selectedPlace || !currentUser) { setShowSaveModal(false); return }
+    try {
+      const newId = await firebaseDataService.createList({ ...listData, tags: listData.tags || [], userId: currentUser.id })
+      if (newId) {
+        await firebaseDataService.savePlaceToList(selectedPlace.id, newId, currentUser.id, undefined, undefined, 'loved')
+        await firebaseDataService.recordUserSave(selectedPlace.id, currentUser.id)
+      }
+    } catch (e) {
+      console.error('[saved-lists] create list failed', e)
+    } finally {
+      setShowSaveModal(false)
+      setSelectedPlace(null)
+    }
   }
 
   const handleCreatePost = (listId?: string) => {
@@ -257,11 +278,17 @@ const Favorites = () => {
                 <div className="flex flex-col md:flex-row gap-0">
                   {/* Cover Image */}
                   <div className="w-full md:w-40 h-32 md:h-auto flex-shrink-0 bg-linen-100 relative">
-                    <img
-                      src={list.coverImage}
-                      alt={list.name}
-                      className="w-full h-full object-cover"
-                    />
+                    {list.coverImage ? (
+                      <img
+                        src={list.coverImage}
+                        alt={list.name}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center font-serif text-3xl text-charcoal-400" aria-hidden>
+                        {(list.name || '?').slice(0, 1).toUpperCase()}
+                      </div>
+                    )}
                     {/* Privacy indicator */}
                     <div className="absolute top-2 right-2">
                       {list.privacy === 'private' && (

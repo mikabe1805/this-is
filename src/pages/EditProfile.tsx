@@ -1,21 +1,12 @@
-import { useState, useEffect } from 'react'
-import { ArrowLeftIcon, CameraIcon, CalendarIcon, PencilIcon } from '@heroicons/react/24/outline'
+import { useState, useEffect, useRef } from 'react'
+import { ArrowLeftIcon, CameraIcon, CalendarIcon } from '@heroicons/react/24/outline'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext.js'
 import { formatTimestamp } from '../utils/dateUtils'
 import { firebaseDataService } from '../services/firebaseDataService.js'
+import { firebaseStorageService } from '../services/firebaseStorageService.js'
 import type { User } from '../types/index.js'
 import GooglePlacesAutocomplete from '../components/GooglePlacesAutocomplete'
-
-// SVG botanical accent
-const BotanicalAccent = () => (
-  <svg width="60" height="60" viewBox="0 0 60 60" fill="none" xmlns="http://www.w3.org/2000/svg" className="absolute -top-6 -left-6 opacity-30 select-none pointer-events-none">
-    <path d="M10 50 Q30 10 50 50" stroke="#A3B3A3" strokeWidth="3" fill="none"/>
-    <ellipse cx="18" cy="38" rx="4" ry="8" fill="#C7D0C7"/>
-    <ellipse cx="30" cy="28" rx="4" ry="8" fill="#A3B3A3"/>
-    <ellipse cx="42" cy="38" rx="4" ry="8" fill="#7A927A"/>
-  </svg>
-)
 
 const EditProfile = () => {
   const navigate = useNavigate()
@@ -24,6 +15,9 @@ const EditProfile = () => {
   const [newTag, setNewTag] = useState('')
   const [isSaving, setIsSaving] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false)
+  const [avatarError, setAvatarError] = useState<string | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     const fetchUserData = async () => {
@@ -59,6 +53,26 @@ const EditProfile = () => {
     }))
   }
 
+  const handleAvatarFileChosen = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    event.target.value = ''
+    if (!file || !authUser) return
+    setAvatarError(null)
+    setIsUploadingAvatar(true)
+    try {
+      const url = await firebaseStorageService.uploadProfilePicture(authUser.id, file)
+      setFormData(prev => ({ ...prev, avatar: url }))
+      // Persist immediately so the change survives navigation even if the user
+      // doesn't tap Save.
+      await firebaseDataService.updateUserProfile(authUser.id, { avatar: url })
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Upload failed. Try a different image.'
+      setAvatarError(message)
+    } finally {
+      setIsUploadingAvatar(false)
+    }
+  }
+
   const handleSave = async () => {
     if (!authUser) return;
     setIsSaving(true)
@@ -78,115 +92,120 @@ const EditProfile = () => {
   }
 
   return (
-    <div className="relative min-h-full overflow-x-hidden bg-linen-50">
-      {/* Enhanced background */}
-      <div className="absolute inset-0 z-0 pointer-events-none">
-        <div className="absolute inset-0 bg-linen-texture opacity-80 mix-blend-multiply"></div>
-        <div className="absolute inset-0 bg-gradient-to-br from-gold-50/60 via-linen-100/80 to-sage-100/70 opacity-80"></div>
-        <div className="absolute inset-0 bg-gradient-radial from-transparent via-transparent to-charcoal-900/10"></div>
-      </div>
-
-      {/* Header */}
-      <div className="relative z-10 p-4 border-b border-linen-200 bg-white/95 backdrop-blur-glass">
-        <div className="flex items-center justify-between">
+    <div className="relative min-h-full overflow-x-hidden">
+      <header className="sticky top-0 z-30 bg-paper/90 backdrop-blur-md">
+        <div className="px-5 pt-5 pb-3 flex items-center justify-between gap-3">
           <button
             onClick={() => { if (window.history.length > 1) navigate(-1); else navigate('/profile') }}
-            className="p-2 rounded-xl bg-linen-100 text-charcoal-600 hover:bg-linen-200 transition-colors"
+            className="h-10 w-10 rounded-full hover:bg-paper-deep flex items-center justify-center"
+            aria-label="Back"
           >
-            <ArrowLeftIcon className="w-5 h-5" />
+            <ArrowLeftIcon className="w-5 h-5 text-ink" />
           </button>
-          <h1 className="text-lg font-serif font-semibold text-charcoal-800">Edit Profile</h1>
+          <h1 className="font-display text-[22px] leading-none text-ink">Edit profile</h1>
           <button
             onClick={handleSave}
             disabled={isSaving}
-            className={`px-4 py-2 rounded-xl font-medium transition-colors ${
-              isSaving 
-                ? 'bg-sage-200 text-sage-400 cursor-not-allowed' 
-                : 'bg-sage-500 text-white hover:bg-sage-600 shadow-soft'
-            }`}
+            className="btn-cta h-10 px-4 label-eyebrow"
           >
-            {isSaving ? 'Saving...' : 'Save'}
+            {isSaving ? 'Saving…' : 'Save'}
           </button>
         </div>
-      </div>
+        <div className="border-b border-edge mx-5" />
+      </header>
 
-      {/* Main Content */}
-      <div className="relative z-10 p-4 space-y-6 max-w-2xl mx-auto">
-        {/* Profile Photo Section */}
-        <div className="relative rounded-3xl shadow-botanical border border-linen-200 bg-white/95 p-6">
-          <BotanicalAccent />
-          <div className="flex flex-col items-center gap-4">
-            <div className="relative">
+      <div className="relative z-10 px-5 py-6 space-y-8 max-w-2xl mx-auto">
+        <section className="text-center">
+          <div className="relative inline-block">
+            {formData.avatar ? (
               <img
                 src={formData.avatar}
                 alt="Profile"
-                className="w-24 h-24 rounded-2xl border-4 border-linen-100 shadow-botanical object-cover bg-linen-200"
+                className="w-[88px] h-[88px] rounded-full object-cover bg-paper-deep ring-1 ring-edge"
               />
-              <button className="absolute -bottom-2 -right-2 p-2 bg-sage-500 text-white rounded-full shadow-soft hover:bg-sage-600 transition-colors">
-                <CameraIcon className="w-4 h-4" />
-              </button>
-            </div>
-            <div className="text-center">
-              <h2 className="text-xl font-serif font-semibold text-charcoal-800 mb-1">Profile Photo</h2>
-              <p className="text-sm text-charcoal-500">Tap to change your profile picture</p>
-            </div>
+            ) : (
+              <div
+                aria-label="No profile photo"
+                className="w-[88px] h-[88px] rounded-full bg-paper-deep ring-1 ring-edge flex items-center justify-center font-mono text-[18px] tracking-wider text-ink-soft"
+              >
+                {(formData.name || '?').slice(0, 2).toUpperCase()}
+              </div>
+            )}
+            {isUploadingAvatar && (
+              <div className="absolute inset-0 rounded-full bg-paper-deep/70 flex items-center justify-center">
+                <span className="font-mono text-[10px] tracking-[0.12em] uppercase text-ink">Uploading…</span>
+              </div>
+            )}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={handleAvatarFileChosen}
+            />
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isUploadingAvatar}
+              className="absolute -bottom-1 -right-1 h-9 w-9 rounded-full glass-honey flex items-center justify-center disabled:opacity-60"
+              aria-label="Change photo"
+            >
+              <CameraIcon className="w-4 h-4" />
+            </button>
           </div>
-        </div>
+          <p className="font-mono text-[10px] tracking-[0.12em] uppercase text-ink-mute mt-3">Tap the camera to change</p>
+          {avatarError && (
+            <p className="text-[12px] text-red-700 mt-1.5">{avatarError}</p>
+          )}
+        </section>
 
-        {/* Basic Information */}
-        <div className="rounded-3xl shadow-botanical border border-linen-200 bg-white/95 p-6 space-y-4">
-          <h3 className="text-lg font-serif font-semibold text-charcoal-800 mb-4">Basic Information</h3>
-          
-          <div className="space-y-4">
+        <section>
+          <p className="label-eyebrow flex items-center gap-1.5 mb-3" style={{ color: 'var(--accent-deep)' }}>
+            <span className="accent-bead-sm accent-bead" /> Basics
+          </p>
+          <div className="space-y-3">
             <div>
-              <label className="block text-sm font-medium text-charcoal-700 mb-2">Full Name</label>
-              <div className="relative">
-                <input
-                  type="text"
-                  value={formData.name || ''}
-                  onChange={(e) => handleInputChange('name', e.target.value)}
-                  className="w-full px-4 py-3 rounded-xl border border-linen-200 bg-linen-50 text-charcoal-700 focus:outline-none focus:ring-2 focus:ring-sage-200 focus:border-sage-300 transition-colors"
-                  placeholder="Enter your full name"
-                />
-                <PencilIcon className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-charcoal-400" />
-              </div>
+              <label htmlFor="profile-name" className="label-eyebrow text-ink-mute mb-1.5 block">Full name</label>
+              <input
+                id="profile-name"
+                type="text"
+                value={formData.name || ''}
+                onChange={(e) => handleInputChange('name', e.target.value)}
+                className="w-full h-11 px-4 rounded-full bg-card border border-edge text-[14px] text-ink placeholder:text-ink-mute outline-none focus:border-ink/40"
+                placeholder="What people call you"
+                autoComplete="name"
+              />
             </div>
-
             <div>
-              <label className="block text-sm font-medium text-charcoal-700 mb-2">Username</label>
-              <div className="relative">
-                <input
-                  type="text"
-                  value={formData.username || ''}
-                  onChange={(e) => handleInputChange('username', e.target.value)}
-                  className="w-full px-4 py-3 rounded-xl border border-linen-200 bg-linen-50 text-charcoal-700 focus:outline-none focus:ring-2 focus:ring-sage-200 focus:border-sage-300 transition-colors"
-                  placeholder="Enter your username"
-                />
-                <PencilIcon className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-charcoal-400" />
-              </div>
-              <p className="text-xs text-charcoal-400 mt-1">This is how others will see you</p>
+              <label htmlFor="profile-username" className="label-eyebrow text-ink-mute mb-1.5 block">Username</label>
+              <input
+                id="profile-username"
+                type="text"
+                value={formData.username || ''}
+                onChange={(e) => handleInputChange('username', e.target.value)}
+                className="w-full h-11 px-4 rounded-full bg-card border border-edge text-[14px] text-ink placeholder:text-ink-mute outline-none focus:border-ink/40"
+                placeholder="@yourhandle"
+                autoComplete="username"
+              />
             </div>
-
             <div>
-              <label className="block text-sm font-medium text-charcoal-700 mb-2">Bio</label>
-              <div className="relative">
-                <textarea
-                  value={formData.bio || ''}
-                  onChange={(e) => handleInputChange('bio', e.target.value)}
-                  rows={3}
-                  className="w-full px-4 py-3 rounded-xl border border-linen-200 bg-linen-50 text-charcoal-700 focus:outline-none focus:ring-2 focus:ring-sage-200 focus:border-sage-300 transition-colors resize-none"
-                  placeholder="Tell us about yourself..."
-                />
-                <PencilIcon className="absolute right-3 top-3 w-4 h-4 text-charcoal-400" />
-              </div>
-              <p className="text-xs text-charcoal-400 mt-1">{(formData.bio || '').length}/150 characters</p>
+              <label htmlFor="profile-bio" className="label-eyebrow text-ink-mute mb-1.5 block">Bio</label>
+              <textarea
+                id="profile-bio"
+                value={formData.bio || ''}
+                onChange={(e) => handleInputChange('bio', e.target.value)}
+                rows={3}
+                className="w-full px-4 py-3 rounded-[18px] bg-card border border-edge text-[14px] text-ink placeholder:text-ink-mute outline-none focus:border-ink/40 resize-none"
+                placeholder="A line about you"
+                maxLength={150}
+              />
+              <p className="font-mono text-[10px] tracking-[0.10em] uppercase text-ink-mute mt-1">{(formData.bio || '').length} / 150</p>
             </div>
-
             <div>
-              <label className="block text-sm font-medium text-charcoal-700 mb-2">Location</label>
+              <label className="label-eyebrow text-ink-mute mb-1.5 block">Location</label>
               <GooglePlacesAutocomplete
                 value={formData.location || ''}
-                placeholder="Start typing your city..."
+                placeholder="Start typing your city…"
                 onPlaceSelect={(address) => {
                   if (address) {
                     handleInputChange('location', address)
@@ -195,81 +214,70 @@ const EditProfile = () => {
               />
             </div>
           </div>
-        </div>
+        </section>
 
-        {/* Tags Section */}
-        <div className="rounded-3xl shadow-botanical border border-linen-200 bg-white/95 p-6">
-          <h3 className="text-lg font-serif font-semibold text-charcoal-800 mb-4">Your Interests</h3>
-          <p className="text-sm text-charcoal-500 mb-4">Add tags that describe your interests and preferences</p>
-          
-          <div className="flex flex-wrap gap-2 mb-4">
-            {(formData.tags || []).map(tag => (
-              <span 
-                key={tag} 
-                className="px-4 py-2 rounded-full text-sm font-medium bg-sage-50 border border-sage-100 text-sage-700 shadow-soft flex items-center gap-2 group hover:bg-sage-100 transition-colors"
-              >
-                #{tag}
-                <button
-                  onClick={() => handleRemoveTag(tag)}
-                  className="w-4 h-4 rounded-full bg-sage-200 text-sage-600 hover:bg-sage-300 transition-colors opacity-0 group-hover:opacity-100"
+        <section>
+          <p className="label-eyebrow flex items-center gap-1.5 mb-2" style={{ color: 'var(--accent-deep)' }}>
+            <span className="accent-bead-sm accent-bead" /> Interests
+          </p>
+          <p className="text-[13px] text-ink-soft mb-3">Tags that describe what you're into.</p>
+          {(formData.tags || []).length > 0 && (
+            <div className="flex flex-wrap gap-1.5 mb-3">
+              {(formData.tags || []).map(tag => (
+                <span
+                  key={tag}
+                  className="glass-honey px-3 h-7 rounded-full label-eyebrow flex items-center gap-1.5"
                 >
-                  ×
-                </button>
-              </span>
-            ))}
-          </div>
-          
+                  {tag}
+                  <button type="button" onClick={() => handleRemoveTag(tag)} aria-label={`Remove ${tag}`}>×</button>
+                </span>
+              ))}
+            </div>
+          )}
           <form
-            onSubmit={(e) => {
-              e.preventDefault()
-              handleAddTag()
-            }}
+            onSubmit={(e) => { e.preventDefault(); handleAddTag() }}
             className="flex items-center gap-2"
           >
             <input
               type="text"
               value={newTag}
               onChange={(e) => setNewTag(e.target.value)}
-              placeholder="Add a new tag..."
-              className="flex-1 px-4 py-3 rounded-xl border border-linen-200 bg-linen-50 text-charcoal-600 focus:outline-none focus:ring-2 focus:ring-sage-200 shadow-soft"
+              placeholder="Add a tag…"
+              className="flex-1 h-10 px-4 rounded-full bg-card border border-edge text-[13px] text-ink placeholder:text-ink-mute outline-none focus:border-ink/40"
             />
-            <button 
-              type="submit"
-              className="px-4 py-3 rounded-xl bg-sage-500 text-white shadow-soft hover:bg-sage-600 transition-colors"
-            >
-              Add
-            </button>
+            <button type="submit" className="btn-secondary h-10 px-4 label-eyebrow">Add</button>
           </form>
-        </div>
+        </section>
 
-        {/* Account Information */}
-        <div className="rounded-3xl shadow-botanical border border-linen-200 bg-white/95 p-6">
-          <h3 className="text-lg font-serif font-semibold text-charcoal-800 mb-4">Account Information</h3>
-          
-          <div className="space-y-4">
-            <div className="flex items-center justify-between p-4 rounded-xl bg-linen-50 border border-linen-200">
-              <div className="flex items-center gap-3">
-                <CalendarIcon className="w-5 h-5 text-gold-500" />
-                <div>
-                  <p className="font-medium text-charcoal-700">Member Since</p>
-                  <p className="text-sm text-charcoal-500">{formData.createdAt ? formatTimestamp(formData.createdAt as any) : 'N/A'}</p>
-                </div>
+        <section>
+          <p className="label-eyebrow flex items-center gap-1.5 mb-3" style={{ color: 'var(--accent-deep)' }}>
+            <span className="accent-bead-sm accent-bead" /> Account
+          </p>
+          <ul className="divide-y divide-edge border-y border-edge">
+            <li className="py-3.5 flex items-center gap-3.5">
+              <span className="shrink-0 w-9 h-9 rounded-full glass-honey flex items-center justify-center">
+                <CalendarIcon className="w-4 h-4" />
+              </span>
+              <div className="flex-1 min-w-0">
+                <p className="text-[14px] font-medium text-ink">Member since</p>
+                <p className="font-mono text-[10px] tracking-[0.10em] uppercase text-ink-mute mt-0.5">
+                  {formData.createdAt ? formatTimestamp(formData.createdAt as any) : 'N/A'}
+                </p>
               </div>
-            </div>
-            
-            <div className="flex items-center justify-between p-4 rounded-xl bg-linen-50 border border-linen-200">
-              <div className="flex items-center gap-3">
-                <div className="w-5 h-5 rounded-full bg-sage-500 flex items-center justify-center">
-                  <span className="text-white text-xs font-bold">I</span>
-                </div>
-                <div>
-                  <p className="font-medium text-charcoal-700">Influence Score</p>
-                  <p className="text-sm text-charcoal-500">{formData.influences || 0} influences</p>
-                </div>
+            </li>
+            <li className="py-3.5 flex items-center gap-3.5">
+              <span className="shrink-0 w-9 h-9 rounded-full glass-honey flex items-center justify-center">
+                <span className="font-mono text-[10px] font-semibold">I</span>
+              </span>
+              <div className="flex-1 min-w-0">
+                <p className="text-[14px] font-medium text-ink">Influence</p>
+                <p className="font-mono text-[10px] tracking-[0.10em] uppercase text-ink-mute mt-0.5">
+                  {formData.influences || 0} {(formData.influences || 0) === 1 ? 'influence' : 'influences'}
+                </p>
               </div>
-            </div>
-          </div>
-        </div>
+            </li>
+          </ul>
+        </section>
       </div>
     </div>
   )

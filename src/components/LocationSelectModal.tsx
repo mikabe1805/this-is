@@ -148,50 +148,61 @@ const LocationSelectModal: React.FC<LocationSelectModalProps> = ({
   if (!isOpen) return null
 
   return createPortal(
-    <div className="fixed inset-0 z-[999999] flex items-center justify-center p-4 bg-black/20 backdrop-blur-sm">
-      <div className="w-full max-w-md rounded-2xl shadow-botanical border border-linen-200 bg-white overflow-hidden">
+    <div className="fixed inset-0 z-[999999] flex items-end sm:items-center justify-center sm:p-4 bg-[#1A1815]/55 backdrop-blur-sm" onClick={onClose}>
+      <div
+        className="modal-paper w-full sm:max-w-md rounded-t-3xl sm:rounded-3xl border border-edge overflow-hidden"
+        style={{ boxShadow: '0 18px 60px rgba(46, 28, 13, 0.22)' }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div data-drag-handle className="sm:hidden flex justify-center py-3 shrink-0" aria-hidden>
+          <span className="w-10 h-1 rounded-full bg-ink-faint" />
+        </div>
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-linen-200">
-          <h2 className="text-xl font-serif font-semibold text-charcoal-700">Select Location</h2>
+        <div className="flex items-center justify-between px-5 py-4 border-b border-edge relative z-10">
+          <p className="label-eyebrow text-ink-mute">Select location</p>
           <button
+            type="button"
             onClick={onClose}
-            className="p-2 rounded-full hover:bg-linen-100 transition-colors"
+            className="h-9 w-9 rounded-full hover:bg-paper-deep flex items-center justify-center text-ink"
+            aria-label="Close"
           >
-            <XMarkIcon className="w-5 h-5 text-charcoal-500" />
+            <XMarkIcon className="w-5 h-5" />
           </button>
         </div>
 
         {/* Content */}
-        <div className="p-6">
+        <div className="px-5 py-5 space-y-5 relative z-10">
           {/* Current Location */}
-          <div className="mb-6">
-            <h3 className="font-medium text-charcoal-700 mb-3">Current Location</h3>
+          <div>
+            <p className="label-eyebrow text-ink-mute mb-2.5">Current location</p>
             {currentLocation ? (
               <button
+                type="button"
                 onClick={() => handleLocationSelect(currentLocation)}
-                className="w-full p-4 rounded-xl border border-sage-200 bg-sage-50 hover:bg-sage-100 transition-all text-left"
+                className="w-full p-3.5 rounded-2xl border border-accent bg-accent-soft hover:border-accent-deep transition-colors text-left"
               >
                 <div className="flex items-center gap-3">
-                  <MapPinIcon className="w-5 h-5 text-sage-600" />
-                  <div>
-                    <div className="font-medium text-charcoal-700">{currentLocation.name}</div>
-                    <div className="text-sm text-charcoal-500">{currentLocation.address}</div>
+                  <MapPinIcon className="w-5 h-5 text-accent-deep" />
+                  <div className="min-w-0">
+                    <div className="font-display text-[15px] leading-tight text-ink truncate">{currentLocation.name}</div>
+                    <div className="font-mono text-[10px] tracking-[0.10em] uppercase text-ink-mute truncate mt-0.5">{currentLocation.address}</div>
                   </div>
                 </div>
               </button>
             ) : (
               <button
+                type="button"
                 onClick={getCurrentLocation}
                 disabled={isLoadingLocation}
-                className="w-full p-4 rounded-xl border border-linen-200 hover:border-sage-200 hover:bg-sage-25 transition-all text-left disabled:opacity-50"
+                className="w-full p-3.5 rounded-2xl border border-edge bg-card hover:border-ink/30 transition-colors text-left disabled:opacity-50"
               >
                 <div className="flex items-center gap-3">
-                  <MapPinIcon className="w-5 h-5 text-charcoal-500" />
+                  <MapPinIcon className="w-5 h-5 text-ink-mute" />
                   <div>
-                    <div className="font-medium text-charcoal-700">
-                      {isLoadingLocation ? 'Getting your location...' : 'Use my current location'}
+                    <div className="text-[14px] font-medium text-ink">
+                      {isLoadingLocation ? 'Getting your location…' : 'Use my current location'}
                     </div>
-                    <div className="text-sm text-charcoal-500">
+                    <div className="text-[12px] text-ink-soft">
                       {isLoadingLocation ? 'Please allow location access' : 'Find places near you'}
                     </div>
                   </div>
@@ -201,67 +212,70 @@ const LocationSelectModal: React.FC<LocationSelectModalProps> = ({
           </div>
 
           {/* Search */}
-          <div className="mb-6">
-            <h3 className="font-medium text-charcoal-700 mb-3">Search for a location</h3>
+          <div>
+            <label htmlFor="loc-search" className="label-eyebrow text-ink-mute mb-2 block">Search for a location</label>
             <div className="relative">
               <input
+                id="loc-search"
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Enter city, address, or place name..."
-                className="w-full p-3 pl-10 rounded-xl border border-linen-200 bg-linen-50 text-charcoal-600 focus:outline-none focus:ring-2 focus:ring-sage-200"
+                placeholder="Enter city, address, or place…"
+                className="w-full h-11 pl-10 pr-4 rounded-full border border-edge bg-card text-[14px] text-ink placeholder:text-ink-mute outline-none focus:border-ink/40"
               />
-              <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-charcoal-400" />
+              <MagnifyingGlassIcon className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-ink-mute" />
             </div>
-            
+
             {isSearching && (
-              <div className="mt-3 text-center text-sm text-charcoal-500">
-                Searching...
-              </div>
+              <p className="font-mono text-[10px] tracking-[0.18em] uppercase text-ink-mute mt-2 text-center">
+                Searching…
+              </p>
             )}
-            
+
             {searchResults.length > 0 && (
-              <div className="mt-3 space-y-2">
+              <ul className="divide-y divide-edge border-y border-edge mt-3">
                 {searchResults.map(location => (
-                  <button
-                    key={location.id}
-                    onClick={() => handleLocationSelect(location)}
-                    className="w-full p-3 rounded-lg border border-linen-200 hover:border-sage-200 hover:bg-sage-25 transition-all text-left"
-                  >
-                    <div className="flex items-center gap-3">
-                      <MapPinIcon className="w-5 h-5 text-charcoal-500" />
-                      <div>
-                        <div className="font-medium text-charcoal-700">{location.name}</div>
-                        <div className="text-sm text-charcoal-500">{location.address}</div>
+                  <li key={location.id}>
+                    <button
+                      type="button"
+                      onClick={() => handleLocationSelect(location)}
+                      className="w-full flex items-center gap-3 px-1 py-3 text-left hover:bg-paper-deep transition-colors"
+                    >
+                      <MapPinIcon className="w-4 h-4 text-ink-mute shrink-0" />
+                      <div className="min-w-0">
+                        <div className="text-[14px] font-medium text-ink truncate">{location.name}</div>
+                        <div className="font-mono text-[10px] tracking-[0.10em] uppercase text-ink-mute truncate mt-0.5">{location.address}</div>
                       </div>
-                    </div>
-                  </button>
+                    </button>
+                  </li>
                 ))}
-              </div>
+              </ul>
             )}
           </div>
 
           {/* Recent Locations */}
-          <div>
-            <h3 className="font-medium text-charcoal-700 mb-3">Recent Locations</h3>
-            <div className="space-y-2">
-              {recentLocations.map(location => (
-                <button
-                  key={location.id}
-                  onClick={() => handleLocationSelect(location)}
-                  className="w-full p-3 rounded-lg border border-linen-200 hover:border-sage-200 hover:bg-sage-25 transition-all text-left"
-                >
-                  <div className="flex items-center gap-3">
-                    <MapPinIcon className="w-5 h-5 text-charcoal-500" />
-                    <div>
-                      <div className="font-medium text-charcoal-700">{location.name}</div>
-                      <div className="text-sm text-charcoal-500">{location.address}</div>
-                    </div>
-                  </div>
-                </button>
-              ))}
+          {recentLocations.length > 0 && (
+            <div>
+              <p className="label-eyebrow text-ink-mute mb-2">Recent</p>
+              <ul className="divide-y divide-edge border-y border-edge">
+                {recentLocations.map(location => (
+                  <li key={location.id}>
+                    <button
+                      type="button"
+                      onClick={() => handleLocationSelect(location)}
+                      className="w-full flex items-center gap-3 px-1 py-3 text-left hover:bg-paper-deep transition-colors"
+                    >
+                      <MapPinIcon className="w-4 h-4 text-ink-mute shrink-0" />
+                      <div className="min-w-0">
+                        <div className="text-[14px] font-medium text-ink truncate">{location.name}</div>
+                        <div className="font-mono text-[10px] tracking-[0.10em] uppercase text-ink-mute truncate mt-0.5">{location.address}</div>
+                      </div>
+                    </button>
+                  </li>
+                ))}
+              </ul>
             </div>
-          </div>
+          )}
         </div>
       </div>
     </div>,

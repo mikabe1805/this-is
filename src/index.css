@@ -1,5 +1,5 @@
 ﻿
-@import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital,wght@0,400;1,400&family=Inter:wght@400;500;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght,SOFT@9..144,300..800,0..100&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
 @import './styles/tokens.css';
 @import './styles/cozy-glass.css';
 @import './styles/glass.css';
@@ -9,26 +9,316 @@
 @layer base {
   html, body { height: 100%; }
   body {
-    color: #4A423C; /* bark-800 for stronger readability */
+    color: var(--ink);
     font-family: Inter, system-ui, sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-    /* Directional sunlight with chromatic warmth and subtle vignette */
-    background:
-      radial-gradient(1100px 800px at 15% 10%, rgba(255,245,210,0.65), rgba(255,250,235,0.35) 45%, transparent 70%),
-      radial-gradient(950px 750px at 85% 90%, rgba(240,230,215,0.45), transparent 65%),
-      linear-gradient(to bottom, #FFFAF2 0%, #F5EFE3 40%, #EEE6D8 100%);
+    background-color: var(--paper);
+    /* Solid warm-cream base with two faint amber/rose radials for depth.
+       Liquid-glass elements above use backdrop-blur to refract this layer.
+       Kept clean on purpose — readability first. */
+    background-image:
+      radial-gradient(900px 700px at 8% 0%, rgba(229, 200, 150, 0.32) 0%, transparent 55%),
+      radial-gradient(700px 700px at 95% 100%, rgba(196, 132, 132, 0.14) 0%, transparent 65%);
+    background-attachment: fixed;
     min-height: 100vh;
-    filter: contrast(1.03) saturate(1.06);
   }
 }
 
-@utility text-title { color: rgba(55,50,40,0.92); font-weight: 600; letter-spacing: -0.01em; }
-@utility text-body  { color: rgba(55,50,40,0.82); font-weight: 400; }
-@utility text-meta  { color: rgba(74,66,60,0.88); font-weight: 500; letter-spacing: -0.005em; }
-@utility section-title { color: rgba(55,50,40,0.95); font-weight: 600; letter-spacing: 0.01em; }
-@utility section-meta  { color: rgba(74,66,60,0.85); font-weight: 500; }
-@utility text-muted { color: rgba(74,66,60,0.75); }
+/* === Editorial type system ===
+   Display: Fraunces (variable serif, soft optical sizing) — for screen titles, place names.
+   Body: Inter — UI, body copy.
+   Mono: JetBrains Mono — captions, metadata, ALL-CAPS labels. */
+.font-display {
+  font-family: 'Fraunces', 'Cormorant Garamond', Georgia, serif;
+  font-weight: 500;
+  font-variation-settings: 'opsz' 144, 'SOFT' 30;
+  letter-spacing: -0.02em;
+}
+.font-display-italic {
+  font-family: 'Fraunces', Georgia, serif;
+  font-style: italic;
+  font-weight: 400;
+  font-variation-settings: 'opsz' 144, 'SOFT' 50;
+  letter-spacing: -0.015em;
+}
+.font-mono { font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace; }
+
+/* Brand tokens — keep everything keyed off these */
+:root {
+  /* Biophilic neumorphic core */
+  --bg-pumice: #E6E4E0;          /* stone-room background */
+  --text-primary: #3A3530;       /* deep sepia, body copy */
+  --glass-amber: rgba(139, 90, 43, 0.15);
+  --glass-highlight: rgba(255, 255, 255, 0.40);
+  --shadow-dark: rgba(90, 75, 60, 0.20);
+  --shadow-light: rgba(255, 255, 255, 0.70);
+
+  --ink: #2A1F14;
+  --ink-soft: #5C4530;
+  --ink-mute: #9C8970;
+  --ink-faint: #D7C9B0;
+  --paper: #F2EAD9;          /* warm cream — pinterest golden-hour body */
+  --paper-deep: #E8DBC2;     /* tea-stained */
+  --card: #FBF6EA;           /* warmer than pure white */
+  --card-edge: #D9C9AB;
+
+  /* Muted café-glass system — leaning walnut/cocoa rather than honey-gold.
+     Mellow, lit from inside, like a café au lait poured into amber glass. */
+  --honey-light: #E5C896;    /* cream-cocoa, top of glass / specular */
+  --honey: #A87642;          /* primary muted honey body */
+  --caramel: #815230;        /* mid-glass shadow */
+  --walnut: #4A2F1A;          /* deep walnut, base of glass */
+  --walnut-deep: #2E1C0D;    /* darkest core */
+  --cream: #F2E5C8;          /* warm specular — top-left of every glass */
+  --cream-deep: #DEC9A4;     /* tea-cream */
+
+  /* Soft pink-rose as the romantic secondary — echoes Paris-window florals.
+     Used very sparingly (period after display titles, occasional bead). */
+  --bloom: #D88A8A;
+  --bloom-deep: #A85F5F;
+
+  /* Accent tokens — muted café-walnut */
+  --accent: var(--honey);
+  --accent-mid: var(--caramel);
+  --accent-bright: var(--honey-light);
+  --accent-deep: var(--walnut);
+  --accent-soft: rgba(168, 118, 66, 0.14);
+  --accent-glow: rgba(168, 118, 66, 0.30);
+  --accent-rim: rgba(242, 229, 200, 0.50);
+
+  /* Warm shadow base — slightly cooler than before, café-stone vibe */
+  --shadow-warm-soft: 0 1px 0 rgba(74, 47, 26, 0.06), 0 6px 18px rgba(74, 47, 26, 0.10);
+  --shadow-warm: 0 2px 0 rgba(74, 47, 26, 0.06), 0 14px 30px -10px rgba(74, 47, 26, 0.20);
+}
+
+.text-ink       { color: var(--ink); }
+.text-ink-soft  { color: var(--ink-soft); }
+.text-ink-mute  { color: var(--ink-mute); }
+.text-accent    { color: var(--accent); }
+.bg-paper       { background-color: var(--paper); }
+.bg-paper-deep  { background-color: var(--paper-deep); }
+.bg-card        { background-color: var(--card); }
+.bg-accent      { background-color: var(--accent); }
+.bg-accent-soft { background-color: var(--accent-soft); }
+.border-edge    { border-color: var(--card-edge); }
+.border-ink     { border-color: var(--ink); }
+.border-accent  { border-color: var(--accent); }
+
+/* Tiny editorial label — uppercase, mono, tracked */
+.label-eyebrow {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+/* Terracotta period — bigger, slightly offset, used on titles like "For you." */
+.dot-accent::after {
+  content: ".";
+  color: var(--accent);
+  margin-left: 0.02em;
+}
+
+/* A delicate dotted divider between sections — subtle but readable as "designed" */
+.rule-dot {
+  background-image: radial-gradient(circle, rgba(26,24,21,0.22) 1px, transparent 1.5px);
+  background-size: 8px 8px;
+  background-repeat: repeat-x;
+  background-position: center;
+  height: 8px;
+}
+
+/* A subtle wash you can apply to hero blocks for a print-shop feel */
+.paper-wash {
+  background-image:
+    radial-gradient(circle at 18% 0%, rgba(194,65,12,0.06) 0%, transparent 45%),
+    radial-gradient(circle at 95% 0%, rgba(31,58,31,0.05) 0%, transparent 50%);
+}
+
+/* Inline link style: subtle accent underline */
+.link-accent {
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 4px;
+  text-decoration-thickness: 1px;
+}
+.link-accent:hover {
+  text-decoration-thickness: 2px;
+}
+
+/* Press effect on big buttons */
+.press {
+  transition: transform 80ms ease, box-shadow 200ms ease;
+}
+.press:active {
+  transform: translateY(1px);
+}
+
+/* === Liquid honey glass primary CTA ===
+   The actual material. A faint warm tint, heavy backdrop blur, fine cream
+   rim, soft inner sheen at the top, and a warm honey *glow shadow* below
+   doing the work of "lit from within." Translucency comes from low alpha
+   on the fill — most of the visual interest is the blur refracting whatever
+   is behind it on the page (warm body radials, photos, etc.). */
+.btn-cta {
+  position: relative;
+  border-radius: 9999px;
+  color: var(--walnut-deep);
+  text-shadow: 0 1px 0 rgba(245, 232, 205, 0.55);
+  /* Very low-alpha honey wash with a faint cream sheen up top. */
+  background:
+    linear-gradient(180deg,
+      rgba(245, 232, 205, 0.45) 0%,
+      rgba(240, 208, 138, 0.22) 30%,
+      rgba(198, 139, 59, 0.18) 70%,
+      rgba(124, 76, 28, 0.18) 100%);
+  backdrop-filter: blur(28px) saturate(1.7) brightness(1.04);
+  -webkit-backdrop-filter: blur(28px) saturate(1.7) brightness(1.04);
+  border: 1px solid rgba(245, 232, 205, 0.55);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 250, 230, 0.65),    /* cream sheen at top edge */
+    inset 0 -1px 0 rgba(124, 76, 28, 0.10),     /* faint dark inner curve */
+    0 1px 1px rgba(58, 35, 16, 0.06),
+    0 8px 22px rgba(198, 139, 59, 0.28),        /* near warm bloom */
+    0 18px 44px rgba(198, 139, 59, 0.22);       /* far warm bloom — the "glow" */
+  transition: transform 140ms ease, box-shadow 280ms ease, filter 220ms ease, background-color 220ms ease;
+}
+.btn-cta:hover {
+  filter: brightness(1.04);
+  background:
+    linear-gradient(180deg,
+      rgba(245, 232, 205, 0.55) 0%,
+      rgba(240, 208, 138, 0.30) 30%,
+      rgba(198, 139, 59, 0.24) 70%,
+      rgba(124, 76, 28, 0.22) 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 250, 230, 0.80),
+    inset 0 -1px 0 rgba(124, 76, 28, 0.12),
+    0 1px 1px rgba(58, 35, 16, 0.08),
+    0 12px 28px rgba(198, 139, 59, 0.40),
+    0 24px 56px rgba(198, 139, 59, 0.28);
+}
+.btn-cta:active { transform: translateY(1px); filter: brightness(0.98); }
+.btn-cta:disabled {
+  background: rgba(217, 201, 171, 0.45);
+  color: rgba(58, 35, 16, 0.40);
+  text-shadow: none;
+  box-shadow: inset 0 0 0 1px rgba(245, 232, 205, 0.40);
+  cursor: not-allowed;
+  filter: none;
+}
+
+/* Secondary — paler liquid-glass companion (less tint, same blur recipe) */
+.btn-secondary {
+  background: rgba(251, 246, 234, 0.45);
+  backdrop-filter: blur(20px) saturate(1.4);
+  -webkit-backdrop-filter: blur(20px) saturate(1.4);
+  color: var(--ink);
+  border: 1px solid rgba(245, 232, 205, 0.65);
+  border-radius: 9999px;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 250, 230, 0.55),
+    0 1px 1px rgba(58, 35, 16, 0.04),
+    0 6px 18px rgba(198, 139, 59, 0.10);
+  transition: background-color 200ms ease, box-shadow 200ms ease, transform 80ms ease;
+}
+.btn-secondary:hover {
+  background: rgba(251, 246, 234, 0.65);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 250, 230, 0.70),
+    0 1px 1px rgba(58, 35, 16, 0.06),
+    0 10px 24px rgba(198, 139, 59, 0.20);
+}
+.btn-secondary:active { transform: translateY(1px); }
+
+/* === Honey cabochon — translucent dome ===
+   Low-alpha honey core, cream specular at top-left, fine cream rim, soft
+   honey glow shadow underneath. Reads as a tiny droplet of glass. */
+.accent-bead {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border-radius: 9999px;
+  background:
+    radial-gradient(circle at 28% 24%, rgba(255, 244, 217, 0.95) 0%, rgba(240, 208, 138, 0.65) 30%, rgba(198, 139, 59, 0.55) 70%, rgba(92, 58, 27, 0.55) 100%);
+  border: 0.5px solid rgba(245, 232, 205, 0.65);
+  box-shadow:
+    inset 0 0.5px 0 rgba(255, 250, 230, 0.70),
+    0 0 0 1px rgba(198, 139, 59, 0.06),
+    0 0 6px rgba(198, 139, 59, 0.40),
+    0 1px 1px rgba(58, 35, 16, 0.20);
+}
+.accent-bead-sm { width: 7px; height: 7px; }
+.accent-bead-lg { width: 13px; height: 13px; }
+
+/* Bloom variant — translucent pink cabochon, single floral note */
+.bloom-bead {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border-radius: 9999px;
+  background:
+    radial-gradient(circle at 28% 24%, rgba(255, 240, 240, 0.95) 0%, rgba(242, 199, 199, 0.65) 30%, rgba(216, 138, 138, 0.55) 70%, rgba(168, 95, 95, 0.55) 100%);
+  border: 0.5px solid rgba(255, 240, 240, 0.65);
+  box-shadow:
+    inset 0 0.5px 0 rgba(255, 250, 250, 0.70),
+    0 0 0 1px rgba(216, 138, 138, 0.06),
+    0 0 6px rgba(216, 138, 138, 0.40),
+    0 1px 1px rgba(168, 95, 95, 0.18);
+}
+
+/* === Honey chip — translucent pill ===
+   Same recipe as the CTA, scaled down for chips, density pills, tags. */
+.glass-honey,
+.glass-amber,
+.glass-leaf,
+.glass-bark {
+  position: relative;
+  background:
+    linear-gradient(180deg,
+      rgba(245, 232, 205, 0.30) 0%,
+      rgba(198, 139, 59, 0.14) 100%);
+  backdrop-filter: blur(14px) saturate(1.4);
+  -webkit-backdrop-filter: blur(14px) saturate(1.4);
+  color: var(--walnut-deep);
+  border: 1px solid rgba(245, 232, 205, 0.55);
+  box-shadow:
+    inset 0 0.5px 0 rgba(255, 250, 230, 0.55),
+    0 0 8px rgba(198, 139, 59, 0.16),
+    0 1px 2px rgba(58, 35, 16, 0.06);
+}
+
+/* Soft golden hairline — for under display headlines */
+.amber-hairline,
+.leaf-hairline,
+.honey-hairline {
+  height: 2px;
+  background: linear-gradient(90deg, var(--honey-light) 0%, var(--honey) 30%, var(--caramel) 65%, transparent 95%);
+  border-radius: 9999px;
+  opacity: 0.85;
+}
+
+/* Subtle accent underline-decoration */
+.accent-underline {
+  background-image: linear-gradient(var(--accent), var(--accent));
+  background-repeat: no-repeat;
+  background-position: 0 100%;
+  background-size: 100% 2px;
+}
+
+/* Canonical type scale */
+@utility text-title { color: #2F2A23; font-weight: 600; letter-spacing: -0.01em; font-size: 1rem; line-height: 1.35; }
+@utility text-body  { color: #4A423A; font-weight: 400; font-size: 0.9375rem; line-height: 1.5; }
+@utility text-meta  { color: #6B6155; font-weight: 500; font-size: 0.8125rem; line-height: 1.4; letter-spacing: -0.003em; }
+@utility text-muted { color: #8A8175; font-weight: 400; font-size: 0.8125rem; }
+/* Aliases for legacy callsites */
+@utility section-title { color: #2F2A23; font-weight: 600; letter-spacing: 0.01em; font-size: 1.0625rem; }
+@utility section-meta  { color: #6B6155; font-weight: 500; font-size: 0.8125rem; }
+@utility text-cozy-title { color: #2F2A23; font-weight: 600; letter-spacing: -0.01em; font-size: 1rem; line-height: 1.35; }
+@utility text-cozy-sub   { color: #4A423A; font-weight: 400; font-size: 0.9375rem; line-height: 1.5; }
+@utility text-cozy-meta  { color: #6B6155; font-weight: 500; font-size: 0.8125rem; line-height: 1.4; }
 @utility badge      {
   background-color: rgb(255 255 255 / 0.22);
   border: 1px solid rgb(255 255 255 / 0.32);
@@ -81,8 +371,8 @@ input, textarea{ color:#3D3630; }
 /* Glass card with depth - REMOVED DUPLICATE - see @layer components below */
 
 /* Interactive refracted hover */
-.interactive-glass{ transition: transform .25s ease, box-shadow .25s ease; }
-.interactive-glass:hover{ transform: scale(1.02); }
+.interactive-glass{ transition: transform .2s ease, box-shadow .2s ease; }
+.interactive-glass:hover{ transform: translateY(-1px); box-shadow: 0 14px 28px rgba(61,54,48,0.10); }
 
 /* Icon button shimmer */
 .icon-btn{ @apply rounded-full; background: rgba(255,255,255,0.40); box-shadow: inset 0 0 0 1px rgba(255,255,255,0.45); transition: all .2s ease; }
@@ -100,9 +390,10 @@ input, textarea{ color:#3D3630; }
 .text-moss-500{ color:#8FA287; }
 .text-sand-600{ color:#B3874B; }
 .text-aurum-300{ color:#E8DBB5; }
-.u-header{ color:#5C534A; }
-.u-title{ color:#536D57; }
-.u-meta{ color:#B3874B; letter-spacing: .02em; font-weight:500; }
+/* Legacy aliases — point to canonical type scale */
+.u-header{ color:#2F2A23; font-weight:600; }
+.u-title{ color:#2F2A23; font-weight:600; }
+.u-meta{ color:#6B6155; letter-spacing: .02em; font-weight:500; }
 
 /* Earthy accent utilities */
 .accent-moss { color: var(--moss-600); }
@@ -126,10 +417,7 @@ input, textarea{ color:#3D3630; }
 /* === Depth Pass removed: single parchment gradient lives on body; sunlight uses .sunlight-layer === */
 
 .sunlight-layer{ position:fixed; inset:0; pointer-events:none; z-index:0; background:
-  radial-gradient(1100px 750px at 16% 12%, rgba(255,242,179,0.12), rgba(232,219,181,0.08) 45%, transparent 68%),
-  radial-gradient(850px 620px at 82% 78%, rgba(240,230,206,0.10), rgba(255,235,190,0.06) 50%, transparent 72%),
-  radial-gradient(600px 450px at 50% 50%, rgba(232,219,181,0.04), transparent 60%);
-  filter: blur(20px) saturate(1.08);
+  radial-gradient(900px 600px at 14% 8%, rgba(247,238,214,0.18), transparent 65%);
 }
 
 /* sun-edge moved to @layer components to avoid duplicate */
@@ -140,24 +428,25 @@ input, textarea{ color:#3D3630; }
 @layer components {
   .glass-card{
     position:relative;
-    backdrop-filter: blur(20px) saturate(1.12);
-    background: linear-gradient(145deg, rgba(255,255,255,0.72), rgba(255,255,255,0.60)) !important;
-    border: 1px solid rgba(255,255,255,0.80) !important;
-    box-shadow:
-      inset 0 1px 3px rgba(255,255,255,0.55),
-      inset 0 0 0 1px rgba(255,255,255,0.30),
-      0 2px 6px rgba(0,0,0,0.10),
-      0 12px 28px rgba(61,54,48,0.16) !important;
+    background: rgba(255,255,255,0.78);
+    backdrop-filter: blur(14px) saturate(1.05);
+    -webkit-backdrop-filter: blur(14px) saturate(1.05);
+    border: 1px solid rgba(255,255,255,0.55);
+    box-shadow: 0 1px 0 rgba(255,255,255,0.6) inset, 0 8px 22px rgba(61,54,48,0.07);
     border-radius: 1.25rem;
   }
   .glass-card.sun-edge::before{
-    content:""; position:absolute; inset:-1px; border-radius:inherit; pointer-events:none;
-    background:
-      radial-gradient(520px 360px at 10% 12%, rgba(255,255,255,0.75), rgba(255,255,255,0) 58%),
-      radial-gradient(300px 220px at 14% 14%, rgba(240,230,206,0.30), rgba(240,230,206,0) 62%),
-      linear-gradient(135deg, rgba(255,255,255,0.45), rgba(255,255,255,0) 28%);
-    mix-blend-mode: overlay;
-    opacity: 1 !important;
+    content:""; position:absolute; inset:0; border-radius:inherit; pointer-events:none;
+    background: radial-gradient(420px 280px at 12% 10%, rgba(255,255,255,0.45), rgba(255,255,255,0) 60%);
+    mix-blend-mode: screen;
+    opacity: 0.7;
+  }
+  /* Solid panel — readable surface for text-heavy areas */
+  .panel{
+    background: #FFFDF8;
+    border: 1px solid #ECE5D6;
+    border-radius: 1.25rem;
+    box-shadow: 0 1px 0 rgba(255,255,255,0.6) inset, 0 6px 18px rgba(61,54,48,0.05);
   }
 
   .btn-primary{
@@ -193,35 +482,11 @@ input, textarea{ color:#3D3630; }
   .hover-lift { transition: transform 180ms ease, box-shadow 240ms ease; }
   .hover-lift-on:hover { transform: translateY(-2px) scale(1.01); box-shadow: 0 12px 32px rgba(61,54,48,0.12); }
 
-  /* shimmer highlight for glass chips/buttons */
-  .shimmer { position: relative; overflow: hidden; }
-  .shimmer::after { content:""; position:absolute; inset:0; background: linear-gradient(100deg, transparent 0%, rgba(255,255,255,0.35) 35%, transparent 70%); transform: translateX(-120%); pointer-events:none; }
-  .shimmer-run:hover::after { transition: transform 600ms ease; transform: translateX(120%); }
-
-  /* subtle diagonal shine for glass cards */
-  .glass-shine { position: relative; overflow: hidden; }
-  .glass-shine::after {
-    content: "";
-    position: absolute;
-    inset: 0;
-    background: linear-gradient(120deg, transparent 35%, rgba(255,255,255,0.22) 50%, transparent 65%);
-    mask-image: linear-gradient(120deg, transparent 40%, rgba(255,255,255,0.25) 50%, transparent 60%);
-    -webkit-mask-image: linear-gradient(120deg, transparent 40%, rgba(255,255,255,0.25) 50%, transparent 60%);
-    animation: shineMove 20s linear infinite;
-    pointer-events: none;
-  }
-
-  @keyframes shineMove {
-    0% { transform: translateX(-200%) translateY(-200%) rotate(30deg); }
-    100% { transform: translateX(200%) translateY(200%) rotate(30deg); }
-  }
-
-  /* subtle sun sheen (hero only) */
-  .sun-sheen { position: relative; }
-  .sun-sheen::before { content:""; position:absolute; inset:-1px; border-radius: inherit; pointer-events:none; background: radial-gradient(540px 380px at 8% 10%, rgba(255,255,255,0.22), rgba(255,255,255,0) 60%); mix-blend-mode: screen; opacity:.65; animation: sheen 1800ms ease-in-out alternate infinite; }
-
-  /* faint diagonal luminosity */
-  .sunlight-soft { background: linear-gradient(145deg, rgba(255,240,210,0.05), rgba(255,255,255,0.02)); }
+  /* Legacy decorations, now no-ops to avoid noisy backgrounds while preserving classnames. */
+  .shimmer, .shimmer::after, .shimmer-run::after { background: none !important; animation: none !important; transform: none !important; }
+  .glass-shine, .glass-shine::after { background: none !important; animation: none !important; }
+  .sun-sheen, .sun-sheen::before { background: none !important; animation: none !important; }
+  .sunlight-soft { background: none; }
 }
 
 @layer base {
@@ -240,3 +505,84 @@ input, textarea{ color:#3D3630; }
 @media (prefers-reduced-motion: reduce) {
   * { animation: none !important; transition: none !important; }
 }
+
+/* === Legacy palette alias layer ===
+   Many older modals (CreatePost, ShareModal, CommentsModal, etc.) still
+   reference the linen / sage / charcoal / botanical classes. Re-tint those
+   to the new stone palette so the whole app feels consistent without
+   touching every JSX file. */
+.bg-linen-50  { background-color: #FAF7F1; }
+.bg-linen-100 { background-color: #F2EDE3; }
+.bg-linen-200 { background-color: #E8E1D2; }
+.bg-linen-300 { background-color: #D8CFB8; }
+.text-linen-200, .text-linen-300 { color: #B8AB91; }
+.border-linen-100 { border-color: #F0EBDF; }
+.border-linen-200 { border-color: #E5E7EB; }
+.border-linen-300 { border-color: #D6D3CC; }
+
+.bg-sage-25   { background-color: #FAFAF7; }
+.bg-sage-50   { background-color: #F4F4F0; }
+.bg-sage-100  { background-color: #ECECE6; }
+.bg-sage-200  { background-color: #DAD8CC; }
+.bg-sage-300  { background-color: #BCB7A4; }
+.bg-sage-400  { background-color: #1C1917; } /* primary CTA → stone-900 */
+.bg-sage-500  { background-color: #1C1917; }
+.bg-sage-600  { background-color: #0C0A09; }
+.text-sage-300 { color: #6B6155; }
+.text-sage-400 { color: #4A423A; }
+.text-sage-500 { color: #2F2A23; }
+.text-sage-600 { color: #1C1917; }
+.text-sage-700 { color: #1C1917; }
+.text-sage-800 { color: #1C1917; }
+.border-sage-100 { border-color: #ECECE6; }
+.border-sage-200 { border-color: #D6D3CC; }
+.border-sage-300 { border-color: #1C1917; }
+.border-sage-400 { border-color: #1C1917; }
+.hover\:bg-sage-100:hover { background-color: #ECECE6; }
+.hover\:bg-sage-200:hover { background-color: #DAD8CC; }
+.hover\:bg-sage-500:hover { background-color: #0C0A09; }
+.hover\:border-sage-200:hover { border-color: #BCB7A4; }
+.focus\:ring-sage-200 { --tw-ring-color: rgba(120, 113, 108, 0.30); }
+.focus\:ring-sage-300\/50 { --tw-ring-color: rgba(120, 113, 108, 0.30); }
+.focus\:ring-sage-400 { --tw-ring-color: rgba(68, 64, 60, 0.40); }
+
+.bg-charcoal-200 { background-color: #D6D3D1; }
+.bg-charcoal-500 { background-color: #57534E; }
+.bg-charcoal-700 { background-color: #292524; }
+.bg-charcoal-800 { background-color: #1C1917; }
+.bg-charcoal-900 { background-color: #0C0A09; }
+.bg-charcoal-900\/50 { background-color: rgba(12, 10, 9, 0.55); }
+.text-charcoal-300 { color: #A8A29E; }
+.text-charcoal-400 { color: #78716C; }
+.text-charcoal-500 { color: #57534E; }
+.text-charcoal-600 { color: #44403C; }
+.text-charcoal-700 { color: #292524; }
+.text-charcoal-800 { color: #1C1917; }
+.border-charcoal-200 { border-color: #E7E5E4; }
+.hover\:bg-charcoal-600:hover { background-color: #44403C; }
+
+.bg-gold-500 { background-color: #1C1917; }
+.bg-gold-600 { background-color: #0C0A09; }
+.text-gold-500 { color: #1C1917; }
+
+/* Soften inherited typographic flourish */
+.font-serif { font-family: Inter, system-ui, -apple-system, sans-serif; }
+
+/* Older button helper used in modals */
+.btn-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 9999px;
+  background-color: rgba(245,245,244,0.9);
+  border: 1px solid #E7E5E4;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+.btn-icon:hover { background-color: #FFFFFF; border-color: #D6D3D1; }
+
+/* Drop the heavy "botanical" shadow used as a default modal/card halo */
+.shadow-botanical { box-shadow: 0 18px 40px rgba(31, 26, 20, 0.12); }
+.shadow-soft { box-shadow: 0 4px 14px rgba(31, 26, 20, 0.06); }
+.shadow-cozy { box-shadow: 0 10px 28px rgba(31, 26, 20, 0.10); }

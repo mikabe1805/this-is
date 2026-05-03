@@ -96,22 +96,24 @@ const EditPlaceModal = ({ isOpen, onClose, listPlace, onSave }: EditPlaceModalPr
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      {/* Backdrop */}
-      <div 
-        className="absolute inset-0 bg-charcoal-900/50 backdrop-blur-sm"
-        onClick={onClose}
-      />
-      
-      {/* Modal */}
-      <div className="relative w-full max-w-md bg-white rounded-3xl shadow-botanical border border-linen-200 max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4 bg-[#1A1815]/55 backdrop-blur-sm" onClick={onClose}>
+      <div
+        className="modal-paper relative w-full sm:max-w-md rounded-t-3xl sm:rounded-3xl border border-edge max-h-[92vh] overflow-y-auto"
+        style={{ boxShadow: '0 18px 60px rgba(46, 28, 13, 0.22)' }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div data-drag-handle className="sm:hidden flex justify-center py-3 shrink-0" aria-hidden>
+          <span className="w-10 h-1 rounded-full bg-ink-faint" />
+        </div>
         {/* Header */}
-        <div className="sticky top-0 p-6 border-b border-linen-200 bg-white/95 backdrop-blur-glass rounded-t-3xl">
+        <div className="sticky top-0 z-10 px-5 sm:px-6 py-4 border-b border-edge bg-paper/95 backdrop-blur-md">
           <div className="flex items-center justify-between">
-            <h2 className="text-xl font-serif font-semibold text-charcoal-800">Edit Place</h2>
+            <p className="label-eyebrow text-ink-mute">Edit place</p>
             <button
+              type="button"
               onClick={onClose}
-              className="p-2 rounded-xl bg-linen-100 text-charcoal-600 hover:bg-linen-200 transition-colors"
+              className="h-9 w-9 rounded-full hover:bg-paper-deep flex items-center justify-center text-ink"
+              aria-label="Close"
             >
               <XMarkIcon className="w-5 h-5" />
             </button>
@@ -119,172 +121,134 @@ const EditPlaceModal = ({ isOpen, onClose, listPlace, onSave }: EditPlaceModalPr
         </div>
 
         {/* Content */}
-        <div className="p-6 space-y-6">
+        <div className="px-5 sm:px-6 py-5 space-y-5 relative z-10">
           {/* Place Info */}
-          <div className="bg-linen-50 rounded-2xl p-4">
-            <div className="flex items-start gap-4">
-              <img
-                src={listPlace.place.hubImage || 'https://images.unsplash.com/photo-1442512595331-e89e73853f31?w=150&h=150&fit=crop'}
-                alt={listPlace.place.name}
-                className="w-16 h-16 rounded-xl2 object-cover shadow-soft border border-linen-200"
-              />
-              <div className="flex-1">
-                <h3 className="font-serif font-semibold text-charcoal-800 mb-1">{listPlace.place.name}</h3>
-                <p className="text-sm text-charcoal-500 mb-2">{listPlace.place.address}</p>
-                <div className="flex flex-wrap gap-1">
-                  {listPlace.place.tags.slice(0, 3).map(tag => (
-                    <span
-                      key={tag}
-                      className="px-2 py-1 bg-white text-charcoal-600 text-xs rounded-full border border-linen-200"
-                    >
-                      #{tag}
-                    </span>
-                  ))}
-                </div>
+          <div className="bg-card rounded-2xl p-4 border border-edge">
+            <div className="flex items-start gap-3.5">
+              <div className="w-14 h-14 rounded-[12px] overflow-hidden bg-paper-deep ring-1 ring-edge flex items-center justify-center shrink-0">
+                {listPlace.place.hubImage ? (
+                  <img
+                    src={listPlace.place.hubImage}
+                    alt=""
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <span className="font-display text-[22px] text-ink-soft" aria-hidden>
+                    {(listPlace.place.name || '?').slice(0, 1).toUpperCase()}
+                  </span>
+                )}
+              </div>
+              <div className="flex-1 min-w-0">
+                <h3 className="font-display text-[18px] leading-tight text-ink truncate">{listPlace.place.name}</h3>
+                <p className="font-mono text-[10px] tracking-[0.10em] uppercase text-ink-mute truncate mt-0.5">{listPlace.place.address}</p>
+                {listPlace.place.tags && listPlace.place.tags.length > 0 && (
+                  <div className="flex flex-wrap gap-1 mt-2">
+                    {listPlace.place.tags.slice(0, 3).map(tag => (
+                      <span key={tag} className="glass-honey px-2.5 h-6 rounded-full font-mono text-[10px] tracking-wide inline-flex items-center">
+                        #{tag}
+                      </span>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           </div>
 
           {/* Status Selection */}
           <div>
-            <label className="block text-sm font-medium text-charcoal-700 mb-3">Status</label>
-            <div className="space-y-2">
-              <button
-                onClick={() => handleStatusChange('want')}
-                className={`w-full flex items-center gap-3 p-3 rounded-xl border transition-colors ${
-                  formData.status === 'want'
-                    ? 'border-blue-300 bg-blue-50 text-blue-700'
-                    : 'border-linen-200 bg-linen-50 text-charcoal-600 hover:bg-linen-100'
-                }`}
-              >
-                <BookmarkIcon className="w-5 h-5" />
-                <div className="text-left">
-                  <div className="font-medium">Want to Try</div>
-                  <div className="text-xs opacity-75">Places you want to visit</div>
-                </div>
-              </button>
-
-              <button
-                onClick={() => handleStatusChange('tried')}
-                className={`w-full flex items-center gap-3 p-3 rounded-xl border transition-colors ${
-                  formData.status === 'tried'
-                    ? 'border-sage-300 bg-sage-50 text-sage-700'
-                    : 'border-linen-200 bg-linen-50 text-charcoal-600 hover:bg-linen-100'
-                }`}
-              >
-                <StarIcon className="w-5 h-5" />
-                <div className="text-left">
-                  <div className="font-medium">Tried</div>
-                  <div className="text-xs opacity-75">Places you've visited</div>
-                </div>
-              </button>
-
-              <button
-                onClick={() => handleStatusChange('loved')}
-                className={`w-full flex items-center gap-3 p-3 rounded-xl border transition-colors ${
-                  formData.status === 'loved'
-                    ? 'border-gold-300 bg-gold-50 text-gold-700'
-                    : 'border-linen-200 bg-linen-50 text-charcoal-600 hover:bg-linen-100'
-                }`}
-              >
-                <HeartIcon className="w-5 h-5" />
-                <div className="text-left">
-                  <div className="font-medium">Loved</div>
-                  <div className="text-xs opacity-75">Your favorite places</div>
-                </div>
-              </button>
+            <p className="label-eyebrow text-ink-mute mb-2.5">Status</p>
+            <div className="grid grid-cols-3 gap-1.5">
+              {([
+                { key: 'want',  label: 'Want',  Icon: BookmarkIcon },
+                { key: 'tried', label: 'Been',  Icon: StarIcon },
+                { key: 'loved', label: 'Loved', Icon: HeartIcon },
+              ] as const).map(({ key, label, Icon }) => {
+                const active = formData.status === key
+                return (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => handleStatusChange(key)}
+                    aria-pressed={active}
+                    className={`h-12 rounded-full text-[13px] font-medium border transition-colors flex items-center justify-center gap-1.5 ${
+                      active ? 'bg-accent text-white border-accent' : 'bg-card text-ink border-edge hover:border-ink/40'
+                    }`}
+                  >
+                    <Icon className="w-4 h-4" />
+                    {label}
+                  </button>
+                )
+              })}
             </div>
           </div>
 
           {/* Feeling Selection (only for 'tried' status) */}
           {formData.status === 'tried' && (
             <div>
-              <label className="block text-sm font-medium text-charcoal-700 mb-3">How was it?</label>
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  onClick={() => handleFeelingChange('amazing')}
-                  className={`p-3 rounded-xl border transition-colors ${
-                    formData.feeling === 'amazing'
-                      ? 'border-emerald-300 bg-emerald-50 text-emerald-700'
-                      : 'border-linen-200 bg-linen-50 text-charcoal-600 hover:bg-linen-100'
-                  }`}
-                >
-                  <div className="font-medium">Amazing</div>
-                  <div className="text-xs opacity-75">⭐️⭐️⭐️⭐️⭐️</div>
-                </button>
-                <button
-                  onClick={() => handleFeelingChange('good')}
-                  className={`p-3 rounded-xl border transition-colors ${
-                    formData.feeling === 'good'
-                      ? 'border-sage-300 bg-sage-50 text-sage-700'
-                      : 'border-linen-200 bg-linen-50 text-charcoal-600 hover:bg-linen-100'
-                  }`}
-                >
-                  <div className="font-medium">Good</div>
-                  <div className="text-xs opacity-75">⭐️⭐️⭐️⭐️</div>
-                </button>
-                <button
-                  onClick={() => handleFeelingChange('okay')}
-                  className={`p-3 rounded-xl border transition-colors ${
-                    formData.feeling === 'okay'
-                      ? 'border-amber-300 bg-amber-50 text-amber-700'
-                      : 'border-linen-200 bg-linen-50 text-charcoal-600 hover:bg-linen-100'
-                  }`}
-                >
-                  <div className="font-medium">Okay</div>
-                  <div className="text-xs opacity-75">⭐️⭐️⭐️</div>
-                </button>
-                <button
-                  onClick={() => handleFeelingChange('disappointing')}
-                  className={`p-3 rounded-xl border transition-colors ${
-                    formData.feeling === 'disappointing'
-                      ? 'border-red-300 bg-red-50 text-red-700'
-                      : 'border-linen-200 bg-linen-50 text-charcoal-600 hover:bg-linen-100'
-                  }`}
-                >
-                  <div className="font-medium">Disappointing</div>
-                  <div className="text-xs opacity-75">⭐️⭐️</div>
-                </button>
+              <p className="label-eyebrow text-ink-mute mb-2.5">How was it?</p>
+              <div className="grid grid-cols-2 gap-1.5">
+                {([
+                  { key: 'amazing',       label: 'Amazing',       stars: '⭐️⭐️⭐️⭐️⭐️' },
+                  { key: 'good',          label: 'Good',          stars: '⭐️⭐️⭐️⭐️' },
+                  { key: 'okay',          label: 'Okay',          stars: '⭐️⭐️⭐️' },
+                  { key: 'disappointing', label: 'Disappointing', stars: '⭐️⭐️' },
+                ] as const).map(({ key, label, stars }) => {
+                  const active = formData.feeling === key
+                  return (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => handleFeelingChange(key)}
+                      aria-pressed={active}
+                      className={`p-3 rounded-xl border transition-colors text-left ${
+                        active ? 'border-ink bg-paper-deep text-ink' : 'border-edge bg-card text-ink hover:border-ink/40'
+                      }`}
+                    >
+                      <div className="text-[14px] font-medium">{label}</div>
+                      <div className="text-[10px] mt-0.5 opacity-80">{stars}</div>
+                    </button>
+                  )
+                })}
               </div>
             </div>
           )}
 
           {/* Note */}
           <div>
-            <label className="block text-sm font-medium text-charcoal-700 mb-2">Note</label>
+            <label htmlFor="edit-place-note" className="label-eyebrow text-ink-mute mb-2 block">Note</label>
             <div className="relative">
               <textarea
+                id="edit-place-note"
                 value={formData.note}
-                onChange={(e) => setFormData(prev => ({ ...prev, note: e.target.value }))}
+                onChange={(e) => setFormData(prev => ({ ...prev, note: e.target.value.slice(0, 200) }))}
                 rows={3}
-                className="w-full px-4 py-3 rounded-xl border border-linen-200 bg-linen-50 text-charcoal-700 focus:outline-none focus:ring-2 focus:ring-sage-200 focus:border-sage-300 transition-colors resize-none"
-                placeholder="Add your thoughts about this place..."
+                maxLength={200}
+                className="w-full px-3.5 py-3 rounded-xl border border-edge bg-card text-[14px] text-ink placeholder:text-ink-mute outline-none focus:border-ink/40 resize-none"
+                placeholder="Add your thoughts about this place…"
               />
-              <PencilIcon className="absolute right-3 top-3 w-4 h-4 text-charcoal-400" />
+              <PencilIcon className="absolute right-3 top-3 w-4 h-4 text-ink-mute" />
             </div>
-            <p className="text-xs text-charcoal-400 mt-1">{formData.note.length}/200 characters</p>
+            <p className="font-mono text-[10px] tracking-[0.10em] uppercase text-ink-mute mt-1">{formData.note.length} / 200</p>
           </div>
         </div>
 
         {/* Footer */}
-        <div className="sticky bottom-0 p-6 border-t border-linen-200 bg-white/95 backdrop-blur-glass rounded-b-3xl">
-          <div className="flex gap-3">
+        <div className="sticky bottom-0 px-5 sm:px-6 py-4 border-t border-edge bg-paper/95 backdrop-blur-md">
+          <div className="flex gap-2">
             <button
+              type="button"
               onClick={onClose}
-              className="flex-1 px-4 py-3 rounded-xl border border-linen-200 bg-linen-50 text-charcoal-600 font-medium hover:bg-linen-100 transition-colors"
+              className="btn-secondary flex-1 h-12 font-medium text-[15px]"
             >
               Cancel
             </button>
             <button
+              type="button"
               onClick={handleSave}
               disabled={isSaving}
-              className={`flex-1 px-4 py-3 rounded-xl font-medium transition-colors ${
-                isSaving
-                  ? 'bg-sage-200 text-sage-400 cursor-not-allowed'
-                  : 'bg-sage-500 text-white hover:bg-sage-600 shadow-soft'
-              }`}
+              className="btn-cta flex-1 h-12 font-semibold text-[15px] disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {isSaving ? 'Saving...' : 'Save Changes'}
+              {isSaving ? 'Saving…' : 'Save changes'}
             </button>
           </div>
         </div>

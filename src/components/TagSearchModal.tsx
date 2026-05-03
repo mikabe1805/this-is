@@ -27,11 +27,15 @@ const TagSearchModal: React.FC<TagSearchModalProps> = ({
   )
 
   const handleTagToggle = (tag: string) => {
-    setLocalSelectedTags(prev => 
-      prev.includes(tag) 
-        ? prev.filter(t => t !== tag)
-        : [...prev, tag]
-    )
+    // Case-insensitive compare so old "Coffee" and new lowercase "coffee"
+    // collapse to the same tag instead of producing a duplicate entry.
+    const norm = tag.toLowerCase().trim()
+    setLocalSelectedTags(prev => {
+      const exists = prev.some(t => t.toLowerCase().trim() === norm)
+      return exists
+        ? prev.filter(t => t.toLowerCase().trim() !== norm)
+        : [...prev, norm]
+    })
   }
 
   const handleApply = () => {

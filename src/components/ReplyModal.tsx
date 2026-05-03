@@ -72,45 +72,43 @@ const ReplyModal = ({
   if (!isOpen) return null
 
   const modalContent = (
-    <div className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center p-4">
-      {/* Backdrop */}
-      <div 
-        className="absolute inset-0 bg-charcoal-900/50 backdrop-blur-sm"
-        onClick={handleClose}
-      />
-      
-      {/* Modal */}
-      <div className="relative w-full max-w-md bg-white rounded-t-2xl sm:rounded-2xl shadow-botanical border border-linen-200 max-h-[90vh] flex flex-col">
+    <div className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center sm:p-4 bg-[#1A1815]/55 backdrop-blur-sm" onClick={handleClose}>
+      <div
+        className="modal-paper relative w-full sm:max-w-md rounded-t-3xl sm:rounded-3xl border border-edge max-h-[90vh] flex flex-col overflow-hidden"
+        style={{ boxShadow: '0 18px 60px rgba(46, 28, 13, 0.22)' }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div data-drag-handle className="sm:hidden flex justify-center py-3 shrink-0" aria-hidden>
+          <span className="w-10 h-1 rounded-full bg-ink-faint" />
+        </div>
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-linen-200">
-          <h2 className="text-lg font-serif font-semibold text-charcoal-800">Reply</h2>
+        <div className="flex items-center justify-between px-5 py-4 border-b border-edge relative z-10">
+          <p className="label-eyebrow text-ink-mute">Reply</p>
           <button
+            type="button"
             onClick={handleClose}
-            className="p-2 rounded-xl text-charcoal-400 hover:text-charcoal-600 hover:bg-linen-100 transition"
+            aria-label="Close"
+            className="h-9 w-9 rounded-full hover:bg-paper-deep flex items-center justify-center text-ink"
           >
             <XMarkIcon className="w-5 h-5" />
           </button>
         </div>
 
         {/* Original Post */}
-        <div className="p-4 bg-linen-50 border-b border-linen-200">
+        <div className="px-5 py-4 border-b border-edge relative z-10">
           <div className="flex items-start gap-3">
-            <div className="w-10 h-10 rounded-full bg-sage-100 flex items-center justify-center flex-shrink-0">
-              <span className="text-sage-600 font-semibold text-sm">{postAuthor.charAt(0)}</span>
+            <div className="w-10 h-10 rounded-full bg-paper-deep ring-1 ring-edge flex items-center justify-center flex-shrink-0">
+              <span className="font-display text-[16px] text-ink-soft">{postAuthor.charAt(0).toUpperCase()}</span>
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 mb-1">
-                <span className="font-semibold text-charcoal-700 text-sm">{postAuthor}</span>
-                <span className="text-xs text-charcoal-400">• Original post</span>
+                <span className="text-[13px] font-medium text-ink truncate">{postAuthor}</span>
+                <span className="font-mono text-[10px] tracking-[0.10em] uppercase text-ink-mute">· original</span>
               </div>
-              <p className="text-charcoal-600 text-sm mb-2 leading-relaxed">{postContent}</p>
+              <p className="text-[13px] text-ink-soft leading-relaxed mb-2 whitespace-pre-wrap">{postContent}</p>
               {postImage && (
-                <div className="relative w-20 h-20 rounded-lg overflow-hidden bg-linen-100">
-                  <img 
-                    src={postImage} 
-                    alt="Original post" 
-                    className="w-full h-full object-cover"
-                  />
+                <div className="w-20 h-20 rounded-[10px] overflow-hidden bg-paper-deep ring-1 ring-edge">
+                  <img src={postImage} alt="" className="w-full h-full object-cover" />
                 </div>
               )}
             </div>
@@ -118,62 +116,56 @@ const ReplyModal = ({
         </div>
 
         {/* Reply Form */}
-        <div className="flex-1 p-4">
+        <div className="flex-1 px-5 py-4 overflow-y-auto relative z-10">
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="flex items-start gap-3">
-              <div className="w-10 h-10 rounded-full bg-gradient-to-r from-sage-500 to-gold-500 flex items-center justify-center flex-shrink-0">
-                <span className="text-white font-semibold text-sm">M</span>
-              </div>
-              <div className="flex-1">
-                <textarea
-                  value={replyText}
-                  onChange={(e) => setReplyText(e.target.value)}
-                  placeholder={`Reply to ${postAuthor}...`}
-                  rows={4}
-                  className="w-full px-4 py-3 rounded-xl border border-linen-200 bg-white text-charcoal-700 placeholder-charcoal-400 focus:outline-none focus:ring-2 focus:ring-sage-200 focus:border-transparent resize-none"
-                  disabled={isSubmitting}
-                />
-              </div>
+            <div>
+              <label htmlFor="reply-text" className="sr-only">Reply</label>
+              <textarea
+                id="reply-text"
+                value={replyText}
+                onChange={(e) => setReplyText(e.target.value)}
+                placeholder={`Reply to ${postAuthor}…`}
+                rows={4}
+                className="w-full px-3.5 py-3 rounded-xl border border-edge bg-card text-[14px] text-ink placeholder:text-ink-mute outline-none focus:border-ink/40 resize-none"
+                disabled={isSubmitting}
+              />
             </div>
 
             {/* Image Preview */}
             {images.length > 0 && (
-              <div className="space-y-2">
-                <div className="flex flex-wrap gap-2">
-                  {images.map((image, index) => (
-                    <div key={index} className="relative w-20 h-20 rounded-lg overflow-hidden bg-linen-100">
-                      <img 
-                        src={image} 
-                        alt={`Upload ${index + 1}`} 
-                        className="w-full h-full object-cover"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveImage(index)}
-                        className="absolute top-1 right-1 w-6 h-6 bg-charcoal-900/70 text-white rounded-full flex items-center justify-center text-xs hover:bg-charcoal-900 transition"
-                      >
-                        ×
-                      </button>
-                    </div>
-                  ))}
-                </div>
+              <div className="flex flex-wrap gap-2">
+                {images.map((image, index) => (
+                  <div key={index} className="relative w-20 h-20 rounded-[10px] overflow-hidden bg-paper-deep ring-1 ring-edge">
+                    <img src={image} alt="" className="w-full h-full object-cover" />
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveImage(index)}
+                      aria-label={`Remove image ${index + 1}`}
+                      className="absolute top-1 right-1 w-6 h-6 bg-[#1A1815]/70 text-white rounded-full flex items-center justify-center text-xs hover:bg-[#1A1815] transition-colors"
+                    >
+                      ×
+                    </button>
+                  </div>
+                ))}
               </div>
             )}
 
-            {/* Action Buttons */}
-            <div className="flex items-center justify-between pt-2">
-              <div className="flex items-center gap-2">
+            {/* Action Row */}
+            <div className="flex items-center justify-between pt-1">
+              <div className="flex items-center gap-1">
                 <button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
-                  className="p-2 rounded-lg text-charcoal-400 hover:text-charcoal-600 hover:bg-linen-100 transition"
+                  className="h-9 w-9 rounded-full hover:bg-paper-deep flex items-center justify-center text-ink-mute hover:text-ink transition-colors"
                   disabled={images.length >= 4}
+                  aria-label="Add photo"
                 >
                   <PhotoIcon className="w-5 h-5" />
                 </button>
                 <button
                   type="button"
-                  className="p-2 rounded-lg text-charcoal-400 hover:text-charcoal-600 hover:bg-linen-100 transition"
+                  className="h-9 w-9 rounded-full hover:bg-paper-deep flex items-center justify-center text-ink-mute hover:text-ink transition-colors"
+                  aria-label="Add location"
                 >
                   <MapPinIcon className="w-5 h-5" />
                 </button>
@@ -189,10 +181,10 @@ const ReplyModal = ({
               <button
                 type="submit"
                 disabled={!replyText.trim() || isSubmitting}
-                className="px-6 py-2 bg-gradient-to-r from-sage-500 to-gold-500 text-white rounded-xl font-medium hover:shadow-botanical disabled:opacity-50 disabled:cursor-not-allowed transition flex items-center gap-2"
+                className="btn-cta h-11 px-5 inline-flex items-center justify-center gap-2 text-[14px] font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <PaperAirplaneIcon className="w-4 h-4" />
-                {isSubmitting ? 'Posting...' : 'Reply'}
+                {isSubmitting ? 'Posting…' : 'Reply'}
               </button>
             </div>
           </form>

@@ -2,8 +2,9 @@ import type { User, List, Activity, Place } from '../types/index.js'
 import { BookmarkIcon, HeartIcon, PlusIcon, MapPinIcon, CalendarIcon, EllipsisHorizontalIcon } from '@heroicons/react/24/outline'
 import { HeartIcon as HeartIconSolid } from '@heroicons/react/24/solid'
 import { useState, useRef, useEffect, useMemo, useDeferredValue } from 'react'
-import SearchAndFilter from '../components/SearchAndFilter'
+// SearchAndFilter removed in UX refresh — replaced by inline header search
 import SaveModal from '../components/SaveModal'
+import PageWatermark from '../components/ui/PageWatermark'
 import LocationSelectModal from '../components/LocationSelectModal'
 import CreatePost from '../components/CreatePost'
 import UserMenuDropdown from '../components/UserMenuDropdown'
@@ -21,7 +22,7 @@ import { firebaseDataService } from '../services/firebaseDataService.js'
 import TagAutocomplete from '../components/TagAutocomplete'
 import TagPill from '../components/TagPill'
 import { formatTimestamp } from '../utils/dateUtils'
-import AdvancedFiltersDrawer from '../components/AdvancedFiltersDrawer'
+// AdvancedFiltersDrawer removed in UX refresh
 // import Card from '../components/Card'
 import Section from '../components/Section'
 
@@ -272,6 +273,38 @@ const Profile = () => {
         }
     }, [location.pathname, authUser, loading]);
 
+    // Refresh saved-place count and lists when a save happens elsewhere.
+    useEffect(() => {
+        if (!authUser) return
+        const onSaved = async () => {
+            try {
+                const [lists, savedPlaces] = await Promise.all([
+                    firebaseDataService.getUserLists(authUser.id),
+                    firebaseDataService.getSavedPlaces(authUser.id),
+                ])
+                setUserLists(lists)
+                setListCount(lists.length)
+                setPlaceCount(savedPlaces.length)
+            } catch (e) {
+                console.warn('[profile] saved-event refresh failed', e)
+            }
+        }
+        window.addEventListener('this-is:saved', onSaved)
+        return () => window.removeEventListener('this-is:saved', onSaved)
+    }, [authUser?.id]);
+
+    // Keep follower count in sync when someone follows/unfollows this user.
+    useEffect(() => {
+        if (!authUser) return
+        const onFollowed = (e: Event) => {
+            const detail = (e as CustomEvent).detail as { followedId?: string; delta?: number } | undefined
+            if (!detail || detail.followedId !== authUser.id) return
+            setFollowerCount(prev => Math.max(0, prev + (detail.delta || 0)))
+        }
+        window.addEventListener('this-is:followed', onFollowed)
+        return () => window.removeEventListener('this-is:followed', onFollowed)
+    }, [authUser?.id]);
+
     useEffect(() => {
         const onOpenEdit = (e: any) => {
             const id = e.detail?.listId as string
@@ -471,19 +504,37 @@ const Profile = () => {
         setShowSaveModal(true)
     }
 
-    const handleSave = (status: 'loved' | 'tried' | 'want', rating?: 'liked' | 'neutral' | 'disliked', listIds?: string[], note?: string) => {
-        console.log('Saving place:', {
-            place: selectedPlace,
-            status,
-            rating,
-            listIds,
-            note,
-            autoSaveToList: `All ${status.charAt(0).toUpperCase() + status.slice(1)}`
-        })
+    const handleSave = async (status: 'loved' | 'tried' | 'want', rating?: 'liked' | 'neutral' | 'disliked', listIds?: string[], note?: string) => {
+        if (!selectedPlace || !authUser) { setShowSaveModal(false); return }
+        try {
+            const ids = Array.isArray(listIds) ? listIds : []
+            for (const lid of ids) {
+                await firebaseDataService.savePlaceToList(selectedPlace.id, lid, authUser.id, note, undefined, status, rating)
+            }
+            await firebaseDataService.saveToAutoList(selectedPlace.id, authUser.id, status, note, rating)
+            await firebaseDataService.recordUserSave(selectedPlace.id, authUser.id)
+        } catch (e) {
+            console.error('[profile] save failed', e)
+        } finally {
+            setShowSaveModal(false)
+            setSelectedPlace(null)
+        }
     }
 
-    const handleCreateList = (listData: { name: string; description: string; privacy: 'public' | 'private' | 'friends'; tags?: string[]; coverImage?: string }) => {
-        console.log('Creating new list:', listData, 'and saving place:', selectedPlace)
+    const handleCreateList = async (listData: { name: string; description: string; privacy: 'public' | 'private' | 'friends'; tags?: string[]; coverImage?: string }) => {
+        if (!selectedPlace || !authUser) { setShowSaveModal(false); return }
+        try {
+            const newId = await firebaseDataService.createList({ ...listData, tags: listData.tags || [], userId: authUser.id })
+            if (newId) {
+                await firebaseDataService.savePlaceToList(selectedPlace.id, newId, authUser.id, undefined, undefined, 'loved')
+                await firebaseDataService.recordUserSave(selectedPlace.id, authUser.id)
+            }
+        } catch (e) {
+            console.error('[profile] create list + save failed', e)
+        } finally {
+            setShowSaveModal(false)
+            setSelectedPlace(null)
+        }
     }
 
     const handleSortByChange = (newSortBy: string) => {
@@ -517,100 +568,83 @@ const Profile = () => {
     }
 
     return (
-        <div className="relative min-h-full overflow-x-hidden bg-surface sunlight-soft">
-            <div className="relative z-10 px-4 pt-5">
-                <form onSubmit={(e) => { e.preventDefault() }}>
-                    <SearchAndFilter
-                        placeholder="Search your lists, places, or friends..."
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        showBackButton={!!searchQuery}
-                        onBackClick={() => setSearchQuery('')}
-                        sortOptions={sortOptions}
-                        filterOptions={filterOptions}
-                        availableTags={availableTags}
-                        selectedTags={selectedTags}
-                        setSelectedTags={setSelectedTags}
-                        sortBy={sortBy}
-                        setSortBy={handleSortByChange}
-                        activeFilters={activeFilters}
-                        setActiveFilters={setActiveFilters}
-                        dropdownPosition="top-right"
-                        onSubmitQuery={() => { /* in-place filtering */ }}
-                        onOpenAdvanced={() => setShowAdvanced(true)}
-                    />
-                </form>
-                <AdvancedFiltersDrawer
-                    isOpen={showAdvanced}
-                    onClose={() => setShowAdvanced(false)}
-                    onApply={() => {
-                        setShowAdvanced(false);
-                    }}
-                />
-            </div>
-            {!searchQuery.trim() && (
-            <div className="relative z-10 p-6 mt-6 rounded-2xl surface-soft max-w-2xl mx-auto overflow-hidden flex flex-col gap-2 sunlight-soft">
-                <div className="flex items-center gap-6">
-                    <div className="relative">
-                        <span className="pointer-events-none absolute -top-3 -left-3 w-16 h-16 rounded-full bg-white/55 blur-xl opacity-80"></span>
-                        <img
-                            src={currentUser.avatar || 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face'}
-                            alt={currentUser.name}
-                            className="w-20 h-20 rounded-xl object-cover bg-white/20"
-                            onError={(e) => {
-                                console.warn('Profile image failed to load:', currentUser.avatar)
-                                e.currentTarget.src = 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face'
-                            }}
-                            onLoad={() => {
-                                if (currentUser.avatar && !currentUser.avatar.includes('unsplash') && !currentUser.avatar.includes('placeholder')) {
-                                    console.log('✅ Custom profile image loaded successfully:', currentUser.avatar)
-                                }
-                            }}
+        <div className="relative min-h-full overflow-x-hidden">
+            <PageWatermark variant="climbing" anchor="top" size={400} opacity={0.20} />
+            <header className="sticky top-0 z-30 bg-[#FAF7F1]/85 backdrop-blur-md border-b border-stone-200/60">
+                <div className="px-4 pt-4 pb-3 flex items-center justify-between gap-3">
+                    <h1 className="text-[26px] font-semibold tracking-tight text-stone-900 leading-none">Profile</h1>
+                    <div className="flex items-center gap-2">
+                        <input
+                            type="search"
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            placeholder="Filter your lists"
+                            className="h-10 w-44 px-3.5 rounded-xl bg-white border border-stone-200 text-[14px] text-stone-900 placeholder:text-stone-400 focus:border-stone-400 outline-none"
                         />
                     </div>
-                    <div className="flex-1">
-                        <div className="flex items-center justify-between mb-1">
-                            <div className="flex items-center gap-2">
-                                <h2 className="text-2xl font-serif font-extrabold text-title tracking-tight">{currentUser.name}</h2>
+                </div>
+            </header>
+            {!searchQuery.trim() && (
+            <div className="relative z-10 px-5 pt-6 pb-2 max-w-2xl mx-auto">
+                <div className="flex items-start gap-5">
+                    <img
+                        src={currentUser.avatar || '/assets/default-avatar.svg'}
+                        alt={currentUser.name}
+                        className="w-[88px] h-[88px] rounded-full object-cover bg-paper-deep ring-1 ring-edge"
+                        onError={(e) => {
+                            e.currentTarget.src = '/assets/default-avatar.svg'
+                        }}
+                    />
+                    <div className="flex-1 min-w-0 pt-1">
+                        <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                                <h2 className="font-display text-[34px] leading-[0.95] text-ink truncate">
+                                    {currentUser.name}
+                                </h2>
+                                <p className="font-mono text-[11px] tracking-[0.14em] uppercase text-ink-mute mt-1.5">
+                                    @{currentUser.username}
+                                </p>
                             </div>
                             <button
                                 ref={userMenuButtonRef}
                                 onClick={() => setShowUserMenu(true)}
-                                className="w-8 h-8 glass rounded-full flex items-center justify-center hover:bg-white/20 transition-colors"
+                                className="shrink-0 w-9 h-9 rounded-full bg-card border border-edge flex items-center justify-center hover:border-ink/30 transition-colors"
+                                aria-label="More"
                             >
-                                <EllipsisHorizontalIcon className="w-5 h-5 text-charcoal-600" />
+                                <EllipsisHorizontalIcon className="w-5 h-5 text-ink" />
                             </button>
                         </div>
-                        <p className="text-[1.05rem] text-meta mb-1">@{currentUser.username}</p>
                         {currentUser.location && (
-                            <div className="flex items-center gap-2 text-[0.95rem] text-body mb-1">
-                                <MapPinIcon className="w-5 h-5 text-bark-700/70" />
+                            <p className="text-[13px] text-ink-soft mt-2 flex items-center gap-1.5">
+                                <MapPinIcon className="w-3.5 h-3.5 text-ink-mute" />
                                 {currentUser.location}
-                            </div>
+                            </p>
                         )}
-                        <div className="flex items-center gap-2 text-[0.95rem] text-meta">
-                            <CalendarIcon className="w-5 h-5 text-gold-500" />
-                            <span>Member since {formatTimestamp(currentUser.createdAt)}</span>
-                        </div>
-                    </div>
-                </div>
-                <div className="flex items-center gap-6 mt-4">
-                    <div className="text-center">
-                        <div className="text-xl font-serif font-bold text-charcoal-700">{listCount}</div>
-                        <div className="text-xs text-charcoal-400">Lists</div>
-                    </div>
-                    <div className="text-center">
-                        <div className="text-xl font-serif font-bold text-charcoal-700">{placeCount}</div>
-                        <div className="text-xs text-charcoal-400">Places</div>
-                    </div>
-                    <div className="text-center">
-                        <div className="text-xl font-serif font-bold text-charcoal-700">{followerCount}</div>
-                        <div className="text-xs text-charcoal-400">Followers</div>
                     </div>
                 </div>
                 {currentUser.bio && (
-                    <p className="mt-4 text-[0.95rem] text-body glass rounded-xl p-3">{currentUser.bio}</p>
+                    <p className="font-display-italic text-[18px] text-ink-soft leading-snug mt-5 max-w-prose">
+                        {currentUser.bio}
+                    </p>
                 )}
+                <div className="grid grid-cols-3 divide-x divide-edge border-y border-edge mt-6">
+                    <div className="px-2 py-3">
+                        <div className="label-eyebrow text-ink-mute">Lists</div>
+                        <div className="font-display text-[26px] leading-none mt-1.5 text-ink">{listCount}</div>
+                    </div>
+                    <div className="px-2 py-3 pl-4">
+                        <div className="label-eyebrow text-ink-mute">Places</div>
+                        <div className="font-display text-[26px] leading-none mt-1.5 text-ink">{placeCount}</div>
+                    </div>
+                    <div className="px-2 py-3 pl-4">
+                        <div className="label-eyebrow text-ink-mute">Followers</div>
+                        <div className="font-display text-[26px] leading-none mt-1.5 text-ink">{followerCount}</div>
+                    </div>
+                </div>
+                <p className="font-mono text-[10px] tracking-[0.12em] uppercase text-ink-mute mt-3 flex items-center gap-1.5">
+                    <CalendarIcon className="w-3 h-3" />
+                    Member since {formatTimestamp(currentUser.createdAt)}
+                </p>
                 <div className="flex flex-wrap gap-2 mt-4">
                     {profileTags.map(tag => (
                         <TagPill
@@ -638,47 +672,31 @@ const Profile = () => {
                         />
                     </div>
                 </div>
-                <div className="grid grid-cols-3 gap-4 mt-6 border-t border-white/20 pt-4">
-                    <div className="text-center cursor-pointer" onClick={() => navigate('/lists')}>
-                        <div className="text-xl font-serif font-semibold text-title">{listCount}</div>
-                        <div className="text-sm text-meta">Lists</div>
-                    </div>
-                    <div className="text-center cursor-pointer" onClick={() => navigate('/places')}>
-                        <div className="text-xl font-serif font-semibold text-title">{placeCount}</div>
-                        <div className="text-sm text-meta">Places</div>
-                    </div>
-                    <div className="text-center cursor-pointer" onClick={() => navigate('/profile/following')}>
-                        <div className="text-xl font-serif font-semibold text-title">{followerCount}</div>
-                        <div className="text-sm text-meta">Followers</div>
-                    </div>
-                </div>
             </div>
             )}
             {!searchQuery.trim() && (
-            <div className="relative z-10 p-4 max-w-2xl mx-auto sunlight-soft">
-                <div className="rounded-2xl surface-soft p-6 flex gap-4 transition hover-lift hover-lift-on">
+            <div className="relative z-10 px-5 max-w-2xl mx-auto mt-6">
+                <div className="grid grid-cols-3 gap-2">
                     <button
-                        onClick={() => {
-                            window.dispatchEvent(new CustomEvent('openCreateList'))
-                        }}
-                        className="flex-1 rounded-xl p-4 bg-white/22 border border-white/26 backdrop-blur-md text-bark-900 font-semibold flex flex-col items-center gap-2 shadow-soft hover:bg-white/28 transition"
+                        onClick={() => window.dispatchEvent(new CustomEvent('openCreateList'))}
+                        className="rounded-2xl px-4 py-4 bg-card border border-edge text-ink flex flex-col items-start gap-3 hover:border-ink/30 transition-colors press"
                     >
-                        <PlusIcon className="w-6 h-6" />
-                        New List
+                        <PlusIcon className="w-5 h-5 text-accent" />
+                        <span className="label-eyebrow">New list</span>
                     </button>
                     <button
                         onClick={() => navigate('/lists')}
-                        className="flex-1 rounded-xl p-4 bg-white/22 border border-white/26 backdrop-blur-md text-bark-900 font-semibold flex flex-col items-center gap-2 shadow-soft hover:bg-white/28 transition"
+                        className="rounded-2xl px-4 py-4 bg-card border border-edge text-ink flex flex-col items-start gap-3 hover:border-ink/30 transition-colors press"
                     >
-                        <BookmarkIcon className="w-6 h-6" />
-                        View My Lists
+                        <BookmarkIcon className="w-5 h-5 text-ink" />
+                        <span className="label-eyebrow">My lists</span>
                     </button>
                     <button
                         onClick={() => navigate('/favorites')}
-                        className="flex-1 rounded-xl p-4 bg-white/22 border border-white/26 backdrop-blur-md text-bark-900 font-semibold flex flex-col items-center gap-2 shadow-soft hover:bg-white/28 transition"
+                        className="rounded-2xl px-4 py-4 bg-card border border-edge text-ink flex flex-col items-start gap-3 hover:border-ink/30 transition-colors press"
                     >
-                        <HeartIcon className="w-6 h-6" />
-                        Favorites
+                        <HeartIcon className="w-5 h-5 text-ink" />
+                        <span className="label-eyebrow">Favorites</span>
                     </button>
                 </div>
             </div>
@@ -688,103 +706,73 @@ const Profile = () => {
                     <Section title="Your Lists" action={
                       <button onClick={() => { const params = new URLSearchParams(); if (selectedTags.length > 0) params.set('tags', selectedTags.join(',')); if (sortBy) params.set('sort', sortBy); params.set('onlyMine', 'true'); navigate(`/lists?${params.toString()}`) }} className="text-sm font-medium text-body hover:underline">View All</button>
                     }>
-                    <div className="space-y-4">
+                    <div className="space-y-3">
                         {visibleLists.map((list) => (
                             <div
                                 key={list.id}
                                 role="button"
                                 tabIndex={0}
-                                className="w-full text-left rounded-xl glass flex flex-col md:flex-row gap-4 overflow-hidden transition hover:bg-white/20 focus:outline-none"
-                                                                    onClick={() => openListModal(list, 'profile')}
+                                onClick={() => openListModal(list, 'profile')}
                                 aria-label={`Open list ${list.name}`}
+                                className="w-full text-left rounded-2xl bg-card border border-edge flex gap-3.5 overflow-hidden hover:border-ink/20 transition-colors cursor-pointer p-3"
                             >
-                    <div className="w-full md:w-40 h-28 md:h-auto flex-shrink-0 bg-white/10 rounded-xl overflow-hidden">
-                                    <img src={list.coverImage} alt={list.name} className="w-full h-full object-cover" loading="lazy" />
-                    </div>
-                                <div className="flex-1 p-4 flex flex-col justify-between">
-                                    <div>
-                        <div className="flex items-center gap-2 mb-1">
-                            <h4 className="text-title">{list.name}</h4>
-                                            {list.tags.includes('auto-generated') && (
-                                                <span className="px-2 py-1 rounded-full text-xs font-medium bg-gold-100 text-gold-700 border border-gold-200">
-                                                    Auto
-                                                </span>
-                                            )}
-                                            {currentUser?.id === list.userId && (
-                                                <button
-                                                    ref={listMenuButtonRef}
-                                                    onClick={(e) => {
-                                                        e.stopPropagation()
-                                                        setSelectedListId(list.id)
-                                                        // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-                                                        // @ts-ignore
-                                                        listMenuButtonRef.current = e.currentTarget as HTMLButtonElement
-                                                        setShowListMenu(true)
-                                                    }}
-                                                    className="ml-auto w-8 h-8 bg-linen-100 rounded-full flex items-center justify-center hover:bg-linen-200 transition-colors"
-                                                    aria-label="Open list actions"
-                                                >
-                                                    <EllipsisHorizontalIcon className="w-5 h-5 text-charcoal-600" />
-                                                </button>
-                                            )}
+                                <div className="w-24 h-24 shrink-0 rounded-[12px] overflow-hidden bg-paper-deep ring-1 ring-edge">
+                                    {list.coverImage ? (
+                                        <img src={list.coverImage} alt={list.name} className="w-full h-full object-cover" loading="lazy" />
+                                    ) : (
+                                        <div className="w-full h-full flex items-center justify-center font-display text-[28px] text-ink-soft" aria-hidden>
+                                            {(list.name || '?').slice(0, 1).toUpperCase()}
                                         </div>
-                                        <p className="text-sm text-charcoal-500 mb-2 leading-relaxed break-words">{list.description}</p>
-                                        <div className="flex flex-wrap gap-2 mb-2">
-                                            {list.tags.filter(tag => tag !== 'auto-generated').map(tag => (
-                                                <TagPill
-                                                    key={tag}
-                                                    label={tag}
-                                                    onClick={(e) => { e.stopPropagation(); navigate(`/search?tag=${tag}`) }}
-                                                />
-                                            ))}
-                                        </div>
-                                    </div>
-                                    <div className="flex items-center gap-2 mt-2">
-                                        <img src={currentUser?.avatar || 'https://via.placeholder.com/150'} alt={currentUser?.name || 'User'} className="w-6 h-6 rounded-full object-cover" loading="lazy" />
-                                        <span className="text-xs text-charcoal-500 font-medium">{currentUser?.name || 'User'}</span>
-                                        <div className="ml-auto flex items-center gap-2">
+                                    )}
+                                </div>
+                                <div className="flex-1 min-w-0 flex flex-col">
+                                    <div className="flex items-start gap-2">
+                                        <h4 className="font-display text-[20px] leading-tight text-ink truncate flex-1">{list.name}</h4>
+                                        {currentUser?.id === list.userId && (
                                             <button
-                                                onClick={e => { e.stopPropagation(); handleLikeList(list.id) }}
-                                                className={`flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium transition ${savedListIds.has(list.id)
-                                                    ? 'bg-red-100 text-red-600 border border-red-200'
-                                                    : 'bg-gold-50 text-gold-600 hover:bg-gold-100'
-                                                    }`}
-                                                title="Add to favorites"
+                                                ref={listMenuButtonRef}
+                                                onClick={(e) => {
+                                                    e.stopPropagation()
+                                                    setSelectedListId(list.id)
+                                                    // @ts-ignore
+                                                    listMenuButtonRef.current = e.currentTarget as HTMLButtonElement
+                                                    setShowListMenu(true)
+                                                }}
+                                                className="shrink-0 w-8 h-8 rounded-full hover:bg-paper-deep flex items-center justify-center"
+                                                aria-label="List actions"
+                                            >
+                                                <EllipsisHorizontalIcon className="w-5 h-5 text-ink-mute" />
+                                            </button>
+                                        )}
+                                    </div>
+                                    {list.description && (
+                                        <p className="text-[12px] text-ink-soft line-clamp-1 mt-1">{list.description}</p>
+                                    )}
+                                    <div className="flex items-center gap-2 mt-auto pt-2">
+                                        <span className="font-mono text-[10px] tracking-[0.10em] uppercase text-ink-mute">
+                                            {(list as any).hubs?.length || 0} places
+                                        </span>
+                                        {list.tags.includes('auto-generated') && (
+                                            <span className="glass-honey label-eyebrow px-2 h-5 rounded-full inline-flex items-center">Auto</span>
+                                        )}
+                                        <div className="ml-auto flex items-center gap-1">
+                                            <button
+                                                onClick={(e) => { e.stopPropagation(); handleLikeList(list.id) }}
+                                                className="h-8 px-2 rounded-full font-mono text-[11px] tracking-wide flex items-center gap-1 transition-colors text-ink-mute hover:text-ink"
+                                                title="Like"
                                             >
                                                 {savedListIds.has(list.id) ? (
-                                                    <HeartIconSolid className="w-4 h-4" />
+                                                    <HeartIconSolid className="w-4 h-4" style={{ color: 'var(--bloom-deep)' }} />
                                                 ) : (
                                                     <HeartIcon className="w-4 h-4" />
                                                 )}
-                                                {list.likes || 0}
-                                            </button>
-                                            <button
-                                                onClick={e => {
-                                                    e.stopPropagation()
-                                                    const mockPlace: Place = {
-                                                        id: list.id,
-                                                        name: list.name,
-                                                        address: 'Various locations',
-                                                        tags: list.tags,
-                                                        posts: [],
-                                                        savedCount: list.likes || 0,
-                                                        createdAt: list.createdAt || new Date().toISOString()
-                                                    }
-                                                    handleSaveToPlace(mockPlace)
-                                                }}
-                                                className="p-1.5 rounded-full bg-gold-50 text-gold-600 hover:bg-gold-100 transition"
-                                                title="Save to list"
-                                            >
-                                                <BookmarkIcon className="w-4 h-4" />
+                                                {list.likes ? list.likes : ''}
                                             </button>
                                             {currentUser?.id === list.userId && (
                                                 <button
-                                                    onClick={e => {
-                                                        e.stopPropagation()
-                                                        handleCreatePost(list.id)
-                                                    }}
-                                                    className="p-1.5 rounded-full glass hover:bg-white/20 transition"
-                                                    title="Create post"
+                                                    onClick={(e) => { e.stopPropagation(); handleCreatePost(list.id) }}
+                                                    className="h-8 w-8 rounded-full hover:bg-paper-deep flex items-center justify-center text-ink-mute hover:text-ink"
+                                                    title="Add a post"
                                                 >
                                                     <PlusIcon className="w-4 h-4" />
                                                 </button>
@@ -800,7 +788,7 @@ const Profile = () => {
                         <div className="mt-4 flex justify-center">
                             <button
                                 onClick={() => setVisibleCount(c => c + 6)}
-                                className="pill pill--quiet"
+                                className="btn-secondary h-10 px-5 label-eyebrow"
                             >
                                 Load more
                             </button>
@@ -848,59 +836,81 @@ const Profile = () => {
                     </Section>
                 </div>
                 {!searchQuery.trim() && (
-                <div className="rounded-2xl shadow-soft border border-linen-200 p-6">
-                    <h3 className="text-xl font-serif font-semibold text-charcoal-700 mb-4">Comments</h3>
-                    <div className="space-y-4 mb-4">
-                        {comments.length > 0 ? (
-                            comments.map((comment) => (
-                                <div key={comment.id} className="flex items-start gap-3 p-3 bg-linen-50 rounded-xl">
-                                    <img src={comment.userAvatar || 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face'} alt={comment.username} className="w-8 h-8 rounded-full object-cover border-2 border-white shadow-soft flex-shrink-0" />
-                                    <div className="flex-1">
-                                        <div className="flex items-center gap-2 mb-1">
-                                            <span className="text-sm font-medium text-charcoal-700">{comment.username}</span>
-                                            <span className="text-xs text-charcoal-400">{formatTimestamp(comment.createdAt)}</span>
-                                        </div>
-                                        <p className="text-sm text-charcoal-600">{comment.text}</p>
-                                    </div>
-                                </div>
-                            ))
-                        ) : (
-                            <div className="text-center py-8">
-                                <div className="w-16 h-16 mx-auto mb-4 bg-linen-100 rounded-full flex items-center justify-center">
-                                    <svg className="w-8 h-8 text-linen-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                                    </svg>
-                                </div>
-                                <p className="text-charcoal-500 mb-2">No comments yet</p>
-                                <p className="text-sm text-charcoal-400">Be the first to leave a comment on your profile!</p>
-                            </div>
-                        )}
+                <div className="px-5 mt-8">
+                    <div className="flex items-baseline justify-between mb-4">
+                        <div>
+                            <span className="label-eyebrow flex items-center gap-1.5" style={{ color: 'var(--accent-deep)' }}>
+                                <span className="accent-bead-sm accent-bead" /> Guestbook
+                            </span>
+                            <h2 className="font-display text-[24px] leading-none text-ink mt-1.5">
+                                Comments<span style={{ color: 'var(--bloom)' }}>.</span>
+                            </h2>
+                        </div>
                     </div>
+                    {comments.length > 0 ? (
+                        <ul className="divide-y divide-edge border-y border-edge mb-4">
+                            {comments.map((comment) => {
+                                const canDelete = !!currentUser && !!authUser && (
+                                    comment.userId === currentUser.id || authUser.id === currentUser.id
+                                )
+                                return (
+                                <li key={comment.id} className="py-3.5 flex items-start gap-3">
+                                    <img src={comment.userAvatar || '/assets/default-avatar.svg'} alt={comment.username} className="w-9 h-9 rounded-full object-cover ring-1 ring-edge shrink-0" />
+                                    <div className="flex-1 min-w-0">
+                                        <div className="flex items-baseline gap-2">
+                                            <span className="text-[14px] font-medium text-ink truncate">{comment.username}</span>
+                                            <span className="font-mono text-[10px] tracking-[0.10em] uppercase text-ink-mute">{formatTimestamp(comment.createdAt)}</span>
+                                        </div>
+                                        <p className="text-[14px] text-ink-soft leading-relaxed mt-1 whitespace-pre-wrap">{comment.text}</p>
+                                    </div>
+                                    {canDelete && (
+                                        <button
+                                            type="button"
+                                            onClick={async () => {
+                                                if (!authUser || !currentUser) return
+                                                if (!window.confirm('Delete this comment?')) return
+                                                const ok = await firebaseDataService.deleteProfileComment(authUser.id, comment.id, currentUser.id)
+                                                if (ok) setComments(prev => prev.filter(c => c.id !== comment.id))
+                                            }}
+                                            className="font-mono text-[10px] tracking-[0.12em] uppercase text-ink-mute hover:text-ink shrink-0"
+                                            aria-label="Delete comment"
+                                        >
+                                            Delete
+                                        </button>
+                                    )}
+                                </li>
+                            )})}
+                        </ul>
+                    ) : (
+                        <div className="border border-edge rounded-[14px] px-5 py-8 text-center bg-card mb-4">
+                            <p className="font-display text-[20px] text-ink leading-tight">Quiet here.</p>
+                            <p className="text-[12px] text-ink-soft mt-1">Friends can leave a note when they visit.</p>
+                        </div>
+                    )}
                     <form
-                        onSubmit={e => {
+                        onSubmit={async e => {
                             e.preventDefault()
                             if (!commentInput.trim() || !currentUser || !authUser) return
-                            firebaseDataService.postProfileComment(currentUser.id, authUser.id, commentInput);
+                            const text = commentInput
                             setCommentInput('')
-                            // Refresh comments after posting
-                            setTimeout(async () => {
-                                try {
-                                    const profileComments = await firebaseDataService.getProfileComments(authUser.id);
-                                    setComments(profileComments);
-                                } catch (error) {
-                                    console.error('Error refreshing profile comments:', error);
-                                }
-                            }, 100);
+                            try {
+                                await firebaseDataService.postProfileComment(currentUser.id, authUser.id, text)
+                                const profileComments = await firebaseDataService.getProfileComments(authUser.id)
+                                setComments(profileComments)
+                            } catch (error) {
+                                console.error('Error posting profile comment:', error)
+                                setCommentInput(text)
+                            }
                         }}
-                        className="flex items-center gap-3 p-4 bg-linen-50 rounded-xl border border-linen-200"
+                        className="flex items-center gap-2"
                     >
-                        <img src={currentUser?.avatar || 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face'} alt={currentUser?.name} className="w-10 h-10 rounded-full object-cover shadow-soft flex-shrink-0" />
+                        <img src={currentUser?.avatar || '/assets/default-avatar.svg'} alt={currentUser?.name} className="w-9 h-9 rounded-full object-cover ring-1 ring-edge shrink-0" />
                         <input
                             type="text"
                             value={commentInput}
                             onChange={e => setCommentInput(e.target.value)}
-                            placeholder="Write a comment..."
-                            className="flex-1 rounded-full px-4 py-3 border border-linen-200 bg-white text-charcoal-600 focus:outline-none focus:ring-2 focus:ring-sage-200 shadow-soft"
+                            placeholder="Leave a note…"
+                            className="flex-1 h-11 px-4 rounded-full bg-card border border-edge text-[14px] text-ink placeholder:text-ink-mute outline-none focus:border-ink/40"
                         />
                     </form>
                 </div>
@@ -1067,13 +1077,6 @@ const Profile = () => {
                 isOpen={showGoogleMapsImport}
                 onClose={() => setShowGoogleMapsImport(false)}
                 onImport={handleGoogleMapsImport}
-            />
-            <AdvancedFiltersDrawer
-                isOpen={showAdvanced}
-                onClose={() => setShowAdvanced(false)}
-                onApply={() => {
-                    setShowAdvanced(false);
-                }}
             />
         </div>
     )

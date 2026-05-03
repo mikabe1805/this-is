@@ -1,5 +1,6 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
+import { XMarkIcon } from '@heroicons/react/24/outline'
 import AddressAutocomplete from './AddressAutocomplete'
 import { useFilters } from '../contexts/FiltersContext'
 
@@ -8,13 +9,11 @@ type Props = { isOpen: boolean; onClose: () => void; onApply?: () => void }
 export default function AdvancedFiltersDrawer({ isOpen, onClose, onApply }: Props) {
   const { filters, setFilters } = useFilters()
   const [local, setLocal] = useState(filters)
-  const [mounted, setMounted] = useState(false)
   const [recentLocations, setRecentLocations] = useState<{ name: string; lat: number; lng: number }[]>([])
 
   useEffect(() => {
     if (isOpen) {
       setLocal(filters)
-      // Load recent locations from localStorage
       try {
         const raw = localStorage.getItem('recent_locations_v1')
         if (raw) {
@@ -24,15 +23,11 @@ export default function AdvancedFiltersDrawer({ isOpen, onClose, onApply }: Prop
           setRecentLocations([])
         }
       } catch { setRecentLocations([]) }
-      setTimeout(()=> setMounted(true), 0)
-    } else {
-      setMounted(false)
     }
-  }, [isOpen])
+  }, [isOpen, filters])
 
   const unitsLabel = useMemo(() => (local.unit === 'mi' ? 'miles' : 'km'), [local.unit])
 
-  // Close on Escape
   useEffect(() => {
     if (!isOpen) return
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
@@ -41,54 +36,100 @@ export default function AdvancedFiltersDrawer({ isOpen, onClose, onApply }: Prop
   }, [isOpen, onClose])
 
   if (!isOpen) return null
+
+  const originOptions = [
+    { key: 'current' as const, label: 'Current' },
+    { key: 'profile' as const, label: 'Profile' },
+    { key: 'custom' as const, label: 'Choose' }
+  ]
+
   return createPortal(
-    <div className="fixed inset-0 z-[10040]">
-      <div className={`absolute inset-0 bg-black/40 transition-opacity duration-200 ${mounted ? 'opacity-100' : 'opacity-0'}`} onClick={onClose} />
-      <div className={`absolute bottom-0 left-0 right-0 max-w-md mx-auto bg-white rounded-t-3xl border border-white/30 shadow-xl p-4 transition-transform duration-200 ${mounted ? 'translate-y-0' : 'translate-y-4'}`} style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 12px)', WebkitOverflowScrolling: 'touch' }}> 
-        <div className="flex items-center justify-between mb-2">
-          <h3 className="text-lg font-semibold">Advanced Filters</h3>
-          <div className="flex items-center gap-3">
+    <div className="fixed inset-0 z-[10040] flex items-end sm:items-center justify-center sm:p-4 bg-[#1A1815]/55 backdrop-blur-sm" onClick={onClose}>
+      <div
+        className="modal-paper relative w-full sm:max-w-md rounded-t-3xl sm:rounded-3xl border border-edge max-h-[92vh] flex flex-col overflow-hidden"
+        style={{ boxShadow: '0 18px 60px rgba(46, 28, 13, 0.22)', paddingBottom: 'env(safe-area-inset-bottom)' }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div data-drag-handle className="sm:hidden flex justify-center py-3 shrink-0" aria-hidden>
+          <span className="w-10 h-1 rounded-full bg-ink-faint" />
+        </div>
+
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 sm:px-6 py-4 border-b border-edge relative z-10">
+          <p className="label-eyebrow text-ink-mute">Advanced filters</p>
+          <div className="flex items-center gap-2">
             <button
-              className="pill pill--quiet h-[36px] px-4 text-[13px]"
-            onClick={() => {
-              // Reset only advanced fields; preserve global tags
-              const reset = { origin: 'profile' as const, unit: 'mi' as const, distanceKm: 80, priceLevels: [], openNow: false }
-              setFilters(reset)
-              setLocal({ ...local, ...reset })
-              // Notify listeners (e.g., Home) to refresh relevant sections
-              try { onApply && onApply() } catch {}
-            }}
+              type="button"
+              onClick={() => {
+                const reset = { origin: 'profile' as const, unit: 'mi' as const, distanceKm: 80, priceLevels: [], openNow: false }
+                setFilters(reset)
+                setLocal({ ...local, ...reset })
+                try { onApply && onApply() } catch {}
+              }}
+              className="font-mono text-[10px] tracking-[0.10em] uppercase text-ink-mute hover:text-ink h-9 px-3 rounded-full hover:bg-paper-deep transition-colors"
             >
               Reset
             </button>
-            <button aria-label="Close filters" className="btn-icon" onClick={onClose}>✕</button>
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Close filters"
+              className="h-9 w-9 rounded-full hover:bg-paper-deep flex items-center justify-center text-ink"
+            >
+              <XMarkIcon className="w-5 h-5" />
+            </button>
           </div>
         </div>
 
-        <div className="space-y-4 max-h-[65vh] overflow-y-auto pr-1" style={{ overscrollBehavior: 'contain', touchAction: 'manipulation' }}>
+        {/* Body */}
+        <div className="flex-1 overflow-y-auto relative z-10 px-5 sm:px-6 py-5 space-y-5" style={{ overscrollBehavior: 'contain', touchAction: 'manipulation' }}>
+          {/* Distance from */}
           <div>
-            <label className="block text-sm text-sage-800 mb-1">Distance from</label>
-            <div className="flex gap-2">
-              <button onClick={() => setLocal({ ...local, origin: 'current' })} className={`px-3 py-1 rounded-full border ${local.origin==='current'? 'bg-sage-100 border-sage-300':'bg-white border-linen-300'}`}>Current location</button>
-              <button onClick={() => setLocal({ ...local, origin: 'profile' })} className={`px-3 py-1 rounded-full border ${local.origin==='profile'? 'bg-sage-100 border-sage-300':'bg-white border-linen-300'}`}>Profile location</button>
-              <button onClick={() => setLocal({ ...local, origin: 'custom' })} className={`px-3 py-1 rounded-full border ${local.origin==='custom'? 'bg-sage-100 border-sage-300':'bg-white border-linen-300'}`}>Choose location</button>
+            <p className="label-eyebrow text-ink-mute mb-2.5">Distance from</p>
+            <div className="grid grid-cols-3 gap-2">
+              {originOptions.map(({ key, label }) => {
+                const active = local.origin === key
+                return (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => setLocal({ ...local, origin: key })}
+                    aria-pressed={active}
+                    className={`h-10 rounded-xl border text-[13px] font-medium transition-colors ${
+                      active ? 'border-ink bg-paper-deep text-ink' : 'border-edge bg-card text-ink hover:border-ink/40'
+                    }`}
+                  >
+                    {label}
+                  </button>
+                )
+              })}
             </div>
             {local.origin === 'custom' && (
-              <div className="mt-2">
-                <AddressAutocomplete mode="city" worldwideBias value={local.location?.name || ''} onPlaceSelect={(formatted, details) => {
-                  const lat = details?.geometry?.location?.lat?.() as number | undefined
-                  const lng = details?.geometry?.location?.lng?.() as number | undefined
-                  setLocal({ ...local, location: lat && lng ? { lat, lng, name: formatted } : undefined })
-                }} placeholder="Choose a place" />
+              <div className="mt-3">
+                <AddressAutocomplete
+                  mode="city"
+                  worldwideBias
+                  value={local.location?.name || ''}
+                  onPlaceSelect={(formatted, details) => {
+                    const lat = details?.geometry?.location?.lat?.() as number | undefined
+                    const lng = details?.geometry?.location?.lng?.() as number | undefined
+                    setLocal({ ...local, location: lat && lng ? { lat, lng, name: formatted } : undefined })
+                  }}
+                  placeholder="Choose a place"
+                />
               </div>
             )}
-            {/* Recent locations */}
             {recentLocations.length > 0 && (
               <div className="mt-3">
-                <div className="text-xs text-sage-800 mb-1">Recent locations</div>
-                <div className="flex flex-wrap gap-2">
+                <p className="font-mono text-[10px] tracking-[0.10em] uppercase text-ink-mute mb-2">Recent</p>
+                <div className="flex flex-wrap gap-1.5">
                   {recentLocations.map((r, idx) => (
-                    <button key={`${r.lat},${r.lng}-${idx}`} onClick={()=> setLocal({ ...local, origin: 'custom', location: { lat: r.lat, lng: r.lng, name: r.name } })} className="px-2 py-1 rounded-full border border-linen-300 bg-white text-xs text-sage-800">
+                    <button
+                      key={`${r.lat},${r.lng}-${idx}`}
+                      type="button"
+                      onClick={() => setLocal({ ...local, origin: 'custom', location: { lat: r.lat, lng: r.lng, name: r.name } })}
+                      className="h-8 px-3 rounded-full border border-edge bg-card text-[12px] text-ink hover:border-ink/40 transition-colors"
+                    >
                       {r.name}
                     </button>
                   ))}
@@ -97,65 +138,102 @@ export default function AdvancedFiltersDrawer({ isOpen, onClose, onApply }: Prop
             )}
           </div>
 
+          {/* Distance slider */}
           <div>
-            <label className="block text-sm text-sage-800 mb-1">Max distance ({unitsLabel})</label>
-            <input type="range" min={5} max={320} step={5} value={Math.round((local.distanceKm || 80) * (local.unit==='mi'? 0.621371 : 1))}
-              onChange={e=>{
+            <div className="flex items-baseline justify-between mb-2">
+              <label htmlFor="adv-distance" className="label-eyebrow text-ink-mute">Max distance</label>
+              <button
+                type="button"
+                onClick={() => setLocal({ ...local, unit: local.unit === 'mi' ? 'km' : 'mi' })}
+                className="font-mono text-[10px] tracking-[0.10em] uppercase text-ink-mute hover:text-ink"
+              >
+                {local.unit === 'mi' ? 'Use km' : 'Use miles'}
+              </button>
+            </div>
+            <input
+              id="adv-distance"
+              type="range"
+              min={5}
+              max={320}
+              step={5}
+              value={Math.round((local.distanceKm || 80) * (local.unit === 'mi' ? 0.621371 : 1))}
+              onChange={(e) => {
                 const v = Number(e.target.value)
-                const km = local.unit==='mi' ? Math.round(v/0.621371) : v
+                const km = local.unit === 'mi' ? Math.round(v / 0.621371) : v
                 setLocal({ ...local, distanceKm: km })
-              }} className="w-full" />
-            <div className="flex items-center justify-between text-sm text-sage-700">
-              <span>{local.unit==='mi'? Math.round((local.distanceKm||80)*0.621371): (local.distanceKm||80)} {unitsLabel}</span>
-              <button className="underline" onClick={()=> setLocal({ ...local, unit: local.unit==='mi'? 'km':'mi' })}>{local.unit==='mi'? 'Use km':'Use miles'}</button>
+              }}
+              className="w-full accent-ink"
+            />
+            <div className="text-[12px] text-ink-soft mt-1">
+              {local.unit === 'mi' ? Math.round((local.distanceKm || 80) * 0.621371) : (local.distanceKm || 80)} {unitsLabel}
             </div>
           </div>
 
+          {/* Price */}
           <div>
-            <label className="block text-sm text-sage-800 mb-1">Price</label>
-            <div className="flex gap-2">
-              {[1,2,3,4].map(p => (
-                <button key={p} onClick={() => {
-                  const has = (local.priceLevels||[]).includes(p)
-                  const next = has ? (local.priceLevels||[]).filter(x=>x!==p) : [...(local.priceLevels||[]), p]
-                  setLocal({ ...local, priceLevels: next })
-                }} className={`px-3 py-1 rounded-full border ${local.priceLevels?.includes(p)? 'bg-gold-100 border-gold-300':'bg-white border-linen-300'}`}>{'$'.repeat(p)}</button>
-              ))}
+            <p className="label-eyebrow text-ink-mute mb-2.5">Price</p>
+            <div className="grid grid-cols-4 gap-2">
+              {[1, 2, 3, 4].map(p => {
+                const active = (local.priceLevels || []).includes(p)
+                return (
+                  <button
+                    key={p}
+                    type="button"
+                    onClick={() => {
+                      const has = (local.priceLevels || []).includes(p)
+                      const next = has ? (local.priceLevels || []).filter(x => x !== p) : [...(local.priceLevels || []), p]
+                      setLocal({ ...local, priceLevels: next })
+                    }}
+                    aria-pressed={active}
+                    className={`h-10 rounded-xl border text-[14px] font-medium transition-colors ${
+                      active ? 'border-ink bg-paper-deep text-ink' : 'border-edge bg-card text-ink hover:border-ink/40'
+                    }`}
+                  >
+                    {'$'.repeat(p)}
+                  </button>
+                )
+              })}
             </div>
           </div>
 
-          <label className="flex items-center gap-2 text-sm text-sage-800">
-            <input type="checkbox" checked={!!local.openNow} onChange={e=> setLocal({ ...local, openNow: e.target.checked })} />
-            Open now
+          {/* Open now */}
+          <label className="flex items-center gap-3 p-3 rounded-xl border border-edge bg-card cursor-pointer hover:border-ink/40 transition-colors">
+            <input
+              type="checkbox"
+              checked={!!local.openNow}
+              onChange={(e) => setLocal({ ...local, openNow: e.target.checked })}
+              className="w-4 h-4 accent-ink rounded"
+            />
+            <span className="text-[14px] font-medium text-ink">Open now</span>
           </label>
         </div>
 
-        <div className="mt-4 flex gap-2">
-          <button className="flex-1 pill pill--quiet h-[44px]" onClick={onClose}>Cancel</button>
-          <button className="flex-1 pill pill--primary h-[44px]"
-            onClick={()=>{
-              // Apply only advanced fields; keep existing tags
+        {/* Footer */}
+        <div className="px-5 sm:px-6 py-4 border-t border-edge relative z-10 flex gap-2">
+          <button type="button" onClick={onClose} className="btn-secondary flex-1 h-12 font-semibold text-[14px]">Cancel</button>
+          <button
+            type="button"
+            onClick={() => {
               const { origin, unit, distanceKm, priceLevels, openNow, location } = local
               setFilters({ origin, unit, distanceKm, priceLevels, openNow, location })
-              // Persist selected custom location into recents
               try {
                 if (origin === 'custom' && location && typeof location.lat === 'number' && typeof location.lng === 'number') {
                   const raw = localStorage.getItem('recent_locations_v1')
                   const arr = raw ? (JSON.parse(raw) as { name: string; lat: number; lng: number }[]) : []
-                  const next = [{ name: location.name || 'Custom', lat: location.lat, lng: location.lng }, ...arr.filter(x => !(x.lat===location.lat && x.lng===location.lng))].slice(0, 6)
+                  const next = [{ name: location.name || 'Custom', lat: location.lat, lng: location.lng }, ...arr.filter(x => !(x.lat === location.lat && x.lng === location.lng))].slice(0, 6)
                   localStorage.setItem('recent_locations_v1', JSON.stringify(next))
                 }
               } catch {}
-              // Defer onApply until after context state updates to avoid "second apply" issue
-              onClose();
+              onClose()
               setTimeout(() => { try { onApply && onApply() } catch {} }, 0)
-            }}>Apply</button>
+            }}
+            className="btn-cta flex-1 h-12 font-semibold text-[15px]"
+          >
+            Apply
+          </button>
         </div>
       </div>
     </div>,
     document.body
   )
 }
-
-
-

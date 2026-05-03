@@ -1,4 +1,6 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
+import { useModalDismiss } from '../hooks/useModalDismiss'
+import { useSwipeToDismiss } from '../hooks/useSwipeToDismiss'
 import { XMarkIcon, HeartIcon, BookmarkIcon, EyeIcon, PlusIcon, LockClosedIcon, UserGroupIcon, GlobeAltIcon, MagnifyingGlassIcon } from '@heroicons/react/24/outline'
 import { HeartIcon as HeartIconSolid, BookmarkIcon as BookmarkIconSolid, EyeIcon as EyeIconSolid } from '@heroicons/react/24/solid'
 import { createPortal } from 'react-dom'
@@ -35,6 +37,7 @@ const SaveModal: React.FC<SaveModalProps> = ({
   const [triedRating, setTriedRating] = useState<TriedRating | null>(null)
   const [selectedListIds, setSelectedListIds] = useState<Set<string>>(new Set(selectedListIdsProp || []))
   const [note, setNote] = useState('')
+  const [isCommitting, setIsCommitting] = useState(false)
   const [showCreateList, setShowCreateList] = useState(false)
   const [newListName, setNewListName] = useState('')
   const [newListDescription, setNewListDescription] = useState('')
@@ -118,287 +121,277 @@ const SaveModal: React.FC<SaveModalProps> = ({
     }
   }
 
-  const getStatusColor = (status: SaveStatus) => {
-    switch (status) {
-      case 'loved':
-        return 'bg-gold-500 hover:bg-gold-600'
-      case 'tried':
-        return 'bg-sage-500 hover:bg-sage-600'
-      case 'want':
-        return 'bg-charcoal-500 hover:bg-charcoal-600'
-    }
-  }
-
-  const getRatingColor = (rating: TriedRating) => {
-    switch (rating) {
-      case 'liked':
-        return 'bg-emerald-100 text-emerald-700 border-emerald-200'
-      case 'neutral':
-        return 'bg-sage-100 text-sage-700 border-sage-200'
-      case 'disliked':
-        return 'bg-red-100 text-red-700 border-red-200'
-    }
-  }
+  const sheetRef = useRef<HTMLDivElement>(null)
+  useModalDismiss(isOpen, onClose)
+  useSwipeToDismiss({ ref: sheetRef, onDismiss: onClose, enabled: isOpen })
 
   if (!isOpen) return null
-  
+
+  const PRIVACY_LABEL: Record<'public'|'friends'|'private', string> = {
+    public: 'Anyone can see this list',
+    friends: 'Only friends can see this list',
+    private: 'Only you can see this list',
+  }
+
   const modalContent = (
-    <div className="fixed inset-0 z-[10001] flex items-center justify-center p-4 bg-black/20 backdrop-blur-sm">
-      <div className="w-full max-w-md max-h-[80vh] rounded-2xl shadow-botanical border border-linen-200 bg-white overflow-hidden flex flex-col">
-        {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-linen-200 flex-shrink-0">
-          <h2 className="text-lg font-serif font-semibold text-charcoal-700">Save Place</h2>
-          <button
-            onClick={onClose}
-            className="btn-icon"
-          >
-            <XMarkIcon className="w-5 h-5 text-charcoal-500" />
+    <div className="fixed inset-0 z-[10001] flex items-end sm:items-center justify-center bg-[#1A1815]/55 backdrop-blur-sm" onClick={onClose}>
+      <div
+        ref={sheetRef}
+        className="modal-paper w-full sm:max-w-md max-h-[88vh] rounded-t-[24px] sm:rounded-[24px] overflow-hidden flex flex-col"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div data-drag-handle className="sm:hidden flex justify-center py-3 shrink-0 touch-none" aria-hidden>
+          <span className="w-10 h-1 rounded-full bg-ink-faint" />
+        </div>
+        <div data-drag-handle className="flex items-center justify-between px-5 py-4 border-b border-edge">
+          <p className="label-eyebrow text-ink-mute">{showCreateList ? 'New list' : 'Save'}</p>
+          <button onClick={onClose} className="h-9 w-9 rounded-full hover:bg-paper-deep flex items-center justify-center" aria-label="Close">
+            <XMarkIcon className="w-5 h-5 text-ink" />
           </button>
         </div>
 
-        {/* Place Info */}
-        <div className="p-4 border-b border-linen-200 flex-shrink-0">
-          <div className="flex items-center gap-3">
-            {(place as any).mainImage && (
-              <img
-                src={(place as any).mainImage}
-                alt={place.name}
-                className="w-12 h-12 rounded-xl2 object-cover shadow-soft border border-linen-200"
-              />
+        {!showCreateList && (
+          <div className="px-5 py-5 border-b border-edge flex items-center gap-3.5">
+            {(place as { mainImage?: string }).mainImage && (
+              <img src={(place as { mainImage?: string }).mainImage} alt={place.name} className="w-12 h-12 rounded-[10px] object-cover bg-paper-deep" />
             )}
-            <div className="flex-1">
-              <h3 className="font-semibold text-charcoal-700 mb-1">{place.name}</h3>
-              <p className="text-sm text-charcoal-500">{place.address}</p>
-              <div className="flex flex-wrap gap-1 mt-1">
-                {(place.tags || []).slice(0, 2).map(tag => (
-                  <span key={tag} className="px-2 py-1 text-xs rounded-full bg-sage-50 text-sage-700 border border-sage-100">
-                    #{tag}
-                  </span>
-                ))}
-              </div>
+            <div className="min-w-0 flex-1">
+              <h3 className="font-display text-[20px] leading-tight text-ink truncate">{place.name}</h3>
+              {place.address && <p className="font-mono text-[10px] tracking-[0.12em] uppercase text-ink-mute truncate mt-1">{place.address}</p>}
             </div>
           </div>
-        </div>
+        )}
 
-        {/* Content */}
-        <div className="p-4 flex-1 overflow-y-auto">
+        <div className="px-5 py-5 flex-1 overflow-y-auto">
           {!showCreateList ? (
             <>
-              {/* Status Selection */}
-              <div className="mb-4">
-                <label className="block font-medium text-charcoal-700 mb-2">How do you feel about this place?</label>
-                <div className="grid grid-cols-3 gap-2">
-                  {[
-                    { key: 'loved', label: 'Loved', desc: 'Absolutely loved it!' },
-                    { key: 'tried', label: 'Tried', desc: 'Been there, done that' },
-                    { key: 'want', label: 'Want to', desc: 'Want to try it' }
-                  ].map(status => (
-                    <button
-                      key={status.key}
-                      onClick={() => setSelectedStatus(status.key as SaveStatus)}
-                      className={`p-3 rounded-xl border-2 transition-all text-center ${
-                        selectedStatus === status.key
-                          ? `${getStatusColor(status.key as SaveStatus)} border-transparent text-white`
-                          : 'border-linen-200 hover:border-sage-200 hover:bg-sage-25'
-                      }`}
-                    >
-                      <div className="flex flex-col items-center gap-1">
-                        {getStatusIcon(status.key as SaveStatus, selectedStatus === status.key)}
-                        <div>
-                          <div className="font-medium text-sm">{status.label}</div>
-                          <div className="text-xs opacity-80">{status.desc}</div>
-                        </div>
-                      </div>
-                    </button>
-                  ))}
+              <div className="mb-6">
+                <p className="label-eyebrow text-ink-mute mb-3">How do you feel about it?</p>
+                <div className="grid grid-cols-3 gap-1.5">
+                  {([
+                    { key: 'loved', label: 'Loved' },
+                    { key: 'tried', label: 'Been' },
+                    { key: 'want', label: 'Want' },
+                  ] as const).map(s => {
+                    const active = selectedStatus === s.key
+                    return (
+                      <button
+                        key={s.key}
+                        onClick={() => setSelectedStatus(s.key)}
+                        className={`h-12 rounded-full text-[13px] font-medium border transition-colors flex items-center justify-center gap-1.5 ${
+                          active
+                            ? 'bg-accent text-white border-accent'
+                            : 'bg-card text-ink border-edge hover:border-ink/40'
+                        }`}
+                      >
+                        {getStatusIcon(s.key, active)}
+                        {s.label}
+                      </button>
+                    )
+                  })}
                 </div>
               </div>
 
-              {/* Rating for Tried */}
               {selectedStatus === 'tried' && (
-                <div className="mb-4">
-                  <label className="block font-medium text-charcoal-700 mb-2">How was it?</label>
-                  <div className="grid grid-cols-3 gap-2">
-                    {[
-                      { key: 'liked', label: 'Liked', emoji: '😊' },
-                      { key: 'neutral', label: 'Neutral', emoji: '😐' },
-                      { key: 'disliked', label: 'Disliked', emoji: '😞' }
-                    ].map(rating => (
-                      <button
-                        key={rating.key}
-                        onClick={() => setTriedRating(rating.key as TriedRating)}
-                        className={`p-2 rounded-lg border transition-all ${
-                          triedRating === rating.key
-                            ? getRatingColor(rating.key as TriedRating)
-                            : 'border-linen-200 hover:border-sage-200 hover:bg-sage-25'
-                        }`}
-                      >
-                        <div className="flex items-center gap-1">
-                          <span className="text-base">{rating.emoji}</span>
-                          <span className="font-medium text-sm">{rating.label}</span>
-                        </div>
-                      </button>
-                    ))}
+                <div className="mb-6">
+                  <p className="label-eyebrow text-ink-mute mb-3">How was it?</p>
+                  <div className="grid grid-cols-3 gap-1.5">
+                    {(['liked', 'neutral', 'disliked'] as const).map(r => {
+                      const active = triedRating === r
+                      return (
+                        <button
+                          key={r}
+                          onClick={() => setTriedRating(r)}
+                          className={`h-10 rounded-full text-[13px] font-medium border transition-colors capitalize ${
+                            active
+                              ? 'bg-ink text-paper border-ink'
+                              : 'bg-card text-ink border-edge hover:border-ink/40'
+                          }`}
+                        >
+                          {r}
+                        </button>
+                      )
+                    })}
                   </div>
                 </div>
               )}
 
-              {/* Optional: Add to Specific Lists */}
-              <div className="mb-4">
-                <label className="block font-medium text-charcoal-700 mb-2">
-                  Add to specific lists? <span className="text-sm text-charcoal-500 font-normal">(Optional)</span>
-                </label>
-                <div className="relative mb-2">
-                  <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-charcoal-600 pointer-events-none z-10" />
+              <div className="mb-5">
+                <div className="flex items-center justify-between mb-2.5">
+                  <p className="text-[12px] font-semibold uppercase tracking-wider text-stone-500">Add to lists</p>
+                  <button
+                    type="button"
+                    onClick={() => setShowCreateList(true)}
+                    className="text-[12px] font-medium text-stone-700 hover:text-stone-900 inline-flex items-center gap-1"
+                  >
+                    <PlusIcon className="w-3.5 h-3.5" /> New list
+                  </button>
+                </div>
+                <div className="relative">
+                  <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-400" />
                   <input
                     type="text"
                     value={listSearch}
                     onChange={e => setListSearch(e.target.value)}
-                    placeholder="Search or select lists..."
-                    className="w-full p-2 pl-10 pr-10 rounded-xl border border-linen-200 bg-linen-50 text-charcoal-600 focus:outline-none focus:ring-2 focus:ring-sage-200 text-sm"
+                    placeholder="Search lists"
+                    className="w-full h-10 pl-10 pr-3 rounded-xl border border-stone-200 bg-white text-[14px] text-stone-900 placeholder:text-stone-400 outline-none focus:border-stone-400"
                   />
-                  <button
-                    type="button"
-                    onClick={() => setShowCreateList(true)}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-full bg-sage-100 text-sage-700 hover:bg-sage-200 transition"
-                    title="Create new list"
-                  >
-                    <PlusIcon className="w-4 h-4" />
-                  </button>
                 </div>
-                <div className="space-y-1 max-h-24 overflow-y-auto">
-                  {filteredLists.map(list => (
-                    <label
-                      key={list.id}
-                      className={`flex items-center gap-2 p-2 rounded-lg cursor-pointer border transition-all ${
-                        selectedListIds.has(list.id)
-                          ? 'border-sage-300 bg-sage-50'
-                          : 'border-linen-200 hover:border-sage-200 hover:bg-sage-25'
-                      }`}
-                    >
-                      <input
-                        type="checkbox"
-                        value={list.id}
-                        checked={selectedListIds.has(list.id)}
-                        onChange={(e) => {
-                          const newSet = new Set(selectedListIds)
-                          if (e.target.checked) {
-                            newSet.add(list.id)
-                          } else {
-                            newSet.delete(list.id)
-                          }
-                          setSelectedListIds(newSet)
-                        }}
-                        className="w-3 h-3 text-sage-500 focus:ring-sage-400"
-                      />
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-1">
-                          <span className="font-medium text-charcoal-700 text-sm truncate">{list.name}</span>
-                          {list.privacy === 'private' && <LockClosedIcon className="w-3 h-3 text-charcoal-400 flex-shrink-0" />}
-                          {list.privacy === 'friends' && <UserGroupIcon className="w-3 h-3 text-charcoal-400 flex-shrink-0" />}
-                          {list.privacy === 'public' && <GlobeAltIcon className="w-3 h-3 text-charcoal-400 flex-shrink-0" />}
-                        </div>
-                        <p className="text-xs text-charcoal-500 truncate">{list.description}</p>
-                      </div>
-                    </label>
-                  ))}
-                  {filteredLists.length === 0 && (
-                    <div className="text-xs text-charcoal-400 px-2 py-1">No lists found.</div>
+                <div className="mt-2 max-h-40 overflow-y-auto -mx-2">
+                  {filteredLists.length === 0 ? (
+                    <p className="text-[13px] text-stone-500 text-center py-4">No lists. Create one above.</p>
+                  ) : (
+                    <ul className="px-2">
+                      {filteredLists.map(list => {
+                        const checked = selectedListIds.has(list.id)
+                        const PrivacyIcon = list.privacy === 'private' ? LockClosedIcon : list.privacy === 'friends' ? UserGroupIcon : GlobeAltIcon
+                        return (
+                          <li key={list.id}>
+                            <label className={`flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer transition-colors ${
+                              checked ? 'bg-stone-100' : 'hover:bg-stone-50'
+                            }`}>
+                              <input
+                                type="checkbox"
+                                checked={checked}
+                                onChange={e => {
+                                  const next = new Set(selectedListIds)
+                                  if (e.target.checked) next.add(list.id); else next.delete(list.id)
+                                  setSelectedListIds(next)
+                                }}
+                                className="w-4 h-4 rounded accent-stone-900"
+                              />
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-1.5">
+                                  <span className="text-[14px] font-medium text-stone-900 truncate">{list.name}</span>
+                                  <PrivacyIcon className="w-3 h-3 text-stone-400 shrink-0" />
+                                </div>
+                                {list.description && <p className="text-[12px] text-stone-500 truncate">{list.description}</p>}
+                              </div>
+                            </label>
+                          </li>
+                        )
+                      })}
+                    </ul>
                   )}
                 </div>
-                {selectedListIds.size > 0 && (
-                  <div className="mt-2 text-xs text-charcoal-500">
-                    Selected {selectedListIds.size} list{selectedListIds.size !== 1 ? 's' : ''}
-                  </div>
-                )}
               </div>
 
-              {/* Optional Note */}
-              <div className="mb-4">
-                <label className="block font-medium text-charcoal-700 mb-2">
-                  Add a note? <span className="text-sm text-charcoal-500 font-normal">(Optional)</span>
-                </label>
+              <div>
+                <p className="text-[12px] font-semibold uppercase tracking-wider text-stone-500 mb-2">Note <span className="font-normal text-stone-400">· optional</span></p>
                 <textarea
                   value={note}
-                  onChange={(e) => setNote(e.target.value)}
-                  placeholder="Share your thoughts..."
-                  className="w-full p-2 rounded-xl border border-linen-200 bg-linen-50 text-charcoal-600 focus:outline-none focus:ring-2 focus:ring-sage-200 resize-none text-sm"
-                  rows={2}
+                  onChange={e => setNote(e.target.value)}
+                  placeholder="What did you think?"
+                  rows={3}
+                  className="w-full px-3 py-2.5 rounded-xl border border-stone-200 bg-white text-[14px] text-stone-900 placeholder:text-stone-400 resize-none outline-none focus:border-stone-400"
                 />
               </div>
             </>
           ) : (
-            <>
-              {/* Create New List Form (Simplified) */}
-              <div className="space-y-3">
-                <div>
-                  <label className="block font-medium text-charcoal-700 mb-2">List name</label>
-                  <input
-                    type="text"
-                    value={newListName}
-                    onChange={(e) => setNewListName(e.target.value)}
-                    placeholder="e.g., Coffee Spots, Date Night Places"
-                    className="w-full p-2 rounded-xl border border-linen-200 bg-linen-50 text-charcoal-600 focus:outline-none focus:ring-2 focus:ring-sage-200 text-sm"
-                  />
-                </div>
-                <div>
-                  <label className="block font-medium text-charcoal-700 mb-2">Description <span className="text-sm text-charcoal-500 font-normal">(Optional)</span></label>
-                  <textarea
-                    value={newListDescription}
-                    onChange={(e) => setNewListDescription(e.target.value)}
-                    placeholder="What's this list about?"
-                    className="w-full p-2 rounded-xl border border-linen-200 bg-linen-50 text-charcoal-600 focus:outline-none focus:ring-2 focus:ring-sage-200 resize-none text-sm"
-                    rows={2}
-                  />
-                </div>
-                <div>
-                  <label className="block font-medium text-charcoal-700 mb-2">Privacy</label>
-                  <select
-                    value={newListPrivacy}
-                    onChange={(e) => setNewListPrivacy(e.target.value as 'public' | 'private' | 'friends')}
-                    className="w-full p-2 rounded-xl border border-linen-200 bg-linen-50 text-charcoal-600 focus:outline-none focus:ring-2 focus:ring-sage-200 text-sm"
-                  >
-                    <option value="public">🌍 Public - Anyone can see this list</option>
-                    <option value="friends">👥 Friends only - Only your friends can see this list</option>
-                    <option value="private">🔒 Private - Only you can see this list</option>
-                  </select>
-                </div>
+            <div className="space-y-4">
+              <div>
+                <p className="text-[12px] font-semibold uppercase tracking-wider text-stone-500 mb-2">List name</p>
+                <input
+                  type="text"
+                  value={newListName}
+                  onChange={e => setNewListName(e.target.value)}
+                  placeholder="Coffee spots, weekend trips…"
+                  className="w-full h-11 px-3.5 rounded-xl border border-stone-200 bg-white text-[14px] text-stone-900 placeholder:text-stone-400 outline-none focus:border-stone-400"
+                />
               </div>
-            </>
+              <div>
+                <p className="text-[12px] font-semibold uppercase tracking-wider text-stone-500 mb-2">Description <span className="font-normal text-stone-400">· optional</span></p>
+                <textarea
+                  value={newListDescription}
+                  onChange={e => setNewListDescription(e.target.value)}
+                  placeholder="What's this list about?"
+                  rows={2}
+                  className="w-full px-3 py-2.5 rounded-xl border border-stone-200 bg-white text-[14px] text-stone-900 placeholder:text-stone-400 resize-none outline-none focus:border-stone-400"
+                />
+              </div>
+              <div>
+                <p className="text-[12px] font-semibold uppercase tracking-wider text-stone-500 mb-2">Privacy</p>
+                <div className="grid grid-cols-3 gap-2">
+                  {(['public', 'friends', 'private'] as const).map(p => {
+                    const active = newListPrivacy === p
+                    const Icon = p === 'private' ? LockClosedIcon : p === 'friends' ? UserGroupIcon : GlobeAltIcon
+                    return (
+                      <button
+                        key={p}
+                        type="button"
+                        onClick={() => setNewListPrivacy(p)}
+                        className={`h-10 rounded-xl text-[13px] font-medium border transition-colors capitalize flex items-center justify-center gap-1.5 ${
+                          active
+                            ? 'bg-stone-900 text-white border-stone-900'
+                            : 'bg-white text-stone-700 border-stone-200 hover:border-stone-300'
+                        }`}
+                      >
+                        <Icon className="w-3.5 h-3.5" />
+                        {p}
+                      </button>
+                    )
+                  })}
+                </div>
+                <p className="text-[12px] text-stone-500 mt-2">{PRIVACY_LABEL[newListPrivacy]}</p>
+              </div>
+            </div>
           )}
         </div>
 
-        {/* Save/Cancel Buttons - Always visible at bottom */}
-        <div className="p-4 border-t border-linen-200 flex-shrink-0 bg-white">
+        <div className="px-5 py-4 border-t border-edge bg-paper flex gap-2">
           {!showCreateList ? (
-            <Button
-              onClick={() => {
-                if (selectedStatus) {
-                  onSave(
+            <button
+              onClick={async () => {
+                if (!selectedStatus || isCommitting) return
+                // Lock the button immediately so a double-tap doesn't fire a
+                // second save → duplicate list entries / double save-count
+                // increments. onSave may be sync (legacy callers) or async.
+                setIsCommitting(true)
+                try {
+                  await Promise.resolve(onSave(
                     selectedStatus,
                     selectedStatus === 'tried' ? triedRating || undefined : undefined,
                     selectedListIds.size > 0 ? Array.from(selectedListIds) : undefined,
                     note.trim() || undefined,
                     savedFromListId
-                  )
+                  ))
+                } finally {
                   onClose()
                   resetForm()
+                  setIsCommitting(false)
                 }
               }}
-              disabled={!selectedStatus || (selectedStatus === 'tried' && !triedRating)}
-              className="w-full"
+              disabled={isCommitting || !selectedStatus || (selectedStatus === 'tried' && !triedRating)}
+              className="btn-cta flex-1 h-12 font-semibold text-[15px]"
             >
-              Save
-            </Button>
+              {isCommitting ? 'Saving…' : 'Save'}
+            </button>
           ) : (
-            <div className="flex gap-3">
-              <Button variant="secondary" className="flex-1" onClick={() => setShowCreateList(false)}>
-                Cancel
-              </Button>
-              <Button className="flex-1" onClick={handleCreateList} disabled={!newListName.trim()}>
-                Create & Save
-              </Button>
-            </div>
+            <>
+              <button
+                type="button"
+                onClick={() => setShowCreateList(false)}
+                className="btn-secondary flex-1 h-12 font-medium text-[15px]"
+              >
+                Back
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  if (isCommitting || !newListName.trim()) return
+                  setIsCommitting(true)
+                  try {
+                    await Promise.resolve(handleCreateList())
+                  } finally {
+                    setIsCommitting(false)
+                  }
+                }}
+                disabled={isCommitting || !newListName.trim()}
+                className="btn-cta flex-1 h-12 font-semibold text-[15px]"
+              >
+                {isCommitting ? 'Creating…' : 'Create & Save'}
+              </button>
+            </>
           )}
         </div>
       </div>

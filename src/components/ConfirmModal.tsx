@@ -24,78 +24,57 @@ const ConfirmModal = ({
 }: ConfirmModalProps) => {
   if (!isOpen) return null
 
-  const getTypeStyles = () => {
-    switch (type) {
-      case 'danger':
-        return {
-          icon: 'text-red-500',
-          confirmButton: 'bg-red-500 hover:bg-red-600 text-white',
-          iconBg: 'bg-red-50'
-        }
-      case 'warning':
-        return {
-          icon: 'text-amber-500',
-          confirmButton: 'bg-amber-500 hover:bg-amber-600 text-white',
-          iconBg: 'bg-amber-50'
-        }
-      case 'info':
-        return {
-          icon: 'text-sage-500',
-          confirmButton: 'bg-sage-500 hover:bg-sage-600 text-white',
-          iconBg: 'bg-sage-50'
-        }
-      default:
-        return {
-          icon: 'text-red-500',
-          confirmButton: 'bg-red-500 hover:bg-red-600 text-white',
-          iconBg: 'bg-red-50'
-        }
-    }
-  }
-
-  const styles = getTypeStyles()
+  const tone = type === 'danger'
+    ? { icon: 'text-red-700', iconBg: 'bg-red-50', confirm: 'btn-cta', confirmStyle: { background: 'linear-gradient(180deg, rgba(220, 60, 60, 0.95) 0%, rgba(160, 30, 30, 0.95) 100%)', color: '#fff', textShadow: 'none' } as React.CSSProperties }
+    : type === 'warning'
+    ? { icon: 'text-amber-700', iconBg: 'bg-amber-50', confirm: 'btn-cta', confirmStyle: undefined }
+    : { icon: 'text-accent-deep', iconBg: 'bg-accent-soft', confirm: 'btn-cta', confirmStyle: undefined }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      {/* Backdrop */}
-      <div 
-        className="absolute inset-0 bg-charcoal-900/50 backdrop-blur-sm"
-        onClick={onClose}
-      />
-      
-      {/* Modal */}
-      <div className="relative w-full max-w-md bg-white rounded-3xl shadow-botanical border border-linen-200">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4 bg-[#1A1815]/55 backdrop-blur-sm" onClick={onClose}>
+      <div
+        className="modal-paper relative w-full sm:max-w-md rounded-t-3xl sm:rounded-3xl border border-edge overflow-hidden"
+        style={{ boxShadow: '0 18px 60px rgba(46, 28, 13, 0.22)' }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div data-drag-handle className="sm:hidden flex justify-center py-3 shrink-0" aria-hidden>
+          <span className="w-10 h-1 rounded-full bg-ink-faint" />
+        </div>
+
         {/* Header */}
-        <div className="p-6 border-b border-linen-200">
-          <div className="flex items-center justify-between">
-            <h2 className="text-xl font-serif font-semibold text-charcoal-800">{title}</h2>
-            <button
-              onClick={onClose}
-              className="btn-icon"
-            >
-              <XMarkIcon className="w-5 h-5" />
-            </button>
-          </div>
+        <div className="px-5 sm:px-6 py-4 border-b border-edge relative z-10 flex items-center justify-between">
+          <p className="label-eyebrow text-ink-mute">{title}</p>
+          <button
+            type="button"
+            onClick={onClose}
+            className="h-9 w-9 rounded-full hover:bg-paper-deep flex items-center justify-center text-ink"
+            aria-label="Close"
+          >
+            <XMarkIcon className="w-5 h-5" />
+          </button>
         </div>
 
         {/* Content */}
-        <div className="p-6">
-          <div className="flex items-start gap-4">
-            <div className={`w-12 h-12 rounded-xl ${styles.iconBg} flex items-center justify-center flex-shrink-0`}>
-              <ExclamationTriangleIcon className={`w-6 h-6 ${styles.icon}`} />
+        <div className="px-5 sm:px-6 py-5 relative z-10">
+          <div className="flex items-start gap-3.5">
+            <div className={`w-12 h-12 rounded-xl ${tone.iconBg} ring-1 ring-edge flex items-center justify-center flex-shrink-0`}>
+              <ExclamationTriangleIcon className={`w-5 h-5 ${tone.icon}`} />
             </div>
-            <div className="flex-1">
-              <p className="text-charcoal-700 leading-relaxed">{message}</p>
-            </div>
+            <p className="flex-1 text-[14px] text-ink-soft leading-relaxed">{message}</p>
           </div>
         </div>
 
         {/* Footer */}
-        <div className="p-6 border-t border-linen-200">
-          <div className="flex gap-3">
-            <Button variant="secondary" className="flex-1" onClick={onClose}>{cancelText}</Button>
-            <Button className="flex-1" onClick={() => { onConfirm(); onClose(); }}>{confirmText}</Button>
-          </div>
+        <div className="px-5 sm:px-6 py-4 border-t border-edge relative z-10 flex gap-2">
+          <Button variant="secondary" className="flex-1" onClick={onClose}>{cancelText}</Button>
+          <button
+            type="button"
+            onClick={() => { onConfirm(); onClose(); }}
+            className={`${tone.confirm} flex-1 h-12 font-semibold text-[15px]`}
+            style={tone.confirmStyle}
+          >
+            {confirmText}
+          </button>
         </div>
       </div>
     </div>

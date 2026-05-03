@@ -12,20 +12,23 @@ export const calculateInfluenceScores = onSchedule('every 24 hours', async (even
         const userId = userDoc.id;
         let influenceScore = 0;
 
-        // Calculate influence from posts
+        // Posts: likes count from each post the user authored. The legacy
+        // `post.saves` term is dropped — that field is never written by the
+        // app (saved-posts live in `users/{uid}/savedPosts/{postId}` and
+        // aren't denormalized back onto the post doc).
         const postsSnapshot = await db.collection('posts').where('userId', '==', userId).get();
         postsSnapshot.forEach(postDoc => {
             const post = postDoc.data();
-            influenceScore += (post.likes || 0) * 2; // Likes are worth 2 points
-            influenceScore += (post.saves || 0) * 3; // Saves are worth 3 points
+            influenceScore += (post.likes || 0) * 2;
         });
 
-        // Calculate influence from lists
+        // Lists: separate `likes` (heart) from `saves` (bookmark). These used
+        // to share `list.likes`, so every save inflated the influence by 5+10.
         const listsSnapshot = await db.collection('lists').where('userId', '==', userId).get();
         listsSnapshot.forEach(listDoc => {
             const list = listDoc.data();
-            influenceScore += (list.likes || 0) * 5; // List likes are worth 5 points
-            influenceScore += (list.saves || 0) * 10; // List saves are worth 10 points
+            influenceScore += (list.likes || 0) * 5;
+            influenceScore += (list.saves || 0) * 10;
         });
 
         await db.collection('users').doc(userId).update({

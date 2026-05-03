@@ -4,7 +4,10 @@
       "Bash(npm run status:ui:*)",
       "Bash(dir:*)",
       "Bash(python:*)",
-      "Bash(npm run dev:*)"
+      "Bash(npm run dev:*)",
+      "Bash(npm run build:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)"
     ],
     "deny": [],
     "ask": []

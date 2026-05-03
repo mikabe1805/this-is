@@ -315,9 +315,20 @@ const ViewAllLists = () => {
     setShowSaveModal(true)
   }
 
-  const handleSave = (status: 'loved' | 'tried' | 'want', rating?: 'liked' | 'neutral' | 'disliked', listIds?: string[], note?: string) => {
-    console.log('Saving place:', { status, rating, listIds, note })
-    setShowSaveModal(false)
+  const handleSave = async (status: 'loved' | 'tried' | 'want', rating?: 'liked' | 'neutral' | 'disliked', listIds?: string[], note?: string) => {
+    if (!selectedPlace || !authUser) { setShowSaveModal(false); return }
+    try {
+      const ids = Array.isArray(listIds) ? listIds : []
+      for (const lid of ids) {
+        await firebaseDataService.savePlaceToList(selectedPlace.id, lid, authUser.id, note, undefined, status, rating)
+      }
+      await firebaseDataService.saveToAutoList(selectedPlace.id, authUser.id, status, note, rating)
+      await firebaseDataService.recordUserSave(selectedPlace.id, authUser.id)
+    } catch (e) {
+      console.error('[view-all-lists] save failed', e)
+    } finally {
+      setShowSaveModal(false)
+    }
   }
 
   const handleCreateList = (listData: { name: string; description: string; privacy: 'public' | 'private' | 'friends'; tags?: string[]; coverImage?: File }) => {

@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import { useModalDismiss } from '../hooks/useModalDismiss';
 import { XMarkIcon, CameraIcon, MapPinIcon, TagIcon, EyeIcon, EyeSlashIcon, UsersIcon, PhotoIcon, MagnifyingGlassIcon, ArrowLeftIcon } from '@heroicons/react/24/outline';
 import { createPortal } from 'react-dom';
 import { firebaseDataService } from '../services/firebaseDataService';
@@ -306,8 +307,12 @@ const CreatePost = ({ isOpen, onClose, preSelectedHub, preSelectedListIds }: Cre
       
       // 2. Save post to Firestore
       await firebasePostService.createPost(postData);
-      
+
       console.log('✅ Post created successfully:', postData);
+      // Notify subscribers (PlaceHub feed, etc.) so they can re-fetch posts.
+      window.dispatchEvent(new CustomEvent('this-is:posted', {
+        detail: { placeId: selectedHub.id, listIds: Array.from(selectedListIds) }
+      }));
       handleClose();
     } catch (error) {
       console.error('❌ Error creating post:', error);
@@ -344,6 +349,15 @@ const CreatePost = ({ isOpen, onClose, preSelectedHub, preSelectedListIds }: Cre
     onClose()
   }
 
+  // If the parent toggles isOpen=false without calling handleClose (e.g. on
+  // a successful submit), still flush the form so the next open is clean.
+  useEffect(() => {
+    if (!isOpen) resetForm()
+    // resetForm captures preSelected props; intentionally not in deps to avoid
+    // resetting mid-edit when a parent re-renders with the same selection.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen])
+
   // Step navigation
   const handleBack = () => {
     if (step === 'location') setStep('photo')
@@ -351,34 +365,49 @@ const CreatePost = ({ isOpen, onClose, preSelectedHub, preSelectedListIds }: Cre
     else handleClose()
   }
 
+  useModalDismiss(isOpen, handleClose)
+
   if (!isOpen) return null
 
+  const stepNumber = step === 'photo' ? 1 : step === 'location' ? 2 : 3
+  const stepLabel = step === 'photo' ? 'Photos' : step === 'location' ? 'Place' : 'Details'
+
   const modalContent = (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-      <div className="relative w-full max-w-2xl max-h-[92vh] bg-white rounded-3xl shadow-botanical border border-linen-200 overflow-hidden">
-        {/* Header */}
-        <div className="p-6 border-b border-linen-200 bg-linen-50 flex items-center justify-between">
+    <div className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center bg-[#1A1815]/55 backdrop-blur-sm">
+      <div className="relative w-full sm:max-w-md max-h-[92vh] bg-paper rounded-t-[24px] sm:rounded-[24px] overflow-hidden flex flex-col">
+        <div className="px-5 py-4 border-b border-edge flex items-center justify-between">
           <button
             onClick={handleBack}
-            className="w-10 h-10 bg-white rounded-full flex items-center justify-center shadow-soft hover:shadow-botanical transition-all duration-200"
+            className="h-9 w-9 rounded-full hover:bg-paper-deep flex items-center justify-center"
             aria-label="Back"
           >
-            <ArrowLeftIcon className="w-6 h-6 text-charcoal-600" />
+            <ArrowLeftIcon className="w-5 h-5 text-ink" />
           </button>
-          <h2 className="text-xl font-serif font-semibold text-charcoal-700 flex-1 text-center">Create Post</h2>
+          <div className="flex items-center gap-2 label-eyebrow text-ink-mute">
+            <span style={{ color: 'var(--accent-deep)' }}>0{stepNumber}</span>
+            <span className="text-ink-faint">/</span>
+            <span>03 · {stepLabel}</span>
+          </div>
           <button
             onClick={handleClose}
-            className="w-10 h-10 bg-white rounded-full flex items-center justify-center shadow-soft hover:shadow-botanical transition-all duration-200"
+            className="h-9 w-9 rounded-full hover:bg-paper-deep flex items-center justify-center"
             aria-label="Close"
           >
-            <XMarkIcon className="w-6 h-6 text-charcoal-600" />
+            <XMarkIcon className="w-5 h-5 text-ink" />
           </button>
         </div>
-        {/* Progress indicator */}
-        <div className="flex items-center gap-2 mt-4 px-6">
-          <div className={`w-3 h-3 rounded-full ${step === 'photo' ? 'bg-sage-500' : 'bg-sage-200'}`} />
-          <div className={`w-3 h-3 rounded-full ${step === 'location' ? 'bg-sage-500' : 'bg-sage-200'}`} />
-          <div className={`w-3 h-3 rounded-full ${step === 'details' ? 'bg-sage-500' : 'bg-sage-200'}`} />
+        {/* Amber progress hairline */}
+        <div className="px-5 pt-3">
+          <div className="relative h-[3px] rounded-full bg-paper-deep overflow-hidden">
+            <div
+              className="absolute inset-y-0 left-0 rounded-full transition-all duration-300"
+              style={{
+                width: `${(stepNumber / 3) * 100}%`,
+                background: 'linear-gradient(90deg, var(--accent-bright) 0%, var(--accent) 60%, var(--accent-deep) 100%)',
+                boxShadow: '0 0 8px var(--accent-glow)',
+              }}
+            />
+          </div>
         </div>
         {/* Content */}
         <div className="p-6 space-y-6 max-h-[calc(92vh-12rem)] overflow-y-auto" style={{ WebkitOverflowScrolling: 'touch', overscrollBehavior: 'contain' }}>
@@ -386,23 +415,26 @@ const CreatePost = ({ isOpen, onClose, preSelectedHub, preSelectedListIds }: Cre
           {step === 'photo' && (
             <div className="space-y-6">
               <div>
-                <h3 className="text-lg font-semibold text-charcoal-700 mb-2">Add Photos</h3>
-                <p className="text-charcoal-500 text-sm mb-4">Share your experience by uploading or taking photos. You can add multiple images.</p>
+                <p className="label-eyebrow text-ink-mute mb-2">Step one</p>
+                <h3 className="font-display text-[26px] leading-tight text-ink">Add a photo<span style={{ color: 'var(--bloom)' }}>.</span></h3>
+                <p className="text-[13px] text-ink-soft mt-2">A photo or two of where you were. They show up on the place hub.</p>
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 gap-3">
                 <button
                   onClick={handleTakePhoto}
-                  className="aspect-square bg-linen-50 border-2 border-dashed border-linen-300 rounded-2xl flex flex-col items-center justify-center hover:bg-linen-100 transition"
+                  className="btn-secondary aspect-square flex flex-col items-center justify-center gap-2"
+                  style={{ borderRadius: 18 }}
                 >
-                  <CameraIcon className="w-8 h-8 text-charcoal-400 mb-2" />
-                  <span className="text-sm text-charcoal-500">Take Photo</span>
+                  <CameraIcon className="w-6 h-6 text-ink-soft" />
+                  <span className="label-eyebrow text-ink-soft">Take photo</span>
                 </button>
                 <button
                   onClick={() => fileInputRef.current?.click()}
-                  className="aspect-square bg-linen-50 border-2 border-dashed border-linen-300 rounded-2xl flex flex-col items-center justify-center hover:bg-linen-100 transition"
+                  className="btn-secondary aspect-square flex flex-col items-center justify-center gap-2"
+                  style={{ borderRadius: 18 }}
                 >
-                  <PhotoIcon className="w-8 h-8 text-charcoal-400 mb-2" />
-                  <span className="text-sm text-charcoal-500">Upload Photo(s)</span>
+                  <PhotoIcon className="w-6 h-6 text-ink-soft" />
+                  <span className="label-eyebrow text-ink-soft">Upload</span>
                 </button>
               </div>
               <input
@@ -422,51 +454,44 @@ const CreatePost = ({ isOpen, onClose, preSelectedHub, preSelectedListIds }: Cre
                 className="hidden"
               />
               {photos.length > 0 && (
-                <div className="space-y-4">
+                <div className="space-y-3">
                   <div className="flex items-center justify-between">
-                    <h4 className="font-medium text-charcoal-700">Selected Photos ({photos.length})</h4>
+                    <span className="label-eyebrow text-ink-mute">Selected · {photos.length}</span>
                     <button
                       onClick={() => fileInputRef.current?.click()}
-                      className="text-sage-600 hover:text-sage-700 text-sm font-medium"
+                      className="label-eyebrow text-ink-soft hover:text-ink"
                     >
-                      Add More
+                      Add more
                     </button>
                   </div>
-                  <div className="grid grid-cols-3 gap-3">
+                  <div className="grid grid-cols-3 gap-2">
                     {photos.map((photo, index) => (
-                      <div key={index} className="relative aspect-square group">
+                      <div key={index} className="relative aspect-square group rounded-[10px] overflow-hidden">
                         <img
                           src={URL.createObjectURL(photo)}
                           alt={`Photo ${index + 1}`}
-                          className="w-full h-full object-cover rounded-xl"
+                          className="w-full h-full object-cover"
                         />
                         <button
                           onClick={() => handleRemovePhoto(index)}
-                          className="absolute top-2 right-2 w-6 h-6 bg-black/50 text-white rounded-full flex items-center justify-center text-xs opacity-80 group-hover:opacity-100 transition-opacity"
+                          className="absolute top-1.5 right-1.5 w-6 h-6 rounded-full flex items-center justify-center text-xs opacity-95 transition-opacity"
+                          style={{ background: 'rgba(46,28,13,0.70)', color: '#FFF' }}
                           aria-label="Remove photo"
                         >
                           ×
                         </button>
-                        <div className="absolute bottom-2 left-2 bg-black/50 text-white text-xs px-2 py-1 rounded-full">
-                          {index + 1}
-                        </div>
                       </div>
                     ))}
                   </div>
                   {extractedLocation && (
-                    <div className="bg-sage-50 border border-sage-200 rounded-xl p-3">
-                      <div className="flex items-center gap-2 text-sage-700 text-sm">
-                        <MapPinIcon className="w-4 h-4" />
-                        <span>Location detected from photos</span>
-                      </div>
+                    <div className="glass-honey rounded-[10px] px-3 py-2.5 flex items-center gap-2 text-[13px]">
+                      <MapPinIcon className="w-4 h-4" />
+                      <span>Location detected from photos</span>
                     </div>
                   )}
                   {isScreenshot && (
-                    <div className="bg-gold-50 border border-gold-200 rounded-xl p-3">
-                      <div className="flex items-center gap-2 text-gold-700 text-sm">
-                        <span className="text-lg">📱</span>
-                        <span>Screenshot detected - you can mark this as want/tried/loved</span>
-                      </div>
+                    <div className="glass-honey rounded-[10px] px-3 py-2.5 flex items-center gap-2 text-[13px]">
+                      <span>Screenshot detected — mark this as want, tried, or loved.</span>
                     </div>
                   )}
                 </div>
@@ -480,317 +505,287 @@ const CreatePost = ({ isOpen, onClose, preSelectedHub, preSelectedListIds }: Cre
                   }
                 }}
                 disabled={photos.length === 0}
-                className="w-full bg-sage-400 text-white py-3 rounded-xl font-medium hover:bg-sage-500 transition disabled:bg-charcoal-200 disabled:cursor-not-allowed"
+                className="btn-cta w-full h-12 font-semibold text-[15px]"
               >
-                {selectedHub ? 'Continue to Details' : 'Continue to Location'}
+                {selectedHub ? 'Continue' : 'Pick a place →'}
               </button>
             </div>
           )}
           {/* Step 2: Location/Hub */}
           {step === 'location' && (
-            <div className="space-y-6">
+            <div className="space-y-5">
               {extractedLocation && !hubGuess && (
-                <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded-xl text-yellow-800">
-                  <span>We found a location in your photo, but couldn't match it to a hub. Please search for the place below.</span>
+                <div className="glass-honey rounded-[10px] px-4 py-3 text-[13px]">
+                  We found a location in your photo, but couldn't match it to a place. Search below to pin it.
                 </div>
               )}
               {hubGuess && !hubConfirmed && (
-                <div className="bg-sage-50 border-l-4 border-sage-400 p-4 rounded-xl text-sage-800 flex flex-col gap-2">
-                  <span>We think this photo was taken at:</span>
-                  <div className="font-semibold">{hubGuess.name}</div>
-                  <div className="text-sm text-sage-700">{hubGuess.address}</div>
+                <div className="glass-honey rounded-[14px] p-4 flex flex-col gap-2">
+                  <span className="label-eyebrow text-ink-mute">Looks like</span>
+                  <div className="font-display text-[20px] leading-tight text-ink">{hubGuess.name}</div>
+                  <div className="text-[12px] text-ink-soft">{hubGuess.address}</div>
                   <div className="flex gap-2 mt-2">
-                    <button
-                      onClick={handleConfirmHub}
-                      className="bg-sage-400 text-white px-4 py-2 rounded-xl font-medium hover:bg-sage-500 transition"
-                    >
-                      Yes, that's correct
+                    <button onClick={handleConfirmHub} className="btn-cta h-10 px-4 text-[13px] font-semibold flex-1">
+                      Yes, that's right
                     </button>
-                    <button
-                      onClick={handleRejectHub}
-                      className="bg-linen-200 text-sage-700 px-4 py-2 rounded-xl font-medium hover:bg-linen-300 transition"
-                    >
-                      No, search for another
+                    <button onClick={handleRejectHub} className="btn-secondary h-10 px-4 text-[13px] font-medium flex-1">
+                      Search again
                     </button>
                   </div>
                 </div>
               )}
               {!hubGuess && !hubConfirmed && (
                 <div>
-                  <h3 className="text-lg font-semibold text-charcoal-700 mb-2">Where are you?</h3>
-                  <p className="text-charcoal-500 text-sm mb-4">Search for a place or create a new hub</p>
-                  <div className="relative mb-4">
-                    <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-charcoal-400" />
+                  <p className="label-eyebrow text-ink-mute mb-2">Step two</p>
+                  <h3 className="font-display text-[26px] leading-tight text-ink">Where were you<span style={{ color: 'var(--bloom)' }}>?</span></h3>
+                  <p className="text-[13px] text-ink-soft mt-2 mb-4">Search for the place, or add it if it's new.</p>
+                  <div className="flex items-center gap-2 h-11 px-4 rounded-full bg-card border border-edge focus-within:border-ink/40 mb-4">
+                    <MagnifyingGlassIcon className="w-[18px] h-[18px] text-ink-mute shrink-0" />
                     <input
                       type="text"
                       value={locationSearch}
                       onChange={(e) => handleLocationSearch(e.target.value)}
-                      placeholder="Search for a place..."
-                      className="w-full pl-10 pr-4 py-3 border border-linen-200 rounded-xl bg-linen-50 text-charcoal-600 focus:outline-none focus:ring-2 focus:ring-sage-200"
+                      placeholder="Try a name or address"
+                      className="flex-1 bg-transparent outline-none text-[14px] text-ink placeholder:text-ink-mute"
                     />
                   </div>
                   {isSearching && (
-                    <div className="text-center py-4 text-charcoal-500">
-                      Searching...
-                    </div>
+                    <p className="font-mono text-[10px] tracking-[0.12em] uppercase text-center text-ink-mute py-2">Searching…</p>
                   )}
                   {searchResults.length > 0 && (
-                    <div className="space-y-2">
+                    <ul className="divide-y divide-edge border-y border-edge">
                       {searchResults.map((hub) => (
-                        <button
-                          key={hub.id}
-                          onClick={() => handleSelectHub(hub)}
-                          className="w-full p-3 text-left bg-white border border-linen-200 rounded-xl hover:bg-linen-50 transition"
-                        >
-                          <div className="font-medium text-charcoal-700">{hub.name}</div>
-                          <div className="text-sm text-charcoal-500">{hub.address}</div>
-                        </button>
+                        <li key={hub.id}>
+                          <button
+                            onClick={() => handleSelectHub(hub)}
+                            className="w-full px-1 py-3.5 text-left hover:bg-paper-deep transition-colors"
+                          >
+                            <div className="font-display text-[18px] leading-tight text-ink truncate">{hub.name}</div>
+                            <div className="font-mono text-[10px] tracking-[0.12em] uppercase text-ink-mute mt-1 truncate">{hub.address}</div>
+                          </button>
+                        </li>
                       ))}
-                    </div>
+                    </ul>
                   )}
-                  {!isSearching && (
-                    <div className="text-center py-4">
-                      <p className="text-charcoal-500 mb-4">Can't find what you're looking for?</p>
-                      <button
-                        onClick={() => setIsCreatingNewHub(true)}
-                        className="bg-sage-400 text-white px-4 py-2 rounded-xl font-medium hover:bg-sage-500 transition"
-                      >
-                        Create New Hub
+                  {!isSearching && searchResults.length === 0 && (
+                    <div className="text-center py-6">
+                      <p className="text-[13px] text-ink-soft mb-3">Can't find it?</p>
+                      <button onClick={() => setIsCreatingNewHub(true)} className="btn-secondary h-10 px-5 text-[13px] font-medium">
+                        Add a new place
                       </button>
                     </div>
                   )}
                 </div>
               )}
               {isCreatingNewHub && (
-                <div className="bg-linen-50 rounded-2xl p-4 space-y-4">
-                  <h4 className="font-semibold text-charcoal-700">Create New Hub</h4>
+                <div className="space-y-3 border-t border-edge pt-5">
+                  <p className="label-eyebrow text-ink-mute">New place</p>
                   <input
                     type="text"
                     value={newHubName}
                     onChange={(e) => setNewHubName(e.target.value)}
-                    placeholder="Place name"
-                    className="w-full px-4 py-3 border border-linen-200 rounded-xl bg-white text-charcoal-600 focus:outline-none focus:ring-2 focus:ring-sage-200"
+                    placeholder="Name"
+                    className="w-full h-11 px-4 rounded-full bg-card border border-edge text-[14px] text-ink placeholder:text-ink-mute outline-none focus:border-ink/40"
                   />
-                  <AddressAutocomplete
-                    onPlaceSelect={handlePlaceSelect}
-                    placeholder="Enter address..."
-                    value={newHubAddress}
-                    className=""
-                  />
+                  <AddressAutocomplete onPlaceSelect={handlePlaceSelect} placeholder="Address" value={newHubAddress} className="" />
                   <textarea
                     value={newHubDescription}
                     onChange={(e) => setNewHubDescription(e.target.value)}
-                    placeholder="Short description (optional)"
+                    placeholder="A short description (optional)"
                     rows={3}
-                    className="w-full px-4 py-3 border border-linen-200 rounded-xl bg-white text-charcoal-600 focus:outline-none focus:ring-2 focus:ring-sage-200 resize-none"
+                    className="w-full px-4 py-3 rounded-[18px] bg-card border border-edge text-[14px] text-ink placeholder:text-ink-mute outline-none focus:border-ink/40 resize-none"
                   />
                   <button
                     onClick={handleCreateNewHub}
                     disabled={!newHubName || !newHubAddress}
-                    className="w-full bg-sage-400 text-white py-3 rounded-xl font-medium hover:bg-sage-500 transition disabled:bg-charcoal-200 disabled:cursor-not-allowed"
+                    className="btn-cta w-full h-12 font-semibold text-[15px]"
                   >
-                    Create Hub & Continue
+                    Add & continue
                   </button>
                 </div>
               )}
-              <button
-                onClick={() => setStep('photo')}
-                className="w-full bg-linen-200 text-sage-700 py-3 rounded-xl font-medium hover:bg-linen-300 transition"
-              >
+              <button onClick={() => setStep('photo')} className="btn-secondary w-full h-11 text-[13px] font-medium">
                 Back
               </button>
             </div>
           )}
           {/* Step 3: Details */}
           {step === 'details' && selectedHub && (
-            <div className="space-y-6">
+            <div className="space-y-5">
               <div>
-                <h3 className="text-lg font-semibold text-charcoal-700 mb-2">Post Details</h3>
-                <p className="text-charcoal-500 text-sm mb-4">Tell us about your experience</p>
+                <p className="label-eyebrow text-ink-mute mb-2">Step three</p>
+                <h3 className="font-display text-[26px] leading-tight text-ink">Tell the story<span style={{ color: 'var(--bloom)' }}>.</span></h3>
+                <p className="text-[13px] text-ink-soft mt-2">A line about how it was, and a tag or two if you want.</p>
               </div>
               {/* How was it? Want/Tried/Loved */}
               <div>
-                <label className="block text-sm font-medium text-charcoal-700 mb-3">
+                <p className="label-eyebrow text-ink-mute mb-2.5">
                   {isScreenshot ? 'How do you feel about this?' : 'How was it?'}
-                </label>
-                <div className="grid grid-cols-3 gap-3">
-                  {(['want', 'tried', 'loved'] as const).map((type) => (
-                    <button
-                      key={type}
-                      onClick={() => setHowWasIt(type)}
-                      className={`p-3 rounded-xl border-2 transition ${
-                        howWasIt === type
-                          ? 'border-sage-400 bg-sage-50 text-sage-700'
-                          : 'border-linen-200 bg-white text-charcoal-600 hover:border-sage-200'
-                      }`}
-                    >
-                      <div className="text-sm font-medium capitalize">{type}</div>
-                    </button>
-                  ))}
+                </p>
+                <div className="grid grid-cols-3 gap-1.5">
+                  {(['want', 'tried', 'loved'] as const).map((type) => {
+                    const active = howWasIt === type
+                    const label = type === 'want' ? 'Want' : type === 'tried' ? 'Been' : 'Loved'
+                    return (
+                      <button
+                        key={type}
+                        onClick={() => setHowWasIt(type)}
+                        className={`h-12 rounded-full text-[13px] font-medium border transition-colors flex items-center justify-center capitalize ${
+                          active ? 'btn-cta border-transparent' : 'btn-secondary'
+                        }`}
+                      >
+                        {label}
+                      </button>
+                    )
+                  })}
                 </div>
               </div>
               {/* If tried, show feeling */}
               {howWasIt === 'tried' && (
                 <div>
-                  <label className="block text-sm font-medium text-charcoal-700 mb-3">How did you feel about it?</label>
-                  <div className="grid grid-cols-3 gap-3">
-                    {(['liked', 'neutral', 'disliked'] as const).map((feeling) => (
-                      <button
-                        key={feeling}
-                        onClick={() => setTriedFeeling(feeling)}
-                        className={`p-3 rounded-xl border-2 transition ${
-                          triedFeeling === feeling
-                            ? 'border-sage-400 bg-sage-50 text-sage-700'
-                            : 'border-linen-200 bg-white text-charcoal-600 hover:border-sage-200'
-                        }`}
-                      >
-                        <div className="text-sm font-medium capitalize">{feeling}</div>
-                      </button>
-                    ))}
+                  <p className="label-eyebrow text-ink-mute mb-2.5">How did it feel?</p>
+                  <div className="grid grid-cols-3 gap-1.5">
+                    {(['liked', 'neutral', 'disliked'] as const).map((feeling) => {
+                      const active = triedFeeling === feeling
+                      return (
+                        <button
+                          key={feeling}
+                          onClick={() => setTriedFeeling(feeling)}
+                          className={`h-10 rounded-full text-[13px] font-medium border transition-colors capitalize ${
+                            active ? 'bg-ink text-paper border-ink' : 'btn-secondary'
+                          }`}
+                        >
+                          {feeling}
+                        </button>
+                      )
+                    })}
                   </div>
                 </div>
               )}
               {/* Description */}
               <div>
-                <label className="block text-sm font-medium text-charcoal-700 mb-2">Description</label>
+                <p className="label-eyebrow text-ink-mute mb-2">Description</p>
                 <textarea
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
-                  placeholder="Share your experience..."
+                  placeholder="What did you think?"
                   rows={4}
-                  className="w-full px-4 py-3 border border-linen-200 rounded-xl bg-linen-50 text-charcoal-600 focus:outline-none focus:ring-2 focus:ring-sage-200 resize-none"
+                  className="w-full px-4 py-3 rounded-[18px] bg-card border border-edge text-[14px] text-ink placeholder:text-ink-mute outline-none focus:border-ink/40 resize-none"
                 />
               </div>
               {/* Tags */}
               <div>
-                <label className="block text-sm font-medium text-charcoal-700 mb-2">Tags</label>
-                <div className="flex flex-wrap gap-2 mb-3">
-                  {tags.map((tag) => (
-                    <span
-                      key={tag}
-                      className="px-3 py-1 bg-sage-100 text-sage-700 rounded-full text-sm flex items-center gap-2"
-                    >
-                      #{tag}
-                      <button
-                        onClick={() => handleRemoveTag(tag)}
-                        className="text-sage-500 hover:text-sage-700"
+                <p className="label-eyebrow text-ink-mute mb-2">Tags</p>
+                {tags.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 mb-2.5">
+                    {tags.map((tag) => (
+                      <span
+                        key={tag}
+                        className="glass-honey px-3 h-7 rounded-full label-eyebrow flex items-center gap-1.5"
                       >
-                        ×
-                      </button>
-                    </span>
-                  ))}
-                </div>
+                        {tag}
+                        <button onClick={() => handleRemoveTag(tag)} aria-label={`Remove ${tag}`}>×</button>
+                      </span>
+                    ))}
+                  </div>
+                )}
                 <TagAutocomplete
                   value={newTag}
                   onChange={setNewTag}
                   onAdd={handleAddTag}
-                  placeholder="Add a tag..."
+                  placeholder="Add a tag…"
                   maxTags={3}
                   currentTags={tags}
                   availableTags={availableTags}
                 />
               </div>
-              {/* List Selection (exclude All Loved/All Tried) */}
+              {/* List Selection */}
               <div>
-                <label className="block text-sm font-medium text-charcoal-700 mb-2">Save to Lists (optional)</label>
-                
-                {/* Search bar for lists */}
-                <div className="relative mb-3">
-                  <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-charcoal-400 pointer-events-none z-10" />
+                <p className="label-eyebrow text-ink-mute mb-2">Add to lists <span className="font-normal text-ink-faint">· optional</span></p>
+                <div className="flex items-center gap-2 h-10 px-3.5 rounded-full bg-card border border-edge focus-within:border-ink/40 mb-2">
+                  <MagnifyingGlassIcon className="w-4 h-4 text-ink-mute shrink-0" />
                   <input
                     type="text"
                     value={listSearchQuery}
                     onChange={(e) => setListSearchQuery(e.target.value)}
-                    placeholder="Search your lists..."
-                    className="w-full pl-10 pr-4 py-2 border border-linen-200 rounded-xl bg-linen-50 text-charcoal-600 focus:outline-none focus:ring-2 focus:ring-sage-200"
+                    placeholder="Search lists"
+                    className="flex-1 bg-transparent outline-none text-[13px] text-ink placeholder:text-ink-mute"
                   />
                 </div>
-
-                <div className="space-y-2 max-h-32 overflow-y-auto">
+                <div className="max-h-36 overflow-y-auto -mx-1">
                   {filteredLists.length > 0 ? (
-                    filteredLists.map((list) => (
-                      <label
-                        key={list.id}
-                        className={`flex items-center gap-3 p-3 border border-linen-200 rounded-xl cursor-pointer hover:bg-linen-50 transition ${
-                          selectedListIds.has(list.id)
-                            ? 'border-sage-300 bg-sage-50'
-                            : 'border-linen-200'
-                        }`}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={selectedListIds.has(list.id)}
-                          onChange={(e) => {
-                            const newSet = new Set(selectedListIds)
-                            if (e.target.checked) {
-                              newSet.add(list.id)
-                            } else {
-                              newSet.delete(list.id)
-                            }
-                            setSelectedListIds(newSet)
-                          }}
-                          className="w-4 h-4 text-sage-500 focus:ring-sage-400"
-                        />
-                        <div className="flex-1">
-                          <div className="font-medium text-charcoal-700">{list.name}</div>
-                        </div>
-                      </label>
-                    ))
+                    <ul className="px-1">
+                      {filteredLists.map((list) => {
+                        const checked = selectedListIds.has(list.id)
+                        return (
+                          <li key={list.id}>
+                            <label className={`flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer transition-colors ${
+                              checked ? 'bg-paper-deep' : 'hover:bg-paper-deep'
+                            }`}>
+                              <input
+                                type="checkbox"
+                                checked={checked}
+                                onChange={(e) => {
+                                  const newSet = new Set(selectedListIds)
+                                  if (e.target.checked) newSet.add(list.id); else newSet.delete(list.id)
+                                  setSelectedListIds(newSet)
+                                }}
+                                className="w-4 h-4 rounded accent-walnut"
+                                style={{ accentColor: 'var(--walnut)' }}
+                              />
+                              <span className="text-[14px] font-medium text-ink truncate flex-1">{list.name}</span>
+                            </label>
+                          </li>
+                        )
+                      })}
+                    </ul>
                   ) : (
-                    <div className="text-center py-4 text-charcoal-500 text-sm">
-                      {listSearchQuery ? 'No lists found matching your search' : 'No lists available'}
-                    </div>
+                    <p className="text-center py-3 text-[12px] text-ink-mute">
+                      {listSearchQuery ? 'No matching lists' : 'No lists yet'}
+                    </p>
                   )}
                 </div>
-                
-                {selectedListIds.size > 0 && (
-                  <div className="mt-2 text-xs text-charcoal-500">
-                    Selected {selectedListIds.size} list{selectedListIds.size !== 1 ? 's' : ''}
-                  </div>
-                )}
               </div>
               {/* Privacy Settings */}
               <div>
-                <label className="block text-sm font-medium text-charcoal-700 mb-2">Privacy</label>
-                <div className="space-y-2">
+                <p className="label-eyebrow text-ink-mute mb-2">Privacy</p>
+                <div className="grid grid-cols-3 gap-1.5">
                   {([
-                    { key: 'public', label: 'Public', icon: EyeIcon, desc: 'Anyone can see this post' },
-                    { key: 'friends', label: 'Friends', icon: UsersIcon, desc: 'Only your friends can see this post' },
-                    { key: 'private', label: 'Private', icon: EyeSlashIcon, desc: 'Only you can see this post' }
-                  ] as const).map(({ key, label, icon: Icon, desc }) => (
-                    <label
-                      key={key}
-                      className="flex items-center gap-3 p-3 border border-linen-200 rounded-xl cursor-pointer hover:bg-linen-50 transition"
-                    >
-                      <input
-                        type="radio"
-                        name="privacy"
-                        value={key}
-                        checked={privacy === key}
-                        onChange={() => setPrivacy(key)}
-                        className="w-4 h-4 text-sage-500 focus:ring-sage-400"
-                      />
-                      <Icon className="w-5 h-5 text-charcoal-400" />
-                      <div>
-                        <div className="font-medium text-charcoal-700">{label}</div>
-                        <div className="text-sm text-charcoal-500">{desc}</div>
-                      </div>
-                    </label>
-                  ))}
+                    { key: 'public', label: 'Public', icon: EyeIcon },
+                    { key: 'friends', label: 'Friends', icon: UsersIcon },
+                    { key: 'private', label: 'Private', icon: EyeSlashIcon },
+                  ] as const).map(({ key, label, icon: Icon }) => {
+                    const active = privacy === key
+                    return (
+                      <button
+                        key={key}
+                        type="button"
+                        onClick={() => setPrivacy(key)}
+                        className={`h-11 rounded-full text-[13px] font-medium border transition-colors flex items-center justify-center gap-1.5 ${
+                          active ? 'bg-ink text-paper border-ink' : 'btn-secondary'
+                        }`}
+                      >
+                        <Icon className="w-3.5 h-3.5" />
+                        {label}
+                      </button>
+                    )
+                  })}
                 </div>
               </div>
-              <button
-                onClick={handleSubmit}
-                className="w-full bg-sage-400 text-white py-3 rounded-xl font-medium hover:bg-sage-500 transition"
-              >
-                Create Post
-              </button>
-              <button
-                onClick={() => setStep('location')}
-                className="w-full bg-linen-200 text-sage-700 py-3 rounded-xl font-medium hover:bg-linen-300 transition"
-              >
-                Back
-              </button>
+              <div className="flex gap-2 pt-2">
+                <button
+                  onClick={() => setStep('location')}
+                  className="btn-secondary h-12 px-5 font-medium text-[14px]"
+                >
+                  Back
+                </button>
+                <button
+                  onClick={handleSubmit}
+                  className="btn-cta flex-1 h-12 font-semibold text-[15px]"
+                >
+                  Post
+                </button>
+              </div>
             </div>
           )}
         </div>

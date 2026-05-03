@@ -98,66 +98,55 @@ const PlusDropdown: React.FC<PlusDropdownProps> = ({ onCreatePost, onSaveHub, on
         <button
           ref={buttonRef}
           onClick={handleToggleDropdown}
-          className="relative w-20 h-20 text-white rounded-full flex items-center justify-center transition-all duration-300 transform hover:scale-110 active:scale-95 focus:outline-none group"
-          style={{
-            background: 'linear-gradient(135deg, rgba(75, 143, 103, 0.95) 0%, rgba(181, 142, 83, 0.95) 100%)',
-            backdropFilter: 'blur(20px)',
-            boxShadow: '0 8px 32px rgba(75, 143, 103, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.2), inset 0 1px 0 0 rgba(255, 255, 255, 0.3)',
-          }}
           aria-label="Create post or add to list"
+          className="amber-pebble w-[56px] h-[56px] flex items-center justify-center focus:outline-none"
         >
-          <div className="absolute inset-0 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300"
-            style={{
-              background: 'radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.2) 0%, transparent 60%)',
-            }}
-          />
-          <PlusIcon className="w-10 h-10 stroke-[3] relative z-10 drop-shadow-lg" />
-          <div className="absolute inset-0 rounded-full animate-pulse opacity-30"
-            style={{
-              background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.3) 0%, transparent 100%)',
-            }}
+          <PlusIcon
+            className="w-7 h-7 stroke-[2.4] relative"
+            style={{ color: 'rgba(255, 244, 218, 0.95)' }}
           />
         </button>
       </div>
       
       {isOpen && createPortal(
-        <div 
-          className="fixed w-48 bg-white rounded-xl shadow-botanical border border-linen-200 py-2 z-50"
+        <div
+          className="fixed w-56 bg-card rounded-2xl border border-edge py-2 z-50"
           style={{
             top: dropdownPosition.top,
-            left: dropdownPosition.left
+            left: dropdownPosition.left,
+            boxShadow: '0 18px 40px rgba(31, 26, 20, 0.18), 0 2px 6px rgba(31, 26, 20, 0.06)',
           }}
           ref={dropdownRef}
         >
           <button
             onClick={handleCreatePost}
-            className={`flex items-center gap-3 w-full px-4 py-3 text-left text-charcoal-700 hover:bg-sage-50 transition-colors ${variant === 'main' ? 'rounded-t-xl' : ''}`}
+            className="flex items-center gap-3 w-full px-4 py-3 text-left text-ink hover:bg-paper-deep transition-colors"
           >
-            <PhotoIcon className="w-5 h-5 text-sage-600" />
+            <PhotoIcon className="w-5 h-5" style={{ color: 'var(--accent-mid)' }} />
             <div>
-              <div className="font-medium">Create</div>
-              <div className="text-xs text-charcoal-500">Post a place or experience</div>
+              <div className="font-display text-[16px] leading-tight">Create</div>
+              <div className="font-mono text-[10px] tracking-[0.10em] uppercase text-ink-mute mt-0.5">Post a place</div>
             </div>
           </button>
           <button
             onClick={handleEmbedFrom}
-            className={`flex items-center gap-3 w-full px-4 py-3 text-left text-charcoal-700 hover:bg-sage-50 transition-colors ${variant === 'main' ? 'rounded-b-xl' : ''}`}
+            className="flex items-center gap-3 w-full px-4 py-3 text-left text-ink hover:bg-paper-deep transition-colors"
           >
-            <LinkIcon className="w-5 h-5 text-sage-600" />
+            <LinkIcon className="w-5 h-5" style={{ color: 'var(--accent-mid)' }} />
             <div>
-              <div className="font-medium">Embed</div>
-              <div className="text-xs text-charcoal-500">Add from Instagram, TikTok, etc.</div>
+              <div className="font-display text-[16px] leading-tight">Embed</div>
+              <div className="font-mono text-[10px] tracking-[0.10em] uppercase text-ink-mute mt-0.5">From Instagram, TikTok…</div>
             </div>
           </button>
           {variant === 'list' && (
             <button
               onClick={handleSaveHub}
-              className="flex items-center gap-3 w-full px-4 py-3 text-left text-charcoal-700 hover:bg-sage-50 transition-colors rounded-b-xl"
+              className="flex items-center gap-3 w-full px-4 py-3 text-left text-ink hover:bg-paper-deep transition-colors"
             >
-              <BookmarkIcon className="w-5 h-5 text-sage-600" />
+              <BookmarkIcon className="w-5 h-5" style={{ color: 'var(--accent-mid)' }} />
               <div>
-                <div className="font-medium">Save Place</div>
-                <div className="text-xs text-charcoal-500">Add a hub to this list</div>
+                <div className="font-display text-[16px] leading-tight">Save place</div>
+                <div className="font-mono text-[10px] tracking-[0.10em] uppercase text-ink-mute mt-0.5">Add to this list</div>
               </div>
             </button>
           )}
