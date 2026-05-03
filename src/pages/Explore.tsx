@@ -97,12 +97,26 @@ const Explore = () => {
         if (eff) {
           external = await firebaseDataService.getBatchedExternalRecommendations(eff.lat, eff.lng, { limit: 18 })
         }
+        // Internal results come from our places collection; external results
+        // come from Google. The same place can appear in both (a Google
+        // candidate that's already been claimed by some user). Their ids are
+        // different, so id-only dedup misses the duplicate. Add a normalised
+        // name+address fingerprint and prefer the internal record.
         const merged = [...internal, ...external]
-        const seen = new Set<string>()
+        const seenIds = new Set<string>()
+        const seenFingerprints = new Set<string>()
+        const fingerprint = (p: any) => {
+          const name = String(p?.name || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
+          const addr = String(p?.address || p?.location?.address || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
+          return name && addr ? `${name}|${addr.slice(0, 24)}` : ''
+        }
         const unique = merged.filter((p: any) => {
-          const k = (p.id || '') + '|' + (p.name || '')
-          if (seen.has(k)) return false
-          seen.add(k)
+          const id = p.id || ''
+          if (id && seenIds.has(id)) return false
+          const fp = fingerprint(p)
+          if (fp && seenFingerprints.has(fp)) return false
+          if (id) seenIds.add(id)
+          if (fp) seenFingerprints.add(fp)
           return true
         })
         feed = unique.map((p: any) => {

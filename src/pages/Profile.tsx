@@ -811,32 +811,68 @@ const Profile = () => {
                       <button onClick={() => setShowAllActivity(prev => !prev)} className="text-sm font-medium text-body hover:underline">{showAllActivity ? 'Show less' : 'See all recent activity'}</button>
                     ) : null}>
                     <div className="space-y-4">
-                        {activityToShow.map((activity) => (
-                            <button
-                                key={activity.id}
-                                type="button"
-                                onClick={() => {
-                                    if (activity.type === 'create_list' && activity.list) {
-                                        openListModal(activity.list as any, 'profile-activity')
-                                    } else if (activity.place) {
-                                        openHubModal(activity.place as any, 'profile-activity')
-                                    } else if (activity.list) {
-                                        openListModal(activity.list as any, 'profile-activity')
-                                    }
-                                }}
-                                className="w-full text-left rounded-xl glass flex items-center gap-4 p-4 transition hover:bg-white/20 cursor-pointer"
-                            >
-                                <div className="w-12 h-12 rounded-xl bg-white/20 flex items-center justify-center shrink-0">
-                                    <BookmarkIcon className="w-6 h-6 text-bark-700" />
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                    <p className="text-sm text-charcoal-700 font-medium truncate">
-                                        Saved <span className="font-semibold">{activity.place?.name}</span> to <span className="font-semibold">{activity.list?.name}</span>
-                                    </p>
-                                    <p className="text-xs text-charcoal-400 mt-1">{formatTimestamp((activity as any).createdAt)}</p>
-                                </div>
-                            </button>
-                        ))}
+                        {activityToShow.map((activity) => {
+                            const placeName = activity.place?.name
+                            const listName = activity.list?.name
+                            // Render based on activity type — every row was previously
+                            // hard-coded as "Saved X to Y", which surfaced phantom
+                            // "Saved to RU bored" entries for create_list / like /
+                            // post events that weren't saves at all.
+                            let body: React.ReactNode = null
+                            switch (activity.type) {
+                                case 'save':
+                                    body = placeName && listName
+                                        ? <>Saved <span className="font-semibold">{placeName}</span> to <span className="font-semibold">{listName}</span></>
+                                        : placeName
+                                            ? <>Saved <span className="font-semibold">{placeName}</span></>
+                                            : listName
+                                                ? <>Saved <span className="font-semibold">{listName}</span></>
+                                                : <>Saved a place</>
+                                    break
+                                case 'create_list':
+                                    body = <>Created <span className="font-semibold">{listName || 'a list'}</span></>
+                                    break
+                                case 'like':
+                                    body = placeName
+                                        ? <>Liked <span className="font-semibold">{placeName}</span></>
+                                        : listName
+                                            ? <>Liked <span className="font-semibold">{listName}</span></>
+                                            : <>Liked something</>
+                                    break
+                                case 'post':
+                                    body = placeName
+                                        ? <>Posted about <span className="font-semibold">{placeName}</span></>
+                                        : <>Shared a post</>
+                                    break
+                                default:
+                                    body = <>Activity</>
+                            }
+                            const Icon = activity.type === 'like' ? HeartIcon : activity.type === 'post' ? PlusIcon : BookmarkIcon
+                            return (
+                                <button
+                                    key={activity.id}
+                                    type="button"
+                                    onClick={() => {
+                                        if (activity.type === 'create_list' && activity.list) {
+                                            openListModal(activity.list as any, 'profile-activity')
+                                        } else if (activity.place) {
+                                            openHubModal(activity.place as any, 'profile-activity')
+                                        } else if (activity.list) {
+                                            openListModal(activity.list as any, 'profile-activity')
+                                        }
+                                    }}
+                                    className="w-full text-left rounded-xl glass flex items-center gap-4 p-4 transition hover:bg-white/20 cursor-pointer"
+                                >
+                                    <div className="w-12 h-12 rounded-xl bg-white/20 flex items-center justify-center shrink-0">
+                                        <Icon className="w-6 h-6 text-bark-700" />
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                        <p className="text-sm text-charcoal-700 font-medium truncate">{body}</p>
+                                        <p className="text-xs text-charcoal-400 mt-1">{formatTimestamp((activity as any).createdAt)}</p>
+                                    </div>
+                                </button>
+                            )
+                        })}
                         {(!searchQuery.trim() && !showAllActivity && filteredActivityItems.length > 3) && (
                             <button
                                 onClick={() => setShowAllActivity(true)}

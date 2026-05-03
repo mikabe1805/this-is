@@ -2216,6 +2216,29 @@ class FirebaseDataService {
         return activity as Activity
       })
 
+      // Filter out activity entries that target the auto-generated bucket
+      // lists (All Loved / All Tried / All Want). They're an implementation
+      // detail of the save flow — surfacing "Created All Loved" etc. in the
+      // user's recent activity is noise. We also drop create_list rows whose
+      // referenced list no longer exists (orphaned activity).
+      const isAutoListName = (name?: string) => {
+        const n = (name || '').toLowerCase()
+        return n === 'all loved' || n === 'all tried' || n === 'all want'
+      }
+      activities = activities.filter(a => {
+        const list = (a as { list?: { name?: string; tags?: string[] } }).list
+        if (a.type === 'create_list') {
+          if (!list) return false // orphaned — list got deleted
+          if (isAutoListName(list.name)) return false
+          if (Array.isArray(list.tags) && list.tags.includes('#auto-generated')) return false
+        }
+        if (a.type === 'save' && a.listId && !a.placeId && list && isAutoListName(list.name)) {
+          // saveListToList logging into an auto bucket is also noise
+          return false
+        }
+        return true
+      })
+
       this.userActivityCache.set(userId, { activities, timestamp: Date.now() })
       return activities
     } catch (error) {

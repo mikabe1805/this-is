@@ -81,12 +81,24 @@ const Home = () => {
           seed,
         })
       }
+      // Dedup by id AND by normalised name+address — internal+external can
+      // surface the same place under different ids, and a name-only key
+      // doesn't catch chains with the same name in different cities.
       const merged: Place[] = [...internal, ...external]
-      const seen = new Set<string>()
+      const dedupIds = new Set<string>()
+      const dedupFingerprints = new Set<string>()
+      const fingerprint = (p: Place & { address?: string; location?: { address?: string } }) => {
+        const name = String(p?.name || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
+        const addr = String(p?.address || p?.location?.address || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
+        return name && addr ? `${name}|${addr.slice(0, 24)}` : ''
+      }
       let unique = merged.filter((p) => {
-        const k = (p.id || '') + '|' + (p.name || '')
-        if (seen.has(k)) return false
-        seen.add(k)
+        const id = p.id || ''
+        if (id && dedupIds.has(id)) return false
+        const fp = fingerprint(p as Place)
+        if (fp && dedupFingerprints.has(fp)) return false
+        if (id) dedupIds.add(id)
+        if (fp) dedupFingerprints.add(fp)
         return true
       })
 

@@ -108,6 +108,19 @@ const Search = () => {
   }, [displayResults])
 
   const internalIdSet = useMemo(() => new Set(internalPlaces.map(p => p.item.id)), [internalPlaces])
+  const fingerprintOf = (name?: string, address?: string) => {
+    const n = String(name || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
+    const a = String(address || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
+    return n && a ? `${n}|${a.slice(0, 24)}` : ''
+  }
+  const internalFingerprintSet = useMemo(() => {
+    const s = new Set<string>()
+    for (const p of internalPlaces) {
+      const fp = fingerprintOf(p.item.title, (p.item as { subtitle?: string }).subtitle)
+      if (fp) s.add(fp)
+    }
+    return s
+  }, [internalPlaces])
 
   // Google fallback: when internal results for the typed query are thin, fetch
   // matching places from Google and merge them into the Places section. Lets
@@ -137,7 +150,15 @@ const Search = () => {
         if (controller.signal.aborted) return
         const results = await googleSearchText(q, eff ? { lat: eff.lat, lng: eff.lng, max: 12 } : { max: 12 })
         if (controller.signal.aborted) return
-        const filtered = results.filter(r => !internalIdSet.has(r.id))
+        // Drop Google results that match an internal record by id OR by
+        // normalised name+address — same place can show up under different
+        // ids and the id-only check missed those.
+        const filtered = results.filter(r => {
+          if (internalIdSet.has(r.id)) return false
+          const fp = fingerprintOf(r.name, r.address)
+          if (fp && internalFingerprintSet.has(fp)) return false
+          return true
+        })
         setGoogleResults(filtered)
       } catch (e) {
         if (!controller.signal.aborted) console.warn('[search] google fallback failed', e)
