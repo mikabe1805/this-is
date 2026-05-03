@@ -1,15 +1,16 @@
 import { useState, useRef, useEffect } from 'react'
-import { PlusIcon, PhotoIcon, BookmarkIcon, LinkIcon } from '@heroicons/react/24/outline'
+import { PlusIcon, PhotoIcon, BookmarkIcon, LinkIcon, RectangleStackIcon } from '@heroicons/react/24/outline'
 import { createPortal } from 'react-dom'
 
 interface PlusDropdownProps {
   onCreatePost: () => void
   onSaveHub?: () => void
   onEmbedFrom?: () => void
+  onCreateList?: () => void
   variant?: 'main' | 'list' // 'main' for navbar, 'list' for list pages
 }
 
-const PlusDropdown: React.FC<PlusDropdownProps> = ({ onCreatePost, onSaveHub, onEmbedFrom, variant = 'list' }) => {
+const PlusDropdown: React.FC<PlusDropdownProps> = ({ onCreatePost, onSaveHub, onEmbedFrom, onCreateList, variant = 'list' }) => {
   const [isOpen, setIsOpen] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
   const buttonRef = useRef<HTMLButtonElement>(null)
@@ -59,12 +60,21 @@ const PlusDropdown: React.FC<PlusDropdownProps> = ({ onCreatePost, onSaveHub, on
     }
   }
 
+  const handleCreateList = () => {
+    setIsOpen(false)
+    if (onCreateList) {
+      onCreateList()
+    } else {
+      try { window.dispatchEvent(new CustomEvent('openCreateList')) } catch {}
+    }
+  }
+
   const handleToggleDropdown = () => {
     if (buttonRef.current) {
       if (!isOpen) {
         const rect = buttonRef.current.getBoundingClientRect()
         const viewportHeight = window.innerHeight
-        const dropdownHeight = variant === 'main' ? 96 : 144 // 2 buttons for main, 3 for list
+        const dropdownHeight = variant === 'main' ? 168 : 216 // 3 buttons for main, 4 for list
         
         // Check if there's enough space below the button
         const spaceBelow = viewportHeight - rect.bottom
@@ -126,6 +136,16 @@ const PlusDropdown: React.FC<PlusDropdownProps> = ({ onCreatePost, onSaveHub, on
             <div>
               <div className="font-display text-[16px] leading-tight">Create</div>
               <div className="font-mono text-[10px] tracking-[0.10em] uppercase text-ink-mute mt-0.5">Post a place</div>
+            </div>
+          </button>
+          <button
+            onClick={handleCreateList}
+            className="flex items-center gap-3 w-full px-4 py-3 text-left text-ink hover:bg-paper-deep transition-colors"
+          >
+            <RectangleStackIcon className="w-5 h-5" style={{ color: 'var(--accent-mid)' }} />
+            <div>
+              <div className="font-display text-[16px] leading-tight">New list</div>
+              <div className="font-mono text-[10px] tracking-[0.10em] uppercase text-ink-mute mt-0.5">Group places under a theme</div>
             </div>
           </button>
           <button

@@ -1,647 +1,340 @@
-import type { List, User } from '../types/index.js'
-import { HeartIcon, BookmarkIcon, PlusIcon, MapPinIcon, CalendarIcon, ArrowLeftIcon, EyeIcon } from '@heroicons/react/24/outline'
-import { useState, useEffect, useRef } from 'react'
-import { formatTimestamp } from '../utils/dateUtils'
+import type { List } from '../types/index.js'
+import { ArrowLeftIcon, BookmarkIcon, HeartIcon, MapPinIcon, PlusIcon } from '@heroicons/react/24/outline'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import SearchAndFilter from '../components/SearchAndFilter'
-import AdvancedFiltersDrawer from '../components/AdvancedFiltersDrawer'
-import SaveModal from '../components/SaveModal'
-import CreatePost from '../components/CreatePost'
-import EditListModal from '../components/EditListModal'
-import ConfirmModal from '../components/ConfirmModal'
-import SaveToListModal from '../components/SaveToListModal'
 import { useNavigation } from '../contexts/NavigationContext.tsx'
 import { useAuth } from '../contexts/AuthContext.js'
-import { useFilters } from '../contexts/FiltersContext.tsx'
 import { firebaseDataService } from '../services/firebaseDataService.js'
 import { firebaseListService } from '../services/firebaseListService.js'
+import CreateListModal from '../components/CreateListModal'
+import EditListModal from '../components/EditListModal'
+import ConfirmModal from '../components/ConfirmModal'
+import { formatTimestamp } from '../utils/dateUtils'
 
-// SVG botanical accent
-const BotanicalAccent = () => (
-  <svg width="60" height="60" viewBox="0 0 60 60" fill="none" xmlns="http://www.w3.org/2000/svg" className="absolute -top-6 -left-6 opacity-30 select-none pointer-events-none">
-    <path d="M10 50 Q30 10 50 50" stroke="#A3B3A3" strokeWidth="3" fill="none"/>
-    <ellipse cx="18" cy="38" rx="4" ry="8" fill="#C7D0C7"/>
-    <ellipse cx="30" cy="28" rx="4" ry="8" fill="#A3B3A3"/>
-    <ellipse cx="42" cy="38" rx="4" ry="8" fill="#7A927A"/>
-  </svg>
-)
+const SORT_OPTIONS = [
+  { key: 'recent', label: 'Recent' },
+  { key: 'popular', label: 'Popular' },
+  { key: 'alphabetical', label: 'A→Z' },
+  { key: 'places', label: 'Most places' },
+] as const
 
-const sortOptions = [
-  { key: 'relevance', label: 'Relevance' },
-  { key: 'popular', label: 'Most Popular' },
-  { key: 'friends', label: 'Most Liked by Friends' },
-  { key: 'nearby', label: 'Closest to Location' },
-]
-
-const filterOptions: any[] = []
-
-// Available tags are fetched from Firebase so tag search can reach the full set
+type SortKey = typeof SORT_OPTIONS[number]['key']
 
 const ViewAllLists = () => {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const { openListModal } = useNavigation()
-  const [sortBy, setSortBy] = useState('relevance')
+  const { currentUser: authUser } = useAuth()
+
+  const [allLists, setAllLists] = useState<List[]>([])
+  const [creators, setCreators] = useState<Record<string, string>>({})
+  const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
-  const [activeFilters, setActiveFilters] = useState<string[]>([])
-  const [selectedTags, setSelectedTags] = useState<string[]>([])
-  const [hubFilter, setHubFilter] = useState<string | null>(null)
-  const [likedLists, setLikedLists] = useState<Set<string>>(new Set())
-  const [savedLists, setSavedLists] = useState<Set<string>>(new Set())
-  const [selectedLocation, setSelectedLocation] = useState<{ lat: number; lng: number; name?: string } | null>(null)
-  const [listDistances, setListDistances] = useState<Record<string, number>>({})
+  const [sortBy, setSortBy] = useState<SortKey>('recent')
   const [showOnlyMine, setShowOnlyMine] = useState(true)
-  const [showSaveModal, setShowSaveModal] = useState(false)
-  const [showCreatePost, setShowCreatePost] = useState(false)
-  const [showEditListModal, setShowEditListModal] = useState(false)
-  const [showConfirmModal, setShowConfirmModal] = useState(false)
-  const [showSaveToListModal, setShowSaveToListModal] = useState(false)
-  const [selectedPlace, setSelectedPlace] = useState<any>(null)
-  const [selectedList, setSelectedList] = useState<List | null>(null)
-  const [selectedListForSave, setSelectedListForSave] = useState<List | null>(null)
-  const [createPostListId, setCreatePostListId] = useState<string | null>(null)
-  const [confirmModalConfig, setConfirmModalConfig] = useState({
-    title: '',
-    message: '',
-    onConfirm: () => {}
-  })
+  const [showCreate, setShowCreate] = useState(false)
+  const [editList, setEditList] = useState<List | null>(null)
+  const [confirmConfig, setConfirmConfig] = useState<{ title: string; message: string; onConfirm: () => void } | null>(null)
 
-  // Handle URL parameters for filtering
+  // Pre-fill from URL (e.g. ?sort=popular&onlyMine=false)
   useEffect(() => {
-    const type = searchParams.get('type')
-    const hub = searchParams.get('hub')
-    const tags = searchParams.get('tags')
-    const sort = searchParams.get('sort')
+    const sort = searchParams.get('sort') as SortKey | null
     const onlyMine = searchParams.get('onlyMine')
-
-    if (type === 'popular') setSortBy('popular')
-    else if (type === 'friends') setActiveFilters(['friends'])
-
-    if (hub) setHubFilter(hub)
-
-    if (tags) setSelectedTags(tags.split(',').map(t => t.trim()).filter(Boolean))
-    if (sort) setSortBy(sort)
+    if (sort && SORT_OPTIONS.some(o => o.key === sort)) setSortBy(sort)
     if (onlyMine != null) setShowOnlyMine(onlyMine !== 'false')
   }, [searchParams])
 
-  const { currentUser: authUser } = useAuth()
-  const [allLists, setAllLists] = useState<List[]>([])
-  const placeCacheRef = useRef<Record<string, any>>({})
-  const [listCreators, setListCreators] = useState<Record<string, string>>({});
-  const [loading, setLoading] = useState(true)
-  const [availableTags, setAvailableTags] = useState<string[]>([])
-  const [showAdvanced, setShowAdvanced] = useState(false)
-  const { filters, setFilters } = useFilters()
-
-  // Sync selected tags with global FiltersContext
   useEffect(() => {
-    setSelectedTags(filters.tags || [])
-  }, [filters.tags])
-
-  // If a custom/location-origin is chosen in advanced filters, seed local location for distance sorting
-  useEffect(() => {
-    if (filters.location) {
-      setSelectedLocation({ lat: filters.location.lat, lng: filters.location.lng, name: filters.location.name })
-    }
-  }, [filters.location])
-
-  useEffect(() => {
-    const fetchListsAndCreators = async () => {
-      if (authUser) {
-        setLoading(true);
-        const userLists = await firebaseDataService.getUserLists(authUser.id);
-        try {
-          const tags = await firebaseDataService.getPopularTags(200)
-          setAvailableTags(tags)
-        } catch {
-          setAvailableTags(['coffee','food','outdoors','work','study','cozy','trendy','local','authentic'])
-        }
-        let allFetchedLists = userLists
+    if (!authUser) return
+    let cancelled = false
+    void (async () => {
+      setLoading(true)
+      try {
+        let lists: List[] = await firebaseDataService.getUserLists(authUser.id)
         if (!showOnlyMine) {
-          const following = await firebaseDataService.getUserFollowing(authUser.id);
-          const friendsPublicListsPromises = following.map(friend => 
-            firebaseDataService.getUserLists(friend.id).then(lists => 
-              lists.filter(list => list.privacy === 'public')
-            )
-          );
-          const friendsPublicListsArrays = await Promise.all(friendsPublicListsPromises);
-          const friendsLists = friendsPublicListsArrays.flat();
-          allFetchedLists = [...userLists, ...friendsLists];
+          const following = await firebaseDataService.getUserFollowing(authUser.id)
+          const friendListsArrays = await Promise.all(
+            following.map(f => firebaseDataService.getUserLists(f.id).then(ls => ls.filter(l => l.privacy === 'public')))
+          )
+          lists = [...lists, ...friendListsArrays.flat()]
         }
-        setAllLists(allFetchedLists);
+        if (cancelled) return
+        setAllLists(lists)
 
-        // Fetch creator names
-        const creatorIds = [...new Set(allFetchedLists.map(list => list.userId))];
-        const creatorNames: Record<string, string> = {};
-        for (const id of creatorIds) {
-          creatorNames[id] = await firebaseDataService.getUserDisplayName(id);
-        }
-        setListCreators(creatorNames);
-        setLoading(false);
+        const creatorIds = Array.from(new Set(lists.map(l => l.userId)))
+        const map: Record<string, string> = {}
+        await Promise.all(creatorIds.map(async id => {
+          map[id] = await firebaseDataService.getUserDisplayName(id)
+        }))
+        if (!cancelled) setCreators(map)
+      } catch (e) {
+        console.error('[view-all-lists] load failed', e)
+      } finally {
+        if (!cancelled) setLoading(false)
       }
-    }
-    fetchListsAndCreators()
+    })()
+    return () => { cancelled = true }
   }, [authUser, showOnlyMine])
 
-  // Nearby computation
-  const toRad = (v: number) => (v * Math.PI) / 180
-  const haversineKm = (lat1: number, lon1: number, lat2: number, lon2: number) => {
-    const R = 6371
-    const dLat = toRad(lat2 - lat1)
-    const dLon = toRad(lon2 - lon1)
-    const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
-    return R * c
-  }
-
-  useEffect(() => {
-    const computeDistances = async () => {
-      if (!selectedLocation) { setListDistances({}); return }
-      const distances: Record<string, number> = {}
-      for (const list of allLists) {
-        const anyList: any = list
-        const hubs: any[] = Array.isArray(anyList.hubs) ? anyList.hubs : []
-        let min = Infinity
-        // If list has its own location, use that as a candidate
-        if (anyList.location && typeof anyList.location.lat === 'number' && typeof anyList.location.lng === 'number') {
-          min = Math.min(min, haversineKm(anyList.location.lat, anyList.location.lng, selectedLocation.lat, selectedLocation.lng))
-        }
-        for (const hubRef of hubs) {
-          if (typeof hubRef === 'string') {
-            let place = placeCacheRef.current[hubRef]
-            if (!place) {
-              place = await firebaseDataService.getPlace(hubRef)
-              if (place) placeCacheRef.current[hubRef] = place
-            }
-            const lat = place?.coordinates?.lat
-            const lng = place?.coordinates?.lng
-            if (typeof lat === 'number' && typeof lng === 'number') {
-              const d = haversineKm(lat, lng, selectedLocation.lat, selectedLocation.lng)
-              if (d < min) min = d
-            }
-          } else {
-            const lat = (hubRef.location && hubRef.location.lat) || hubRef.coordinates?.lat
-            const lng = (hubRef.location && hubRef.location.lng) || hubRef.coordinates?.lng
-            if (typeof lat === 'number' && typeof lng === 'number') {
-              const d = haversineKm(lat, lng, selectedLocation.lat, selectedLocation.lng)
-              if (d < min) min = d
-            }
-          }
-        }
-        if (min !== Infinity) distances[list.id] = min
-      }
-      setListDistances(distances)
-    }
-    computeDistances()
-  }, [selectedLocation, allLists])
-
-  // Filter and sort lists based on current state
-  const filteredLists = allLists.filter(list => {
-    // In-page search by name/description/tags
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase()
-      const matches = (
-        list.name.toLowerCase().includes(q) ||
-        (list.description || '').toLowerCase().includes(q) ||
-        (list.tags || []).some(t => t.toLowerCase().includes(q))
-      )
-      if (!matches) return false
-    }
-
-    // Only mine filter
-    if (showOnlyMine && authUser && list.userId !== authUser.id) return false
-
-    // Friends filter not needed; using explicit Only mine toggle and following fetch
- 
-    // Filter by hub (if hub filter is set)
-    if (hubFilter) {
-      // Check if the list contains the hub (this would need to be implemented based on your data structure)
-      // For now, we'll assume lists have a hubs array or similar
-      const hasHub = list.hubs && list.hubs.some(hub => 
-        hub.toLowerCase().includes(hubFilter.toLowerCase())
-      )
-      if (!hasHub) return false
-    }
- 
-    // Filter by tags (from local selection synced with FiltersContext)
-    if (selectedTags.length > 0) {
-      const hasMatchingTag = selectedTags.some(tag => 
-        list.tags.some(listTag => listTag.toLowerCase().includes(tag.toLowerCase()))
-      )
-      if (!hasMatchingTag) return false
-    }
-    // Filter by max distance if provided via Advanced Filters
-    if (filters.location && typeof filters.distanceKm === 'number') {
-      const d = listDistances[list.id]
-      if (typeof d === 'number' && d > filters.distanceKm) return false
-    }
-     
-    return true
-  }).sort((a, b) => {
-    switch (sortBy) {
-      case 'relevance': {
-        // Basic relevance: matches on name/desc/tags + boost for tag matches; tiebreaker by likes
-        const q = searchQuery.trim().toLowerCase()
-        const tags = selectedTags.map(t=>t.toLowerCase())
-        const score = (l: List) => {
-          let s = 0
-          const name = l.name.toLowerCase()
-          const desc = (l.description||'').toLowerCase()
-          const lt = (l.tags||[]).map(t=>t.toLowerCase())
-          if (q) { if (name.includes(q)) s+=4; if (desc.includes(q)) s+=2; if (lt.some(t=>t.includes(q))) s+=3 }
-          if (tags.length>0) { s += lt.filter(t=>tags.includes(t)).length * 5 }
-          return s
-        }
-        const sa = score(a), sb = score(b)
-        if (sb !== sa) return sb - sa
-        return (b.likes||0) - (a.likes||0)
-      }
-      case 'recent':
-        return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
-      case 'popular':
-        return b.likes - a.likes
-      case 'alphabetical':
-        return a.name.localeCompare(b.name)
-      case 'places':
-        return (b.hubs?.length || 0) - (a.hubs?.length || 0)
-      case 'nearby':
-        return (listDistances[a.id] ?? Number.MAX_VALUE) - (listDistances[b.id] ?? Number.MAX_VALUE)
-      default:
-        return 0
-    }
-  })
-
-  const handleLikeList = async (listId: string) => {
-    if (authUser) {
-      await firebaseListService.likeList(listId, authUser.id);
-      setLikedLists(prev => {
-        const newSet = new Set(prev)
-        if (newSet.has(listId)) {
-          newSet.delete(listId)
-        } else {
-          newSet.add(listId)
-        }
-        return newSet
+  const filtered = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase()
+    return allLists
+      .filter(list => {
+        if (showOnlyMine && authUser && list.userId !== authUser.id) return false
+        if (!q) return true
+        return (
+          list.name.toLowerCase().includes(q) ||
+          (list.description || '').toLowerCase().includes(q) ||
+          (list.tags || []).some(t => t.toLowerCase().includes(q))
+        )
       })
-    }
-  }
-
-  const handleSaveList = async (listId: string) => {
-    if (authUser) {
-      await firebaseListService.saveList(listId, authUser.id);
-      setSavedLists(prev => {
-        const newSet = new Set(prev)
-        if (newSet.has(listId)) {
-          newSet.delete(listId)
-        } else {
-          newSet.add(listId)
+      .sort((a, b) => {
+        switch (sortBy) {
+          case 'popular': return (b.likes || 0) - (a.likes || 0)
+          case 'alphabetical': return a.name.localeCompare(b.name)
+          case 'places': return ((b.hubs?.length || 0) - (a.hubs?.length || 0))
+          case 'recent':
+          default:
+            return new Date(b.updatedAt || 0).getTime() - new Date(a.updatedAt || 0).getTime()
         }
-        return newSet
       })
-    }
-  }
-  
-  const handleViewList = (list: List) => {
-    openListModal(list, 'view-all-lists');
-  }
-
-  const handleQuickSaveList = (list: List) => {
-    setSelectedListForSave(list)
-    setShowSaveToListModal(true)
-  }
-
-  const handleSaveToPlace = (place: any) => {
-    setSelectedPlace(place)
-    setShowSaveModal(true)
-  }
-
-  const handleSave = async (status: 'loved' | 'tried' | 'want', rating?: 'liked' | 'neutral' | 'disliked', listIds?: string[], note?: string) => {
-    if (!selectedPlace || !authUser) { setShowSaveModal(false); return }
-    try {
-      const ids = Array.isArray(listIds) ? listIds : []
-      for (const lid of ids) {
-        await firebaseDataService.savePlaceToList(selectedPlace.id, lid, authUser.id, note, undefined, status, rating)
-      }
-      await firebaseDataService.saveToAutoList(selectedPlace.id, authUser.id, status, note, rating)
-      await firebaseDataService.recordUserSave(selectedPlace.id, authUser.id)
-    } catch (e) {
-      console.error('[view-all-lists] save failed', e)
-    } finally {
-      setShowSaveModal(false)
-    }
-  }
-
-  const handleCreateList = (listData: { name: string; description: string; privacy: 'public' | 'private' | 'friends'; tags?: string[]; coverImage?: File }) => {
-    if (authUser) {
-      firebaseListService.createList({ ...listData, userId: authUser.id })
-    }
-    setShowSaveToListModal(false)
-  }
-
-  const handleCreatePost = (listId?: string) => {
-    setCreatePostListId(listId || null)
-    setShowCreatePost(true)
-  }
-
-  const handleEditList = (list: List) => {
-    setSelectedList(list)
-    setShowEditListModal(true)
-  }
+  }, [allLists, searchQuery, sortBy, showOnlyMine, authUser])
 
   const handleDeleteList = (list: List) => {
-    setConfirmModalConfig({
-      title: 'Delete List',
-      message: `Are you sure you want to delete "${list.name}"? This action cannot be undone.`,
+    setConfirmConfig({
+      title: 'Delete list',
+      message: `Are you sure you want to delete "${list.name}"? This can't be undone.`,
       onConfirm: () => {
         firebaseListService.deleteList(list.id)
-        setShowConfirmModal(false)
-      }
+        setAllLists(prev => prev.filter(l => l.id !== list.id))
+      },
     })
-    setShowConfirmModal(true)
-  }
-
-  const handlePrivacyChange = (listId: string, newPrivacy: 'public' | 'private' | 'friends') => {
-    firebaseListService.updateList(listId, { privacy: newPrivacy })
-  }
-
-  const toggleTag = (tag: string) => {
-    setSelectedTags(prev => {
-      const next = prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag]
-      setFilters({ tags: next })
-      return next
-    })
-  }
-
-  const handleSaveToList = (listId: string, note?: string) => {
-    // Save list logic here
-    if (selectedListForSave && authUser) {
-      firebaseListService.savePlaceToList(selectedListForSave.id, listId, authUser.id, note);
-    }
-    setShowSaveToListModal(false)
-    setSelectedListForSave(null)
-  }
-
-  if (loading) {
-    return <div>Loading...</div>; // Or a proper loading spinner
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-linen-50 via-cream-50 to-sage-25">
+    <div className="relative min-h-full overflow-x-hidden">
       {/* Header */}
-      <div className="relative bg-white shadow-botanical border-b border-linen-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            <div className="flex items-center gap-4">
-              <button
-                onClick={() => { if (window.history.length > 1) navigate(-1); else navigate('/profile') }}
-                className="p-2 rounded-full hover:bg-linen-100 transition-colors"
-              >
-                <ArrowLeftIcon className="w-5 h-5 text-charcoal-600" />
-              </button>
-              <div>
-                <h1 className="text-xl font-serif font-semibold text-charcoal-700">
-                  {activeFilters.includes('friends') ? 'All Friends\' Lists' : 'All Lists'}
-                  {hubFilter && ` with ${hubFilter}`}
-                </h1>
-                <p className="text-sm text-charcoal-500">{filteredLists.length} lists found</p>
-              </div>
-            </div>
-            <button
-              onClick={() => setShowCreatePost(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-sage-500 text-white rounded-xl font-medium hover:bg-sage-600 transition-colors"
-            >
-              <PlusIcon className="w-4 h-4" />
-              Create List
-            </button>
+      <header className="sticky top-0 z-30 bg-paper/90 backdrop-blur-md">
+        <div className="px-5 pt-5 pb-3 flex items-center justify-between gap-3">
+          <button
+            onClick={() => { if (window.history.length > 1) navigate(-1); else navigate('/profile') }}
+            aria-label="Back"
+            className="h-10 w-10 rounded-full hover:bg-paper-deep flex items-center justify-center"
+          >
+            <ArrowLeftIcon className="w-5 h-5 text-ink" />
+          </button>
+          <div className="text-center min-w-0">
+            <p className="label-eyebrow text-ink-mute">Lists</p>
+            <h1 className="font-display text-[22px] leading-none text-ink truncate">
+              {showOnlyMine ? 'Your lists' : 'All lists'}
+            </h1>
           </div>
+          <button
+            onClick={() => setShowCreate(true)}
+            aria-label="Create list"
+            className="btn-cta h-10 px-3.5 inline-flex items-center gap-1.5 text-[13px] font-semibold"
+          >
+            <PlusIcon className="w-4 h-4" />
+            New
+          </button>
         </div>
-      </div>
 
-      {/* Search and Filter */}
-      <div className="sticky top-0 z-10 bg-white/95 backdrop-blur-sm border-b border-linen-200">
-        <div className="max-w-2xl mx-auto px-4 py-4">
-          <SearchAndFilter
-            placeholder="Search lists..."
+        {/* Search */}
+        <div className="px-5 pb-3">
+          <input
+            type="text"
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            sortOptions={sortOptions}
-            filterOptions={filterOptions}
-            availableTags={availableTags}
-            sortBy={sortBy}
-            setSortBy={(key) => {
-              setSortBy(key)
-              if (key === 'nearby' && !selectedLocation && 'geolocation' in navigator) {
-                navigator.geolocation.getCurrentPosition((pos) => {
-                  setSelectedLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude, name: 'Current Location' })
-                })
-              }
-            }}
-            activeFilters={activeFilters}
-            setActiveFilters={setActiveFilters}
-            selectedTags={selectedTags}
-            setSelectedTags={(tags) => { setSelectedTags(tags); setFilters({ tags }) }}
-            filterCount={activeFilters.length + selectedTags.length + (hubFilter ? 1 : 0)}
-            hubFilter={hubFilter}
-            onSubmitQuery={() => { /* in-place filtering */ }}
-            onOpenAdvanced={() => setShowAdvanced(true)}
+            onChange={e => setSearchQuery(e.target.value)}
+            placeholder="Search your lists…"
+            className="w-full h-11 px-4 rounded-full border border-edge bg-card text-[14px] text-ink placeholder:text-ink-mute outline-none focus:border-ink/40"
           />
-          
-          <div className="mt-2 flex items-center gap-3 text-sm">
-            <label className="inline-flex items-center gap-2">
-              <input type="checkbox" checked={showOnlyMine} onChange={(e) => setShowOnlyMine(e.target.checked)} />
-              <span>Only my lists</span>
-            </label>
-            {selectedLocation && <span className="text-charcoal-500">Location: {selectedLocation.name || `${selectedLocation.lat.toFixed(2)}, ${selectedLocation.lng.toFixed(2)}`}</span>}
-          </div>
         </div>
-      </div>
+
+        {/* Filters / sort */}
+        <div className="px-5 pb-3 flex items-center justify-between gap-3 overflow-x-auto">
+          <div className="flex items-center gap-1.5 shrink-0">
+            {SORT_OPTIONS.map(opt => {
+              const active = sortBy === opt.key
+              return (
+                <button
+                  key={opt.key}
+                  type="button"
+                  onClick={() => setSortBy(opt.key)}
+                  aria-pressed={active}
+                  className={`h-8 px-3 rounded-full text-[12px] font-medium border transition-colors whitespace-nowrap ${
+                    active ? 'bg-paper-deep border-ink text-ink' : 'bg-card border-edge text-ink-soft hover:border-ink/40'
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              )
+            })}
+          </div>
+          <label className="inline-flex items-center gap-2 shrink-0 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={showOnlyMine}
+              onChange={e => setShowOnlyMine(e.target.checked)}
+              className="w-4 h-4 accent-ink rounded"
+            />
+            <span className="font-mono text-[10px] tracking-[0.10em] uppercase text-ink-mute">Only mine</span>
+          </label>
+        </div>
+        <div className="border-b border-edge mx-5" />
+      </header>
 
       {/* Content */}
-      <div className="max-w-2xl mx-auto px-4 py-8">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredLists.map((list) => (
-            <div
-              key={list.id}
-              className="relative bg-white rounded-2xl shadow-botanical border border-linen-200 overflow-hidden hover:shadow-liquid transition-all duration-300 group"
-              onClick={() => handleViewList(list)}
+      <div className="px-5 pt-4 pb-12">
+        {loading ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="animate-pulse aspect-[5/3] rounded-2xl bg-paper-deep" />
+            ))}
+          </div>
+        ) : filtered.length === 0 ? (
+          <div className="border border-edge rounded-[14px] px-5 py-10 text-center bg-card">
+            <p className="font-display text-[22px] text-ink leading-tight">No lists yet.</p>
+            <p className="text-[13px] text-ink-soft mt-2">
+              Create one to start grouping the places you love.
+            </p>
+            <button
+              type="button"
+              onClick={() => setShowCreate(true)}
+              className="btn-cta h-10 px-4 mt-4 text-[13px] font-semibold inline-flex items-center gap-2"
             >
-              <BotanicalAccent />
-              
-              {/* Cover Image */}
-              <div className="relative h-48 bg-gradient-to-br from-cream-200 to-coral-200">
-                {list.coverImage && (
-                  <img
-                    src={list.coverImage}
-                    alt={list.name}
-                    className="w-full h-full object-cover"
-                    loading="lazy"
-                  />
-                )}
-                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
-                
-                {/* Quick Save Button */}
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleQuickSaveList(list);
-                  }}
-                  className="absolute top-3 right-3 p-2 bg-white/90 backdrop-blur-sm rounded-full shadow-botanical hover:shadow-liquid hover:scale-105 transition-all duration-200"
+              <PlusIcon className="w-4 h-4" />
+              New list
+            </button>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {filtered.map(list => {
+              const isOwner = authUser?.id === list.userId
+              return (
+                <article
+                  key={list.id}
+                  onClick={() => openListModal(list, 'view-all-lists')}
+                  className="group relative rounded-2xl border border-edge bg-card overflow-hidden cursor-pointer transition-shadow hover:shadow-lg"
                 >
-                  <BookmarkIcon className="w-4 h-4 text-charcoal-600" />
-                </button>
-              </div>
-
-              {/* Content */}
-              <div className="p-6">
-                <div className="flex items-start justify-between mb-3">
-                  <div className="flex-1">
-                    <h3 className="text-lg font-serif font-semibold text-charcoal-700 mb-1 group-hover:text-sage-600 transition-colors">
-                      {list.name}
-                    </h3>
-                    <p className="text-sm text-charcoal-500 line-clamp-2">{list.description}</p>
-                    <p className="text-sm text-charcoal-500 line-clamp-2">Created by {listCreators[list.userId] || '...'}</p>
-                  </div>
-                </div>
-
-                {/* Tags */}
-                <div className="flex flex-wrap gap-1 mb-4">
-                  {list.tags.slice(0, 3).map((tag) => (
-                    <span
-                      key={tag}
-                      className="px-2 py-1 text-xs rounded-full bg-sage-50 text-sage-700 border border-sage-100"
-                    >
-                      #{tag}
-                    </span>
-                  ))}
-                  {list.tags.length > 3 && (
-                    <span className="px-2 py-1 text-xs rounded-full bg-linen-100 text-charcoal-500">
-                      +{list.tags.length - 3}
-                    </span>
-                  )}
-                </div>
-
-                {/* Stats */}
-                <div className="flex items-center justify-between text-sm text-charcoal-500 mb-4">
-                  <div className="flex items-center gap-4">
-                    <div className="flex items-center gap-1">
-                      <CalendarIcon className="w-4 h-4" />
-                      {formatTimestamp(list.updatedAt)}
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <EyeIcon className="w-4 h-4" />
-                      {list.hubs?.length || 0} places
+                  <div className="relative aspect-[5/3] bg-paper-deep overflow-hidden">
+                    {list.coverImage ? (
+                      <img
+                        src={list.coverImage}
+                        alt={list.name}
+                        loading="lazy"
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center">
+                        <BookmarkIcon className="w-10 h-10 text-ink-faint" />
+                      </div>
+                    )}
+                    <div className="absolute inset-0 pointer-events-none"
+                         style={{ background: 'linear-gradient(to top, rgba(26,24,21,0.55), transparent 55%)' }} />
+                    <div className="absolute bottom-3 left-3 right-3 text-white">
+                      <p className="font-mono text-[10px] tracking-[0.14em] uppercase opacity-80 truncate">
+                        {list.privacy === 'private' ? 'Private' : list.privacy === 'friends' ? 'Friends only' : 'Public'} · {list.hubs?.length || 0} {list.hubs?.length === 1 ? 'place' : 'places'}
+                      </p>
+                      <h3 className="font-display text-[20px] leading-[1.05] line-clamp-2 mt-0.5">
+                        {list.name}
+                      </h3>
                     </div>
                   </div>
-                  <div className="flex items-center gap-1">
-                    <HeartIcon className="w-4 h-4" />
-                    {list.likes}
+
+                  <div className="px-3.5 py-3 space-y-2">
+                    {list.description && (
+                      <p className="text-[13px] text-ink-soft line-clamp-2">{list.description}</p>
+                    )}
+                    {list.tags && list.tags.length > 0 && (
+                      <div className="flex flex-wrap gap-1">
+                        {list.tags.slice(0, 3).map(tag => (
+                          <span
+                            key={tag}
+                            className="inline-flex items-center px-2 h-6 rounded-full bg-paper-deep border border-edge text-[10px] font-mono tracking-[0.10em] uppercase text-ink-soft"
+                          >
+                            {tag}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                    <div className="flex items-center justify-between pt-1">
+                      <p className="font-mono text-[10px] tracking-[0.10em] uppercase text-ink-mute truncate">
+                        {creators[list.userId] && !isOwner ? `By ${creators[list.userId]} · ` : ''}{formatTimestamp(list.updatedAt as any)}
+                      </p>
+                      <div className="flex items-center gap-2 text-ink-mute shrink-0">
+                        {typeof list.likes === 'number' && list.likes > 0 && (
+                          <span className="inline-flex items-center gap-1 text-[11px]">
+                            <HeartIcon className="w-3.5 h-3.5" />
+                            {list.likes}
+                          </span>
+                        )}
+                        {(list as any).location?.address && (
+                          <span className="inline-flex items-center gap-1 text-[11px] truncate max-w-[80px]">
+                            <MapPinIcon className="w-3.5 h-3.5" />
+                            <span className="truncate">{(list as any).location.address}</span>
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {isOwner && (
+                      <div className="flex gap-2 pt-1">
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); setEditList(list) }}
+                          className="btn-secondary flex-1 h-8 text-[11px] font-mono tracking-[0.10em] uppercase"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); handleDeleteList(list) }}
+                          className="flex-1 h-8 rounded-full bg-card border border-edge text-[11px] font-mono tracking-[0.10em] uppercase text-ink-mute hover:text-red-700 hover:border-red-200 transition-colors"
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    )}
                   </div>
-                </div>
-
-                {/* Action Buttons */}
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleLikeList(list.id);
-                    }}
-                    className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-xl text-sm font-medium transition-colors ${
-                      likedLists.has(list.id)
-                        ? 'bg-gold-50 text-gold-700 border border-gold-200'
-                        : 'bg-linen-50 text-charcoal-600 border border-linen-200 hover:bg-linen-100'
-                    }`}
-                  >
-                    <HeartIcon className="w-4 h-4" />
-                    {likedLists.has(list.id) ? 'Liked' : 'Like'}
-                  </button>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleSaveList(list.id);
-                    }}
-                    className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-xl text-sm font-medium transition-colors ${
-                      savedLists.has(list.id)
-                        ? 'bg-sage-50 text-sage-700 border border-sage-200'
-                        : 'bg-linen-50 text-charcoal-600 border border-linen-200 hover:bg-linen-100'
-                    }`}
-                  >
-                    <BookmarkIcon className="w-4 h-4" />
-                    {savedLists.has(list.id) ? 'Saved' : 'Save'}
-                  </button>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {filteredLists.length === 0 && (
-          <div className="text-center py-12">
-            <div className="w-16 h-16 bg-linen-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <BookmarkIcon className="w-8 h-8 text-charcoal-400" />
-            </div>
-            <h3 className="text-lg font-serif font-semibold text-charcoal-700 mb-2">No lists found</h3>
-            <p className="text-charcoal-500">Try adjusting your filters or create a new list.</p>
+                </article>
+              )
+            })}
           </div>
         )}
       </div>
 
-      {/* Modals */}
-      <SaveModal
-        isOpen={showSaveModal}
-        onClose={() => setShowSaveModal(false)}
-        place={selectedPlace}
-        userLists={allLists.filter(list => list.userId === authUser?.id)}
-        onSave={handleSave}
-        onCreateList={handleCreateList}
-      />
-
-      <CreatePost
-        isOpen={showCreatePost}
-        onClose={() => setShowCreatePost(false)}
-        preSelectedListIds={createPostListId ? [createPostListId] : undefined}
+      <CreateListModal
+        isOpen={showCreate}
+        onClose={() => setShowCreate(false)}
+        onCreate={(listData) => {
+          if (authUser) firebaseListService.createList({ ...listData, userId: authUser.id })
+          setShowCreate(false)
+        }}
       />
 
       <EditListModal
-        isOpen={showEditListModal}
-        onClose={() => setShowEditListModal(false)}
-        list={selectedList}
+        isOpen={!!editList}
+        onClose={() => setEditList(null)}
+        list={editList}
         onSave={(listData) => {
-          if (selectedList) {
-            firebaseListService.updateList(selectedList.id, listData);
+          if (editList) {
+            firebaseListService.updateList(editList.id, listData)
+            setAllLists(prev => prev.map(l => l.id === editList.id ? { ...l, ...listData } as List : l))
           }
         }}
-        onDelete={handleDeleteList}
-        onPrivacyChange={handlePrivacyChange}
+        onDelete={(list) => handleDeleteList(list)}
+        onPrivacyChange={(listId, newPrivacy) => firebaseListService.updateList(listId, { privacy: newPrivacy })}
       />
 
       <ConfirmModal
-        isOpen={showConfirmModal}
-        onClose={() => setShowConfirmModal(false)}
-        title={confirmModalConfig.title}
-        message={confirmModalConfig.message}
-        onConfirm={confirmModalConfig.onConfirm}
+        isOpen={!!confirmConfig}
+        onClose={() => setConfirmConfig(null)}
+        title={confirmConfig?.title || ''}
+        message={confirmConfig?.message || ''}
+        onConfirm={() => { confirmConfig?.onConfirm(); setConfirmConfig(null) }}
+        confirmText="Delete"
+        type="danger"
       />
-
-      <SaveToListModal
-        isOpen={showSaveToListModal}
-        onClose={() => {
-          setShowSaveToListModal(false)
-          setSelectedListForSave(null)
-        }}
-        place={{
-          id: selectedListForSave?.id || '',
-          name: selectedListForSave?.name || '',
-          address: '',
-          tags: selectedListForSave?.tags || [],
-          posts: [],
-          savedCount: 0,
-          createdAt: selectedListForSave?.createdAt || ''
-        }}
-        userLists={allLists.filter(list => list.userId === authUser?.id)}
-        onSave={handleSaveToList}
-        onCreateList={handleCreateList}
-      />
-      <AdvancedFiltersDrawer isOpen={showAdvanced} onClose={() => setShowAdvanced(false)} onApply={() => { /* derived filters rerun automatically */ }} />
     </div>
   )
 }

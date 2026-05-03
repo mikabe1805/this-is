@@ -8,6 +8,12 @@
 
 @layer base {
   html, body { height: 100%; }
+  html {
+    /* Prevent the iOS rubber-band bounce at the document root so the app
+       feels native rather than browsery. Per-scroll-container regions keep
+       their own momentum and overscroll behaviour. */
+    overscroll-behavior-y: none;
+  }
   body {
     color: var(--ink);
     font-family: Inter, system-ui, sans-serif;
@@ -22,6 +28,31 @@
       radial-gradient(700px 700px at 95% 100%, rgba(196, 132, 132, 0.14) 0%, transparent 65%);
     background-attachment: fixed;
     min-height: 100vh;
+    overscroll-behavior-y: none;
+    /* Tap highlight defaults to a translucent grey on Safari — replaces with
+       transparent so taps feel like they're driving an app surface, not a web
+       page. */
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* Smooth momentum scrolling + isolated overscroll for any scroll region.
+     `[data-scroll-root]` is the main feed in App.tsx. */
+  [data-scroll-root],
+  .modal-paper {
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+  }
+
+  /* Disable the platform pull-to-refresh / browser-chrome shift on iOS Safari
+     when the user is already at the top of a feed. */
+  main { overscroll-behavior-y: contain; }
+
+  /* Hairline buttons should not pop a focus ring on touch devices but should
+     still ring on keyboard nav. */
+  button:focus { outline: none; }
+  button:focus-visible {
+    outline: 2px solid var(--accent-deep);
+    outline-offset: 2px;
   }
 }
 

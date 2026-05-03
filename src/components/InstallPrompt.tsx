@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { ArrowDownTrayIcon, XMarkIcon, ShareIcon, PlusIcon } from '@heroicons/react/24/outline'
 import { createPortal } from 'react-dom'
 
@@ -9,6 +9,7 @@ type BIPEvent = Event & {
 
 const STORAGE_KEY = 'this-is:install-prompt-dismissed-at'
 const COOLDOWN_DAYS = 14
+const IOS_DELAY_MS = 12000
 
 const isIOS = () =>
   typeof navigator !== 'undefined' &&
@@ -35,30 +36,47 @@ function recentlyDismissed(): boolean {
 export default function InstallPrompt() {
   const [bip, setBip] = useState<BIPEvent | null>(null)
   const [show, setShow] = useState(false)
+  // Once dismissed in this tab, never show again until the next page load.
+  // Defends against beforeinstallprompt re-firing on visibility/route changes
+  // and against the iOS auto-show timer winning a race with the X click.
+  const suppressed = useRef(false)
 
   useEffect(() => {
     if (isStandalone()) return
-    if (recentlyDismissed()) return
+    if (recentlyDismissed()) {
+      suppressed.current = true
+      return
+    }
+
+    const tryShow = () => {
+      if (suppressed.current) return
+      if (recentlyDismissed()) { suppressed.current = true; return }
+      setShow(true)
+    }
 
     const onBip = (e: Event) => {
       e.preventDefault()
+      if (suppressed.current) return
       setBip(e as BIPEvent)
-      setShow(true)
+      tryShow()
     }
     window.addEventListener('beforeinstallprompt', onBip)
 
+    let timer: ReturnType<typeof setTimeout> | null = null
     if (isIOS()) {
-      const timer = setTimeout(() => setShow(true), 4000)
-      return () => {
-        clearTimeout(timer)
-        window.removeEventListener('beforeinstallprompt', onBip)
-      }
+      timer = setTimeout(tryShow, IOS_DELAY_MS)
     }
-    return () => window.removeEventListener('beforeinstallprompt', onBip)
+
+    return () => {
+      if (timer) clearTimeout(timer)
+      window.removeEventListener('beforeinstallprompt', onBip)
+    }
   }, [])
 
   const dismiss = () => {
+    suppressed.current = true
     setShow(false)
+    setBip(null)
     try { localStorage.setItem(STORAGE_KEY, String(Date.now())) } catch {}
   }
 
@@ -68,7 +86,9 @@ export default function InstallPrompt() {
       await bip.prompt()
       const result = await bip.userChoice
       if (result.outcome === 'accepted') {
+        suppressed.current = true
         setShow(false)
+        setBip(null)
       } else {
         dismiss()
       }
@@ -109,7 +129,7 @@ export default function InstallPrompt() {
                 Install for full-screen access — same as a native app.
               </p>
             )}
-            {!ios && (
+            {!ios && bip && (
               <button
                 type="button"
                 onClick={install}
