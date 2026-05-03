@@ -46,13 +46,18 @@
     overflow: hidden;
   }
 
-  /* Inner scroll regions: re-enable vertical pan, smooth momentum, and
-     stop any overscroll glow/bounce so iOS doesn't drag content past
-     scrollTop=0 at the top of the feed. `none` is stricter than `contain`
-     and is what kills the residual top-of-page bounce. */
+  /* Inner scroll regions: re-enable vertical pan + smooth momentum.
+     `overscroll-behavior: contain` keeps a small native rubber-band bounce
+     at the top/bottom of the feed (so it feels alive, not frozen) while
+     blocking the bounce from chaining into the locked document root.
+     Modals stay strict — they should feel solid like a panel. */
   [data-scroll-root],
-  .modal-paper,
   main {
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+    touch-action: pan-y;
+  }
+  .modal-paper {
     -webkit-overflow-scrolling: touch;
     overscroll-behavior: none;
     touch-action: pan-y;

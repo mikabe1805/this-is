@@ -7,8 +7,11 @@ export default function Auth() {
   const [showSignup, setShowSignup] = useState(false)
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-paper text-ink">
-      <div className="absolute inset-0 pointer-events-none">
+    <div
+      data-scroll-root
+      className="relative h-full overflow-y-auto overflow-x-hidden bg-paper text-ink"
+    >
+      <div className="fixed inset-0 pointer-events-none">
         <div
           className="absolute inset-0"
           style={{
@@ -45,7 +48,8 @@ export default function Auth() {
         />
       </div>
 
-      <div className="relative flex flex-col min-h-screen px-6 pt-12 pb-10 max-w-md mx-auto">
+      <div className="relative flex flex-col min-h-full px-6 pt-12 pb-10 max-w-md mx-auto"
+           style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 40px)' }}>
         <div className="flex items-center gap-1.5">
           <span className="font-display-italic text-[16px] text-ink">this</span>
           <span className="accent-bead" />
