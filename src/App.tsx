@@ -95,7 +95,9 @@ const GlobalModals = () => {
               ? await firebaseDataService.ensureHubFromPlace({
                   id: seedHub.id,
                   name: seedHub.name,
-                  address: seedHub.address,
+                  address: seedHub.address || (seedHub as { location?: { address?: string } })?.location?.address,
+                  coordinates: (seedHub as { coordinates?: { lat: number; lng: number } }).coordinates,
+                  location: (seedHub as { location?: { address?: string; lat?: number; lng?: number } }).location,
                   photos: seedHub.photos,
                   primaryType: seedHub.primaryType,
                   types: seedHub.types,
@@ -155,7 +157,9 @@ const GlobalModals = () => {
               ? await firebaseDataService.ensureHubFromPlace({
                   id: seedHub.id,
                   name: seedHub.name,
-                  address: seedHub.address,
+                  address: seedHub.address || (seedHub as { location?: { address?: string } })?.location?.address,
+                  coordinates: (seedHub as { coordinates?: { lat: number; lng: number } }).coordinates,
+                  location: (seedHub as { location?: { address?: string; lat?: number; lng?: number } }).location,
                   photos: seedHub.photos,
                   primaryType: seedHub.primaryType,
                   types: seedHub.types,

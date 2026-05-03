@@ -112,10 +112,18 @@ class FirebaseListService {
                 name: placeData.name || 'Unknown Place',
                 address: placeData.location?.address || placeData.address || 'No address',
                 tags: placeData.tags || [],
+                // Carry through every field HubImage / map / poster need so
+                // the list view can render the user-chosen cover, fall back
+                // to the Google Places photo, then to the duotone poster.
+                mainImage: placeData.mainImage || '',
                 hubImage: placeData.mainImage || '',
+                coverImage: placeData.coverImage || '',
+                photos: Array.isArray(placeData.photos) ? placeData.photos : [],
+                primaryType: placeData.primaryType || null,
+                types: Array.isArray(placeData.types) ? placeData.types : [],
                 coordinates: (typeof lat === 'number' && typeof lng === 'number') ? { lat, lng } : undefined,
                 posts: [],
-                savedCount: 0,
+                savedCount: placeData.savedCount || 0,
                 createdAt: placeData.createdAt || ''
               } as any,
               status: subcollectionData.status || 'loved', // Include status from subcollection
@@ -144,10 +152,15 @@ class FirebaseListService {
                     name: hubData.name || 'Unknown Place',
                     address: hubData.location?.address || hubData.address || 'No address',
                     tags: hubData.tags || [],
+                    mainImage: hubData.mainImage || '',
                     hubImage: hubData.mainImage || '',
+                    coverImage: hubData.coverImage || '',
+                    photos: Array.isArray(hubData.photos) ? hubData.photos : [],
+                    primaryType: hubData.primaryType || null,
+                    types: Array.isArray(hubData.types) ? hubData.types : [],
                     coordinates: (typeof lat === 'number' && typeof lng === 'number') ? { lat, lng } : undefined,
                     posts: [],
-                    savedCount: 0,
+                    savedCount: hubData.savedCount || 0,
                     createdAt: hubData.createdAt || ''
                   } as any,
                   status: subcollectionData.status || 'loved', // Include status from subcollection

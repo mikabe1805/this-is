@@ -162,15 +162,29 @@ const Explore = () => {
 
   const handleSave = (it: FeedItem) => {
     if (it.itemKind === 'place') {
-      const p = it.raw as Place
-      const hubLike: any = {
+      const p = it.raw as Place & {
+        address?: string
+        location?: { address?: string; lat?: number; lng?: number }
+        coordinates?: { lat?: number; lng?: number }
+        photos?: { name: string }[]
+        primaryType?: string
+        types?: string[]
+        mainImage?: string
+      }
+      const hubLike: Record<string, unknown> = {
         id: p.id,
         name: p.name,
-        location: { address: (p as any).address || '' },
-        tags: (p as any).tags || [],
+        address: p.address || p.location?.address || '',
+        location: p.location || { address: p.address || '' },
+        coordinates: p.coordinates || (p.location?.lat && p.location?.lng ? { lat: p.location.lat, lng: p.location.lng } : undefined),
+        tags: p.tags || [],
+        photos: Array.isArray(p.photos) ? p.photos : [],
+        primaryType: p.primaryType,
+        types: p.types,
+        mainImage: p.mainImage,
         posts: [],
       }
-      try { openSaveModal(hubLike) } catch {}
+      try { openSaveModal(hubLike as never) } catch (e) { console.warn('[explore] openSaveModal failed', e) }
       setSavedIds(prev => new Set(prev).add(it.id))
     }
   }

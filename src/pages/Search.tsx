@@ -200,19 +200,33 @@ const Search = () => {
   const hasResults = places.length + lists.length + users.length > 0
 
   const handleSavePlace = (it: DiscoveryCardItem) => {
-    const p = placeRefs.current[it.id]
+    const p = placeRefs.current[it.id] as Place & {
+      address?: string
+      location?: { address?: string; lat?: number; lng?: number }
+      coordinates?: { lat?: number; lng?: number }
+      photos?: { name: string }[]
+      primaryType?: string
+      types?: string[]
+      mainImage?: string
+    }
     if (!p) return
     const hubLike: Record<string, unknown> = {
       id: p.id,
       name: p.name,
-      address: (p as { address?: string }).address || '',
-      location: { address: (p as { address?: string }).address || '' },
-      tags: ((p as unknown as { tags?: string[] }).tags) || [],
+      address: p.address || p.location?.address || '',
+      location: p.location || { address: p.address || '' },
+      coordinates: p.coordinates || (p.location?.lat && p.location?.lng ? { lat: p.location.lat, lng: p.location.lng } : undefined),
+      tags: p.tags || [],
+      // Carry the Google metadata so ensureHubFromPlace can persist a real
+      // place doc — otherwise list rows render the poster placeholder
+      // forever and the map view has nothing to plot.
+      photos: Array.isArray(p.photos) ? p.photos : [],
+      primaryType: p.primaryType,
+      types: p.types,
+      mainImage: p.mainImage,
       posts: [],
     }
-    // SaveModal's onSave handler in App.tsx calls ensureHubFromPlace, so a
-    // Google candidate transparently becomes a hub on save.
-    try { openSaveModal(hubLike as never) } catch { /* save modal optional */ }
+    try { openSaveModal(hubLike as never) } catch (e) { console.warn('[search] openSaveModal failed', e) }
   }
 
   return (

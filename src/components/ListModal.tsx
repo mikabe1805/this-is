@@ -13,6 +13,8 @@ import { formatTimestamp } from '../utils/dateUtils.ts'
 import ImageCarousel from './ImageCarousel.tsx'
 import CommentsModal from './CommentsModal.tsx'
 import { firebaseDataService } from '../services/firebaseDataService.js'
+import HubImage from './HubImage'
+import ListMap from './ListMap'
 import TagPill from './TagPill.tsx'
 
 interface ListModalProps {
@@ -425,6 +427,22 @@ const ListModal = ({ list, isOpen, onClose, onSave, onShare, onAddPost, onOpenFu
             </button>
           </div>
 
+            {/* Map view — only renders when at least one place has coordinates */}
+            {places.some(p => (p.place as any)?.coordinates?.lat && (p.place as any)?.coordinates?.lng) && (
+              <div className="bg-card/85 rounded-2xl p-4 border border-edge">
+                <h3 className="font-display text-[20px] leading-tight text-ink mb-3">Map</h3>
+                <ListMap
+                  places={places as any}
+                  height="280px"
+                  selectedPlaceId={null}
+                  onSelectPlace={(lp) => onOpenHub?.(lp.place)}
+                />
+                <p className="font-mono text-[10px] tracking-[0.10em] uppercase text-ink-mute mt-2">
+                  Tap a pin to open the place
+                </p>
+              </div>
+            )}
+
             {/* Combined Places and Posts — paper-card matching the description card */}
             <div className="bg-card/85 rounded-2xl p-4 border border-edge">
               <h3 className="font-display text-[20px] leading-tight text-ink mb-3">Places in this list</h3>
@@ -449,13 +467,15 @@ const ListModal = ({ list, isOpen, onClose, onSave, onShare, onAddPost, onOpenFu
                     className="flex items-center gap-3 p-3 bg-paper rounded-2xl border border-edge active:scale-[0.98] hover:border-ink/30 transition-colors cursor-pointer"
                   >
                     <div className="w-12 h-12 bg-paper-deep rounded-lg flex-shrink-0 border border-edge overflow-hidden">
-                      <img 
-                        src={(place.place as any)?.mainImage || '/assets/leaf.png'} 
-                        alt={place.place?.name || 'Place'} 
-                        className="w-full h-full object-cover"
-                        onError={(e) => {
-                          e.currentTarget.src = '/assets/leaf.png';
-                        }}
+                      <HubImage
+                        photos={(place.place as any)?.photos}
+                        userImage={(place.place as any)?.mainImage || (place.place as any)?.hubImage || (place.place as any)?.coverImage}
+                        primaryType={(place.place as any)?.primaryType}
+                        types={(place.place as any)?.types}
+                        alt={place.place?.name || 'Place'}
+                        aspect=""
+                        className="w-full h-full"
+                        loadStrategy="load"
                       />
                     </div>
                     <div className="flex-1 min-w-0">

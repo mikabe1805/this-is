@@ -259,16 +259,36 @@ const Home = () => {
   const greeting = useMemo(() => HomeGreeting({ name: currentUser?.name }), [currentUser?.name])
 
   const handleSavePlace = (it: DiscoveryCardItem) => {
-    const p = placeRefs.current[it.id]
-    if (!p) return
-    const hubLike: any = {
+    const raw = placeRefs.current[it.id]
+    if (!raw) return
+    type RichPlace = Place & {
+      address?: string
+      location?: { address?: string; lat?: number; lng?: number }
+      coordinates?: { lat?: number; lng?: number }
+      photos?: { name: string }[]
+      primaryType?: string
+      types?: string[]
+      mainImage?: string
+    }
+    const p = raw as RichPlace
+    // Carry every Google metadata field through to the SaveModal so
+    // ensureHubFromPlace can persist a real place doc (photos, primaryType,
+    // types, coordinates) — without these, list rows fall back to the
+    // poster placeholder forever and the map view has nothing to plot.
+    const hubLike = {
       id: p.id,
       name: p.name,
-      location: { address: (p as any).address || '' },
-      tags: (p as any).tags || [],
+      address: p.address || p.location?.address || '',
+      location: p.location || { address: p.address || '' },
+      coordinates: p.coordinates || (p.location?.lat && p.location?.lng ? { lat: p.location.lat, lng: p.location.lng } : undefined),
+      tags: p.tags || [],
+      photos: Array.isArray(p.photos) ? p.photos : [],
+      primaryType: p.primaryType,
+      types: p.types,
+      mainImage: p.mainImage,
       posts: [],
     }
-    try { openSaveModal(hubLike) } catch {}
+    try { openSaveModal(hubLike as unknown as Hub) } catch (e) { console.warn('[home] openSaveModal failed', e) }
     setSavedIds(prev => new Set(prev).add(it.id))
   }
 
