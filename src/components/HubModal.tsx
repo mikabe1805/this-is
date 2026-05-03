@@ -202,11 +202,18 @@ const HubModal = ({
               type="button"
               onClick={() => {
                 try {
+                  // Only forward googlePlaceId when it actually looks like
+                  // one — passing a Firestore id under that key would just
+                  // cause getDetails to fail, then the picker's searchText
+                  // fallback would still recover photos by name+address.
+                  const stored = (place as { googlePlaceId?: string }).googlePlaceId
+                  const looksLikeGoogleId = !!stored && /^ChIJ/.test(stored)
                   window.dispatchEvent(new CustomEvent('openCoverPicker', {
                     detail: {
                       hubId: place.id,
-                      googlePlaceId: (place as { googlePlaceId?: string }).googlePlaceId || place.id,
+                      googlePlaceId: looksLikeGoogleId ? stored : undefined,
                       hubName: place.name,
+                      hubAddress: place.address,
                     }
                   }))
                 } catch (e) { console.warn('[hub-modal] open cover picker failed', e) }

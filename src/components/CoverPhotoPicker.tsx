@@ -20,9 +20,10 @@ function directPhotoUrl(resourceName: string, px = 600) {
 interface CoverPhotoPickerProps {
   isOpen: boolean
   onClose: () => void
-  hubId: string                 // firestore id of the just-materialized hub
-  googlePlaceId: string         // the Google Places API id we can fetch photos from
+  hubId: string                  // firestore id of the just-materialized hub
+  googlePlaceId?: string         // the Google Places API id (may be missing for legacy docs)
   hubName: string
+  hubAddress?: string            // used by the searchText fallback when no googlePlaceId
 }
 
 export default function CoverPhotoPicker({
@@ -31,22 +32,28 @@ export default function CoverPhotoPicker({
   hubId,
   googlePlaceId,
   hubName,
+  hubAddress,
 }: CoverPhotoPickerProps) {
   const [resourceNames, setResourceNames] = useState<string[]>([])
+  const [revealedCount, setRevealedCount] = useState(0)
   const [selected, setSelected] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
 
   useEffect(() => {
-    if (!isOpen || !googlePlaceId) return
+    // Open even without googlePlaceId — searchText fallback can recover
+    // photos by name+address for legacy docs that don't have a Google id.
+    if (!isOpen) return
     setLoading(true)
     setResourceNames([])
     setSelected(null)
     let cancelled = false
 
-    const tryGetDetails = async () => {
+    const looksLikeGoogleId = !!googlePlaceId && /^ChIJ/.test(googlePlaceId)
+
+    const tryGetDetails = async (id: string) => {
       try {
-        const d = await getDetails(googlePlaceId)
+        const d = await getDetails(id)
         const names = (d?.photos || []).map(p => p.name).filter(Boolean) as string[]
         if (cancelled) return null
         if (names.length > 0) return names
@@ -56,20 +63,16 @@ export default function CoverPhotoPicker({
       return null
     }
 
-    // Fallback path: if the stored id is actually a Firestore id (legacy
-    // place doc that predated googlePlaceId), search Google by name+address
-    // to get a fresh place_id and try again. Lets users retroactively pick
-    // photos for any place that has none.
+    // Fallback path: search Google by name+address to recover photos
+    // for legacy docs that predate the googlePlaceId-storage fix.
     const tryByName = async () => {
       try {
-        const results = await searchText(hubName, { max: 1 })
+        const q = hubAddress ? `${hubName} ${hubAddress}` : hubName
+        const results = await searchText(q, { max: 1 })
         if (cancelled) return null
         const candidate = results?.[0]
         if (candidate?.id) {
-          const d = await getDetails(candidate.id)
-          const names = (d?.photos || []).map(p => p.name).filter(Boolean) as string[]
-          if (cancelled) return null
-          if (names.length > 0) return names
+          return await tryGetDetails(candidate.id)
         }
       } catch (e) {
         console.warn('[cover-picker] searchText fallback failed', e)
@@ -78,18 +81,31 @@ export default function CoverPhotoPicker({
     }
 
     void (async () => {
-      const direct = await tryGetDetails()
+      let names: string[] | null = null
+      if (looksLikeGoogleId) names = await tryGetDetails(googlePlaceId!)
       if (cancelled) return
-      const names = direct || await tryByName()
+      if (!names) names = await tryByName()
       if (cancelled) return
-      const slice = (names || []).slice(0, 6)
+      // Cap at 4 photos. Each photo opens a separate request to the
+      // Places media endpoint, and 6 simultaneous requests reliably
+      // hit 429 on free-tier projects.
+      const slice = (names || []).slice(0, 4)
       setResourceNames(slice)
       setSelected(slice[0] || null)
       setLoading(false)
+      // Stagger the image mounts so we don't fire all four media requests
+      // at once. The first appears immediately, then we reveal one more
+      // every ~700ms which stays well under the per-second photo quota.
+      setRevealedCount(slice.length > 0 ? 1 : 0)
+      for (let i = 1; i < slice.length; i++) {
+        setTimeout(() => {
+          if (!cancelled) setRevealedCount(c => Math.max(c, i + 1))
+        }, i * 700)
+      }
     })()
 
     return () => { cancelled = true }
-  }, [isOpen, googlePlaceId, hubName])
+  }, [isOpen, googlePlaceId, hubName, hubAddress])
 
   useModalDismiss(isOpen, onClose)
   const sheetRef = useRef<HTMLDivElement>(null)
@@ -150,9 +166,10 @@ export default function CoverPhotoPicker({
             </div>
           ) : (
             <div className="grid grid-cols-2 gap-2">
-              {resourceNames.map((name) => {
+              {resourceNames.map((name, i) => {
                 const url = directPhotoUrl(name, 600)
                 const active = selected === name
+                const revealed = i < revealedCount
                 return (
                   <button
                     key={name}
@@ -162,10 +179,24 @@ export default function CoverPhotoPicker({
                       active ? 'border-accent' : 'border-transparent hover:border-edge'
                     }`}
                   >
-                    {url ? (
-                      <img src={url} alt="" className="absolute inset-0 w-full h-full object-cover" loading="lazy" />
-                    ) : (
-                      <div className="absolute inset-0 bg-paper-deep flex items-center justify-center">
+                    {/* Skeleton placeholder until this slot is revealed —
+                        prevents firing all media requests in parallel. */}
+                    <div className="absolute inset-0 bg-paper-deep" />
+                    {revealed && url && (
+                      <img
+                        src={url}
+                        alt=""
+                        loading="lazy"
+                        className="absolute inset-0 w-full h-full object-cover"
+                        onError={(e) => {
+                          // Swap the broken-image icon for a clean placeholder
+                          // when Google rate-limits the photo media endpoint.
+                          (e.currentTarget as HTMLImageElement).style.visibility = 'hidden'
+                        }}
+                      />
+                    )}
+                    {!revealed && (
+                      <div className="absolute inset-0 flex items-center justify-center">
                         <PhotoIcon className="w-6 h-6 text-ink-faint" />
                       </div>
                     )}

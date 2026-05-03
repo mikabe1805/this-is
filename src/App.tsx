@@ -45,7 +45,7 @@ const GlobalModals = () => {
   const { showSaveModal, showCreatePost, saveModalData, createPostData, closeSaveModal, closeCreatePostModal } = useModal()
   const { currentUser } = useAuth()
   const [userLists, setUserLists] = useState<List[]>([]);
-  const [coverPick, setCoverPick] = useState<{ hubId: string; googlePlaceId: string; hubName: string } | null>(null)
+  const [coverPick, setCoverPick] = useState<{ hubId: string; googlePlaceId?: string; hubName: string; hubAddress?: string } | null>(null)
   const [saveListToFolder, setSaveListToFolder] = useState<List | null>(null)
 
   // Listen for the "Save list" intent dispatched from ListModal — opens a
@@ -66,9 +66,14 @@ const GlobalModals = () => {
   // the googlePlaceId-storage fix.
   useEffect(() => {
     const onOpen = (e: Event) => {
-      const detail = (e as CustomEvent).detail as { hubId?: string; googlePlaceId?: string; hubName?: string } | undefined
-      if (detail?.hubId && detail?.googlePlaceId && detail?.hubName) {
-        setCoverPick({ hubId: detail.hubId, googlePlaceId: detail.googlePlaceId, hubName: detail.hubName })
+      const detail = (e as CustomEvent).detail as { hubId?: string; googlePlaceId?: string; hubName?: string; hubAddress?: string } | undefined
+      if (detail?.hubId && detail?.hubName) {
+        setCoverPick({
+          hubId: detail.hubId,
+          googlePlaceId: detail.googlePlaceId || undefined,
+          hubName: detail.hubName,
+          hubAddress: detail.hubAddress,
+        })
       }
     }
     window.addEventListener('openCoverPicker', onOpen)
@@ -178,10 +183,17 @@ const GlobalModals = () => {
             // refresh their saved counts and saved-state markers.
             window.dispatchEvent(new CustomEvent('this-is:saved', { detail: { placeId, status } }))
             closeSaveModal()
-            // First-saver perk: pick a cover photo. Only fires when this user
-            // just materialized a Google candidate into a hub.
-            if (needsCover && googlePlaceId) {
-              setCoverPick({ hubId: placeId, googlePlaceId, hubName: seedHub.name })
+            // First-saver perk: pick a cover photo. Open the picker
+            // whenever the hub doesn't have a cover image yet — even if we
+            // don't have a Google place_id, the picker now falls back to
+            // searchText(name + address) to recover photos.
+            if (needsCover) {
+              setCoverPick({
+                hubId: placeId,
+                googlePlaceId: googlePlaceId || undefined,
+                hubName: seedHub.name,
+                hubAddress: seedHub.address || (seedHub as { location?: { address?: string } })?.location?.address || undefined,
+              })
             }
           }}
           onCreateList={async (listData) => {
@@ -222,8 +234,13 @@ const GlobalModals = () => {
               window.dispatchEvent(new CustomEvent('this-is:saved', { detail: { placeId, status: 'loved', newListId } }))
             }
             closeSaveModal()
-            if (needsCover && googlePlaceId) {
-              setCoverPick({ hubId: placeId, googlePlaceId, hubName: seedHub.name })
+            if (needsCover) {
+              setCoverPick({
+                hubId: placeId,
+                googlePlaceId: googlePlaceId || undefined,
+                hubName: seedHub.name,
+                hubAddress: seedHub.address || (seedHub as { location?: { address?: string } })?.location?.address || undefined,
+              })
             }
           }}
         />
@@ -236,6 +253,7 @@ const GlobalModals = () => {
           hubId={coverPick.hubId}
           googlePlaceId={coverPick.googlePlaceId}
           hubName={coverPick.hubName}
+          hubAddress={coverPick.hubAddress}
         />
       )}
 
