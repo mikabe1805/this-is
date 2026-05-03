@@ -67,10 +67,13 @@ const GlobalModals = () => {
         setUserLists(lists);
       }
     };
-    if (showSaveModal) {
+    // Hydrate user lists whenever any list-pickering modal might open. Was
+    // gated on showSaveModal only, which left SaveListToFolderModal opening
+    // with empty options if the user hadn't opened SaveModal first.
+    if (showSaveModal || saveListToFolder) {
       fetchLists();
     }
-  }, [showSaveModal, currentUser]);
+  }, [showSaveModal, saveListToFolder, currentUser]);
 
 
   return (

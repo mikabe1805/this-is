@@ -221,18 +221,17 @@ const ListModal = ({ list, isOpen, onClose, onSave, onShare, onAddPost, onOpenFu
 
   const handleSave = (e: React.MouseEvent) => {
     e.stopPropagation()
+    // Defer to the parent (NavigationModals) which dispatches the
+    // openSaveListToFolder event so the user can nest this list inside one
+    // of their own lists. Falls back to the legacy save-as-bookmark only
+    // if no onSave handler is wired.
+    if (onSave) {
+      onSave(list)
+      return
+    }
     if (currentUser) {
-      // Save the list to user's saved lists
       firebaseDataService.saveList(list.id, currentUser.id)
-        .then(() => {
-          console.log('List saved successfully')
-          // Update the like state
-          setIsLiked(true)
-          setLikes((prev) => (prev || 0) + 1)
-        })
-        .catch((error) => {
-          console.error('Failed to save list:', error)
-        })
+        .catch((error) => console.error('Failed to save list:', error))
     }
   }
 

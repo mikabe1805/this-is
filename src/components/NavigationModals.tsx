@@ -1,9 +1,10 @@
-import React from 'react'
+import React, { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useNavigation } from '../contexts/NavigationContext.tsx'
 import { useModal } from '../contexts/ModalContext.tsx'
 import { useAuth } from '../contexts/AuthContext.tsx'
 import { firebaseDataService } from '../services/firebaseDataService'
+import { firebaseListService } from '../services/firebaseListService'
 import { navigationHistory } from '../utils/navigationHistory.js'
 // HubModal restored: only used for the in-modal stack flow (e.g. user clicks
 // a place from inside ListModal). Direct /place/:id navigation still goes
@@ -12,6 +13,10 @@ import HubModal from './HubModal'
 import ListModal from './ListModal'
 import ProfileModal from './ProfileModal'
 import PostModal from './PostModal'
+import EditListModal from './EditListModal'
+import PrivacyModal from './PrivacyModal'
+import ConfirmModal from './ConfirmModal'
+import type { List } from '../types/index.js'
 
 const NavigationModals = () => {
   const navigate = useNavigate()
@@ -36,6 +41,38 @@ const NavigationModals = () => {
     exitModalFlow,
   } = useNavigation()
   const { openSaveModal, openCreatePostModal } = useModal()
+
+  // Edit / Privacy / Delete handlers — work from any page where ListModal
+  // is open, not just /profile. Was previously only listened to on Profile.
+  const [editTarget, setEditTarget] = useState<List | null>(null)
+  const [privacyTarget, setPrivacyTarget] = useState<List | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<List | null>(null)
+
+  useEffect(() => {
+    const fetchAndSet = (id: string, set: (l: List) => void) => {
+      firebaseDataService.getList(id).then(l => { if (l) set(l) }).catch(() => {})
+    }
+    const onEdit = (e: Event) => {
+      const id = (e as CustomEvent).detail?.listId as string
+      if (id) fetchAndSet(id, setEditTarget)
+    }
+    const onPrivacy = (e: Event) => {
+      const id = (e as CustomEvent).detail?.listId as string
+      if (id) fetchAndSet(id, setPrivacyTarget)
+    }
+    const onDelete = (e: Event) => {
+      const id = (e as CustomEvent).detail?.listId as string
+      if (id) fetchAndSet(id, setDeleteTarget)
+    }
+    window.addEventListener('openEditListFromModal', onEdit)
+    window.addEventListener('openPrivacyFromModal', onPrivacy)
+    window.addEventListener('openDeleteFromModal', onDelete)
+    return () => {
+      window.removeEventListener('openEditListFromModal', onEdit)
+      window.removeEventListener('openPrivacyFromModal', onPrivacy)
+      window.removeEventListener('openDeleteFromModal', onDelete)
+    }
+  }, [])
 
   const lastHistoryItem = navigationHistory.peek();
 
@@ -142,7 +179,49 @@ const NavigationModals = () => {
         />
       )}
 
+      <EditListModal
+        isOpen={!!editTarget}
+        onClose={() => setEditTarget(null)}
+        list={editTarget}
+        onSave={(listData) => {
+          if (editTarget) {
+            firebaseListService.updateList(editTarget.id, listData)
+            try {
+              window.dispatchEvent(new CustomEvent('this-is:listUpdated', {
+                detail: { listId: editTarget.id, fields: Object.keys(listData) }
+              }))
+            } catch (e) { console.warn('[nav-modals] list-updated dispatch failed', e) }
+          }
+        }}
+      />
 
+      <PrivacyModal
+        isOpen={!!privacyTarget}
+        onClose={() => setPrivacyTarget(null)}
+        currentPrivacy={privacyTarget?.privacy || 'public'}
+        onPrivacyChange={(p) => {
+          if (privacyTarget) firebaseListService.updateList(privacyTarget.id, { privacy: p })
+        }}
+        listName={privacyTarget?.name || ''}
+      />
+
+      <ConfirmModal
+        isOpen={!!deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        title="Delete list"
+        message={deleteTarget ? `Delete "${deleteTarget.name}"? This can't be undone.` : ''}
+        confirmText="Delete"
+        type="danger"
+        onConfirm={() => {
+          if (deleteTarget) {
+            firebaseListService.deleteList(deleteTarget.id)
+            try {
+              window.dispatchEvent(new CustomEvent('this-is:listDeleted', { detail: { listId: deleteTarget.id } }))
+            } catch (e) { console.warn('[nav-modals] list-deleted dispatch failed', e) }
+            closeListModal()
+          }
+        }}
+      />
     </>
   )
 }
