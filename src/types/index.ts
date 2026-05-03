@@ -72,6 +72,8 @@ export interface List {
   tags: string[]
   listTags?: string[] // For compatibility with seed data
   hubs?: Hub[]
+  /** Sub-lists nested inside this list (folder-style). Array of list ids. */
+  subLists?: string[]
   coverImage?: string
   createdAt?: string
   updatedAt?: string

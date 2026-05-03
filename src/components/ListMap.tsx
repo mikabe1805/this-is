@@ -35,8 +35,10 @@ export default function ListMap({ places, height = '60vh', onSelectPlace, select
   const containerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<google.maps.Map | null>(null)
   const markersRef = useRef<google.maps.Marker[]>([])
+  const userMarkerRef = useRef<google.maps.Marker | null>(null)
   const [loaded, setLoaded] = useState(false)
   const [loadError, setLoadError] = useState(false)
+  const [userPos, setUserPos] = useState<{ lat: number; lng: number } | null>(null)
 
   const placesWithCoords = places.filter(p => p.place.coordinates?.lat && p.place.coordinates?.lng)
 
@@ -47,6 +49,29 @@ export default function ListMap({ places, height = '60vh', onSelectPlace, select
       if (!ok) { setLoadError(true); return }
       setLoaded(true)
     })
+    return () => { cancelled = true }
+  }, [])
+
+  // Try to grab the user's current location (silent — only if permission is
+  // already granted, no extra prompt). Powers the "you are here" pin so the
+  // map answers "where are these relative to me?".
+  useEffect(() => {
+    if (typeof navigator === 'undefined' || !navigator.geolocation) return
+    let cancelled = false
+    const tryGet = () => navigator.geolocation.getCurrentPosition(
+      pos => { if (!cancelled) setUserPos({ lat: pos.coords.latitude, lng: pos.coords.longitude }) },
+      () => { /* user denied or no signal — pin just won't appear */ },
+      { enableHighAccuracy: false, timeout: 6000, maximumAge: 60000 }
+    )
+    const perms = (navigator as Navigator & { permissions?: { query: (q: { name: string }) => Promise<{ state: string }> } }).permissions
+    if (perms?.query) {
+      perms.query({ name: 'geolocation' }).then(s => {
+        if (cancelled) return
+        if (s.state === 'granted') tryGet()
+      }).catch(() => {})
+    } else {
+      tryGet()
+    }
     return () => { cancelled = true }
   }, [])
 
@@ -111,13 +136,48 @@ export default function ListMap({ places, height = '60vh', onSelectPlace, select
       bounds.extend(pos)
     })
 
-    if (placesWithCoords.length === 1) {
+    // Include the user's location in the bounds so the fit naturally answers
+    // "where are these relative to me?". When only the user pin and a single
+    // place exist the framing still feels right because we extend bounds
+    // before fitBounds().
+    if (userPos) bounds.extend(userPos)
+
+    if (placesWithCoords.length === 1 && !userPos) {
       mapRef.current.setCenter(bounds.getCenter())
       mapRef.current.setZoom(14)
     } else {
       mapRef.current.fitBounds(bounds, 64)
     }
-  }, [loaded, placesWithCoords, selectedPlaceId, onSelectPlace])
+  }, [loaded, placesWithCoords, selectedPlaceId, onSelectPlace, userPos])
+
+  // User-location pin — soft amber dot with a halo so it reads as "you" and
+  // not as just another place.
+  useEffect(() => {
+    if (!mapRef.current || !window.google?.maps) return
+    if (userMarkerRef.current) {
+      userMarkerRef.current.setMap(null)
+      userMarkerRef.current = null
+    }
+    if (!userPos) return
+    const youSvg = `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(
+      `<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 36 36">
+        <circle cx="18" cy="18" r="14" fill="rgba(168, 95, 42, 0.18)"/>
+        <circle cx="18" cy="18" r="9" fill="rgba(168, 95, 42, 0.32)"/>
+        <circle cx="18" cy="18" r="6" fill="#A85F2A" stroke="#F4EBDA" stroke-width="2.5"/>
+      </svg>`
+    )}`
+    userMarkerRef.current = new window.google.maps.Marker({
+      map: mapRef.current,
+      position: userPos,
+      title: 'You are here',
+      icon: {
+        url: youSvg,
+        scaledSize: new window.google.maps.Size(36, 36),
+        anchor: new window.google.maps.Point(18, 18),
+      },
+      zIndex: 1000,
+    })
+  }, [loaded, userPos])
 
   if (loadError) {
     return (

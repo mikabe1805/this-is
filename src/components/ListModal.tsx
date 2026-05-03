@@ -84,6 +84,7 @@ const ListModal = ({ list, isOpen, onClose, onSave, onShare, onAddPost, onOpenFu
   const [showCommentsModal, setShowCommentsModal] = useState(false)
   const [posts, setPosts] = useState<Post[]>([])
   const [places, setPlaces] = useState<any[]>([])
+  const [subLists, setSubLists] = useState<List[]>([])
   const [creatorName, setCreatorName] = useState<string>('');
   const [showOwnerMenu, setShowOwnerMenu] = useState(false)
   const [menuPos, setMenuPos] = useState<{ top: number; left: number } | null>(null)
@@ -119,6 +120,15 @@ const ListModal = ({ list, isOpen, onClose, onSave, onShare, onAddPost, onOpenFu
           } catch (error) {
             console.error('Error fetching places for list:', error);
             setPlaces([]); // Set empty array on error
+          }
+
+          // Sub-lists nested into this list (folder-style).
+          try {
+            const nested = await firebaseDataService.getSubLists(list.id)
+            setSubLists(nested)
+          } catch (e) {
+            console.warn('[list-modal] sub-list fetch failed', e)
+            setSubLists([])
           }
           
           if (list.userId) {
@@ -481,6 +491,37 @@ const ListModal = ({ list, isOpen, onClose, onSave, onShare, onAddPost, onOpenFu
                 <p className="font-mono text-[10px] tracking-[0.10em] uppercase text-ink-mute mt-2">
                   Tap a pin to open the place
                 </p>
+              </div>
+            )}
+
+            {/* Sub-lists (folders) nested inside this list */}
+            {subLists.length > 0 && (
+              <div className="bg-card/85 rounded-2xl p-4 border border-edge">
+                <h3 className="font-display text-[20px] leading-tight text-ink mb-3">Folders inside</h3>
+                <div className="space-y-2">
+                  {subLists.map((sub) => (
+                    <button
+                      key={`sublist-${sub.id}`}
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); openFullScreenList(sub) }}
+                      className="w-full text-left flex items-center gap-3 p-3 bg-paper rounded-2xl border border-edge active:scale-[0.98] hover:border-ink/30 transition-colors cursor-pointer"
+                    >
+                      <div className="w-12 h-12 rounded-lg bg-paper-deep ring-1 ring-edge flex-shrink-0 overflow-hidden flex items-center justify-center">
+                        {sub.coverImage ? (
+                          <img src={sub.coverImage} alt={sub.name} className="w-full h-full object-cover" />
+                        ) : (
+                          <BookmarkIcon className="w-5 h-5 text-ink-mute" />
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-display text-[16px] leading-tight text-ink truncate">{sub.name}</p>
+                        <p className="font-mono text-[10px] tracking-[0.10em] uppercase text-ink-mute mt-0.5 truncate">
+                          {sub.privacy === 'private' ? 'Private' : sub.privacy === 'friends' ? 'Friends only' : 'Public'} · {(sub.hubs?.length || 0)} {sub.hubs?.length === 1 ? 'place' : 'places'}
+                        </p>
+                      </div>
+                    </button>
+                  ))}
+                </div>
               </div>
             )}
 

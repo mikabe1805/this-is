@@ -1831,6 +1831,72 @@ class FirebaseDataService {
     }
   }
 
+  /**
+   * Nest one list inside another (folder-style). The parent list's
+   * `subLists: string[]` array gains an entry pointing at the child list.
+   * This is what powers "Save list" on a list — instead of liking, you
+   * collect the list as a sub-folder under one of your own.
+   *
+   * Cycles are prevented at the immediate level (you can't save a list
+   * into itself); deeper cycles are unlikely with the current UI but can
+   * be guarded later if needed.
+   */
+  async saveListToList(childListId: string, parentListId: string, userId: string): Promise<boolean> {
+    if (!childListId || !parentListId || childListId === parentListId) return false
+    try {
+      const parentRef = doc(db, 'lists', parentListId)
+      const parentSnap = await getDoc(parentRef)
+      if (!parentSnap.exists()) return false
+      const parentData = parentSnap.data() as { subLists?: string[]; userId?: string }
+      const existing = Array.isArray(parentData.subLists) ? parentData.subLists : []
+      if (existing.includes(childListId)) return false
+      await updateDoc(parentRef, {
+        subLists: arrayUnion(childListId),
+        updatedAt: Timestamp.now(),
+      })
+      try {
+        await this.logActivity(userId, { type: 'save', userId, listId: parentListId, savedListId: childListId } as any)
+      } catch (e) {
+        console.warn('[saveListToList] activity log failed', e)
+      }
+      return true
+    } catch (e) {
+      console.error('[saveListToList] failed', e)
+      return false
+    }
+  }
+
+  async removeListFromList(childListId: string, parentListId: string): Promise<void> {
+    try {
+      const parentRef = doc(db, 'lists', parentListId)
+      await updateDoc(parentRef, {
+        subLists: arrayRemove(childListId),
+        updatedAt: Timestamp.now(),
+      })
+    } catch (e) {
+      console.warn('[removeListFromList] failed', e)
+    }
+  }
+
+  /**
+   * Hydrate the sub-lists collected inside a parent list. Reads the
+   * parent's `subLists` array and fans out a getList per id.
+   */
+  async getSubLists(listId: string): Promise<List[]> {
+    try {
+      const ref = doc(db, 'lists', listId)
+      const snap = await getDoc(ref)
+      if (!snap.exists()) return []
+      const ids = (snap.data() as { subLists?: string[] }).subLists || []
+      if (ids.length === 0) return []
+      const lists = await Promise.all(ids.map(id => this.getList(id).catch(() => null)))
+      return lists.filter((l): l is List => !!l)
+    } catch (e) {
+      console.warn('[getSubLists] failed', e)
+      return []
+    }
+  }
+
   async createList(listData: { name: string; description: string; privacy: 'public' | 'private' | 'friends'; tags: string[], userId: string }): Promise<string | null> {
     try {
       const newListRef = doc(collection(db, 'lists'));

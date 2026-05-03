@@ -61,11 +61,14 @@ const NavigationModals = () => {
           showBackButton={navigationHistory.history.length > 1}
           onBack={goBack}
           onSave={(list) => {
+            // "Save list" = nest this list inside one of the current user's
+            // lists (folder-style). Open the dedicated picker mounted in App.
+            window.dispatchEvent(new CustomEvent('openSaveListToFolder', { detail: { list } }))
             closeListModal()
           }}
-          onShare={(list) => {
-          }}
+          onShare={() => { /* surface handled by ListModal share button */ }}
           onAddPost={(list) => {
+            openCreatePostModal(undefined, list)
             closeListModal()
           }}
           onOpenFullScreen={(list) => {

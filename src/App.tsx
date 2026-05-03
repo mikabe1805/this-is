@@ -31,6 +31,7 @@ import { setupViewportHandler } from './utils/viewportHandler.ts'
 import EmbedFromModal from './components/EmbedFromModal.tsx'
 import SaveModal from './components/SaveModal.tsx'
 import CoverPhotoPicker from './components/CoverPhotoPicker.tsx'
+import SaveListToFolderModal from './components/SaveListToFolderModal.tsx'
 import { firebaseDataService } from './services/firebaseDataService.js'
 
 const RouteFallback = () => (
@@ -45,6 +46,19 @@ const GlobalModals = () => {
   const { currentUser } = useAuth()
   const [userLists, setUserLists] = useState<List[]>([]);
   const [coverPick, setCoverPick] = useState<{ hubId: string; googlePlaceId: string; hubName: string } | null>(null)
+  const [saveListToFolder, setSaveListToFolder] = useState<List | null>(null)
+
+  // Listen for the "Save list" intent dispatched from ListModal — opens a
+  // dedicated picker that nests the list inside one of the user's lists
+  // (folder-style) instead of the regular place-save flow.
+  useEffect(() => {
+    const onOpen = (e: Event) => {
+      const detail = (e as CustomEvent).detail as { list?: List } | undefined
+      if (detail?.list) setSaveListToFolder(detail.list)
+    }
+    window.addEventListener('openSaveListToFolder', onOpen)
+    return () => window.removeEventListener('openSaveListToFolder', onOpen)
+  }, [])
 
   useEffect(() => {
     const fetchLists = async () => {
@@ -86,10 +100,11 @@ const GlobalModals = () => {
           userLists={userLists}
           onSave={async (status, rating, listIds, note) => {
             if (!currentUser) return;
-            // Silent Google→Hub conversion: if the place isn't a real hub yet, ensure one
-            // before any list operation. This makes "save" the implicit claim action.
             const seedHub: any = saveModalData.hub
             const seedList: any = saveModalData.list
+
+            // Silent Google→Hub conversion: if the place isn't a real hub yet, ensure one
+            // before any list operation. This makes "save" the implicit claim action.
             const googlePlaceId = seedHub?.id  // when seedHub came from a card it's the Places API id
             const ensured = seedHub
               ? await firebaseDataService.ensureHubFromPlace({
@@ -206,6 +221,33 @@ const GlobalModals = () => {
           hubName={coverPick.hubName}
         />
       )}
+
+      <SaveListToFolderModal
+        isOpen={!!saveListToFolder}
+        onClose={() => setSaveListToFolder(null)}
+        list={saveListToFolder}
+        userLists={userLists}
+        onCreateNewFolder={() => {
+          // Hand off to the existing CreateListModal — close this picker
+          // first so the two modals don't stack.
+          setSaveListToFolder(null)
+          setTimeout(() => {
+            try { window.dispatchEvent(new CustomEvent('openCreateList')) } catch (e) { console.warn('[saveListToFolder] open create-list failed', e) }
+          }, 50)
+        }}
+        onConfirm={async (parentListIds) => {
+          if (!currentUser || !saveListToFolder) { setSaveListToFolder(null); return }
+          for (const parentId of parentListIds) {
+            if (parentId === saveListToFolder.id) continue
+            await firebaseDataService.saveListToList(saveListToFolder.id, parentId, currentUser.id)
+          }
+          window.dispatchEvent(new CustomEvent('this-is:saved', {
+            detail: { listId: saveListToFolder.id, parents: parentListIds }
+          }))
+          setSaveListToFolder(null)
+        }}
+      />
+
 
       {/* Create Post Modal */}
       {showCreatePost && createPostData && (
