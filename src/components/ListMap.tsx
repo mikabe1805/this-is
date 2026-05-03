@@ -79,9 +79,12 @@ export default function ListMap({ places, height = '60vh', onSelectPlace, select
     if (!loaded || !containerRef.current || mapRef.current) return
     if (!window.google?.maps) { setLoadError(true); return }
 
+    // Center priority: first place with coords → user location → SF default.
     const center = placesWithCoords.length > 0
       ? { lat: placesWithCoords[0].place.coordinates!.lat, lng: placesWithCoords[0].place.coordinates!.lng }
-      : { lat: 37.7749, lng: -122.4194 }
+      : userPos
+        ? { lat: userPos.lat, lng: userPos.lng }
+        : { lat: 37.7749, lng: -122.4194 }
 
     mapRef.current = new window.google.maps.Map(containerRef.current, {
       center,
@@ -177,7 +180,13 @@ export default function ListMap({ places, height = '60vh', onSelectPlace, select
       },
       zIndex: 1000,
     })
-  }, [loaded, userPos])
+    // If no places have coords, recenter the map on the user so we don't
+    // leave the user staring at SF.
+    if (placesWithCoords.length === 0) {
+      mapRef.current.setCenter(userPos)
+      mapRef.current.setZoom(13)
+    }
+  }, [loaded, userPos, placesWithCoords.length])
 
   if (loadError) {
     return (
@@ -190,23 +199,22 @@ export default function ListMap({ places, height = '60vh', onSelectPlace, select
     )
   }
 
-  if (placesWithCoords.length === 0) {
-    return (
-      <div className="rounded-2xl border border-edge bg-card flex items-center justify-center text-center px-6" style={{ height }}>
-        <div>
-          <p className="font-display text-[20px] text-ink">No locations yet</p>
-          <p className="text-[13px] text-ink-soft mt-1">Places need coordinates to show on the map.</p>
-        </div>
-      </div>
-    )
-  }
-
+  // Always render the map. If no places have coordinates yet, the map
+  // still shows centered on the user's location with a soft caption
+  // explaining what they'll see once places gain coords. Was returning a
+  // bare empty state, which made the map feature look "missing".
   return (
     <div className="relative rounded-2xl border border-edge overflow-hidden" style={{ height }}>
       <div ref={containerRef} className="absolute inset-0" />
       {!loaded && (
         <div className="absolute inset-0 flex items-center justify-center bg-paper-deep">
           <span className="font-mono text-[10px] tracking-[0.10em] uppercase text-ink-mute">Loading map…</span>
+        </div>
+      )}
+      {loaded && placesWithCoords.length === 0 && (
+        <div className="absolute left-3 right-3 bottom-3 rounded-xl bg-paper/95 backdrop-blur-sm border border-edge px-3.5 py-2.5 pointer-events-none">
+          <p className="font-mono text-[10px] tracking-[0.10em] uppercase text-ink-mute">Map</p>
+          <p className="text-[13px] text-ink mt-0.5">No locations on this list yet — places will pin here as you save them.</p>
         </div>
       )}
     </div>

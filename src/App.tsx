@@ -60,6 +60,21 @@ const GlobalModals = () => {
     return () => window.removeEventListener('openSaveListToFolder', onOpen)
   }, [])
 
+  // Manual cover-picker trigger — dispatched from HubModal so users can
+  // re-open the picker for any place they've already saved that doesn't
+  // have a cover image yet. Especially important for places saved before
+  // the googlePlaceId-storage fix.
+  useEffect(() => {
+    const onOpen = (e: Event) => {
+      const detail = (e as CustomEvent).detail as { hubId?: string; googlePlaceId?: string; hubName?: string } | undefined
+      if (detail?.hubId && detail?.googlePlaceId && detail?.hubName) {
+        setCoverPick({ hubId: detail.hubId, googlePlaceId: detail.googlePlaceId, hubName: detail.hubName })
+      }
+    }
+    window.addEventListener('openCoverPicker', onOpen)
+    return () => window.removeEventListener('openCoverPicker', onOpen)
+  }, [])
+
   useEffect(() => {
     const fetchLists = async () => {
       if (currentUser) {
@@ -108,7 +123,6 @@ const GlobalModals = () => {
 
             // Silent Google→Hub conversion: if the place isn't a real hub yet, ensure one
             // before any list operation. This makes "save" the implicit claim action.
-            const googlePlaceId = seedHub?.id  // when seedHub came from a card it's the Places API id
             const ensured = seedHub
               ? await firebaseDataService.ensureHubFromPlace({
                   id: seedHub.id,
@@ -122,6 +136,10 @@ const GlobalModals = () => {
                 })
               : null
             const placeId = ensured?.id || (seedHub ? seedHub.id : seedList.id)
+            // Prefer the stored googlePlaceId — survives the Google→Firestore
+            // id swap so the CoverPhotoPicker can fetch photos from Google
+            // even on the second save of an already-claimed hub.
+            const googlePlaceId: string | null = ensured?.googlePlaceId || (typeof seedHub?.id === 'string' && /^ChIJ/.test(seedHub.id) ? seedHub.id : null)
             // Show the cover-photo picker either when this user just created
             // the hub, or when an earlier auto-claimed hub exists but doesn't
             // have a cover yet — same intent: "first user with photos available
@@ -170,7 +188,6 @@ const GlobalModals = () => {
             if (!currentUser) return;
             const seedHub: any = saveModalData.hub
             const seedList: any = saveModalData.list
-            const googlePlaceId = seedHub?.id
             const ensured = seedHub
               ? await firebaseDataService.ensureHubFromPlace({
                   id: seedHub.id,
@@ -184,10 +201,7 @@ const GlobalModals = () => {
                 })
               : null
             const placeId = ensured?.id || (seedHub ? seedHub.id : seedList.id)
-            // Show the cover-photo picker either when this user just created
-            // the hub, or when an earlier auto-claimed hub exists but doesn't
-            // have a cover yet — same intent: "first user with photos available
-            // gets to set the cover."
+            const googlePlaceId: string | null = ensured?.googlePlaceId || (typeof seedHub?.id === 'string' && /^ChIJ/.test(seedHub.id) ? seedHub.id : null)
             const needsCover = !!(seedHub && ensured && (ensured.created || !ensured.mainImage))
             const newListId = await firebaseDataService.createList({
               ...listData,

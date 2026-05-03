@@ -3144,8 +3144,14 @@ class FirebaseDataService {
     photos?: { name: string }[]
     primaryType?: string
     types?: string[]
-  }): Promise<{ id: string; created: boolean }> {
-    // Prevent duplicates: look for matching name and similar address first
+    /** Original Google place id (ChIJ...). Stored so the CoverPhotoPicker
+     *  can fetch photos even after the Firestore doc has its own random id.
+     *  Without this we lose the link to Google after the first ensure. */
+    googlePlaceId?: string
+  }): Promise<{ id: string; created: boolean; googlePlaceId?: string }> {
+    // Prevent duplicates: look for matching name and similar address first.
+    // Also opportunistically backfill googlePlaceId on existing docs that
+    // are missing it (likely from old saves that predated this field).
     try {
       const nameLower = (hubData.name || '').toLowerCase().trim()
       if (nameLower) {
@@ -3157,11 +3163,21 @@ class FirebaseDataService {
           const data: any = d.data()
           const existingAddr = data.address || data.location?.address || ''
           if (normalize(existingAddr) === addrNorm) {
-            return { id: d.id, created: false }
+            // Backfill missing fields if we have richer data from Google now.
+            const patch: Record<string, unknown> = {}
+            if (!data.googlePlaceId && hubData.googlePlaceId) patch.googlePlaceId = hubData.googlePlaceId
+            if ((!Array.isArray(data.photos) || data.photos.length === 0) && Array.isArray(hubData.photos) && hubData.photos.length > 0) patch.photos = hubData.photos
+            if (!data.primaryType && hubData.primaryType) patch.primaryType = hubData.primaryType
+            if ((!Array.isArray(data.types) || data.types.length === 0) && Array.isArray(hubData.types) && hubData.types.length > 0) patch.types = hubData.types
+            if ((!data.coordinates?.lat || !data.coordinates?.lng) && hubData.coordinates?.lat && hubData.coordinates?.lng) patch.coordinates = hubData.coordinates
+            if (Object.keys(patch).length > 0) {
+              try { await updateDoc(d.ref, patch) } catch (e) { console.warn('[createHub] backfill failed', e) }
+            }
+            return { id: d.id, created: false, googlePlaceId: data.googlePlaceId || hubData.googlePlaceId }
           }
         }
       }
-    } catch {}
+    } catch (e) { console.warn('[createHub] dedup lookup failed', e) }
 
     const hubRef = await addDoc(collection(db, 'places'), {
       name: hubData.name,
@@ -3185,10 +3201,11 @@ class FirebaseDataService {
       photos: Array.isArray(hubData.photos) ? hubData.photos : [],
       primaryType: hubData.primaryType || null,
       types: Array.isArray(hubData.types) ? hubData.types : [],
+      googlePlaceId: hubData.googlePlaceId || null,
       // mainImage is set by the first-saver via CoverPhotoPicker. Until then,
       // HubImage falls back to the duotone <PlacePoster>.
     });
-    return { id: hubRef.id, created: true };
+    return { id: hubRef.id, created: true, googlePlaceId: hubData.googlePlaceId };
   }
 
   /**
@@ -3267,7 +3284,7 @@ class FirebaseDataService {
   // network roundtrip runs and all callers await the same promise. Without
   // this, concurrent calls each pass the duplicate-check before either
   // writes — producing two near-identical hub docs.
-  private ensureHubInFlight = new Map<string, Promise<{ id: string | null; created: boolean; mainImage?: string | null }>>()
+  private ensureHubInFlight = new Map<string, Promise<{ id: string | null; created: boolean; mainImage?: string | null; googlePlaceId?: string | null }>>()
 
   async ensureHubFromPlace(p: {
     id?: string
@@ -3280,18 +3297,31 @@ class FirebaseDataService {
     photos?: { name: string }[]
     primaryType?: string
     types?: string[]
-  }): Promise<{ id: string | null; created: boolean; mainImage?: string | null }> {
+  }): Promise<{ id: string | null; created: boolean; mainImage?: string | null; googlePlaceId?: string | null }> {
     const candidateId = p.id || p.placeId || ''
     const dedupKey = candidateId || `${(p.name || '').toLowerCase().trim()}|${(p.address || p.location?.address || '').toLowerCase().trim()}`
     const existing = this.ensureHubInFlight.get(dedupKey)
     if (existing) return existing
 
+    // Heuristic: a Google Place id starts with "ChIJ" (~27 chars, all-base64
+    // characters). Firestore-generated ids are random alnum, never start with
+    // ChIJ. We use this to know whether the candidate is a Google id worth
+    // preserving on the place doc.
+    const looksLikeGoogleId = /^ChIJ[A-Za-z0-9_-]{20,}$/.test(candidateId)
+
     const work = (async () => {
       try {
         if (candidateId) {
-          const found = await this.getPlace(candidateId) as (Place & { mainImage?: string | null }) | null
+          const found = await this.getPlace(candidateId) as (Place & { mainImage?: string | null; googlePlaceId?: string | null }) | null
           if (found && found.id) {
-            return { id: found.id, created: false, mainImage: found.mainImage || null }
+            // If the existing doc lacks googlePlaceId but we just got one
+            // from the caller (looksLikeGoogleId), backfill it so future
+            // CoverPhotoPicker openings work without another save round-trip.
+            if (!found.googlePlaceId && looksLikeGoogleId) {
+              try { await updateDoc(doc(db, 'places', found.id), { googlePlaceId: candidateId }) } catch (e) { console.warn('[ensureHubFromPlace] gpid backfill failed', e) }
+              return { id: found.id, created: false, mainImage: found.mainImage || null, googlePlaceId: candidateId }
+            }
+            return { id: found.id, created: false, mainImage: found.mainImage || null, googlePlaceId: found.googlePlaceId || (looksLikeGoogleId ? candidateId : null) }
           }
         }
         const name = (p.name || '').trim()
@@ -3307,8 +3337,9 @@ class FirebaseDataService {
           photos: p.photos,
           primaryType: p.primaryType,
           types: p.types,
+          googlePlaceId: looksLikeGoogleId ? candidateId : undefined,
         })
-        return { id: result.id, created: result.created, mainImage: null }
+        return { id: result.id, created: result.created, mainImage: null, googlePlaceId: result.googlePlaceId || (looksLikeGoogleId ? candidateId : null) }
       } catch (e) {
         console.warn('[ensureHubFromPlace] failed', e)
         return { id: p.id || null, created: false }

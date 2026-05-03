@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { XMarkIcon, CheckIcon, PhotoIcon } from '@heroicons/react/24/outline'
-import { getDetails } from '../lib/placesNew'
+import { getDetails, searchText } from '../lib/placesNew'
 import { firebaseDataService } from '../services/firebaseDataService'
 import { useModalDismiss } from '../hooks/useModalDismiss'
 import { useSwipeToDismiss } from '../hooks/useSwipeToDismiss'
@@ -42,16 +42,54 @@ export default function CoverPhotoPicker({
     setLoading(true)
     setResourceNames([])
     setSelected(null)
-    void getDetails(googlePlaceId)
-      .then(d => {
+    let cancelled = false
+
+    const tryGetDetails = async () => {
+      try {
+        const d = await getDetails(googlePlaceId)
         const names = (d?.photos || []).map(p => p.name).filter(Boolean) as string[]
-        const slice = names.slice(0, 6)
-        setResourceNames(slice)
-        setSelected(slice[0] || null)
-      })
-      .catch(() => setResourceNames([]))
-      .finally(() => setLoading(false))
-  }, [isOpen, googlePlaceId])
+        if (cancelled) return null
+        if (names.length > 0) return names
+      } catch (e) {
+        console.warn('[cover-picker] getDetails failed', e)
+      }
+      return null
+    }
+
+    // Fallback path: if the stored id is actually a Firestore id (legacy
+    // place doc that predated googlePlaceId), search Google by name+address
+    // to get a fresh place_id and try again. Lets users retroactively pick
+    // photos for any place that has none.
+    const tryByName = async () => {
+      try {
+        const results = await searchText(hubName, { max: 1 })
+        if (cancelled) return null
+        const candidate = results?.[0]
+        if (candidate?.id) {
+          const d = await getDetails(candidate.id)
+          const names = (d?.photos || []).map(p => p.name).filter(Boolean) as string[]
+          if (cancelled) return null
+          if (names.length > 0) return names
+        }
+      } catch (e) {
+        console.warn('[cover-picker] searchText fallback failed', e)
+      }
+      return null
+    }
+
+    void (async () => {
+      const direct = await tryGetDetails()
+      if (cancelled) return
+      const names = direct || await tryByName()
+      if (cancelled) return
+      const slice = (names || []).slice(0, 6)
+      setResourceNames(slice)
+      setSelected(slice[0] || null)
+      setLoading(false)
+    })()
+
+    return () => { cancelled = true }
+  }, [isOpen, googlePlaceId, hubName])
 
   useModalDismiss(isOpen, onClose)
   const sheetRef = useRef<HTMLDivElement>(null)

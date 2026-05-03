@@ -477,8 +477,11 @@ const ListModal = ({ list, isOpen, onClose, onSave, onShare, onAddPost, onOpenFu
             </button>
           </div>
 
-            {/* Map view — only renders when at least one place has coordinates */}
-            {places.some(p => (p.place as any)?.coordinates?.lat && (p.place as any)?.coordinates?.lng) && (
+            {/* Map view — always shown, even when places lack coordinates.
+                ListMap handles the empty state itself with the user's pin
+                so the map answers "where am I relative to anything?" the
+                moment a place gets coords. */}
+            {places.length > 0 && (
               <div className="bg-card/85 rounded-2xl p-4 border border-edge">
                 <h3 className="font-display text-[20px] leading-tight text-ink mb-3">Map</h3>
                 <ListMap

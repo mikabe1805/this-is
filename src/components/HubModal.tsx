@@ -192,6 +192,30 @@ const HubModal = ({
               <p className="text-[12px] text-ink-soft mt-1">No notes yet — open the full page to add one.</p>
             </div>
           )}
+
+          {/* Pick a cover photo — surfaces whenever the place has no
+              user-set cover. Lets the first user (or any user) claim a
+              photo for the place after the fact, instead of relying on
+              the one-shot prompt at save time. */}
+          {!place?.mainImage && !loading && place && (
+            <button
+              type="button"
+              onClick={() => {
+                try {
+                  window.dispatchEvent(new CustomEvent('openCoverPicker', {
+                    detail: {
+                      hubId: place.id,
+                      googlePlaceId: (place as { googlePlaceId?: string }).googlePlaceId || place.id,
+                      hubName: place.name,
+                    }
+                  }))
+                } catch (e) { console.warn('[hub-modal] open cover picker failed', e) }
+              }}
+              className="w-full flex items-center justify-center gap-2 h-11 rounded-full bg-card border border-dashed border-edge text-[13px] font-medium text-ink-soft hover:text-ink hover:border-ink/40 transition-colors"
+            >
+              <span className="font-mono text-[10px] tracking-[0.10em] uppercase">Pick a cover photo</span>
+            </button>
+          )}
         </div>
 
         {/* Sticky action row */}
