@@ -5,7 +5,6 @@ import AddressAutocomplete from './AddressAutocomplete'
 import TagAutocomplete from './TagAutocomplete'
 import { firebaseDataService } from '../services/firebaseDataService.js'
 import { firebaseStorageService } from '../services/firebaseStorageService.js'
-import Button from './Button'
 
 interface EditListModalProps {
   isOpen: boolean
@@ -123,35 +122,38 @@ const EditListModal = ({ isOpen, onClose, list, onSave }: EditListModalProps) =>
   if (!isOpen || !list) return null
 
   const modalContent = (
-    <div className="fixed inset-0 z-[100200] flex items-center justify-center p-4">
-      {/* Backdrop */}
-      <div 
-        className="absolute inset-0 bg-charcoal-900/50 backdrop-blur-sm"
-        onClick={onClose}
-      />
-      
-      {/* Modal */}
-      <div className="relative w-full max-w-md bg-white rounded-3xl shadow-botanical border border-linen-200 max-h-[92vh] flex flex-col overflow-hidden">
+    <div
+      className="fixed inset-0 z-[100200] flex items-end sm:items-center justify-center sm:p-4 bg-[#1A1815]/55 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      <div
+        className="modal-paper relative w-full sm:max-w-md rounded-t-3xl sm:rounded-3xl border border-edge max-h-[92vh] flex flex-col overflow-hidden"
+        style={{ boxShadow: '0 18px 60px rgba(46, 28, 13, 0.22)' }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div data-drag-handle className="sm:hidden flex justify-center py-3 shrink-0" aria-hidden>
+          <span className="w-10 h-1 rounded-full bg-ink-faint" />
+        </div>
+
         {/* Header */}
-        <div className="sticky top-0 z-[1] p-6 border-b border-linen-200 bg-white/95 backdrop-blur-glass rounded-t-3xl">
-          <div className="flex items-center justify-between">
-            <h2 className="text-xl font-serif font-semibold text-charcoal-800">Edit List</h2>
-            <button
-              onClick={onClose}
-              className="btn-icon"
-              aria-label="Close"
-            >
-              <XMarkIcon className="w-5 h-5" />
-            </button>
-          </div>
+        <div className="flex items-center justify-between px-5 sm:px-6 py-4 border-b border-edge relative z-10">
+          <p className="label-eyebrow text-ink-mute">Edit list</p>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close"
+            className="h-9 w-9 rounded-full hover:bg-paper-deep flex items-center justify-center text-ink"
+          >
+            <XMarkIcon className="w-5 h-5" />
+          </button>
         </div>
 
         {/* Content */}
-        <div className="p-6 space-y-6 overflow-y-auto" style={{ maxHeight: 'calc(92vh - 160px)', WebkitOverflowScrolling: 'touch' }}>
+        <div className="px-5 sm:px-6 py-5 space-y-5 overflow-y-auto relative z-10" style={{ maxHeight: 'calc(92vh - 160px)' }}>
           {/* Cover Image */}
           <div>
-            <label className="block text-sm font-medium text-charcoal-700 mb-3">Cover Image</label>
-            <div className="relative w-full h-32 rounded-2xl border border-linen-200 overflow-hidden bg-linen-100">
+            <p className="label-eyebrow text-ink-mute mb-2 block">Cover image</p>
+            <div className="relative w-full h-32 rounded-xl border border-edge overflow-hidden bg-paper-deep">
               {formData.coverImage ? (
                 <img
                   src={formData.coverImage}
@@ -160,13 +162,13 @@ const EditListModal = ({ isOpen, onClose, list, onSave }: EditListModalProps) =>
                   onError={(e) => { e.currentTarget.src = '/assets/leaf.png' }}
                 />
               ) : (
-                <div className="w-full h-full flex items-center justify-center font-serif text-3xl text-charcoal-400" aria-hidden>
+                <div className="w-full h-full flex items-center justify-center font-display text-[40px] text-ink-faint" aria-hidden>
                   {(formData.name || '?').slice(0, 1).toUpperCase()}
                 </div>
               )}
               {isUploadingCover && (
-                <div className="absolute inset-0 bg-charcoal-900/40 backdrop-blur-sm flex items-center justify-center">
-                  <span className="text-xs uppercase tracking-wider text-white">Uploading…</span>
+                <div className="absolute inset-0 bg-[#1A1815]/40 backdrop-blur-sm flex items-center justify-center">
+                  <span className="font-mono text-[10px] tracking-[0.10em] uppercase text-white">Uploading…</span>
                 </div>
               )}
               <input
@@ -180,7 +182,7 @@ const EditListModal = ({ isOpen, onClose, list, onSave }: EditListModalProps) =>
                 type="button"
                 onClick={() => coverInputRef.current?.click()}
                 disabled={isUploadingCover}
-                className="absolute bottom-2 right-2 btn-icon bg-sage-500 text-white hover:bg-sage-600 border-0 disabled:opacity-60"
+                className="absolute bottom-2 right-2 h-8 w-8 rounded-full bg-[#1A1815]/70 text-white hover:bg-[#1A1815] flex items-center justify-center disabled:opacity-60"
                 aria-label="Change cover"
               >
                 <CameraIcon className="w-4 h-4" />
@@ -189,39 +191,35 @@ const EditListModal = ({ isOpen, onClose, list, onSave }: EditListModalProps) =>
             {coverError && <p className="text-[12px] text-red-700 mt-1.5">{coverError}</p>}
           </div>
 
-          {/* List Name */}
+          {/* Name */}
           <div>
-            <label className="block text-sm font-medium text-charcoal-700 mb-2">List Name</label>
-            <div className="relative">
-              <input
-                type="text"
-                value={formData.name}
-                onChange={(e) => handleInputChange('name', e.target.value)}
-                className="w-full px-4 py-3 rounded-xl border border-linen-200 bg-linen-50 text-charcoal-700 focus:outline-none focus:ring-2 focus:ring-sage-200 focus:border-sage-300 transition-colors"
-                placeholder="Enter list name"
-              />
-              <PencilIcon className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-charcoal-400" />
-            </div>
+            <label htmlFor="edit-list-name" className="label-eyebrow text-ink-mute mb-1.5 block">List name</label>
+            <input
+              id="edit-list-name"
+              type="text"
+              value={formData.name}
+              onChange={(e) => handleInputChange('name', e.target.value)}
+              placeholder="e.g., Cozy coffee spots"
+              className="w-full h-11 px-4 rounded-full border border-edge bg-card text-[14px] text-ink placeholder:text-ink-mute outline-none focus:border-ink/40"
+            />
           </div>
 
           {/* Description */}
           <div>
-            <label className="block text-sm font-medium text-charcoal-700 mb-2">Description</label>
-            <div className="relative">
-              <textarea
-                value={formData.description}
-                onChange={(e) => handleInputChange('description', e.target.value)}
-                rows={3}
-                className="w-full px-4 py-3 rounded-xl border border-linen-200 bg-linen-50 text-charcoal-700 focus:outline-none focus:ring-2 focus:ring-sage-200 focus:border-sage-300 transition-colors resize-none"
-                placeholder="Describe your list..."
-              />
-              <PencilIcon className="absolute right-3 top-3 w-4 h-4 text-charcoal-400" />
-            </div>
+            <label htmlFor="edit-list-desc" className="label-eyebrow text-ink-mute mb-1.5 block">Description · optional</label>
+            <textarea
+              id="edit-list-desc"
+              value={formData.description}
+              onChange={(e) => handleInputChange('description', e.target.value)}
+              rows={3}
+              placeholder="A few words about what this list is for…"
+              className="w-full px-3.5 py-3 rounded-xl border border-edge bg-card text-[14px] text-ink placeholder:text-ink-mute outline-none focus:border-ink/40 resize-none"
+            />
           </div>
 
-          {/* Location (moved here under name) */}
+          {/* Location */}
           <div className="relative overflow-visible">
-            <label className="block text-sm font-medium text-charcoal-700 mb-2">List Location (optional)</label>
+            <label className="label-eyebrow text-ink-mute mb-1.5 block">List location · optional</label>
             <AddressAutocomplete
               value={location.address}
               onPlaceSelect={(formatted, details) => {
@@ -231,80 +229,65 @@ const EditListModal = ({ isOpen, onClose, list, onSave }: EditListModalProps) =>
                   lng: details?.geometry?.location?.lng?.() as number | undefined,
                 })
               }}
-              placeholder="e.g., Miami, Florida, USA"
+              placeholder="e.g., Miami, FL"
             />
           </div>
 
-          {/* Privacy Settings */}
+          {/* Privacy */}
           <div>
-            <label className="block text-sm font-medium text-charcoal-700 mb-3">Privacy</label>
-            <div className="space-y-2">
-              <button
-                onClick={() => handlePrivacyChange('public')}
-                className={`w-full flex items-center gap-3 p-3 rounded-xl border transition-colors ${
-                  formData.privacy === 'public'
-                    ? 'border-sage-300 bg-sage-50 text-sage-700'
-                    : 'border-linen-200 bg-linen-50 text-charcoal-600 hover:bg-linen-100'
-                }`}
-              >
-                <EyeIcon className="w-5 h-5" />
-                <div className="text-left">
-                  <div className="font-medium">Public</div>
-                  <div className="text-xs opacity-75">Anyone can see this list</div>
-                </div>
-              </button>
-
-              <button
-                onClick={() => handlePrivacyChange('friends')}
-                className={`w-full flex items-center gap-3 p-3 rounded-xl border transition-colors ${
-                  formData.privacy === 'friends'
-                    ? 'border-sage-300 bg-sage-50 text-sage-700'
-                    : 'border-linen-200 bg-linen-50 text-charcoal-600 hover:bg-linen-100'
-                }`}
-              >
-                <UsersIcon className="w-5 h-5" />
-                <div className="text-left">
-                  <div className="font-medium">Friends Only</div>
-                  <div className="text-xs opacity-75">Only your friends can see this list</div>
-                </div>
-              </button>
-
-              <button
-                onClick={() => handlePrivacyChange('private')}
-                className={`w-full flex items-center gap-3 p-3 rounded-xl border transition-colors ${
-                  formData.privacy === 'private'
-                    ? 'border-sage-300 bg-sage-50 text-sage-700'
-                    : 'border-linen-200 bg-linen-50 text-charcoal-600 hover:bg-linen-100'
-                }`}
-              >
-                <EyeSlashIcon className="w-5 h-5" />
-                <div className="text-left">
-                  <div className="font-medium">Private</div>
-                  <div className="text-xs opacity-75">Only you can see this list</div>
-                </div>
-              </button>
+            <p className="label-eyebrow text-ink-mute mb-2 block">Privacy</p>
+            <div className="space-y-1.5">
+              {([
+                { value: 'public',  Icon: EyeIcon,        label: 'Public',        desc: 'Anyone can see this list' },
+                { value: 'friends', Icon: UsersIcon,      label: 'Friends only',  desc: 'Only your friends can see this list' },
+                { value: 'private', Icon: EyeSlashIcon,   label: 'Private',       desc: 'Only you can see this list' },
+              ] as const).map(({ value, Icon, label, desc }) => {
+                const checked = formData.privacy === value
+                return (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => handlePrivacyChange(value)}
+                    aria-pressed={checked}
+                    className={`w-full flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-colors ${checked ? 'bg-paper-deep' : 'hover:bg-paper-deep'}`}
+                  >
+                    <span className={`w-4 h-4 rounded-full border ${checked ? 'border-ink bg-ink' : 'border-edge bg-card'} flex items-center justify-center`}>
+                      {checked && <span className="w-1.5 h-1.5 rounded-full bg-paper" />}
+                    </span>
+                    <Icon className="w-5 h-5 text-ink-mute" />
+                    <div className="flex-1 min-w-0 text-left">
+                      <div className="text-[14px] font-medium text-ink">{label}</div>
+                      <div className="text-[12px] text-ink-soft">{desc}</div>
+                    </div>
+                  </button>
+                )
+              })}
             </div>
           </div>
 
           {/* Tags */}
           <div>
-            <label className="block text-sm font-medium text-charcoal-700 mb-3">Tags</label>
-            <div className="flex flex-wrap gap-2 mb-3">
-              {formData.tags.map(tag => (
-                <span 
-                  key={tag} 
-                  className="px-3 py-1 rounded-full text-sm font-medium bg-sage-50 border border-sage-100 text-sage-700 flex items-center gap-2 group hover:bg-sage-100 transition-colors"
-                >
-                  #{tag}
-                  <button
-                    onClick={() => handleRemoveTag(tag)}
-                    className="w-4 h-4 rounded-full bg-sage-200 text-sage-600 hover:bg-sage-300 transition-colors opacity-0 group-hover:opacity-100"
+            <label className="label-eyebrow text-ink-mute mb-2 block">Tags</label>
+            {formData.tags.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 mb-3">
+                {formData.tags.map(tag => (
+                  <span
+                    key={tag}
+                    className="inline-flex items-center gap-1 h-7 px-2.5 rounded-full bg-paper-deep border border-edge text-[12px] font-medium text-ink"
                   >
-                    ×
-                  </button>
-                </span>
-              ))}
-            </div>
+                    #{tag}
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveTag(tag)}
+                      aria-label={`Remove ${tag}`}
+                      className="text-ink-mute hover:text-ink"
+                    >
+                      <XMarkIcon className="w-3 h-3" />
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
             <TagAutocomplete
               value={newTag}
               onChange={setNewTag}
@@ -313,18 +296,25 @@ const EditListModal = ({ isOpen, onClose, list, onSave }: EditListModalProps) =>
               availableTags={availableTags}
             />
           </div>
-
-          {/* Location: removed old manual inputs */}
         </div>
 
         {/* Footer */}
-        <div className="sticky bottom-0 z-[1] p-6 border-t border-linen-200 bg-white/95 backdrop-blur-glass rounded-b-3xl">
-          <div className="flex gap-3">
-            <Button variant="secondary" className="flex-1" onClick={onClose}>Cancel</Button>
-            <Button className="flex-1" onClick={handleSave} disabled={isSaving || !formData.name.trim()}>
-              {isSaving ? 'Saving...' : 'Save Changes'}
-            </Button>
-          </div>
+        <div className="flex gap-2 px-5 sm:px-6 py-4 border-t border-edge relative z-10">
+          <button
+            type="button"
+            onClick={onClose}
+            className="btn-secondary flex-1 h-12 font-semibold text-[14px]"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={handleSave}
+            disabled={isSaving || !formData.name.trim()}
+            className="btn-cta flex-1 h-12 font-semibold text-[15px] disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {isSaving ? 'Saving…' : 'Save changes'}
+          </button>
         </div>
       </div>
     </div>

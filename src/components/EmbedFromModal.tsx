@@ -145,6 +145,14 @@ const EmbedFromModal = ({ isOpen, onClose, onEmbed }: EmbedFromModalProps) => {
     
     await firebasePostService.createEmbedPost(embedData, currentUser.id);
 
+    // Notify subscribers (Profile activity, list views, friends feed) so
+    // they re-fetch instead of waiting for a route change.
+    try {
+      window.dispatchEvent(new CustomEvent('this-is:posted', {
+        detail: { listIds: Array.from(selectedListIds), embed: true }
+      }))
+    } catch (e) { console.warn('[embed] post-event dispatch failed', e) }
+
     onClose()
   }
 

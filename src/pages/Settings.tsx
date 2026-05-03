@@ -41,20 +41,51 @@ const Settings = () => {
     fetchSettings()
   }, [authUser])
 
+  // The flat ids surfaced to the UI (pushNotifications, emailUpdates,
+  // privacyLevel, etc.) map onto nested fields inside UserPreferences. The
+  // previous implementation just spread `[key]: value` over the top-level
+  // settings object, so the toggles' read path
+  // (settings.notifications?.push) never saw the write path
+  // (settings.pushNotifications). Now we split path → set into a nested
+  // copy.
+  const SETTING_PATHS: Record<string, string[]> = {
+    pushNotifications:  ['notifications', 'push'],
+    emailUpdates:       ['notifications', 'email'],
+    soundEffects:       ['app', 'soundEffects'],
+    hapticFeedback:     ['app', 'hapticFeedback'],
+    privacyLevel:       ['privacy', 'defaultPrivacy'],
+    locationSharing:    ['privacy', 'locationSharing'],
+    autoSave:           ['privacy', 'autoSaveToLists'],
+    darkMode:           ['darkMode'],
+  }
+
+  const setNestedPath = (obj: any, path: string[], value: any): any => {
+    if (path.length === 0) return value
+    const [head, ...rest] = path
+    return { ...(obj || {}), [head]: setNestedPath((obj || {})[head], rest, value) }
+  }
+
+  const getNestedPath = (obj: any, path: string[]): any => {
+    let cur: any = obj
+    for (const k of path) {
+      if (cur == null) return undefined
+      cur = cur[k]
+    }
+    return cur
+  }
+
   const handleSettingChange = async (key: string, value: any) => {
     if (!authUser) return;
-
-    const newSettings = { ...settings, [key]: value };
+    const path = SETTING_PATHS[key] || [key]
+    const newSettings = setNestedPath(settings, path, value)
     setSettings(newSettings);
-    
-    // This assumes your UserPreferences type can be partially updated.
-    // You might need a more specific update function in firebaseDataService
-    // if you only want to update nested properties.
     await firebaseDataService.saveUserPreferences(authUser.id, newSettings as UserPreferences);
   }
 
   const handleToggle = (key: string) => {
-    handleSettingChange(key, !settings[key as keyof typeof settings]);
+    const path = SETTING_PATHS[key] || [key]
+    const current = getNestedPath(settings, path)
+    handleSettingChange(key, !current)
   }
 
   const handleSelect = (key: string, value: string) => {

@@ -110,7 +110,7 @@ const SaveModal: React.FC<SaveModalProps> = ({
   }
 
   const getStatusIcon = (status: SaveStatus, isSelected: boolean) => {
-    const iconClass = `w-6 h-6 ${isSelected ? 'text-white' : 'text-charcoal-600'}`
+    const iconClass = `w-6 h-6 ${isSelected ? 'text-white' : 'text-ink-soft'}`
     switch (status) {
       case 'loved':
         return isSelected ? <HeartIconSolid className={iconClass} /> : <HeartIcon className={iconClass} />

@@ -112,53 +112,56 @@ export default function TagAutocomplete({
           onBlur={handleBlur}
           onKeyPress={handleKeyPress}
           placeholder={currentTags.length >= maxTags ? `Maximum ${maxTags} tags` : placeholder}
-          className={`flex-1 px-4 py-2 border border-linen-200 rounded-xl bg-linen-50 text-charcoal-600 focus:outline-none focus:ring-2 focus:ring-sage-200 disabled:bg-gray-100 ${className}`}
+          className={`flex-1 h-10 px-3.5 rounded-full border border-edge bg-card text-[13px] text-ink placeholder:text-ink-mute outline-none focus:border-ink/40 disabled:opacity-50 ${className}`}
           disabled={disabled || currentTags.length >= maxTags}
         />
         <button
           type="button"
           onClick={handleAddTag}
-          className="px-4 py-2 bg-sage-400 text-white rounded-xl hover:bg-sage-500 transition disabled:bg-gray-300 disabled:cursor-not-allowed"
+          className="btn-secondary h-10 px-4 label-eyebrow disabled:opacity-50 disabled:cursor-not-allowed"
           disabled={disabled || currentTags.length >= maxTags || !value.trim()}
         >
           Add
         </button>
       </div>
-      
+
       {showDropdown && filteredTags.length > 0 && (
-        <div className="absolute z-10 w-full mt-1 bg-white border border-linen-200 rounded-xl shadow-lg">
+        <div className="absolute z-10 w-full mt-1.5 rounded-xl bg-card border border-edge shadow-lg overflow-hidden">
           {filteredTags.map((tag) => (
             <button
               key={tag}
               type="button"
               onClick={() => handleSelectTag(tag)}
-              className="w-full px-4 py-2 text-left text-charcoal-600 hover:bg-linen-50"
+              className="w-full px-4 py-2.5 text-left text-[13px] text-ink hover:bg-paper-deep transition-colors border-b border-edge last:border-b-0"
             >
-              {tag}
+              #{tag}
             </button>
           ))}
         </div>
       )}
-      
+
       {shouldShowPopular && (
-        <div className="mt-2">
-          <p className="text-xs text-charcoal-500 mb-2">{popularLabel}:</p>
-          <div className="flex flex-wrap gap-1">
-            {availableTags.slice(0, 6).map((tag) => (
-              <button
-                key={tag}
-                type="button"
-                onClick={() => !currentTags.includes(tag) && currentTags.length < maxTags && handleSelectTag(tag)}
-                disabled={currentTags.includes(tag) || currentTags.length >= maxTags}
-                className={`px-2 py-1 rounded-full text-xs transition ${
-                  currentTags.includes(tag) || currentTags.length >= maxTags
-                    ? 'bg-sage-200 text-sage-600 cursor-not-allowed opacity-50'
-                    : 'bg-linen-100 text-charcoal-600 hover:bg-sage-100'
-                }`}
-              >
-                #{tag}
-              </button>
-            ))}
+        <div className="mt-3">
+          <p className="font-mono text-[10px] tracking-[0.10em] uppercase text-ink-mute mb-2">{popularLabel}</p>
+          <div className="flex flex-wrap gap-1.5">
+            {availableTags.slice(0, 8).map((tag) => {
+              const taken = currentTags.includes(tag) || currentTags.length >= maxTags
+              return (
+                <button
+                  key={tag}
+                  type="button"
+                  onClick={() => !taken && handleSelectTag(tag)}
+                  disabled={taken}
+                  className={`h-7 px-2.5 rounded-full text-[12px] font-medium border transition-colors ${
+                    taken
+                      ? 'bg-paper-deep text-ink-faint border-edge cursor-not-allowed'
+                      : 'bg-card text-ink-soft border-edge hover:border-ink/40 hover:text-ink'
+                  }`}
+                >
+                  #{tag}
+                </button>
+              )
+            })}
           </div>
         </div>
       )}

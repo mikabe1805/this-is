@@ -184,6 +184,11 @@ const PlaceHub = () => {
       if (incremented) {
         setPlace(p => (p ? { ...p, savedCount: (p.savedCount || 0) + 1 } : p))
       }
+      try {
+        window.dispatchEvent(new CustomEvent('this-is:saved', {
+          detail: { placeId: place.id, status }
+        }))
+      } catch (e) { console.warn('[place-hub] saved-event dispatch failed', e) }
     } catch (e) {
       console.error('[place-hub] save failed', e)
     } finally {

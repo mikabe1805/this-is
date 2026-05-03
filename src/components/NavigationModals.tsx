@@ -142,16 +142,32 @@ const NavigationModals = () => {
             navigate(`/place/${selectedHub.id}`)
           }}
           onSave={() => {
+            // Forward the full hub metadata so ensureHubFromPlace can write
+            // a complete place doc (photos / primaryType / types / coords).
+            const h = selectedHub as unknown as {
+              id: string; name: string; address?: string;
+              location?: { address?: string; lat?: number; lng?: number };
+              coordinates?: { lat?: number; lng?: number };
+              tags?: string[];
+              photos?: { name: string }[];
+              primaryType?: string; types?: string[]; mainImage?: string;
+            }
             const placeShape = {
-              id: selectedHub.id,
-              name: selectedHub.name,
-              location: { address: (selectedHub as any).address || '' },
-              tags: (selectedHub as any).tags || [],
+              id: h.id,
+              name: h.name,
+              address: h.address || h.location?.address || '',
+              location: h.location || { address: h.address || '' },
+              coordinates: h.coordinates || (h.location?.lat && h.location?.lng ? { lat: h.location.lat, lng: h.location.lng } : undefined),
+              tags: h.tags || [],
+              photos: Array.isArray(h.photos) ? h.photos : [],
+              primaryType: h.primaryType,
+              types: h.types,
+              mainImage: h.mainImage,
               posts: [],
             }
-            try { openSaveModal(placeShape as any) } catch {}
+            try { openSaveModal(placeShape as never) } catch (e) { console.warn('[hub-modal] openSaveModal failed', e) }
           }}
-          onShare={() => {}}
+          onShare={() => { /* HubModal renders its own share button */ }}
         />
       )}
 
@@ -164,15 +180,20 @@ const NavigationModals = () => {
           showBackButton={navigationHistory.history.length > 1}
           onBack={goBack}
           onFollow={async (userId) => {
+            // Toggle: query whether currentUser already follows the target,
+            // then call unfollow / follow accordingly. Was always calling
+            // followUser, which made the "Following" button a no-op.
             try {
-              const currentUser = await firebaseDataService.getCurrentUser(authUser?.id || '');
-              if (currentUser) {
-                await firebaseDataService.followUser(currentUser.id, userId);
-                console.log(`Followed user ${userId}`);
-                // The ProfileModal will refresh its state when it re-renders
+              if (!authUser?.id) return
+              const following = await firebaseDataService.getUserFollowing(authUser.id);
+              const already = following.some(u => u.id === userId);
+              if (already) {
+                await firebaseDataService.unfollowUser(authUser.id, userId);
+              } else {
+                await firebaseDataService.followUser(authUser.id, userId);
               }
             } catch (error) {
-              console.error('Error following user:', error);
+              console.error('Error toggling follow:', error);
             }
           }}
           onOpenFullScreen={() => selectedUserId && openFullScreenUser(selectedUserId)}

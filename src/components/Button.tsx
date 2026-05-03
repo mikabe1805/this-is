@@ -13,10 +13,10 @@ export default function Button({ variant = 'primary', size = 'md', className = '
     lg: 'px-5 py-2.5 text-base'
   }[size]
   const variants = {
-    primary: 'text-white bg-sage-600 hover:bg-sage-700 disabled:opacity-50',
-    secondary: 'bg-white border border-linen-200 text-charcoal-800 hover:bg-linen-50 disabled:opacity-50',
-    ghost: 'bg-transparent text-charcoal-700 hover:bg-linen-50',
-    dark: 'text-black bg-white/90 hover:bg-white disabled:opacity-50'
+    primary: 'btn-cta disabled:opacity-50',
+    secondary: 'bg-card border border-edge text-ink hover:border-ink/40 disabled:opacity-50',
+    ghost: 'bg-transparent text-ink-soft hover:text-ink hover:bg-paper-deep',
+    dark: 'text-ink bg-paper hover:bg-paper-deep border border-edge disabled:opacity-50'
   }[variant]
   return <button className={`${base} ${sizes} ${variants} ${className}`} {...props} />
 }

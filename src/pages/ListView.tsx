@@ -295,24 +295,24 @@ const ListView = () => {
   const getStatusColor = (status: string, feeling?: string) => {
     switch (status) {
       case 'loved':
-        return 'bg-gold-100 text-gold-700 border-gold-200'
+        return 'bg-accent-soft text-accent-deep border-edge'
       case 'tried':
         switch (feeling) {
           case 'amazing':
             return 'bg-emerald-100 text-emerald-700 border-emerald-200'
           case 'good':
-            return 'bg-sage-100 text-sage-700 border-sage-200'
+            return 'bg-paper-deep text-ink border-edge'
           case 'okay':
             return 'bg-amber-100 text-amber-700 border-amber-200'
           case 'disappointing':
             return 'bg-red-100 text-red-700 border-red-200'
           default:
-            return 'bg-sage-100 text-sage-700 border-sage-200'
+            return 'bg-paper-deep text-ink border-edge'
         }
       case 'want':
-        return 'bg-blue-100 text-blue-700 border-blue-200'
+        return 'bg-card text-ink-soft border-edge'
       default:
-        return 'bg-gray-100 text-gray-700 border-gray-200'
+        return 'bg-card text-ink-mute border-edge'
     }
   }
 

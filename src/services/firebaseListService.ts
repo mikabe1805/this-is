@@ -46,6 +46,23 @@ class FirebaseListService {
         isLiked: false,
       };
       await setDoc(newListRef, list);
+
+      // Log activity so the new list shows up in the creator's recent
+      // activity feed. The mirror method in firebaseDataService.createList
+      // also writes this — both call sites need parity.
+      try {
+        const activityRef = doc(collection(db, 'users', listData.userId, 'activity'));
+        await setDoc(activityRef, {
+          id: activityRef.id,
+          type: 'create_list',
+          userId: listData.userId,
+          listId: listId,
+          createdAt: new Date().toISOString(),
+        });
+      } catch (e) {
+        console.warn('Failed to log create_list activity:', e);
+      }
+
       return newListRef.id;
     } catch (error) {
       console.error('Error creating list:', error);

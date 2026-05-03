@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { XMarkIcon, HeartIcon, EyeIcon, MapPinIcon, ChatBubbleLeftIcon } from '@heroicons/react/24/outline';
+import { XMarkIcon, HeartIcon, MapPinIcon, ChatBubbleLeftIcon, CheckCircleIcon, BookmarkIcon } from '@heroicons/react/24/outline';
 import { HeartIcon as SolidHeartIcon } from '@heroicons/react/20/solid';
 import type { Post, Hub, User, List, PostComment } from '../types/index.js';
 import { firebaseDataService } from '../services/firebaseDataService';
@@ -159,20 +159,29 @@ const PostModal = ({ postId, from, isOpen, onClose, showBackButton, onBack }: Po
 
   const renderPostTypeIcon = () => {
     if (!post) return null;
+    const base = 'inline-flex items-center gap-1 h-7 px-2.5 rounded-full font-mono text-[10px] tracking-[0.10em] uppercase border'
     if (post.postType === 'loved') {
       return (
-        <div className="flex items-center gap-1 bg-[#FF6B6B]/80 backdrop-blur-sm text-white px-3 py-1.5 rounded-full text-sm font-semibold border border-white/50">
-          <HeartIcon className="w-4 h-4"/>
-          <span>Loved</span>
-        </div>
+        <span className={base} style={{ background: 'rgba(168, 95, 42, 0.12)', color: 'var(--accent-deep)', borderColor: 'rgba(168, 95, 42, 0.25)' }}>
+          <SolidHeartIcon className="w-3 h-3" />
+          Loved
+        </span>
       );
     }
     if (post.postType === 'tried') {
       return (
-        <div className="flex items-center gap-1 bg-[#4CAF50]/80 backdrop-blur-sm text-white px-3 py-1.5 rounded-full text-sm font-semibold border border-white/50">
-          <EyeIcon className="w-4 h-4"/>
-          <span>Tried</span>
-        </div>
+        <span className={`${base} bg-paper-deep text-ink border-edge`}>
+          <CheckCircleIcon className="w-3 h-3" />
+          Tried
+        </span>
+      );
+    }
+    if (post.postType === 'want') {
+      return (
+        <span className={`${base} bg-card text-ink-soft border-edge`}>
+          <BookmarkIcon className="w-3 h-3" />
+          Want
+        </span>
       );
     }
     return null;
