@@ -126,7 +126,7 @@ const PostModal = ({ postId, from, isOpen, onClose, showBackButton, onBack }: Po
 
   const handleSaveHub = () => {
     if (hub) {
-      openSaveModal({ hub });
+      openSaveModal(hub);
     }
   };
 

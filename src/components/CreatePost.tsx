@@ -243,7 +243,15 @@ const CreatePost = ({ isOpen, onClose, preSelectedHub, preSelectedListIds }: Cre
         description: newHubDescription,
         coordinates: newHubCoordinates || undefined,
       };
-      const newHubId = await firebaseDataService.createHub(newHubData);
+      // createHub returns { id, created } — taking the whole object as the
+      // id was setting selectedHub.id to "[object Object]" and the post
+      // would write to a non-existent hub.
+      const result = await firebaseDataService.createHub(newHubData);
+      const newHubId = result?.id
+      if (!newHubId) {
+        console.error('[create-post] failed to create hub — no id returned')
+        return
+      }
       const newHub: CreatePostHub = {
         id: newHubId,
         name: newHubName,
@@ -252,12 +260,11 @@ const CreatePost = ({ isOpen, onClose, preSelectedHub, preSelectedListIds }: Cre
         lat: newHubCoordinates?.lat,
         lng: newHubCoordinates?.lng
       }
-      
-      // Track the newly created hub
+
       if (currentUser) {
         firebaseDataService.trackUserInteraction(currentUser.id, 'search', { query: `hub: ${newHubName}` });
       }
-      
+
       setSelectedHub(newHub)
       setHubConfirmed(true)
       setStep('details')
