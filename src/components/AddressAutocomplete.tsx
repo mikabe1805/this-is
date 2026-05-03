@@ -23,149 +23,104 @@ declare global {
   }
 }
 
+type Prediction = { description: string; place_id: string }
+
+function splitPrediction(description: string): { main: string; secondary: string } {
+  const idx = description.indexOf(',')
+  if (idx === -1) return { main: description, secondary: '' }
+  return { main: description.slice(0, idx).trim(), secondary: description.slice(idx + 1).trim() }
+}
+
 export default function AddressAutocomplete({
   onPlaceSelect,
-  placeholder = "Enter address...",
-  value = "",
-  className = "",
+  placeholder = 'Enter address…',
+  value = '',
+  className = '',
   mode = 'address',
-  worldwideBias = true
 }: AddressAutocompleteProps) {
   const inputRef = useRef<HTMLInputElement>(null)
   const [isLoaded, setIsLoaded] = useState(false)
   const [inputValue, setInputValue] = useState(value)
-  const [predictions, setPredictions] = useState<google.maps.places.AutocompletePrediction[]>([])
+  const [predictions, setPredictions] = useState<Prediction[]>([])
   const [showDropdown, setShowDropdown] = useState(false)
   const [selectedIndex, setSelectedIndex] = useState(-1)
-  const debounceTimer = useRef<NodeJS.Timeout | null>(null)
-  const idleTimer = useRef<NodeJS.Timeout | null>(null)
+  const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const idleTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const abortController = useRef<AbortController | null>(null)
 
-  // Load Google Maps API once on mount
   useEffect(() => {
     loadGoogleMapsAPI().then(setIsLoaded)
   }, [])
 
-  // Update input value when prop changes
   useEffect(() => {
     setInputValue(value)
   }, [value])
 
-  // Handle input focus - start a new Places session
   const handleFocus = () => {
-    if (isLoaded) {
-      beginPlacesSession()
-      console.log('[AddressAutocomplete] Session started')
-    }
+    if (isLoaded) beginPlacesSession()
   }
 
-  // Handle input blur - end session after idle period
   const handleBlur = () => {
-    // Delay to allow click on dropdown
     setTimeout(() => {
       setShowDropdown(false)
-      
-      // If Google Maps isn't loaded and user typed something, use it as the address
-      if (!isLoaded && inputValue.trim()) {
-        onPlaceSelect(inputValue.trim())
-      }
+      if (!isLoaded && inputValue.trim()) onPlaceSelect(inputValue.trim())
     }, 200)
   }
 
-  // End session after 5s idle
   const resetIdleTimer = () => {
-    if (idleTimer.current) {
-      clearTimeout(idleTimer.current)
-    }
-    idleTimer.current = setTimeout(() => {
-      endPlacesSession()
-      console.log('[AddressAutocomplete] Session ended due to idle')
-    }, 5000)
+    if (idleTimer.current) clearTimeout(idleTimer.current)
+    idleTimer.current = setTimeout(() => endPlacesSession(), 5000)
   }
 
-  // Handle input change with debouncing
   const handleInputChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const newValue = e.target.value
     setInputValue(newValue)
     setSelectedIndex(-1)
-    
-    // If Google Maps isn't loaded, still allow manual input
-    if (!isLoaded) {
-      return
-    }
 
-    // Cancel any pending request
-    if (abortController.current) {
-      abortController.current.abort()
-    }
+    if (!isLoaded) return
+
+    if (abortController.current) abortController.current.abort()
     abortController.current = new AbortController()
 
-    // Clear existing debounce timer
-    if (debounceTimer.current) {
-      clearTimeout(debounceTimer.current)
-    }
-
-    // Reset idle timer
+    if (debounceTimer.current) clearTimeout(debounceTimer.current)
     resetIdleTimer()
 
-    // Require minimum 3 characters
     if (newValue.trim().length < 3) {
       setPredictions([])
       setShowDropdown(false)
       return
     }
 
-    // Debounce for 600ms to reduce API calls
     debounceTimer.current = setTimeout(async () => {
       try {
-        // Determine types by mode
-        const types =
-          mode === 'city' ? ['(cities)'] :
-          mode === 'place' ? ['establishment'] :
-          undefined // geocode + establishment
-
-        const results = await getPredictions(newValue, {
-          types,
-          ...(worldwideBias ? {} : {}), // Can add locationBias here if needed
-        })
-
-        setPredictions(results)
+        const results = await getPredictions(newValue)
+        setPredictions(results as Prediction[])
         setShowDropdown(results.length > 0)
       } catch (error) {
-        console.error('[AddressAutocomplete] Error fetching predictions:', error)
+        console.error('[AddressAutocomplete] predictions failed', error)
         setPredictions([])
         setShowDropdown(false)
       }
     }, 600)
   }
 
-  // Handle prediction selection
-  const handleSelectPrediction = async (prediction: google.maps.places.AutocompletePrediction) => {
+  const handleSelectPrediction = async (prediction: Prediction) => {
     setInputValue(prediction.description)
     setShowDropdown(false)
     setPredictions([])
 
-    // Fetch full details for the selected place
     try {
       const details = await getPlaceDetails(prediction.place_id)
-      
-      if (details) {
-        onPlaceSelect(prediction.description, details)
-      } else {
-        // Fallback to just the description
-        onPlaceSelect(prediction.description)
-      }
+      if (details) onPlaceSelect(prediction.description, details)
+      else onPlaceSelect(prediction.description)
     } catch (error) {
-      console.error('[AddressAutocomplete] Error fetching place details:', error)
+      console.error('[AddressAutocomplete] details failed', error)
       onPlaceSelect(prediction.description)
     }
 
-    // End the session after selection
     endPlacesSession()
-    console.log('[AddressAutocomplete] Session ended after selection')
   }
 
-  // Handle keyboard navigation
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (!showDropdown || predictions.length === 0) return
 
@@ -186,7 +141,6 @@ export default function AddressAutocomplete({
     }
   }
 
-  // Cleanup on unmount
   useEffect(() => {
     return () => {
       if (debounceTimer.current) clearTimeout(debounceTimer.current)
@@ -194,6 +148,11 @@ export default function AddressAutocomplete({
       if (abortController.current) abortController.current.abort()
     }
   }, [])
+
+  // mode='city' currently has no effect server-side since placesAdapter
+  // doesn't accept a types filter — leaving it on the public API for
+  // forward-compat without lint-failing the unused param.
+  void mode
 
   return (
     <div className="relative">
@@ -207,40 +166,41 @@ export default function AddressAutocomplete({
           onBlur={handleBlur}
           onKeyDown={handleKeyDown}
           placeholder={placeholder}
-          className={`w-full px-4 py-3 pl-10 border border-linen-200 rounded-xl focus:ring-2 focus:ring-sage-200 focus:border-transparent transition-all bg-white text-charcoal-600 ${className}`}
+          className={`w-full h-11 pl-10 pr-4 rounded-full border border-edge bg-card text-[14px] text-ink placeholder:text-ink-mute outline-none focus:border-ink/40 ${className}`}
           autoComplete="off"
         />
-        <MapPinIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-charcoal-400" />
+        <MapPinIcon className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-ink-mute" />
       </div>
 
-      {/* Dropdown */}
       {showDropdown && predictions.length > 0 && (
-        <div className="absolute z-50 w-full mt-2 bg-white border border-linen-200 rounded-xl shadow-lg max-h-60 overflow-y-auto">
-          {predictions.map((prediction, index) => (
-            <button
-              key={prediction.place_id}
-              type="button"
-              className={`w-full px-4 py-3 text-left hover:bg-sage-50 transition-colors ${
-                index === selectedIndex ? 'bg-sage-100' : ''
-              }`}
-              onMouseDown={(e) => {
-                e.preventDefault() // Prevent blur
-                handleSelectPrediction(prediction)
-              }}
-            >
-              <div className="flex items-start gap-2">
-                <MapPinIcon className="w-4 h-4 text-sage-600 mt-1 flex-shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <div className="text-sm font-medium text-charcoal-800 truncate">
-                    {prediction.structured_formatting.main_text}
-                  </div>
-                  <div className="text-xs text-charcoal-500 truncate">
-                    {prediction.structured_formatting.secondary_text}
+        <div className="absolute z-50 left-0 right-0 mt-2 rounded-xl bg-card border border-edge shadow-lg max-h-60 overflow-y-auto">
+          {predictions.map((prediction, index) => {
+            const { main, secondary } = splitPrediction(prediction.description)
+            const active = index === selectedIndex
+            return (
+              <button
+                key={prediction.place_id}
+                type="button"
+                className={`w-full px-4 py-3 text-left transition-colors border-b border-edge last:border-b-0 ${
+                  active ? 'bg-paper-deep' : 'hover:bg-paper-deep'
+                }`}
+                onMouseDown={(e) => {
+                  e.preventDefault()
+                  handleSelectPrediction(prediction)
+                }}
+              >
+                <div className="flex items-start gap-2">
+                  <MapPinIcon className="w-4 h-4 text-ink-mute mt-0.5 flex-shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <div className="text-[14px] font-medium text-ink truncate">{main}</div>
+                    {secondary && (
+                      <div className="text-[12px] text-ink-soft truncate">{secondary}</div>
+                    )}
                   </div>
                 </div>
-              </div>
-            </button>
-          ))}
+              </button>
+            )
+          })}
         </div>
       )}
     </div>
@@ -249,9 +209,9 @@ export default function AddressAutocomplete({
 
 export function FallbackAddressInput({
   onAddressChange,
-  placeholder = "Enter address",
-  value = "",
-  className = ""
+  placeholder = 'Enter address',
+  value = '',
+  className = '',
 }: {
   onAddressChange: (address: string) => void
   placeholder?: string
@@ -277,9 +237,9 @@ export function FallbackAddressInput({
         value={inputValue}
         onChange={handleChange}
         placeholder={placeholder}
-        className={`w-full px-4 py-3 pl-10 border border-linen-200 rounded-xl focus:ring-2 focus:ring-sage-200 focus:border-transparent transition-all bg-white text-charcoal-600 ${className}`}
+        className={`w-full h-11 pl-10 pr-4 rounded-full border border-edge bg-card text-[14px] text-ink placeholder:text-ink-mute outline-none focus:border-ink/40 ${className}`}
       />
-      <MapPinIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-charcoal-400" />
+      <MapPinIcon className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-ink-mute" />
     </div>
   )
 }
