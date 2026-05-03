@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { XMarkIcon, BookmarkIcon, EyeSlashIcon } from '@heroicons/react/24/outline'
+import { XMarkIcon, BookmarkIcon, EyeSlashIcon, CameraIcon, MusicalNoteIcon, LinkIcon, CheckCircleIcon, HeartIcon, HandThumbUpIcon, HandThumbDownIcon, MinusCircleIcon, LightBulbIcon } from '@heroicons/react/24/outline'
 import { createPortal } from 'react-dom'
 import { extractEmbedData, createEmbedPreview, parseSocialMediaUrl, validateUrl, getPlatformPlaceholder, getPlatformDisplayName, type EmbedData, type EmbedPreview } from '../utils/embedUtils'
 import { firebasePostService } from '../services/firebasePostService'
@@ -220,10 +220,10 @@ const EmbedFromModal = ({ isOpen, onClose, onEmbed }: EmbedFromModalProps) => {
                 <p className="label-eyebrow text-ink-mute mb-2.5">Platform</p>
                 <div className="grid grid-cols-3 gap-2">
                   {[
-                    { key: 'instagram', label: 'Instagram', icon: '📷' },
-                    { key: 'tiktok', label: 'TikTok', icon: '🎵' },
-                    { key: 'other', label: 'Other', icon: '🔗' }
-                  ].map(({ key, label, icon }) => {
+                    { key: 'instagram', label: 'Instagram', Icon: CameraIcon },
+                    { key: 'tiktok', label: 'TikTok', Icon: MusicalNoteIcon },
+                    { key: 'other', label: 'Other', Icon: LinkIcon }
+                  ].map(({ key, label, Icon }) => {
                     const active = platform === key
                     return (
                       <button
@@ -231,9 +231,9 @@ const EmbedFromModal = ({ isOpen, onClose, onEmbed }: EmbedFromModalProps) => {
                         type="button"
                         onClick={() => setPlatform(key as any)}
                         aria-pressed={active}
-                        className={`p-3 rounded-xl border transition-colors ${active ? 'border-ink bg-paper-deep' : 'border-edge bg-card hover:border-ink/40'}`}
+                        className={`p-3 rounded-xl border transition-colors flex flex-col items-center justify-center gap-1.5 ${active ? 'border-ink bg-paper-deep' : 'border-edge bg-card hover:border-ink/40'}`}
                       >
-                        <div className="text-2xl mb-1">{icon}</div>
+                        <Icon className="w-5 h-5 text-ink" />
                         <div className="text-[13px] font-medium text-ink">{label}</div>
                       </button>
                     )
@@ -322,10 +322,10 @@ const EmbedFromModal = ({ isOpen, onClose, onEmbed }: EmbedFromModalProps) => {
                 <label className="label-eyebrow text-ink-mute mb-2.5 block">How do you feel about this?</label>
                 <div className="grid grid-cols-3 gap-2">
                   {[
-                    { key: 'want', label: 'Want', icon: '💭' },
-                    { key: 'tried', label: 'Tried', icon: '✅' },
-                    { key: 'loved', label: 'Loved', icon: '❤️' }
-                  ].map(({ key, label, icon }) => {
+                    { key: 'want', label: 'Want', Icon: BookmarkIcon },
+                    { key: 'tried', label: 'Tried', Icon: CheckCircleIcon },
+                    { key: 'loved', label: 'Loved', Icon: HeartIcon }
+                  ].map(({ key, label, Icon }) => {
                     const active = status === key
                     return (
                       <button
@@ -333,13 +333,13 @@ const EmbedFromModal = ({ isOpen, onClose, onEmbed }: EmbedFromModalProps) => {
                         type="button"
                         onClick={() => setStatus(key as any)}
                         aria-pressed={active}
-                        className={`p-3 rounded-xl border transition-colors ${
+                        className={`p-3 rounded-xl border transition-colors flex flex-col items-center justify-center gap-1.5 ${
                           active
                             ? 'border-ink bg-paper-deep text-ink'
                             : 'border-edge bg-card text-ink hover:border-ink/40'
                         }`}
                       >
-                        <div className="text-2xl mb-1">{icon}</div>
+                        <Icon className="w-5 h-5" />
                         <div className="text-[13px] font-medium">{label}</div>
                       </button>
                     )
@@ -351,23 +351,23 @@ const EmbedFromModal = ({ isOpen, onClose, onEmbed }: EmbedFromModalProps) => {
               {status === 'tried' && (
                 <div>
                   <label className="label-eyebrow text-ink-mute mb-2.5 block">How was it?</label>
-                  <div className="grid grid-cols-3 gap-3">
+                  <div className="grid grid-cols-3 gap-2">
                     {[
-                      { key: 'liked', label: 'Liked', icon: '😊' },
-                      { key: 'neutral', label: 'Okay', icon: '😐' },
-                      { key: 'disliked', label: 'Disliked', icon: '😕' }
-                    ].map(({ key, label, icon }) => (
+                      { key: 'liked', label: 'Liked', Icon: HandThumbUpIcon },
+                      { key: 'neutral', label: 'Okay', Icon: MinusCircleIcon },
+                      { key: 'disliked', label: 'Disliked', Icon: HandThumbDownIcon }
+                    ].map(({ key, label, Icon }) => (
                       <button
                         key={key}
                         onClick={() => setTriedFeeling(key as any)}
-                        className={`p-3 rounded-xl border-2 transition-all ${
+                        className={`p-3 rounded-xl border transition-colors flex flex-col items-center justify-center gap-1.5 ${
                           triedFeeling === key
                             ? 'border-ink bg-paper-deep text-ink'
                             : 'border-edge bg-card text-ink hover:border-ink/40'
                         }`}
                       >
-                        <div className="text-xl mb-1">{icon}</div>
-                        <div className="text-xs font-medium">{label}</div>
+                        <Icon className="w-5 h-5" />
+                        <div className="text-[12px] font-medium">{label}</div>
                       </button>
                     ))}
                   </div>
@@ -441,8 +441,9 @@ const EmbedFromModal = ({ isOpen, onClose, onEmbed }: EmbedFromModalProps) => {
               {/* Lists */}
               <div>
                 <label className="label-eyebrow text-ink-mute mb-2.5 block">Add to Lists</label>
-                <div className="text-[12px] text-ink-soft mb-3 bg-accent-soft rounded-lg p-3 border border-edge">
-                  💡 Your selection will automatically be added to "{status === 'loved' ? 'All Loved' : status === 'tried' ? 'All Tried' : 'All Want'}"
+                <div className="text-[12px] text-ink-soft mb-3 bg-accent-soft rounded-lg p-3 border border-edge flex items-start gap-2">
+                  <LightBulbIcon className="w-3.5 h-3.5 text-accent-deep shrink-0 mt-0.5" />
+                  <span>Your selection will automatically be added to <span className="font-medium text-ink">{status === 'loved' ? 'All Loved' : status === 'tried' ? 'All Tried' : 'All Want'}</span></span>
                 </div>
                 <input
                   type="text"

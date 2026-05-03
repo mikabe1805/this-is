@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { MapPinIcon } from '@heroicons/react/24/outline'
 import AppHeader from '../components/ui/AppHeader'
 import SearchOverlay from '../components/ui/SearchOverlay'
 import DiscoveryCard, { type DiscoveryCardItem } from '../components/ui/DiscoveryCard'
@@ -215,7 +216,7 @@ const Home = () => {
         firebaseDataService.getUserLists(currentUser.id).catch(() => []),
       ])
       setSavedPlaceCount(Array.isArray(places) ? places.length : 0)
-      setSavedListCount(Array.isArray(lists) ? lists.filter((l: any) => l.userId === currentUser.id).length : 0)
+      setSavedListCount(Array.isArray(lists) ? lists.filter((l: { userId?: string }) => l.userId === currentUser.id).length : 0)
     } catch {
       setSavedPlaceCount(0)
       setSavedListCount(0)
@@ -392,7 +393,8 @@ const Home = () => {
               }}
               className="btn-cta h-10 px-4 mt-4 text-[13px] font-semibold inline-flex items-center gap-2"
             >
-              📍 Use my current location
+              <MapPinIcon className="w-4 h-4" />
+              Use my current location
             </button>
           </div>
         ) : (

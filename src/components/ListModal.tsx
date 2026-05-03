@@ -1,5 +1,5 @@
 import type { List, Place, Post } from '../types/index.js'
-import { MapPinIcon, HeartIcon, BookmarkIcon, PlusIcon, ShareIcon, XMarkIcon, UserIcon, CalendarIcon, ArrowsPointingOutIcon, ArrowLeftIcon, EllipsisHorizontalIcon } from '@heroicons/react/24/outline'
+import { MapPinIcon, HeartIcon, BookmarkIcon, PlusIcon, ShareIcon, XMarkIcon, UserIcon, CalendarIcon, ArrowsPointingOutIcon, ArrowLeftIcon, EllipsisHorizontalIcon, CheckCircleIcon, HandThumbUpIcon, HandThumbDownIcon, MinusCircleIcon } from '@heroicons/react/24/outline'
 import { HeartIcon as HeartIconSolid } from '@heroicons/react/24/solid'
 import { useState, useEffect, useRef } from 'react'
 import { useBodyScrollLock } from '../hooks/useBodyScrollLock'
@@ -32,6 +32,47 @@ interface ListModalProps {
   onEditList?: (list: List) => void
   onChangePrivacy?: (list: List) => void
   onDeleteList?: (list: List) => void
+}
+
+// Editorial status / rating pills — heroicon + label, no emoji.
+// Colour palette comes from the design tokens (accent-deep / bloom / ink-mute)
+// instead of the bright #FF6B6B etc. to match the rest of the app.
+const StatusPill = ({ status }: { status?: 'loved' | 'tried' | 'want' }) => {
+  if (!status) return null
+  if (status === 'loved') {
+    return (
+      <span className="inline-flex items-center gap-1 h-6 px-2 rounded-full font-mono text-[10px] tracking-[0.10em] uppercase border" style={{ background: 'rgba(168, 95, 42, 0.10)', color: 'var(--accent-deep)', borderColor: 'rgba(168, 95, 42, 0.25)' }}>
+        <HeartIconSolid className="w-3 h-3" />
+        Loved
+      </span>
+    )
+  }
+  if (status === 'tried') {
+    return (
+      <span className="inline-flex items-center gap-1 h-6 px-2 rounded-full font-mono text-[10px] tracking-[0.10em] uppercase border bg-paper-deep text-ink border-edge">
+        <CheckCircleIcon className="w-3 h-3" />
+        Tried
+      </span>
+    )
+  }
+  return (
+    <span className="inline-flex items-center gap-1 h-6 px-2 rounded-full font-mono text-[10px] tracking-[0.10em] uppercase border bg-card text-ink-soft border-edge">
+      <BookmarkIcon className="w-3 h-3" />
+      Want
+    </span>
+  )
+}
+
+const RatingPill = ({ rating }: { rating?: 'liked' | 'neutral' | 'disliked' }) => {
+  if (!rating) return null
+  const Icon = rating === 'liked' ? HandThumbUpIcon : rating === 'disliked' ? HandThumbDownIcon : MinusCircleIcon
+  const label = rating === 'liked' ? 'Liked' : rating === 'disliked' ? 'Disliked' : 'Neutral'
+  return (
+    <span className="inline-flex items-center gap-1 h-6 px-2 rounded-full font-mono text-[10px] tracking-[0.10em] uppercase border bg-card text-ink-mute border-edge">
+      <Icon className="w-3 h-3" />
+      {label}
+    </span>
+  )
 }
 
 const ListModal = ({ list, isOpen, onClose, onSave, onShare, onAddPost, onOpenFullScreen, onOpenHub, showBackButton, onBack, onLikeChange, onEditList, onChangePrivacy, onDeleteList }: ListModalProps) => {
@@ -485,30 +526,10 @@ const ListModal = ({ list, isOpen, onClose, onSave, onShare, onAddPost, onOpenFu
                         <p className="text-ink-soft text-sm italic mt-1">"{place.note}"</p>
                       )}
                       {/* Status tag for saved places */}
-                      <div className="flex items-center gap-2 mt-1">
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium border shadow-sm ${
-                          place.status === 'loved' 
-                            ? 'bg-[#FF6B6B]/20 text-[#FF6B6B] border-[#FF6B6B]/30' 
-                            : place.status === 'tried' 
-                            ? 'bg-[#4ECDC4]/20 text-[#4ECDC4] border-[#4ECDC4]/30' 
-                            : 'bg-[#45B7D1]/20 text-[#45B7D1] border-[#45B7D1]/30'
-                        }`}>
-                          {place.status === 'loved' ? '❤️ Loved' : 
-                           place.status === 'tried' ? '🍽️ Tried' : '💭 Want'}
-                        </span>
-                        
-                        {/* Rating for Tried Places */}
+                      <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+                        <StatusPill status={place.status} />
                         {place.status === 'tried' && place.triedRating && (
-                          <span className={`px-2 py-1 rounded-full text-xs font-medium border shadow-sm ${
-                            place.triedRating === 'liked' 
-                              ? 'bg-[#4CAF50]/20 text-[#4CAF50] border-[#4CAF50]/30' 
-                              : place.triedRating === 'disliked' 
-                              ? 'bg-[#F44336]/20 text-[#F44336] border-[#F44336]/30' 
-                              : 'bg-[#FF9800]/20 text-[#FF9800] border-[#FF9800]/30'
-                          }`}>
-                            {place.triedRating === 'liked' ? '👍 Liked' : 
-                             place.triedRating === 'disliked' ? '👎 Disliked' : '😐 Neutral'}
-                          </span>
+                          <RatingPill rating={place.triedRating} />
                         )}
                       </div>
                     </div>
@@ -544,31 +565,10 @@ const ListModal = ({ list, isOpen, onClose, onSave, onShare, onAddPost, onOpenFu
                       <div className="flex items-center gap-2 text-ink-soft text-sm">
                         <span>by @{post.username || 'Unknown User'}</span>
                       </div>
-                      <div className="flex items-center gap-2 mt-1">
-                        {/* Post Type Tag */}
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium border shadow-sm ${
-                          post.postType === 'loved' 
-                            ? 'bg-[#FF6B6B]/20 text-[#FF6B6B] border-[#FF6B6B]/30' 
-                            : post.postType === 'tried' 
-                            ? 'bg-[#4ECDC4]/20 text-[#4ECDC4] border-[#4ECDC4]/30' 
-                            : 'bg-[#45B7D1]/20 text-[#45B7D1] border-[#45B7D1]/30'
-                        }`}>
-                          {post.postType === 'loved' ? '❤️ Loved' : 
-                           post.postType === 'tried' ? '🍽️ Tried' : '💭 Want'}
-                        </span>
-                        
-                        {/* Rating for Tried Posts */}
+                      <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+                        <StatusPill status={post.postType} />
                         {post.postType === 'tried' && post.triedRating && (
-                          <span className={`px-2 py-1 rounded-full text-xs font-medium border shadow-sm ${
-                            post.triedRating === 'liked' 
-                              ? 'bg-[#4CAF50]/20 text-[#4CAF50] border-[#4CAF50]/30' 
-                              : post.triedRating === 'disliked' 
-                              ? 'bg-[#F44336]/20 text-[#F44336] border-[#F44336]/30' 
-                              : 'bg-[#FF9800]/20 text-[#FF9800] border-[#FF9800]/30'
-                          }`}>
-                            {post.triedRating === 'liked' ? '👍 Liked' : 
-                             post.triedRating === 'disliked' ? '👎 Disliked' : '😐 Neutral'}
-                          </span>
+                          <RatingPill rating={post.triedRating} />
                         )}
                       </div>
                     </div>

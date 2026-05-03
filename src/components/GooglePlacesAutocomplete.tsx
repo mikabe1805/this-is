@@ -266,7 +266,7 @@ export default function GooglePlacesAutocomplete({
             Detecting…
           </>
         ) : (
-          <>📍 Use my current location</>
+          <><MapPinIcon className="w-3 h-3" /> Use my current location</>
         )}
       </button>
 
