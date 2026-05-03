@@ -109,7 +109,15 @@ class FirebaseListService {
       
       // For each hub ID, get the place data from the places collection
       const places: ListPlace[] = [];
-      for (const hubId of hubIds) {
+      for (const rawHubId of hubIds) {
+        // Defensive: legacy lists may have non-string entries here, or
+        // hub objects (rather than ids). Coerce to string and skip blanks.
+        const hubId = typeof rawHubId === 'string'
+          ? rawHubId
+          : (rawHubId && typeof rawHubId === 'object' && 'id' in (rawHubId as object))
+            ? String((rawHubId as { id: string }).id)
+            : ''
+        if (!hubId) continue
         try {
           // Try to get place data from places collection first
           const placeRef = doc(db, 'places', hubId);

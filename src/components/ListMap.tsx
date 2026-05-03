@@ -80,76 +80,93 @@ export default function ListMap({ places, height = '60vh', onSelectPlace, select
     if (!window.google?.maps) { setLoadError(true); return }
 
     // Center priority: first place with coords → user location → SF default.
-    const center = placesWithCoords.length > 0
-      ? { lat: placesWithCoords[0].place.coordinates!.lat, lng: placesWithCoords[0].place.coordinates!.lng }
+    // Defensive: legacy place docs may carry coordinates: { lat: 0, lng: 0 }
+    // or {address}-only without lat/lng. The placesWithCoords filter strips
+    // those, but a stray non-numeric value would still surface here without
+    // the typeof guard.
+    const firstCoords = placesWithCoords[0]?.place?.coordinates
+    const center = (firstCoords && typeof firstCoords.lat === 'number' && typeof firstCoords.lng === 'number')
+      ? { lat: firstCoords.lat, lng: firstCoords.lng }
       : userPos
         ? { lat: userPos.lat, lng: userPos.lng }
         : { lat: 37.7749, lng: -122.4194 }
 
-    mapRef.current = new window.google.maps.Map(containerRef.current, {
-      center,
-      zoom: 13,
-      mapTypeControl: false,
-      streetViewControl: false,
-      fullscreenControl: false,
-      zoomControl: true,
-      gestureHandling: 'greedy',
-      backgroundColor: '#F4EBDA',
-      styles: [
-        { elementType: 'geometry', stylers: [{ color: '#F0E6D2' }] },
-        { elementType: 'labels.text.fill', stylers: [{ color: '#5A4630' }] },
-        { elementType: 'labels.text.stroke', stylers: [{ color: '#F4EBDA' }] },
-        { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#D9C8AE' }] },
-        { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#E8D9BE' }] },
-        { featureType: 'road', elementType: 'geometry.stroke', stylers: [{ color: '#D4BF9C' }] },
-        { featureType: 'poi', elementType: 'labels', stylers: [{ visibility: 'off' }] },
-        { featureType: 'transit', elementType: 'labels', stylers: [{ visibility: 'off' }] },
-        { featureType: 'landscape.natural', elementType: 'geometry', stylers: [{ color: '#E5D6BB' }] },
-        { featureType: 'administrative', elementType: 'geometry.stroke', stylers: [{ color: '#C7B391' }] },
-      ],
-    })
-  }, [loaded, placesWithCoords])
+    try {
+      mapRef.current = new window.google.maps.Map(containerRef.current, {
+        center,
+        zoom: 13,
+        mapTypeControl: false,
+        streetViewControl: false,
+        fullscreenControl: false,
+        zoomControl: true,
+        gestureHandling: 'greedy',
+        backgroundColor: '#F4EBDA',
+        styles: [
+          { elementType: 'geometry', stylers: [{ color: '#F0E6D2' }] },
+          { elementType: 'labels.text.fill', stylers: [{ color: '#5A4630' }] },
+          { elementType: 'labels.text.stroke', stylers: [{ color: '#F4EBDA' }] },
+          { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#D9C8AE' }] },
+          { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#E8D9BE' }] },
+          { featureType: 'road', elementType: 'geometry.stroke', stylers: [{ color: '#D4BF9C' }] },
+          { featureType: 'poi', elementType: 'labels', stylers: [{ visibility: 'off' }] },
+          { featureType: 'transit', elementType: 'labels', stylers: [{ visibility: 'off' }] },
+          { featureType: 'landscape.natural', elementType: 'geometry', stylers: [{ color: '#E5D6BB' }] },
+          { featureType: 'administrative', elementType: 'geometry.stroke', stylers: [{ color: '#C7B391' }] },
+        ],
+      })
+    } catch (e) {
+      console.error('[ListMap] init failed', e)
+      setLoadError(true)
+    }
+  }, [loaded, placesWithCoords, userPos])
 
   useEffect(() => {
     if (!mapRef.current || !window.google?.maps) return
 
-    markersRef.current.forEach(m => m.setMap(null))
-    markersRef.current = []
+    try {
+      markersRef.current.forEach(m => m.setMap(null))
+      markersRef.current = []
 
-    if (placesWithCoords.length === 0) return
+      if (placesWithCoords.length === 0) return
 
-    const bounds = new window.google.maps.LatLngBounds()
-    placesWithCoords.forEach(lp => {
-      const pos = { lat: lp.place.coordinates!.lat, lng: lp.place.coordinates!.lng }
-      const status = lp.status || 'default'
-      const isSelected = selectedPlaceId === lp.place.id
-      const marker = new window.google.maps.Marker({
-        map: mapRef.current!,
-        position: pos,
-        title: lp.place.name,
-        icon: {
-          url: svgMarker(STATUS_COLOR[status] || STATUS_COLOR.default),
-          scaledSize: new window.google.maps.Size(isSelected ? 40 : 32, isSelected ? 50 : 40),
-          anchor: new window.google.maps.Point(isSelected ? 20 : 16, isSelected ? 50 : 40),
-        },
-        zIndex: isSelected ? 999 : 1,
+      const bounds = new window.google.maps.LatLngBounds()
+      placesWithCoords.forEach(lp => {
+        const lat = lp.place?.coordinates?.lat
+        const lng = lp.place?.coordinates?.lng
+        if (typeof lat !== 'number' || typeof lng !== 'number') return
+        const pos = { lat, lng }
+        const status = lp.status || 'default'
+        const isSelected = selectedPlaceId === lp.place.id
+        const marker = new window.google.maps.Marker({
+          map: mapRef.current!,
+          position: pos,
+          title: lp.place.name,
+          icon: {
+            url: svgMarker(STATUS_COLOR[status] || STATUS_COLOR.default),
+            scaledSize: new window.google.maps.Size(isSelected ? 40 : 32, isSelected ? 50 : 40),
+            anchor: new window.google.maps.Point(isSelected ? 20 : 16, isSelected ? 50 : 40),
+          },
+          zIndex: isSelected ? 999 : 1,
+        })
+        marker.addListener('click', () => onSelectPlace?.(lp))
+        markersRef.current.push(marker)
+        bounds.extend(pos)
       })
-      marker.addListener('click', () => onSelectPlace?.(lp))
-      markersRef.current.push(marker)
-      bounds.extend(pos)
-    })
 
-    // Include the user's location in the bounds so the fit naturally answers
-    // "where are these relative to me?". When only the user pin and a single
-    // place exist the framing still feels right because we extend bounds
-    // before fitBounds().
-    if (userPos) bounds.extend(userPos)
+      // No marker actually got plotted (every place had bad coords) → bail
+      // before fitBounds, which throws on empty bounds.
+      if (markersRef.current.length === 0 && !userPos) return
 
-    if (placesWithCoords.length === 1 && !userPos) {
-      mapRef.current.setCenter(bounds.getCenter())
-      mapRef.current.setZoom(14)
-    } else {
-      mapRef.current.fitBounds(bounds, 64)
+      if (userPos) bounds.extend(userPos)
+
+      if (markersRef.current.length === 1 && !userPos) {
+        mapRef.current.setCenter(bounds.getCenter())
+        mapRef.current.setZoom(14)
+      } else {
+        mapRef.current.fitBounds(bounds, 64)
+      }
+    } catch (e) {
+      console.error('[ListMap] marker pass failed', e)
     }
   }, [loaded, placesWithCoords, selectedPlaceId, onSelectPlace, userPos])
 
@@ -157,34 +174,36 @@ export default function ListMap({ places, height = '60vh', onSelectPlace, select
   // not as just another place.
   useEffect(() => {
     if (!mapRef.current || !window.google?.maps) return
-    if (userMarkerRef.current) {
-      userMarkerRef.current.setMap(null)
-      userMarkerRef.current = null
-    }
-    if (!userPos) return
-    const youSvg = `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(
-      `<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 36 36">
-        <circle cx="18" cy="18" r="14" fill="rgba(168, 95, 42, 0.18)"/>
-        <circle cx="18" cy="18" r="9" fill="rgba(168, 95, 42, 0.32)"/>
-        <circle cx="18" cy="18" r="6" fill="#A85F2A" stroke="#F4EBDA" stroke-width="2.5"/>
-      </svg>`
-    )}`
-    userMarkerRef.current = new window.google.maps.Marker({
-      map: mapRef.current,
-      position: userPos,
-      title: 'You are here',
-      icon: {
-        url: youSvg,
-        scaledSize: new window.google.maps.Size(36, 36),
-        anchor: new window.google.maps.Point(18, 18),
-      },
-      zIndex: 1000,
-    })
-    // If no places have coords, recenter the map on the user so we don't
-    // leave the user staring at SF.
-    if (placesWithCoords.length === 0) {
-      mapRef.current.setCenter(userPos)
-      mapRef.current.setZoom(13)
+    try {
+      if (userMarkerRef.current) {
+        userMarkerRef.current.setMap(null)
+        userMarkerRef.current = null
+      }
+      if (!userPos) return
+      const youSvg = `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(
+        `<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 36 36">
+          <circle cx="18" cy="18" r="14" fill="rgba(168, 95, 42, 0.18)"/>
+          <circle cx="18" cy="18" r="9" fill="rgba(168, 95, 42, 0.32)"/>
+          <circle cx="18" cy="18" r="6" fill="#A85F2A" stroke="#F4EBDA" stroke-width="2.5"/>
+        </svg>`
+      )}`
+      userMarkerRef.current = new window.google.maps.Marker({
+        map: mapRef.current,
+        position: userPos,
+        title: 'You are here',
+        icon: {
+          url: youSvg,
+          scaledSize: new window.google.maps.Size(36, 36),
+          anchor: new window.google.maps.Point(18, 18),
+        },
+        zIndex: 1000,
+      })
+      if (placesWithCoords.length === 0) {
+        mapRef.current.setCenter(userPos)
+        mapRef.current.setZoom(13)
+      }
+    } catch (e) {
+      console.error('[ListMap] user-pin failed', e)
     }
   }, [loaded, userPos, placesWithCoords.length])
 
