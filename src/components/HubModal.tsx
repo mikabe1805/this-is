@@ -14,6 +14,7 @@ import { firebaseDataService } from '../services/firebaseDataService'
 import { useAuth } from '../contexts/AuthContext'
 import { useModalDismiss } from '../hooks/useModalDismiss'
 import { useSwipeToDismiss } from '../hooks/useSwipeToDismiss'
+import HubImage from './HubImage'
 
 type LoosePlace = Place & {
   primaryType?: string
@@ -79,7 +80,6 @@ const HubModal = ({
 
   if (!isOpen) return null
 
-  const cover = place?.mainImage
   const meta = [place?.primaryType?.replace(/_/g, ' '), (place?.address || '').split(',')[0]?.trim()].filter(Boolean).join(' · ')
 
   const modalContent = (
@@ -97,11 +97,18 @@ const HubModal = ({
           <span className="w-10 h-1 rounded-full bg-ink-faint" />
         </div>
 
-        {/* Cover header */}
+        {/* Cover header — image priority: user upload → Google photo → riso poster */}
         <div data-drag-handle className="relative h-44 bg-paper-deep overflow-hidden">
-          {cover && (
-            <img src={cover} alt={place?.name || ''} className="w-full h-full object-cover" />
-          )}
+          <HubImage
+            userImage={place?.mainImage || place?.coverImage}
+            photos={place?.photos}
+            primaryType={place?.primaryType}
+            types={place?.types}
+            alt={place?.name || ''}
+            aspect=""
+            className="absolute inset-0 w-full h-full"
+            loadStrategy="load"
+          />
           <div className="absolute inset-0 bg-gradient-to-t from-[#1A1815]/55 via-[#1A1815]/15 to-transparent" />
 
           <div className="absolute top-3 left-3 right-3 flex items-center justify-between z-10">

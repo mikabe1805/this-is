@@ -668,23 +668,16 @@ const ListView = () => {
                   className="w-full flex items-center gap-3.5 py-3.5 text-left hover:bg-paper-deep -mx-1 px-1 transition-colors"
                 >
                   <div className="w-12 h-12 rounded-[10px] overflow-hidden bg-paper-deep ring-1 ring-edge shrink-0">
-                    {(p as any).mainImage ? (
-                      <img
-                        src={(p as any).mainImage}
-                        alt={p.name}
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <HubImage
-                        place={p as any}
-                        primaryType={(p as any).primaryType}
-                        types={(p as any).types}
-                        photos={(p as any).photos}
-                        aspect=""
-                        className="w-full h-full"
-                        loadStrategy="fallback"
-                      />
-                    )}
+                    <HubImage
+                      userImage={(p as any).mainImage || (p as any).hubImage || (p as any).coverImage}
+                      photos={(p as any).photos}
+                      primaryType={(p as any).primaryType}
+                      types={(p as any).types}
+                      alt={p.name}
+                      aspect=""
+                      className="w-full h-full"
+                      loadStrategy="load"
+                    />
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="font-display text-[18px] leading-tight text-ink truncate">{p.name}</div>
@@ -769,23 +762,16 @@ const ListView = () => {
             </div>
             {/* Hub Image on top */}
             <div className="w-full h-40 bg-white/10 flex-shrink-0 relative overflow-hidden rounded-t-3xl">
-              {(listPlace.place as any).mainImage ? (
-                <img
-                  src={(listPlace.place as any).mainImage}
-                  alt={listPlace.place.name}
-                  className="w-full h-full object-cover"
-                />
-              ) : (
-                <HubImage
-                  place={listPlace.place as any}
-                  primaryType={(listPlace.place as any).primaryType}
-                  types={(listPlace.place as any).types}
-                  photos={(listPlace.place as any).photos}
-                  aspect=""
-                  className="w-full h-full"
-                  loadStrategy="fallback"
-                />
-              )}
+              <HubImage
+                userImage={(listPlace.place as any).mainImage || (listPlace.place as any).hubImage || (listPlace.place as any).coverImage}
+                photos={(listPlace.place as any).photos}
+                primaryType={(listPlace.place as any).primaryType}
+                types={(listPlace.place as any).types}
+                alt={listPlace.place.name}
+                aspect=""
+                className="w-full h-full"
+                loadStrategy="load"
+              />
             </div>
             {/* Content below image */}
             <div className="flex-1 p-6 flex flex-col gap-2">
