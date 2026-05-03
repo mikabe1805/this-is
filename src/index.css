@@ -7,12 +7,22 @@
 @reference theme;
 
 @layer base {
-  html, body { height: 100%; }
-  html {
-    /* Prevent the iOS rubber-band bounce at the document root so the app
-       feels native rather than browsery. Per-scroll-container regions keep
-       their own momentum and overscroll behaviour. */
-    overscroll-behavior-y: none;
+  /* Lock the document root to the visual viewport. Without this, iOS Safari
+     (and Android Chrome) treats `body` as the scroll container, which lets
+     the user drag the entire app up past the navbar and reveal an empty
+     area below. Pinning html/body to viewport-size + overflow: hidden hands
+     all scroll responsibility to inner regions tagged with
+     `[data-scroll-root]` (the main feed in App.tsx).
+
+     `position: fixed; width: 100%` is the iOS-specific recipe — without it,
+     iOS will still bounce the document even with overflow: hidden. */
+  html, body {
+    height: 100%;
+    width: 100%;
+    overflow: hidden;
+    position: fixed;
+    inset: 0;
+    overscroll-behavior: none;
   }
   body {
     color: var(--ink);
@@ -20,20 +30,13 @@
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     background-color: var(--paper);
-    /* Solid warm-cream base with two faint amber/rose radials for depth.
-       Liquid-glass elements above use backdrop-blur to refract this layer.
-       Kept clean on purpose — readability first. */
     background-image:
       radial-gradient(900px 700px at 8% 0%, rgba(229, 200, 150, 0.32) 0%, transparent 55%),
       radial-gradient(700px 700px at 95% 100%, rgba(196, 132, 132, 0.14) 0%, transparent 65%);
     background-attachment: fixed;
-    min-height: 100vh;
-    overscroll-behavior-y: none;
-    /* Tap highlight defaults to a translucent grey on Safari — replaces with
-       transparent so taps feel like they're driving an app surface, not a web
-       page. */
     -webkit-tap-highlight-color: transparent;
   }
+  #root { height: 100%; }
 
   /* Smooth momentum scrolling + isolated overscroll for any scroll region.
      `[data-scroll-root]` is the main feed in App.tsx. */
@@ -42,13 +45,8 @@
     -webkit-overflow-scrolling: touch;
     overscroll-behavior: contain;
   }
-
-  /* Disable the platform pull-to-refresh / browser-chrome shift on iOS Safari
-     when the user is already at the top of a feed. */
   main { overscroll-behavior-y: contain; }
 
-  /* Hairline buttons should not pop a focus ring on touch devices but should
-     still ring on keyboard nav. */
   button:focus { outline: none; }
   button:focus-visible {
     outline: 2px solid var(--accent-deep);
