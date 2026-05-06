@@ -10,7 +10,11 @@ import TagAutocomplete from './TagAutocomplete'
 interface CreateListModalProps {
   isOpen: boolean
   onClose: () => void
-  onCreate: (listData: { name: string; description: string; privacy: 'public' | 'private' | 'friends'; tags?: string[]; coverImage?: File }) => void
+  /** Fires AFTER the list has been persisted to Firestore. Receives the new
+   *  list id so the parent can refetch its lists, navigate, or refresh
+   *  derived state. Previously this prop was declared but never invoked —
+   *  every caller's onCreate logic was dead code. */
+  onCreate?: (newListId: string, listData: { name: string; description: string; privacy: 'public' | 'private' | 'friends'; tags?: string[] }) => void
 }
 
 const CreateListModal = ({ isOpen, onClose, onCreate }: CreateListModalProps) => {
@@ -61,9 +65,14 @@ const CreateListModal = ({ isOpen, onClose, onCreate }: CreateListModalProps) =>
       if (newListId && location.address.trim()) {
         await firebaseListService.updateList(newListId, { location } as any)
       }
+      if (newListId && onCreate) {
+        onCreate(newListId, { name: name.trim(), description: description.trim(), privacy, tags })
+      }
+      window.dispatchEvent(new CustomEvent('this-is:toast', { detail: { message: 'List created' } }))
       handleClose()
     } catch (error) {
       console.error('Error creating list:', error)
+      window.dispatchEvent(new CustomEvent('this-is:toast', { detail: { message: "Couldn't create list. Try again.", tone: 'error' } }))
     } finally {
       setIsSubmitting(false)
     }

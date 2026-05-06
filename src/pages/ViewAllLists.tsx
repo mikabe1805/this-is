@@ -306,8 +306,12 @@ const ViewAllLists = () => {
       <CreateListModal
         isOpen={showCreate}
         onClose={() => setShowCreate(false)}
-        onCreate={(listData) => {
-          if (authUser) firebaseListService.createList({ ...listData, userId: authUser.id })
+        onCreate={() => {
+          // CreateListModal persists the list itself now. We just dispatch
+          // the saved event so Profile / Home stats refresh, and close.
+          // (Previously this callback also called createList, which would
+          // have double-created the list if the modal had ever fired it.)
+          window.dispatchEvent(new CustomEvent('this-is:saved', { detail: {} }))
           setShowCreate(false)
         }}
       />

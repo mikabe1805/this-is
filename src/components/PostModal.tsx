@@ -52,14 +52,11 @@ const PostModal = ({ postId, from, isOpen, onClose, showBackButton, onBack }: Po
       if (isOpen && postId) {
         setLoading(true);
         try {
-          console.log('PostModal: Fetching post data for postId:', postId);
           const fetchedPost = await firebaseDataService.getPost(postId);
           setPost(fetchedPost);
 
           if (fetchedPost) {
-            console.log('PostModal: Post fetched successfully, fetching comments...');
             const fetchedComments = await firebaseDataService.getCommentsForPost(fetchedPost.id);
-            console.log('PostModal: Comments fetched:', fetchedComments.length, 'comments');
             setComments(fetchedComments);
             setCommentCount(fetchedComments.length);
 

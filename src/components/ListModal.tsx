@@ -11,7 +11,6 @@ import { firebaseListService } from '../services/firebaseListService';
 import { useAuth } from '../contexts/AuthContext.tsx'
 import { formatTimestamp } from '../utils/dateUtils.ts'
 import ImageCarousel from './ImageCarousel.tsx'
-import CommentsModal from './CommentsModal.tsx'
 import { firebaseDataService } from '../services/firebaseDataService.js'
 import HubImage from './HubImage'
 import ListMap from './ListMap'
@@ -81,7 +80,6 @@ const ListModal = ({ list, isOpen, onClose, onSave, onShare, onAddPost, onOpenFu
   const [isLiked, setIsLiked] = useState(false)
   const [likes, setLikes] = useState(list.likes)
   const [isVisible, setIsVisible] = useState(false)
-  const [showCommentsModal, setShowCommentsModal] = useState(false)
   const [posts, setPosts] = useState<Post[]>([])
   const [places, setPlaces] = useState<any[]>([])
   const [subLists, setSubLists] = useState<List[]>([])
@@ -276,24 +274,9 @@ const ListModal = ({ list, isOpen, onClose, onSave, onShare, onAddPost, onOpenFu
     openPostOverlay(post.id);
   };
 
-  const handleCommentsClick = () => {
-    setShowCommentsModal(true)
-  }
-
-  const handleAddCommentToModal = async (text: string) => {
-    // Add comment logic here
-    console.log('Adding comment:', text)
-  }
-
-  const handleLikeComment = (commentId: string) => {
-    // Like comment logic here
-    console.log('Liked comment:', commentId)
-  }
-
-  const handleReplyToComment = async (commentId: string, text: string) => {
-    // Reply to comment logic here
-    console.log('Replied to comment:', commentId, text)
-  }
+  // Note: list-level comments aren't built. The previous comment handlers
+  // here only console.log'd, and CommentsModal was mounted with empty data
+  // and never opened from the UI. Removed to keep this surface honest.
 
   const handleSeeAllLists = (listType: 'popular' | 'friends') => {
     // Navigate to ViewAllLists page with appropriate filters
@@ -632,21 +615,7 @@ const ListModal = ({ list, isOpen, onClose, onSave, onShare, onAddPost, onOpenFu
     </div>
   );
 
-  return (
-    <>
-      {createPortal(modalContent, document.body)}
-      
-      {/* Comments Modal */}
-      <CommentsModal
-        isOpen={showCommentsModal}
-        onClose={() => setShowCommentsModal(false)}
-        comments={[]}
-        onAddComment={handleAddCommentToModal}
-        onLikeComment={handleLikeComment}
-        onReplyToComment={handleReplyToComment}
-      />
-    </>
-  )
+  return createPortal(modalContent, document.body)
 }
 
 /**

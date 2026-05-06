@@ -37,7 +37,6 @@ export class FirebaseStorageService {
       // Get download URL
       const downloadURL = await getDownloadURL(snapshot.ref)
       
-      console.log('Profile picture uploaded successfully:', downloadURL)
       return downloadURL
       
     } catch (error) {
@@ -70,7 +69,6 @@ export class FirebaseStorageService {
       const snapshot = await uploadBytes(storageRef, toUpload)
       const downloadURL = await getDownloadURL(snapshot.ref)
       
-      console.log('Hub image uploaded successfully:', downloadURL)
       return downloadURL
       
     } catch (error) {
@@ -103,7 +101,6 @@ export class FirebaseStorageService {
       const snapshot = await uploadBytes(storageRef, toUpload)
       const downloadURL = await getDownloadURL(snapshot.ref)
       
-      console.log('List image uploaded successfully:', downloadURL)
       return downloadURL
       
     } catch (error) {
@@ -136,7 +133,6 @@ export class FirebaseStorageService {
       const snapshot = await uploadBytes(storageRef, toUpload)
       const downloadURL = await getDownloadURL(snapshot.ref)
       
-      console.log('Post image uploaded successfully:', downloadURL)
       return downloadURL
       
     } catch (error) {
@@ -177,7 +173,6 @@ export class FirebaseStorageService {
       const storageRef = ref(storage, path)
       await deleteObject(storageRef)
       
-      console.log('Image deleted successfully:', imageUrl)
       
     } catch (error) {
       console.error('Error deleting image:', error)
@@ -239,7 +234,6 @@ export class FirebaseStorageService {
       const snapshot = await uploadBytes(storageRef, file)
       const downloadURL = await getDownloadURL(snapshot.ref)
       
-      console.log(`Seed ${category} image uploaded:`, downloadURL)
       return downloadURL
       
     } catch (error) {

@@ -131,13 +131,11 @@ class FirebasePostService {
     const postRef = doc(db, 'posts', postId);
 
     try {
-      console.log(`🔍 Checking if list ${listId} exists...`);
       const listDoc = await getDoc(listRef);
       if (!listDoc.exists()) {
         throw new Error(`List with id ${listId} does not exist.`);
       }
 
-      console.log(`📋 List ${listId} found, adding post ${postId}...`);
 
       // Add post to the list's posts subcollection
       const listPostsRef = collection(listRef, 'posts');
@@ -151,7 +149,6 @@ class FirebasePostService {
         listId: listId
       });
 
-      console.log(`✅ Post ${postId} successfully saved to list ${listId}`);
     } catch (error) {
       console.error(`❌ Error saving post ${postId} to list ${listId}:`, error);
       throw error; // Re-throw so the calling function can handle it

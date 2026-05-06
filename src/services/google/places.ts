@@ -23,7 +23,6 @@ interface PlacesLogEntry {
 }
 
 function logPlacesCall(entry: PlacesLogEntry) {
-  console.log('📍 Places API Call:', entry);
   
   // TODO: Send to analytics
   // analytics.track('places_api_call', entry);
@@ -71,7 +70,6 @@ const MAX_AUTOCOMPLETE_PER_SESSION = 3;
 
 export function beginPlacesSession() {
   if (!PLACES_ENABLED) {
-    console.log('🚫 Places session not started (PLACES_ENABLED=false)');
     return;
   }
   
@@ -361,14 +359,12 @@ export async function loadGoogleMapsAPI(): Promise<boolean> {
 
   // Check if already loaded
   if (window.google?.maps?.places) {
-    console.log('[Places API] Already loaded');
     return true;
   }
 
   // Check if script is already in DOM
   const existingScript = document.querySelector('script[src*="maps.googleapis.com"]');
   if (existingScript) {
-    console.log('[Places API] Script loading in progress...');
     loadPromise = new Promise<boolean>((resolve) => {
       const checkLoaded = setInterval(() => {
         if (window.google?.maps?.places) {
@@ -393,7 +389,6 @@ export async function loadGoogleMapsAPI(): Promise<boolean> {
     return false;
   }
 
-  console.log('[Places API] Loading Google Maps API...');
 
   loadPromise = new Promise<boolean>((resolve) => {
     const script = document.createElement('script');
@@ -402,7 +397,6 @@ export async function loadGoogleMapsAPI(): Promise<boolean> {
     script.defer = true;
 
     script.onload = () => {
-      console.log('[Places API] Loaded successfully');
       resolve(true);
     };
 
@@ -423,7 +417,6 @@ export async function loadGoogleMapsAPI(): Promise<boolean> {
  */
 export function clearDetailsCache() {
   detailsCache.clear();
-  console.log('[Places API] Details cache cleared');
 }
 
 // ============================================================================

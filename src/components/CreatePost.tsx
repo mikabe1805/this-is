@@ -116,7 +116,6 @@ const CreatePost = ({ isOpen, onClose, preSelectedHub, preSelectedListIds }: Cre
                   try {
                     // Check if EXIF is properly loaded and has the required methods
                     if (typeof EXIF.getTag !== 'function') {
-                      console.log('EXIF.getTag is not available');
                       resolve(null);
                       return;
                     }
@@ -137,20 +136,16 @@ const CreatePost = ({ isOpen, onClose, preSelectedHub, preSelectedListIds }: Cre
                         
                         resolve({ lat: latDecimal, lng: lngDecimal });
                       } else {
-                        console.log('Invalid GPS coordinates extracted:', { latDecimal, lngDecimal });
                         resolve(null);
                       }
                     } else {
-                      console.log('No valid GPS data found in image');
                       resolve(null);
                     }
                   } catch (error) {
-                    console.log('Error extracting EXIF data:', error);
                     resolve(null);
                   }
                 });
               } catch (error) {
-                console.log('Error in EXIF.getData:', error);
                 resolve(null);
               }
             });
@@ -163,11 +158,8 @@ const CreatePost = ({ isOpen, onClose, preSelectedHub, preSelectedListIds }: Cre
             // Find potential hubs near this location
             findPotentialHubs(location);
           }
-        } else {
-          console.log('EXIF library not properly loaded');
         }
-      } catch (error) {
-        console.log('Error processing EXIF data:', error);
+      } catch {
         // Continue without location extraction
       }
     }

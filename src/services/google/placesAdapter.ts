@@ -16,7 +16,6 @@ const MAX_AUTOCOMPLETE_PER_SESSION = 3;
 
 export function beginPlacesSession() {
   if (!PLACES_ENABLED) {
-    console.log('🚫 Places session not started (PLACES_ENABLED=false)');
     return;
   }
   
@@ -24,13 +23,11 @@ export function beginPlacesSession() {
   currentSessionToken = `session_${Date.now()}_${Math.random().toString(36).substring(7)}`;
   autocompleteCallCount = 0;
   
-  console.log('[Places Adapter] Session started', currentSessionToken?.slice(0, 20));
 }
 
 export function endPlacesSession() {
   currentSessionToken = null;
   autocompleteCallCount = 0;
-  console.log('[Places Adapter] Session ended');
 }
 
 // ============================================================================
@@ -75,11 +72,9 @@ export async function getPlaceDetails(
   placeId: string
 ): Promise<any | null> {
   if (!PLACES_ENABLED) {
-    console.log('🚫 Place details not fetched (PLACES_ENABLED=false)');
     return null;
   }
   
-  console.log('[Places Adapter] 💰 Fetching place details', placeId);
   
   try {
     const details = await placesNew.getDetails(placeId);

@@ -471,11 +471,13 @@ function AppContent() {
       <CreateListModal
         isOpen={showCreateList}
         onClose={() => setShowCreateList(false)}
-        onCreate={(listData) => {
-          console.log('Creating new list:', listData)
-          setShowCreateList(false)
-          // In a real app, you would create the list and then navigate to it
-          // navigate(`/list/${newListId}`)
+        onCreate={(newListId) => {
+          // The list was already persisted inside the modal. Fire the saved
+          // event so any open Profile / Favorites view refetches its lists,
+          // then route the user into the new list. ListView fetches fresh
+          // data on mount, so no manual cache invalidation needed here.
+          window.dispatchEvent(new CustomEvent('this-is:saved', { detail: { newListId } }))
+          navigate(`/list/${newListId}`)
         }}
       />
 

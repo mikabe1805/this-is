@@ -180,23 +180,19 @@ class FirebaseDataService {
 
   async getUserFollowing(userId: string): Promise<User[]> {
     try {
-      console.log(`Fetching following for user: ${userId}`);
       const followingQuery = query(
         collection(db, 'users', userId, 'following'),
         orderBy('followedAt', 'desc')
       )
       const followingSnapshot = await getDocs(followingQuery)
-      console.log(`Found ${followingSnapshot.docs.length} following documents`);
       
       const followingPromises = followingSnapshot.docs.map(async (followDoc) => {
         const followedId = followDoc.data().userId
-        console.log(`Fetching user data for: ${followedId}`);
         return this.getCurrentUser(followedId)
       })
       
       const following = await Promise.all(followingPromises)
       const filteredFollowing = following.filter(user => user !== null) as User[]
-      console.log(`Returning ${filteredFollowing.length} following users`);
       return filteredFollowing
     } catch (error) {
       console.error('Error fetching user following:', error)
@@ -228,7 +224,6 @@ class FirebaseDataService {
 
   async followUser(currentUserId: string, targetUserId: string): Promise<void> {
     if (currentUserId === targetUserId) {
-      console.log('Cannot follow yourself');
       return;
     }
 
@@ -279,7 +274,6 @@ class FirebaseDataService {
         addedAt: Timestamp.now()
       });
 
-      console.log(`User ${currentUserId} and ${targetUserId} are now friends`);
     } catch (error) {
       console.error('Error adding user as friend:', error);
       throw error;
@@ -760,9 +754,7 @@ class FirebaseDataService {
         avatar: userData.profilePictureUrl || ''
       }
 
-      console.log('[firebaseDataService] saving user profile with avatar:', userData.profilePictureUrl)
       await setDoc(doc(db, 'users', userId), userProfile)
-      console.log('[firebaseDataService] user profile created successfully')
     } catch (error) {
       console.error('[firebaseDataService] error creating user profile:', error)
       throw error
@@ -805,7 +797,6 @@ class FirebaseDataService {
 
       await this.saveUserPreferences(userId, preferences)
 
-      console.log('User preferences initialized successfully')
     } catch (error) {
       console.error('Error initializing user preferences:', error)
       throw error
@@ -838,7 +829,6 @@ class FirebaseDataService {
       let enhancedPreferences = [...userData.activityPreferences]
 
       if (userData.bio) {
-        console.log('[firebaseDataService] analyzing user bio for personalized recommendations...')
         const bioAnalysis = await this.analyzeUserBio(userData.bio)
         
         // Merge AI suggestions with user selections (avoid duplicates)
@@ -902,7 +892,6 @@ class FirebaseDataService {
         location: userData.location
       }); */
 
-      console.log('[firebaseDataService] new user setup completed successfully with AI-enhanced preferences')
 
       // Notify subscribers (Home For-You feed, profile widgets, etc.) so they
       // re-fetch with the now-populated location/categories instead of waiting
@@ -969,7 +958,6 @@ class FirebaseDataService {
       // Execute all recommendations saves
       await Promise.all(batch)
       
-      console.log(`Generated ${recommendations.length} baseline recommendations for new user`)
     } catch (error) {
       console.error('Error generating baseline recommendations:', error)
       // Don't throw - recommendations are nice to have but not essential for signup
@@ -1050,7 +1038,6 @@ class FirebaseDataService {
   }
 
   private async searchPlaces(searchQuery: string, filters: any, limitCount: number): Promise<Place[]> {
-    console.log(`[firebaseDataService] searching places for: "${searchQuery}"`)
     
     const constraints: QueryConstraint[] = []
 
@@ -1081,7 +1068,6 @@ class FirebaseDataService {
     })) as Place[]
 
     // Debug: Log what we got from Firebase
-    console.log(`[firebaseDataService] found ${places.length} places from Firebase:`)
     places.forEach(place => {
       const name = place.name || place.placeName || 'NO_NAME'
       const tags = place.tags || place.placeTags || []
@@ -1117,7 +1103,6 @@ class FirebaseDataService {
       places = places.slice(0, limitCount)
     }
 
-    console.log(`[firebaseDataService] final places result: ${places.length} places`)
     return places
   }
 
@@ -1126,7 +1111,6 @@ class FirebaseDataService {
       where('isPublic', '==', true)
     ]
  
-    console.log(`[firebaseDataService] searching lists for: "${searchQuery}"`)
  
     // If we have a search query, we need to get more results first, then filter and rank
     if (searchQuery && searchQuery.trim()) {
@@ -1151,7 +1135,6 @@ class FirebaseDataService {
     })) as List[]
  
     // Debug: Log what we got from Firebase
-    console.log(`[firebaseDataService] found ${lists.length} lists from Firebase:`)
     lists.forEach(list => {
       console.log(`  - ${list.name || list.listName || 'NO_NAME'} (tags: ${(list.tags || list.listTags || []).join(', ')})`)
     })
@@ -1368,7 +1351,6 @@ class FirebaseDataService {
 
   async getCommentsForPost(postId: string): Promise<PostComment[]> {
     try {
-      console.log('firebaseDataService: Fetching comments for post:', postId);
       
       const commentsQuery = query(
         collection(db, 'posts', postId, 'comments'),
@@ -1376,7 +1358,6 @@ class FirebaseDataService {
       );
       const commentsSnapshot = await getDocs(commentsQuery);
       
-      console.log('firebaseDataService: Found', commentsSnapshot.docs.length, 'comments');
       
       const comments = await Promise.all(commentsSnapshot.docs.map(async doc => {
         const commentData = doc.data() as PostComment;
@@ -1389,7 +1370,6 @@ class FirebaseDataService {
         };
       }));
       
-      console.log('firebaseDataService: Processed comments:', comments.length);
       return comments;
     } catch (error) {
       console.error('firebaseDataService: Error fetching comments for post:', error);
@@ -1399,7 +1379,6 @@ class FirebaseDataService {
 
   async postComment(postId: string, userId: string, text: string): Promise<PostComment | null> {
     try {
-      console.log('firebaseDataService: Posting comment:', { postId, userId, text });
       
       const currentUser = await this.getCurrentUser(userId);
       if (!currentUser) {
@@ -1419,10 +1398,8 @@ class FirebaseDataService {
         likedBy: [],
       };
 
-      console.log('firebaseDataService: Saving comment to Firestore:', newComment);
       await setDoc(newCommentRef, newComment);
       
-      console.log('firebaseDataService: Comment saved successfully');
       return newComment;
     } catch (error) {
       console.error('firebaseDataService: Error posting comment:', error);
@@ -1731,14 +1708,12 @@ class FirebaseDataService {
         listId: listId
       });
 
-      console.log(`Post ${postId} successfully saved to list ${listId}`);
     } catch (error) {
       console.error('Error saving post to list:', error);
     }
   }
 
   async savePlaceToList(placeId: string, listId: string, userId: string, note?: string, savedFromListId?: string, status?: 'loved' | 'tried' | 'want', triedRating?: 'liked' | 'neutral' | 'disliked'): Promise<void> {
-    console.log('savePlaceToList called with:', { placeId, listId, userId, note, savedFromListId, status, triedRating });
     const listRef = doc(db, 'lists', listId);
 
     try {
@@ -1748,7 +1723,6 @@ class FirebaseDataService {
       }
 
       const listData = listDoc.data() as List;
-      console.log('List data:', listData);
       
       // Add to subcollection with status and rating information
       const listPlacesRef = collection(listRef, 'places');
@@ -1760,7 +1734,6 @@ class FirebaseDataService {
         note: note || '',
         addedAt: Timestamp.now()
       });
-      console.log('Added to subcollection successfully with status:', status);
 
       // Atomic union — two concurrent saves of different places to the same
       // list no longer race-overwrite each other.
@@ -1790,7 +1763,6 @@ class FirebaseDataService {
       // savedCount is now incremented idempotently via recordUserSave() at the
       // end of the SaveModal flow — not here. Otherwise picking N lists would
       // bump the count by N, plus the auto-list path would add another +1.
-      console.log(`Place ${placeId} successfully saved to list ${listId}`);
     } catch (error) {
       console.error('Error saving place to list:', error);
     }
@@ -2034,13 +2006,11 @@ class FirebaseDataService {
 
   async getProfileComments(userId: string): Promise<PostComment[]> {
     try {
-      console.log('firebaseDataService: Fetching profile comments for user:', userId);
       const commentsQuery = query(
         collection(db, 'users', userId, 'comments'),
         orderBy('createdAt', 'desc')
       );
       const commentsSnapshot = await getDocs(commentsQuery);
-      console.log('firebaseDataService: Found', commentsSnapshot.docs.length, 'profile comments');
       
       const comments = await Promise.all(commentsSnapshot.docs.map(async doc => {
         const commentData = doc.data() as PostComment;
@@ -2053,7 +2023,6 @@ class FirebaseDataService {
         };
       }));
       
-      console.log('firebaseDataService: Processed profile comments:', comments.length);
       return comments;
     } catch (error) {
       console.error('firebaseDataService: Error fetching profile comments:', error);
@@ -2300,7 +2269,6 @@ class FirebaseDataService {
         tags: tags,
         updatedAt: Timestamp.now()
       })
-      console.log('User tags updated successfully')
     } catch (error) {
       console.error('Error updating user tags:', error)
       throw error
@@ -2361,7 +2329,6 @@ class FirebaseDataService {
           lastUsed: Timestamp.now()
         })
       }
-      console.log(`Tag "${normalizedTag}" added/updated successfully`)
     } catch (error) {
       console.error('Error adding tag:', error)
       throw error
@@ -2483,7 +2450,6 @@ class FirebaseDataService {
 
       if (!currentUser) {
         // If user doesn't exist (database not seeded yet), create a fallback context
-        console.log('User not found in database, using fallback context for:', userId)
         
         const fallbackUser: User = {
           id: userId,
@@ -2960,7 +2926,6 @@ class FirebaseDataService {
     
     // Check in-memory cache first
     if (this.geocodeCache.has(cacheKey)) {
-      console.log('[geocodeLocation] CACHE HIT (memory) ->', query)
       return this.geocodeCache.get(cacheKey)!
     }
 
@@ -2973,7 +2938,6 @@ class FirebaseDataService {
         const age = Date.now() - timestamp
         // Cache for 30 days
         if (age < 30 * 24 * 60 * 60 * 1000) {
-          console.log('[geocodeLocation] CACHE HIT (localStorage) ->', query)
           this.geocodeCache.set(cacheKey, result)
           return result
         }
@@ -2999,7 +2963,6 @@ class FirebaseDataService {
       }
       const data = await (resp as any).json()
       const result = data.location || null
-      console.log('[geocodeLocation] API call ->', query, 'result ->', result)
       
       // Store in both caches
       this.geocodeCache.set(cacheKey, result)
@@ -3602,7 +3565,6 @@ class FirebaseDataService {
       // Only update if the image is actually different to avoid unnecessary updates
       const currentPlace = await this.getPlace(hubId);
       if (currentPlace?.mainImage === bannerImage) {
-        console.log(`Hub ${hubId} banner image unchanged: ${bannerImage}`);
         return;
       }
 
@@ -3611,7 +3573,6 @@ class FirebaseDataService {
         mainImage: bannerImage
       });
 
-      console.log(`Updated hub ${hubId} banner image to: ${bannerImage}`);
     } catch (error) {
       console.error('Error updating hub banner image:', error);
       // Set a fallback image on error
@@ -3636,7 +3597,6 @@ class FirebaseDataService {
       );
       
       await Promise.all(updatePromises);
-      console.log('Updated banner images for all hubs');
     } catch (error) {
       console.error('Error updating all hub banner images:', error);
     }
@@ -3644,7 +3604,6 @@ class FirebaseDataService {
 
   // Helper function to manually trigger banner update (for testing)
   async refreshHubBannerImage(hubId: string): Promise<void> {
-    console.log(`Manually refreshing banner image for hub: ${hubId}`);
     await this.updateHubBannerImage(hubId);
   }
 

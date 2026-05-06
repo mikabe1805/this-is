@@ -150,7 +150,6 @@ export const NavigationProvider = ({ children }: NavigationProviderProps) => {
   }
 
   const openListModal = (list: List, from: string = 'unknown') => {
-    console.log('Opening list modal from:', from, 'list:', list.name)
     if (from !== 'back') {
       navigationHistory.push({ type: 'list', id: list.id, from })
     }
@@ -172,7 +171,6 @@ export const NavigationProvider = ({ children }: NavigationProviderProps) => {
   }
 
   const openProfileModal = (userId: string, from: string = 'unknown') => {
-    console.log('Opening profile modal from:', from, 'userId:', userId)
     if (from !== 'back') {
       navigationHistory.push({ type: 'user', id: userId, from })
     }
@@ -194,7 +192,6 @@ export const NavigationProvider = ({ children }: NavigationProviderProps) => {
 
 
   const closeHubModal = () => {
-    console.log('Closing hub modal, from was:', hubModalFrom)
     if (hubModalFrom === 'list-modal' && previousList) {
       openListModal(previousList, 'hub-modal-back')
     } else if (hubModalFrom === 'profile-modal' && previousUserId) {
@@ -209,7 +206,6 @@ export const NavigationProvider = ({ children }: NavigationProviderProps) => {
   }
   
   const closeListModal = () => {
-    console.log('Closing list modal, from was:', listModalFrom)
     if (listModalFrom === 'profile-modal' && previousUserId) {
       openProfileModal(previousUserId, 'list-modal-back')
     }
@@ -221,7 +217,6 @@ export const NavigationProvider = ({ children }: NavigationProviderProps) => {
   }
   
   const closeProfileModal = () => {
-    console.log('Closing profile modal')
     setShowProfileModal(false)
     setSelectedUserId(null)
     setProfileModalFrom(null)
@@ -234,7 +229,6 @@ export const NavigationProvider = ({ children }: NavigationProviderProps) => {
     // current entry, then re-opens whatever was underneath it.
     const lastState = navigationHistory.pop();
     const currentState = navigationHistory.peek();
-    console.log('Going back from:', lastState, 'to:', currentState);
 
     // Always close the current hub modal first if one is open — popping the
     // history entry alone leaves it on screen.
