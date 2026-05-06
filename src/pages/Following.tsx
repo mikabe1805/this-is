@@ -1,22 +1,9 @@
-﻿import { useState, useEffect } from 'react'
-import { ArrowLeftIcon, MagnifyingGlassIcon, UserIcon, MapPinIcon, HeartIcon } from '@heroicons/react/24/outline'
+﻿import { useState, useEffect, useMemo } from 'react'
+import { ArrowLeftIcon, MagnifyingGlassIcon } from '@heroicons/react/24/outline'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext.js'
 import { firebaseDataService } from '../services/firebaseDataService.js'
 import type { User } from '../types/index.js'
-
-interface FollowingUser {
-  id: string
-  name: string
-  username: string
-  avatar: string
-  bio: string
-  location: string
-  tags: string[]
-  isFollowing: boolean
-  mutualFriends: number
-  lastActive: string
-}
 
 const Following = () => {
   const navigate = useNavigate()
@@ -28,59 +15,85 @@ const Following = () => {
   const [followersUsers, setFollowersUsers] = useState<User[]>([])
   const [loading, setLoading] = useState(true)
 
+  const refreshLists = async () => {
+    if (!authUser) return
+    const [following, followers] = await Promise.all([
+      firebaseDataService.getUserFollowing(authUser.id),
+      firebaseDataService.getFollowers(authUser.id),
+    ])
+    setFollowingUsers(following)
+    setFollowersUsers(followers)
+  }
+
   useEffect(() => {
     const fetchData = async () => {
-      if (authUser) {
-        setLoading(true)
-        const [following, followers] = await Promise.all([
-          firebaseDataService.getUserFollowing(authUser.id),
-          firebaseDataService.getFollowers(authUser.id)
-        ]);
-        setFollowingUsers(following);
-        setFollowersUsers(followers);
-        setLoading(false)
-      }
+      if (!authUser) return
+      setLoading(true)
+      await refreshLists()
+      setLoading(false)
     }
     fetchData()
   }, [authUser])
 
+  // Stay in sync when follow/unfollow happens elsewhere (e.g. ProfileModal,
+  // UserProfile route). Without this, the list goes stale and the user sees
+  // a "Follow" button on someone they just followed.
+  useEffect(() => {
+    if (!authUser) return
+    const onFollowed = () => { void refreshLists() }
+    window.addEventListener('this-is:followed', onFollowed)
+    return () => window.removeEventListener('this-is:followed', onFollowed)
+  }, [authUser?.id])
+
+  // Optimistically update local follow state, then persist. On failure, revert
+  // and surface a toast so the user knows the action didn't take. Previously
+  // this refetched the entire list after each tap which caused a visible
+  // flicker.
   const handleUnfollow = async (userId: string) => {
-    if (!authUser) return;
+    if (!authUser) return
+    const prev = followingUsers
+    setFollowingUsers(curr => curr.filter(u => u.id !== userId))
     try {
-      await firebaseDataService.unfollowUser(authUser.id, userId);
-      // Refetch data to confirm the change
-      const following = await firebaseDataService.getUserFollowing(authUser.id);
-      setFollowingUsers(following);
-      console.log(`Unfollowed user ${userId}`);
+      await firebaseDataService.unfollowUser(authUser.id, userId)
+      window.dispatchEvent(new CustomEvent('this-is:followed', { detail: { followedId: userId, delta: -1 } }))
     } catch (error) {
-      console.error('Error unfollowing user:', error);
+      console.error('Error unfollowing user:', error)
+      setFollowingUsers(prev)
+      window.dispatchEvent(new CustomEvent('this-is:toast', { detail: { message: "Couldn't unfollow. Try again.", tone: 'error' } }))
     }
   }
 
   const handleFollow = async (userId: string) => {
-    if (!authUser) return;
+    if (!authUser) return
+    // We don't have the full User object yet — fetch on success rather than
+    // synthesizing one. Optimism here is just "the button changes state".
     try {
-      await firebaseDataService.followUser(authUser.id, userId);
-      // Refetch data to confirm the change
-      const following = await firebaseDataService.getUserFollowing(authUser.id);
-      setFollowingUsers(following);
-      console.log(`Followed user ${userId}`);
+      await firebaseDataService.followUser(authUser.id, userId)
+      window.dispatchEvent(new CustomEvent('this-is:followed', { detail: { followedId: userId, delta: 1 } }))
+      await refreshLists()
     } catch (error) {
-      console.error('Error following user:', error);
+      console.error('Error following user:', error)
+      window.dispatchEvent(new CustomEvent('this-is:toast', { detail: { message: "Couldn't follow. Try again.", tone: 'error' } }))
     }
   }
 
+  // Precompute the following set so the per-row check is O(1) instead of
+  // O(n) on every render of every row.
+  const followingIdSet = useMemo(() => new Set(followingUsers.map(u => u.id)), [followingUsers])
+  const followerIdSet = useMemo(() => new Set(followersUsers.map(u => u.id)), [followersUsers])
+  const friendsUsers = useMemo(
+    () => followingUsers.filter(user => followerIdSet.has(user.id)),
+    [followingUsers, followerIdSet],
+  )
+  const followingOnlyUsers = useMemo(
+    () => followingUsers.filter(user => !followerIdSet.has(user.id)),
+    [followingUsers, followerIdSet],
+  )
+
+  const isFollowing = (userId: string) => followingIdSet.has(userId)
+
   if (loading) {
     return <div>Loading...</div>; // Or a proper loading spinner
-  }
-  
-  // Determine mutual followers (friends)
-  const followerIdSet = new Set(followersUsers.map(user => user.id))
-  const friendsUsers = followingUsers.filter(user => followerIdSet.has(user.id))
-  const followingOnlyUsers = followingUsers.filter(user => !followerIdSet.has(user.id))
-
-  const isFollowing = (userId: string) => {
-    return followingUsers.some(u => u.id === userId);
   }
 
   const currentUsers =

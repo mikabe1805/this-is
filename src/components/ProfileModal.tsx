@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 import { XMarkIcon, MapPinIcon, UserIcon, CalendarIcon, HeartIcon, BookmarkIcon, EyeIcon, ShareIcon, ArrowsPointingOutIcon, ArrowLeftIcon } from '@heroicons/react/24/outline'
 import { HeartIcon as SolidHeartIcon } from '@heroicons/react/20/solid'
-import type { User, Post, List, Hub, Activity } from '../types/index.js'
+import type { User, Post, List, Hub, Activity, PostComment } from '../types/index.js'
 import { firebaseDataService } from '../services/firebaseDataService'
 import { useNavigation } from '../contexts/NavigationContext.tsx'
 import { useAuth } from '../contexts/AuthContext.tsx'
@@ -33,6 +33,9 @@ const ProfileModal = ({ userId, isOpen, onClose, onFollow, onShare, onOpenFullSc
   const [isFriend, setIsFriend] = useState(false)
   const [followerCount, setFollowerCount] = useState(0)
   const [activeTab, setActiveTab] = useState<'posts' | 'lists'>('lists');
+  const [profileComments, setProfileComments] = useState<PostComment[]>([])
+  const [noteInput, setNoteInput] = useState('')
+  const [postingNote, setPostingNote] = useState(false)
   const [isVisible, setIsVisible] = useState(false)
   const modalRef = useRef<HTMLDivElement>(null)
   useSwipeToDismiss({ ref: modalRef, onDismiss: onClose, enabled: isOpen })
@@ -87,6 +90,15 @@ const ProfileModal = ({ userId, isOpen, onClose, onFollow, onShare, onOpenFullSc
             } catch (e) {
               console.warn('Failed to load follower count:', e);
               setFollowerCount(0);
+            }
+
+            // Profile guestbook — load any notes friends have left.
+            try {
+              const notes = await firebaseDataService.getProfileComments(userId);
+              setProfileComments(notes);
+            } catch (e) {
+              console.warn('Failed to load profile notes:', e);
+              setProfileComments([]);
             }
 
             // Check if current user is following this user, and whether the
@@ -433,6 +445,72 @@ const ProfileModal = ({ userId, isOpen, onClose, onFollow, onShare, onOpenFullSc
                   )
                 )}
               </div>
+
+              {/* Guestbook — visitors can leave a note on this profile.
+                  Hidden when the viewer is the profile owner (no point
+                  commenting on yourself) or when no one is signed in. */}
+              {currentUser && currentUser.id !== userId && (
+                <div className="mt-8">
+                  <h4 className="font-display text-[18px] text-ink leading-tight mb-3">Leave a note</h4>
+                  {profileComments.length > 0 && (
+                    <ul className="divide-y divide-edge border-y border-edge mb-3">
+                      {profileComments.map(c => (
+                        <li key={c.id} className="py-3 flex items-start gap-3">
+                          <img src={c.userAvatar || '/assets/default-avatar.svg'} alt={c.username} className="w-8 h-8 rounded-full object-cover ring-1 ring-edge shrink-0" />
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-baseline gap-2">
+                              <span className="text-[13px] font-medium text-ink truncate">{c.username}</span>
+                              <span className="font-mono text-[10px] tracking-[0.10em] uppercase text-ink-mute">{formatTimestamp(c.createdAt)}</span>
+                            </div>
+                            <p className="text-[13px] text-ink-soft leading-relaxed mt-1 whitespace-pre-wrap">{c.text}</p>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  <form
+                    onSubmit={async (e) => {
+                      e.preventDefault()
+                      if (!noteInput.trim() || postingNote) return
+                      const text = noteInput.trim()
+                      setPostingNote(true)
+                      const draft = noteInput
+                      setNoteInput('')
+                      try {
+                        const created = await firebaseDataService.postProfileComment(userId, currentUser.id, text)
+                        if (created) {
+                          setProfileComments(prev => [created, ...prev])
+                        } else {
+                          setNoteInput(draft)
+                        }
+                      } catch (err) {
+                        console.error('Error posting profile note:', err)
+                        setNoteInput(draft)
+                      } finally {
+                        setPostingNote(false)
+                      }
+                    }}
+                    className="flex items-center gap-2"
+                  >
+                    <img src={currentUser.avatar || '/assets/default-avatar.svg'} alt={currentUser.name} className="w-8 h-8 rounded-full object-cover ring-1 ring-edge shrink-0" />
+                    <input
+                      type="text"
+                      value={noteInput}
+                      onChange={e => setNoteInput(e.target.value)}
+                      placeholder={`Say hi to ${user.name?.split(' ')[0] || user.username}…`}
+                      className="flex-1 h-10 px-4 rounded-full bg-card border border-edge text-[13px] text-ink placeholder:text-ink-mute outline-none focus:border-ink/40"
+                      maxLength={240}
+                    />
+                    <button
+                      type="submit"
+                      disabled={!noteInput.trim() || postingNote}
+                      className="btn-cta h-10 px-4 label-eyebrow disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                      {postingNote ? '…' : 'Send'}
+                    </button>
+                  </form>
+                </div>
+              )}
             </div>
           )}
         </div>

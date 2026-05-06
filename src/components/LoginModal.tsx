@@ -15,8 +15,27 @@ export default function LoginModal({ isOpen, onClose, onSwitchToSignup }: LoginM
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState('')
+  const [info, setInfo] = useState('')
   const [loading, setLoading] = useState(false)
-  const { signIn } = useAuth()
+  const { signIn, resetPassword } = useAuth()
+
+  const handleForgotPassword = async () => {
+    setError('')
+    setInfo('')
+    if (!email.trim()) {
+      setError('Enter your email above and tap Forgot password again.')
+      return
+    }
+    try {
+      setLoading(true)
+      await resetPassword(email.trim())
+      setInfo(`We sent a reset link to ${email.trim()}. Check your inbox.`)
+    } catch (err) {
+      setError(authErrorMessage(err, "Couldn't send a reset link. Try again."))
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -72,6 +91,11 @@ export default function LoginModal({ isOpen, onClose, onSwitchToSignup }: LoginM
               {error}
             </div>
           )}
+          {info && (
+            <div className="rounded-[10px] bg-aurum-200/40 border border-aurum-200/70 px-3 py-2.5 text-[13px] text-bark-900">
+              {info}
+            </div>
+          )}
           <div>
             <label htmlFor="email" className="label-eyebrow text-ink-mute mb-1.5 block">Email</label>
             <input
@@ -115,6 +139,16 @@ export default function LoginModal({ isOpen, onClose, onSwitchToSignup }: LoginM
           >
             {loading ? 'Signing in…' : 'Sign in'}
           </button>
+          <div className="text-center pt-1">
+            <button
+              type="button"
+              onClick={handleForgotPassword}
+              disabled={loading}
+              className="font-mono text-[10px] tracking-[0.12em] uppercase text-ink-mute hover:text-ink"
+            >
+              Forgot password?
+            </button>
+          </div>
         </form>
         <div className="px-5 pb-6 text-center border-t border-edge pt-4">
           <p className="text-[13px] text-ink-soft">

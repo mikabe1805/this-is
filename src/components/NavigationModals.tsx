@@ -17,6 +17,7 @@ import EditListModal from './EditListModal'
 import PrivacyModal from './PrivacyModal'
 import ConfirmModal from './ConfirmModal'
 import type { List } from '../types/index.js'
+import { shareLink, placeShareUrl, listShareUrl, userShareUrl } from '../utils/share'
 
 const NavigationModals = () => {
   const navigate = useNavigate()
@@ -103,7 +104,17 @@ const NavigationModals = () => {
             window.dispatchEvent(new CustomEvent('openSaveListToFolder', { detail: { list } }))
             closeListModal()
           }}
-          onShare={() => { /* surface handled by ListModal share button */ }}
+          onShare={async () => {
+            if (!selectedList?.id) return
+            const status = await shareLink({
+              title: selectedList.name,
+              text: `${selectedList.name} on this·is`,
+              url: listShareUrl(selectedList.id),
+            })
+            if (status === 'copied') {
+              window.dispatchEvent(new CustomEvent('this-is:toast', { detail: { message: 'Link copied' } }))
+            }
+          }}
           onAddPost={(list) => {
             openCreatePostModal(undefined, list)
             closeListModal()
@@ -167,7 +178,17 @@ const NavigationModals = () => {
             }
             try { openSaveModal(placeShape as never) } catch (e) { console.warn('[hub-modal] openSaveModal failed', e) }
           }}
-          onShare={() => { /* HubModal renders its own share button */ }}
+          onShare={async () => {
+            if (!selectedHub?.id) return
+            const status = await shareLink({
+              title: selectedHub.name,
+              text: `${selectedHub.name} on this·is`,
+              url: placeShareUrl(selectedHub.id),
+            })
+            if (status === 'copied') {
+              window.dispatchEvent(new CustomEvent('this-is:toast', { detail: { message: 'Link copied' } }))
+            }
+          }}
         />
       )}
 
@@ -197,6 +218,17 @@ const NavigationModals = () => {
             }
           }}
           onOpenFullScreen={() => selectedUserId && openFullScreenUser(selectedUserId)}
+          onShare={async (user) => {
+            if (!user?.id) return
+            const status = await shareLink({
+              title: user.name || user.username,
+              text: `@${user.username} on this·is`,
+              url: userShareUrl(user.id),
+            })
+            if (status === 'copied') {
+              window.dispatchEvent(new CustomEvent('this-is:toast', { detail: { message: 'Link copied' } }))
+            }
+          }}
         />
       )}
 

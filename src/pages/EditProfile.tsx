@@ -17,6 +17,7 @@ const EditProfile = () => {
   const [loading, setLoading] = useState(true)
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false)
   const [avatarError, setAvatarError] = useState<string | null>(null)
+  const [saveError, setSaveError] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -75,13 +76,32 @@ const EditProfile = () => {
 
   const handleSave = async () => {
     if (!authUser) return;
+    setSaveError(null)
     setIsSaving(true)
     try {
+      // Username uniqueness — only check when the user actually changed it.
+      // Signup enforces uniqueness, but profile edit was bypassing that
+      // entirely. Without the guard two accounts could end up sharing
+      // a handle and search/profile-by-username breaks for both.
+      const desiredUsername = (formData.username || '').trim().toLowerCase()
+      const currentUsername = ((authUser as { username?: string }).username || '').trim().toLowerCase()
+      if (desiredUsername && desiredUsername !== currentUsername) {
+        const available = await firebaseDataService.checkUsernameAvailability(desiredUsername)
+        if (!available) {
+          setSaveError(`@${desiredUsername} is already taken.`)
+          setIsSaving(false)
+          return
+        }
+      }
       await firebaseDataService.updateUserProfile(authUser.id, formData);
+      // Tell AuthContext to refresh its cached currentUser so the new name /
+      // bio / username show up everywhere without a hard reload.
+      window.dispatchEvent(new CustomEvent('this-is:userUpdated', { detail: { userId: authUser.id } }))
+      window.dispatchEvent(new CustomEvent('this-is:toast', { detail: { message: 'Profile saved' } }))
       navigate('/profile')
     } catch (error) {
       console.error("Error updating profile: ", error);
-      // Optionally, show an error message to the user
+      setSaveError(error instanceof Error ? error.message : 'Failed to save profile. Try again.')
     } finally {
       setIsSaving(false)
     }
@@ -115,6 +135,11 @@ const EditProfile = () => {
       </header>
 
       <div className="relative z-10 px-5 py-6 space-y-8 max-w-2xl mx-auto">
+        {saveError && (
+          <div role="alert" className="rounded-[10px] bg-red-50 border border-red-200 px-3.5 py-2.5 text-[13px] text-red-800">
+            {saveError}
+          </div>
+        )}
         <section className="text-center">
           <div className="relative inline-block">
             {formData.avatar ? (

@@ -10,6 +10,7 @@ import CreatePost from './components/CreatePost.tsx'
 import CreateListModal from './components/CreateListModal.tsx'
 import NavigationModals from './components/NavigationModals.tsx';
 import InstallPrompt from './components/InstallPrompt.tsx';
+import Toast from './components/ui/Toast.tsx';
 // Eager-load Home so the most common landing page doesn't show a loader.
 import Home from './pages/Home.tsx'
 import Auth from './pages/Auth.tsx'
@@ -468,6 +469,9 @@ function AppContent() {
 
       {/* All navigation modals */}
       <NavigationModals />
+
+      {/* Global toast bar — fires off `this-is:toast` CustomEvents. */}
+      <Toast />
     </>
   )
 }

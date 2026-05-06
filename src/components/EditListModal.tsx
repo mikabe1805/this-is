@@ -24,8 +24,10 @@ interface EditListModalProps {
     tags: string[]
     coverImage?: string
   }) => void
-  onDelete?: (list: any) => void
-  onPrivacyChange?: (listId: string, newPrivacy: 'public' | 'private' | 'friends') => void
+  // onDelete + onPrivacyChange used to live here as no-ops; deletion and
+  // privacy edits are now handled via dedicated modals (ConfirmModal +
+  // PrivacyModal) opened from the list-menu dropdown, not from inside the
+  // edit form.
 }
 
 const EditListModal = ({ isOpen, onClose, list, onSave }: EditListModalProps) => {

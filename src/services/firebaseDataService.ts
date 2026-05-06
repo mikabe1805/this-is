@@ -1436,14 +1436,15 @@ class FirebaseDataService {
       const snap = await getDoc(commentRef)
       if (!snap.exists()) return
       const data = snap.data() as PostComment
-      const likedBy = data.likedBy || []
-      let likes = data.likes || 0
-      if (likedBy.includes(userId)) {
-        likes = Math.max(0, likes - 1)
-        await updateDoc(commentRef, { likes, likedBy: likedBy.filter(id => id !== userId) })
+      const alreadyLiked = (data.likedBy || []).includes(userId)
+      // Atomic toggle — was previously a read-modify-write that lost concurrent
+      // likes from different users (last writer wins). arrayUnion/arrayRemove
+      // and increment() are merged server-side, so two simultaneous likers
+      // both end up in likedBy with the count incremented twice.
+      if (alreadyLiked) {
+        await updateDoc(commentRef, { likedBy: arrayRemove(userId), likes: increment(-1) })
       } else {
-        likes += 1
-        await updateDoc(commentRef, { likes, likedBy: [...likedBy, userId] })
+        await updateDoc(commentRef, { likedBy: arrayUnion(userId), likes: increment(1) })
       }
     } catch (error) {
       console.error('firebaseDataService: Error liking comment:', error)

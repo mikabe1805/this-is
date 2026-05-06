@@ -74,7 +74,6 @@ const Profile = () => {
     const [showPrivacyModal, setShowPrivacyModal] = useState(false);
     const [showConfirmModal, setShowConfirmModal] = useState(false);
     const [confirmModalConfig, setConfirmModalConfig] = useState({ title: '', message: '', onConfirm: () => {} });
-    const [commentInput, setCommentInput] = useState('');
     const [newTag, setNewTag] = useState('');
     const [availableUserTags, setAvailableUserTags] = useState<string[]>([])
     const [availableTags, setAvailableTags] = useState<string[]>([])
@@ -933,35 +932,13 @@ const Profile = () => {
                     ) : (
                         <div className="border border-edge rounded-[14px] px-5 py-8 text-center bg-card mb-4">
                             <p className="font-display text-[20px] text-ink leading-tight">Quiet here.</p>
-                            <p className="text-[12px] text-ink-soft mt-1">Friends can leave a note when they visit.</p>
+                            <p className="text-[12px] text-ink-soft mt-1">Friends can leave a note when they visit your profile.</p>
                         </div>
                     )}
-                    <form
-                        onSubmit={async e => {
-                            e.preventDefault()
-                            if (!commentInput.trim() || !currentUser || !authUser) return
-                            const text = commentInput
-                            setCommentInput('')
-                            try {
-                                await firebaseDataService.postProfileComment(currentUser.id, authUser.id, text)
-                                const profileComments = await firebaseDataService.getProfileComments(authUser.id)
-                                setComments(profileComments)
-                            } catch (error) {
-                                console.error('Error posting profile comment:', error)
-                                setCommentInput(text)
-                            }
-                        }}
-                        className="flex items-center gap-2"
-                    >
-                        <img src={currentUser?.avatar || '/assets/default-avatar.svg'} alt={currentUser?.name} className="w-9 h-9 rounded-full object-cover ring-1 ring-edge shrink-0" />
-                        <input
-                            type="text"
-                            value={commentInput}
-                            onChange={e => setCommentInput(e.target.value)}
-                            placeholder="Leave a note…"
-                            className="flex-1 h-11 px-4 rounded-full bg-card border border-edge text-[14px] text-ink placeholder:text-ink-mute outline-none focus:border-ink/40"
-                        />
-                    </form>
+                    {/* Note: the compose form lives on ProfileModal / UserProfile
+                        — visitors leave notes there. On your own profile you
+                        only see what others have written, you don't comment on
+                        yourself. */}
                 </div>
                 )}
             </div>

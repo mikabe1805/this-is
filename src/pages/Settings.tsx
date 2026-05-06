@@ -339,13 +339,6 @@ const Settings = () => {
           <div className="text-center pt-4">
             <p className="font-display-italic text-[18px] text-ink">this · is</p>
             <p className="font-mono text-[10px] tracking-[0.14em] uppercase text-ink-mute mt-1">Version 1.0.0</p>
-            <div className="flex justify-center gap-4 mt-4 font-mono text-[10px] tracking-[0.10em] uppercase">
-              <button className="text-ink-mute hover:text-ink transition-colors">Privacy</button>
-              <span className="text-ink-faint">·</span>
-              <button className="text-ink-mute hover:text-ink transition-colors">Terms</button>
-              <span className="text-ink-faint">·</span>
-              <button className="text-ink-mute hover:text-ink transition-colors">Help</button>
-            </div>
           </div>
         </div>
       </div>
