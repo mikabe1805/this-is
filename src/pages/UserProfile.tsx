@@ -1,7 +1,7 @@
 ﻿import { useState, useEffect } from 'react';
 import { formatTimestamp } from '../utils/dateUtils';
 import { useParams, useNavigate } from 'react-router-dom';
-import { MapPinIcon, UserIcon, CalendarIcon, HeartIcon, BookmarkIcon, EyeIcon, PlusIcon, ShareIcon, ArrowLeftIcon } from '@heroicons/react/24/outline';
+import { MapPinIcon, UserIcon, CalendarIcon, HeartIcon, BookmarkIcon, EyeIcon, ShareIcon, ArrowLeftIcon } from '@heroicons/react/24/outline';
 import { HeartIcon as HeartIconSolid, BookmarkIcon as BookmarkIconSolid, EyeIcon as EyeIconSolid } from '@heroicons/react/24/solid';
 import type { User, Post, List } from '../types/index.js';
 import { firebaseListService } from '../services/firebaseListService.js';
@@ -21,6 +21,7 @@ const UserProfile = () => {
   const [lists, setLists] = useState<List[]>([]);
   const [activeTab, setActiveTab] = useState<'posts' | 'lists'>('posts');
   const [isFollowing, setIsFollowing] = useState(false);
+  const [isFriendOfViewer, setIsFriendOfViewer] = useState(false);
   const [likedPosts, setLikedPosts] = useState<Set<string>>(new Set());
   const [savedPosts, setSavedPosts] = useState<Set<string>>(new Set());
   const [likedLists, setLikedLists] = useState<Set<string>>(new Set());
@@ -52,6 +53,7 @@ const UserProfile = () => {
           // Mutual-follow == friend, since the app auto-friends on follow.
           const friends = await firebaseDataService.getUserFriends(currentUser.id)
           isFriend = friends.some(u => u.id === userId)
+          setIsFriendOfViewer(isFriend)
         } catch (e) {
           console.warn('[user-profile] relationship lookup failed', e)
         }
@@ -305,41 +307,46 @@ const UserProfile = () => {
             </div>
           </div>
 
-          {/* Action Buttons */}
-          <div className="flex gap-3 mt-6">
-            <button
-              onClick={handleFollow}
-              className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-semibold shadow-botanical hover:shadow-liquid hover:scale-102 transition-all duration-200 ${
-                isFollowing
-                  ? 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                  : 'bg-gradient-to-r from-sage-500 to-sage-600 text-white'
-              }`}
-            >
-              {isFollowing ? 'Following' : 'Follow'}
-            </button>
-            <button className="flex-1 flex items-center justify-center gap-2 bg-gradient-to-r from-gold-500 to-gold-600 text-white px-4 py-3 rounded-xl text-sm font-semibold shadow-botanical hover:shadow-liquid hover:scale-102 transition-all duration-200">
-              <PlusIcon className="w-5 h-5" />
-              Message
-            </button>
-          </div>
-
-          {/* Stats */}
-          <div className="flex items-center justify-around mt-6 pt-6 border-t border-linen-200">
-            <div className="text-center">
-              <div className="text-2xl font-bold text-charcoal-800">{posts.length}</div>
-              <div className="text-sm text-charcoal-600">Posts</div>
+          {/* Friend badge — shown when both users follow each other. */}
+          {isFriendOfViewer && (
+            <div className="mt-3">
+              <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-sage-100 border border-sage-200 text-xs font-semibold text-sage-700">
+                Friend
+              </span>
             </div>
+          )}
+
+          {/* Action Buttons. Messaging isn't built yet, so we show only Follow
+              instead of a dead "Message" button. */}
+          {currentUser && currentUser.id !== userId && (
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={handleFollow}
+                className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-semibold shadow-botanical hover:shadow-liquid hover:scale-102 transition-all duration-200 ${
+                  isFollowing
+                    ? 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    : 'bg-gradient-to-r from-sage-500 to-sage-600 text-white'
+                }`}
+              >
+                {isFollowing ? (isFriendOfViewer ? 'Friends' : 'Following') : 'Follow'}
+              </button>
+            </div>
+          )}
+
+          {/* Stats — Lists / Influence / Followers, mirroring the route Profile
+              page so the layout is consistent across own/other profiles. */}
+          <div className="grid grid-cols-3 mt-6 pt-6 border-t border-linen-200">
             <div className="text-center">
               <div className="text-2xl font-bold text-charcoal-800">{lists.length}</div>
               <div className="text-sm text-charcoal-600">Lists</div>
             </div>
             <div className="text-center">
-              <div className="text-2xl font-bold text-charcoal-800">{user.followersCount || 0}</div>
-              <div className="text-sm text-charcoal-600">Followers</div>
+              <div className="text-2xl font-bold text-charcoal-800">{user.influences || 0}</div>
+              <div className="text-sm text-charcoal-600">Influence</div>
             </div>
             <div className="text-center">
-              <div className="text-2xl font-bold text-charcoal-800">{user.followingCount || 0}</div>
-              <div className="text-sm text-charcoal-600">Following</div>
+              <div className="text-2xl font-bold text-charcoal-800">{user.followersCount || 0}</div>
+              <div className="text-sm text-charcoal-600">Followers</div>
             </div>
           </div>
         </div>

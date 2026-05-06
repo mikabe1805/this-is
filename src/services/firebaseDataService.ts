@@ -7,6 +7,7 @@ import { firebaseStorageService } from './firebaseStorageService'
 import { firebaseListService } from './firebaseListService'
 import { stablePlaceKey } from '../utils/stablePlaceKey'
 import { mapInterestsToTypes, getComplementaryTypes } from '../utils/placeTypes'
+import { readCoords } from '../utils/coords'
 import { searchNearby, getDetails } from '../lib/placesNew'
 
 
@@ -1803,34 +1804,6 @@ class FirebaseDataService {
     return out as T
   }
 
-  async ensureAutoList(userId: string, status: 'loved' | 'tried' | 'want'): Promise<List> {
-    const autoName = status === 'loved' ? 'All Loved' : status === 'tried' ? 'All Tried' : 'All Want'
-    // Try to find existing
-    const lists = await this.getUserLists(userId)
-    const found = lists.find(l => (l.name || '').trim().toLowerCase() === autoName.toLowerCase() || ((l as any).tags||[]).includes('#auto-generated') && ((l as any).tags||[]).includes(`#${status}`))
-    if (found) return found
-    // Create if missing (private by default)
-    const newId = await this.createList({
-      name: autoName,
-      description: '',
-      privacy: 'private',
-      tags: ['#auto-generated', `#${status}`],
-      userId
-    })
-    if (!newId) throw new Error('Failed to create auto-generated list')
-    const created = await this.getList(newId)
-    if (!created) throw new Error('Auto-generated list not found after creation')
-    return created
-  }
-
-  async saveToAutoList(placeId: string, userId: string, status: 'loved' | 'tried' | 'want', note?: string, rating?: 'liked' | 'neutral' | 'disliked'): Promise<void> {
-    const autoList = await this.ensureAutoList(userId, status)
-    const exists = await this.isPlaceInList(autoList.id, placeId)
-    if (!exists) {
-      await this.savePlaceToList(placeId, autoList.id, userId, note, undefined, status, rating)
-    }
-  }
-
   /**
    * Nest one list inside another (folder-style). The parent list's
    * `subLists: string[]` array gains an entry pointing at the child list.
@@ -2225,12 +2198,18 @@ class FirebaseDataService {
         const n = (name || '').toLowerCase()
         return n === 'all loved' || n === 'all tried' || n === 'all want'
       }
+      // Both tag spellings exist in the wild: AuthContext used to write the
+      // unadorned 'auto-generated' tag, while the deleted ensureAutoList
+      // wrote '#auto-generated'. Accept both so legacy entries are filtered
+      // regardless of which path created them.
+      const hasAutoTag = (tags?: unknown) => Array.isArray(tags) &&
+        ((tags as string[]).includes('auto-generated') || (tags as string[]).includes('#auto-generated'))
       activities = activities.filter(a => {
         const list = (a as { list?: { name?: string; tags?: string[] } }).list
         if (a.type === 'create_list') {
           if (!list) return false // orphaned — list got deleted
           if (isAutoListName(list.name)) return false
-          if (Array.isArray(list.tags) && list.tags.includes('#auto-generated')) return false
+          if (hasAutoTag(list.tags)) return false
         }
         if (a.type === 'save' && a.listId && !a.placeId && list && isAutoListName(list.name)) {
           // saveListToList logging into an auto bucket is also noise
@@ -3169,7 +3148,12 @@ class FirebaseDataService {
             if ((!Array.isArray(data.photos) || data.photos.length === 0) && Array.isArray(hubData.photos) && hubData.photos.length > 0) patch.photos = hubData.photos
             if (!data.primaryType && hubData.primaryType) patch.primaryType = hubData.primaryType
             if ((!Array.isArray(data.types) || data.types.length === 0) && Array.isArray(hubData.types) && hubData.types.length > 0) patch.types = hubData.types
-            if ((!data.coordinates?.lat || !data.coordinates?.lng) && hubData.coordinates?.lat && hubData.coordinates?.lng) patch.coordinates = hubData.coordinates
+            // Only backfill coordinates when the existing doc has none AND we
+            // have real ones now. readCoords rejects (0, 0) so we don't end
+            // up writing the Null Island sentinel back over an empty field.
+            const existingCoords = readCoords(data)
+            const incomingCoords = readCoords(hubData)
+            if (!existingCoords && incomingCoords) patch.coordinates = incomingCoords
             if (Object.keys(patch).length > 0) {
               try { await updateDoc(d.ref, patch) } catch (e) { console.warn('[createHub] backfill failed', e) }
             }
@@ -3179,19 +3163,22 @@ class FirebaseDataService {
       }
     } catch (e) { console.warn('[createHub] dedup lookup failed', e) }
 
+    // Only persist coordinates when we actually have them. Previously we wrote
+    // (0, 0) as a placeholder, which Firestore happily indexed; later distance
+    // calculations then computed great-circle from Null Island and every saved
+    // place showed ~5409 mi from a US viewer. Better to omit the field and let
+    // readCoords return undefined downstream (callers already guard).
+    const hasCoords = typeof hubData.coordinates?.lat === 'number'
+      && typeof hubData.coordinates?.lng === 'number'
+      && !(hubData.coordinates.lat === 0 && hubData.coordinates.lng === 0)
     const hubRef = await addDoc(collection(db, 'places'), {
       name: hubData.name,
       description: hubData.description,
       address: hubData.address,
-      location: {
-        address: hubData.address,
-        lat: hubData.coordinates?.lat || 0,
-        lng: hubData.coordinates?.lng || 0
-      },
-      coordinates: {
-        lat: hubData.coordinates?.lat || 0,
-        lng: hubData.coordinates?.lng || 0
-      },
+      location: hasCoords
+        ? { address: hubData.address, lat: hubData.coordinates!.lat, lng: hubData.coordinates!.lng }
+        : { address: hubData.address },
+      ...(hasCoords ? { coordinates: { lat: hubData.coordinates!.lat, lng: hubData.coordinates!.lng } } : {}),
       tags: [],
       savedCount: 0,
       name_lowercase: hubData.name.toLowerCase(),
@@ -3212,15 +3199,29 @@ class FirebaseDataService {
    * Idempotent "user X has saved place Y" marker. Increments savedCount on the
    * place exactly once per user-place pair. Subsequent calls from the same
    * user for the same place are no-ops. Use this from the SaveModal flow
-   * after savePlaceToList / saveToAutoList have run.
+   * after savePlaceToList has run.
+   *
+   * We mirror the marker into TWO places:
+   *   - places/{placeId}/saves/{userId} — used to compute the global
+   *     savedCount and to detect "did this specific user save this place".
+   *   - users/{userId}/savedPlaces/{placeId} — used by getSavedPlaces() to
+   *     render the user's "places I've saved" view (and the PLACES counter
+   *     on the profile). Without this write the counter is permanently 0
+   *     because nothing else populated that collection.
    */
   async recordUserSave(placeId: string, userId: string): Promise<boolean> {
     try {
       if (!placeId || !userId) return false
       const markerRef = doc(db, 'places', placeId, 'saves', userId)
+      const userSavedRef = doc(db, 'users', userId, 'savedPlaces', placeId)
       const existing = await getDoc(markerRef)
+      const ts = Timestamp.now()
+      // Always backfill the user-side marker even if the global one already
+      // exists — that's the path that recovers PLACES counts for accounts
+      // who saved before this mirror was added.
+      await setDoc(userSavedRef, { placeId, savedAt: ts }, { merge: true })
       if (existing.exists()) return false
-      await setDoc(markerRef, { userId, savedAt: Timestamp.now() })
+      await setDoc(markerRef, { userId, savedAt: ts })
       const placeRef = doc(db, 'places', placeId)
       await updateDoc(placeRef, { savedCount: increment(1) })
       return true
@@ -3240,6 +3241,10 @@ class FirebaseDataService {
     try {
       if (!placeId || !userId) return false
       const markerRef = doc(db, 'places', placeId, 'saves', userId)
+      const userSavedRef = doc(db, 'users', userId, 'savedPlaces', placeId)
+      // Drop the user-side mirror unconditionally so the PLACES counter
+      // updates immediately even if the global marker was already gone.
+      try { await deleteDoc(userSavedRef) } catch (e) { console.warn('[recordUserUnsave] user-side delete failed', e) }
       const existing = await getDoc(markerRef)
       if (!existing.exists()) return false
       await deleteDoc(markerRef)
@@ -3253,22 +3258,98 @@ class FirebaseDataService {
   }
 
   /**
+   * One-shot reconciliation for accounts whose saves predate the user-side
+   * mirror introduced alongside `recordUserSave` v2. Walks the user's lists,
+   * gathers unique place ids, and writes any missing
+   * users/{uid}/savedPlaces/{placeId} markers.
+   *
+   * Idempotent and gated by a session flag so a profile mount doesn't pay
+   * the cost more than once per tab. Returns the number of new mirrors
+   * written so callers can decide whether to refresh derived state.
+   */
+  async backfillSavedPlacesFromLists(userId: string): Promise<number> {
+    if (!userId) return 0
+    try {
+      if (typeof sessionStorage !== 'undefined' && sessionStorage.getItem(`bfsp:${userId}`) === '1') return 0
+    } catch { /* sessionStorage unavailable — backfill anyway */ }
+    try {
+      const lists = await this.getUserLists(userId)
+      const placeIds = new Set<string>()
+      for (const list of lists) {
+        const hubs = (list as { hubs?: unknown[] }).hubs
+        if (!Array.isArray(hubs)) continue
+        for (const raw of hubs) {
+          const id = typeof raw === 'string'
+            ? raw
+            : (raw && typeof raw === 'object' && 'id' in (raw as object))
+              ? String((raw as { id: string }).id)
+              : ''
+          if (id) placeIds.add(id)
+        }
+      }
+      if (placeIds.size === 0) {
+        try { sessionStorage.setItem(`bfsp:${userId}`, '1') } catch {}
+        return 0
+      }
+      let written = 0
+      const ts = Timestamp.now()
+      // Cap the per-call write count so we don't fan out hundreds of writes
+      // on a heavy account in one go. The remainder gets caught next tab.
+      const ids = Array.from(placeIds).slice(0, 50)
+      const writes = ids.map(async (placeId) => {
+        const ref = doc(db, 'users', userId, 'savedPlaces', placeId)
+        const snap = await getDoc(ref)
+        if (snap.exists()) return
+        await setDoc(ref, { placeId, savedAt: ts, backfilled: true }, { merge: true })
+        written += 1
+      })
+      await Promise.all(writes)
+      try { sessionStorage.setItem(`bfsp:${userId}`, '1') } catch {}
+      return written
+    } catch (e) {
+      console.warn('[backfillSavedPlacesFromLists] failed', e)
+      return 0
+    }
+  }
+
+  /**
    * Returns the set of place ids the current user has saved. Used to render
    * "saved" state on cards without N+1 reads.
+   *
+   * Reads the user-side mirror first (cheap single subcollection read), then
+   * unions in any place ids found across the user's lists. The list pass
+   * handles legacy accounts where a place got added to a list before
+   * recordUserSave wrote a mirror — so the bookmark indicator is accurate
+   * even when the backfill hasn't completed yet.
    */
   async getUserSavedPlaceIds(userId: string): Promise<Set<string>> {
-    // Lightweight: rely on the auto-list (loved/tried/want) memberships.
+    const out = new Set<string>()
     try {
-      const out = new Set<string>()
+      const snap = await getDocs(collection(db, 'users', userId, 'savedPlaces'))
+      snap.docs.forEach(d => {
+        const id = (d.data() as { placeId?: string }).placeId || d.id
+        if (id) out.add(id)
+      })
+    } catch (e) {
+      console.warn('[getUserSavedPlaceIds] mirror read failed', e)
+    }
+    try {
       const lists = await this.getUserLists(userId)
       for (const l of lists) {
-        const hubs = (l as { hubs?: string[] }).hubs || []
-        for (const id of hubs) out.add(id)
+        const hubs = (l as { hubs?: unknown[] }).hubs || []
+        for (const raw of hubs) {
+          const id = typeof raw === 'string'
+            ? raw
+            : (raw && typeof raw === 'object' && 'id' in (raw as object))
+              ? String((raw as { id: string }).id)
+              : ''
+          if (id) out.add(id)
+        }
       }
-      return out
-    } catch {
-      return new Set()
+    } catch (e) {
+      console.warn('[getUserSavedPlaceIds] list scan failed', e)
     }
+    return out
   }
 
   /**
@@ -3327,13 +3408,19 @@ class FirebaseDataService {
         const name = (p.name || '').trim()
         if (!name) return { id: candidateId || null, created: false }
         const address = (p.address || p.location?.address || '').trim()
-        const lat = p.coordinates?.lat ?? p.location?.lat ?? 0
-        const lng = p.coordinates?.lng ?? p.location?.lng ?? 0
+        // Use readCoords to handle the four shapes Google + legacy callers
+        // can pass (lat/lng vs latitude/longitude on either coordinates or
+        // location). Previously we fell back to (0, 0) when no coords were
+        // present, which persisted Null Island into Firestore — every saved
+        // place then showed ~5409 mi from a US viewer (great-circle from
+        // (0, 0) to NJ ≈ 8700 km / 5409 mi) and the list map filtered them
+        // out as "no locations".
+        const coords = readCoords(p)
         const result = await this.createHub({
           name,
           address,
           description: p.description || '',
-          coordinates: { lat, lng },
+          coordinates: coords,
           photos: p.photos,
           primaryType: p.primaryType,
           types: p.types,

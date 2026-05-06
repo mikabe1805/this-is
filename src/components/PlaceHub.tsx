@@ -281,9 +281,6 @@ const PlaceHub = ({ place, lists, onSaveToList, onCreateList }: PlaceHubProps) =
                   className="w-full px-4 py-3 border border-warm-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-warm-300 focus:border-transparent bg-white/80 backdrop-blur-sm shadow-soft"
                 >
                   <option value="">Select a list...</option>
-                  <option value="all-loved">All Loved</option>
-                  <option value="all-tried">All Tried</option>
-                  <option value="all-want">All Want</option>
                   <option value="weekend-spots">Weekend Spots</option>
                   <option value="coffee-tour">Coffee Tour</option>
                 </select>

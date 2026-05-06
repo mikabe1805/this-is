@@ -178,7 +178,6 @@ const PlaceHub = () => {
       for (const lid of ids) {
         await firebaseDataService.savePlaceToList(place.id, lid, authUser.id, note, undefined, status, rating)
       }
-      await firebaseDataService.saveToAutoList(place.id, authUser.id, status, note, rating)
       // Idempotent — bumps savedCount once per user-place pair regardless of list count.
       const incremented = await firebaseDataService.recordUserSave(place.id, authUser.id)
       if (incremented) {

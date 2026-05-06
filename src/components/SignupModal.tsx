@@ -331,13 +331,13 @@ export default function SignupModal({ isOpen, onClose, onSwitchToLogin }: Signup
           {step === 2 && (
             <>
               <div>
-                <label htmlFor="su-location" className="label-eyebrow text-ink-mute mb-1.5 block">Where you're based</label>
+                <label htmlFor="su-location" className="label-eyebrow text-ink-mute mb-1.5 block">Your town or neighborhood</label>
                 <GooglePlacesAutocomplete
                   onPlaceSelect={handleLocationSelect}
                   value={data.location}
-                  placeholder="City or neighborhood"
+                  placeholder="e.g. Piscataway, NJ or Williamsburg, Brooklyn"
                 />
-                <p className="text-[12px] text-ink-soft mt-1.5">We use this to surface nearby places — never shared.</p>
+                <p className="text-[12px] text-ink-soft mt-1.5">Town or neighborhood — not your home address. Used only to surface nearby places, and never shared.</p>
               </div>
 
               <div>

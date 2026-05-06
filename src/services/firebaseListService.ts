@@ -17,6 +17,7 @@ import {
   increment
 } from 'firebase/firestore'
 import { firebaseStorageService } from './firebaseStorageService'
+import { readCoords } from '../utils/coords'
 import type { List, ListPlace } from '../types'
 
 class FirebaseListService {
@@ -126,8 +127,7 @@ class FirebaseListService {
           if (placeSnap.exists()) {
             const placeData = placeSnap.data();
             const subcollectionData = subcollectionMap.get(hubId) || {};
-            const lat = placeData.location?.lat ?? placeData.coordinates?.lat
-            const lng = placeData.location?.lng ?? placeData.coordinates?.lng
+            const coords = readCoords(placeData)
 
             places.push({
               id: hubId,
@@ -146,7 +146,7 @@ class FirebaseListService {
                 photos: Array.isArray(placeData.photos) ? placeData.photos : [],
                 primaryType: placeData.primaryType || null,
                 types: Array.isArray(placeData.types) ? placeData.types : [],
-                coordinates: (typeof lat === 'number' && typeof lng === 'number') ? { lat, lng } : undefined,
+                coordinates: coords,
                 posts: [],
                 savedCount: placeData.savedCount || 0,
                 createdAt: placeData.createdAt || ''
@@ -166,8 +166,7 @@ class FirebaseListService {
               if (hubSnap.exists()) {
                 const hubData = hubSnap.data();
                 const subcollectionData = subcollectionMap.get(hubId) || {};
-                const lat = hubData.location?.lat ?? hubData.coordinates?.lat
-                const lng = hubData.location?.lng ?? hubData.coordinates?.lng
+                const coords = readCoords(hubData)
 
                 places.push({
                   id: hubId,
@@ -183,7 +182,7 @@ class FirebaseListService {
                     photos: Array.isArray(hubData.photos) ? hubData.photos : [],
                     primaryType: hubData.primaryType || null,
                     types: Array.isArray(hubData.types) ? hubData.types : [],
-                    coordinates: (typeof lat === 'number' && typeof lng === 'number') ? { lat, lng } : undefined,
+                    coordinates: coords,
                     posts: [],
                     savedCount: hubData.savedCount || 0,
                     createdAt: hubData.createdAt || ''

@@ -9,6 +9,7 @@ import { useNavigation } from '../contexts/NavigationContext'
 import { useModal } from '../contexts/ModalContext'
 import { firebaseDataService } from '../services/firebaseDataService'
 import { formatTimestamp } from '../utils/dateUtils'
+import { readCoords } from '../utils/coords'
 import type { Hub, Place, User, Activity, List } from '../types/index.js'
 
 interface FriendEvent {
@@ -148,11 +149,11 @@ const Home = () => {
       const items: DiscoveryCardItem[] = finalPicks.map((rawP) => {
         const p = rawP as PlaceLoose
         placeRefs.current[p.id] = p
-        const c = p.coordinates || p.location || {}
-        const lat = typeof c.lat === 'number' ? c.lat : c.latitude
-        const lng = typeof c.lng === 'number' ? c.lng : c.longitude
-        const distanceKm = eff && typeof lat === 'number' && typeof lng === 'number'
-          ? firebaseDataService.distanceKm({ lat, lng }, { lat: eff.lat, lng: eff.lng })
+        // readCoords rejects (0, 0) — that bad fallback was making every saved
+        // place show ~5409 mi away (great-circle from Null Island to NJ).
+        const coords = readCoords(p)
+        const distanceKm = eff && coords
+          ? firebaseDataService.distanceKm(coords, { lat: eff.lat, lng: eff.lng })
           : undefined
         return {
           id: p.id,

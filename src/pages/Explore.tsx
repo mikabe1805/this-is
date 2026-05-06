@@ -7,6 +7,7 @@ import { useAuth } from '../contexts/AuthContext'
 import { useNavigation } from '../contexts/NavigationContext'
 import { useModal } from '../contexts/ModalContext'
 import { firebaseDataService } from '../services/firebaseDataService'
+import { readCoords } from '../utils/coords'
 import type { Place, List, User } from '../types/index.js'
 
 type FeedItem = DiscoveryCardItem & {
@@ -120,11 +121,9 @@ const Explore = () => {
           return true
         })
         feed = unique.map((p: any) => {
-          const c = p.coordinates || p.location || {}
-          const lat = typeof c.lat === 'number' ? c.lat : c.latitude
-          const lng = typeof c.lng === 'number' ? c.lng : c.longitude
-          const distanceKm = eff && typeof lat === 'number' && typeof lng === 'number'
-            ? firebaseDataService.distanceKm({ lat, lng }, { lat: eff.lat, lng: eff.lng })
+          const coords = readCoords(p)
+          const distanceKm = eff && coords
+            ? firebaseDataService.distanceKm(coords, { lat: eff.lat, lng: eff.lng })
             : undefined
           return {
             id: p.id,

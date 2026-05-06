@@ -1,39 +1,14 @@
-import type { List, User, Place } from '../types/index.js'
-import { HeartIcon, BookmarkIcon, PlusIcon, MapPinIcon, CalendarIcon, ArrowLeftIcon, EyeIcon } from '@heroicons/react/24/outline'
-import { useState, useEffect } from 'react'
+import type { List, Place } from '../types/index.js'
+import { ArrowLeftIcon, EyeIcon, HeartIcon, MagnifyingGlassIcon, MapPinIcon } from '@heroicons/react/24/outline'
+import { HeartIcon as HeartIconSolid } from '@heroicons/react/24/solid'
+import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import SearchAndFilter from '../components/SearchAndFilter'
 import SaveModal from '../components/SaveModal'
-import CreatePost from '../components/CreatePost'
+import HubImage from '../components/HubImage'
 import { useNavigation } from '../contexts/NavigationContext.tsx'
 import { useAuth } from '../contexts/AuthContext.js'
 import { firebaseDataService } from '../services/firebaseDataService.js'
-
-// SVG botanical accent
-const BotanicalAccent = () => (
-  <svg width="60" height="60" viewBox="0 0 60 60" fill="none" xmlns="http://www.w3.org/2000/svg" className="absolute -top-6 -left-6 opacity-30 select-none pointer-events-none">
-    <path d="M10 50 Q30 10 50 50" stroke="#A3B3A3" strokeWidth="3" fill="none" />
-    <ellipse cx="18" cy="38" rx="4" ry="8" fill="#C7D0C7" />
-    <ellipse cx="30" cy="28" rx="4" ry="8" fill="#A3B3A3" />
-    <ellipse cx="42" cy="38" rx="4" ry="8" fill="#7A927A" />
-  </svg>
-)
-
-const sortOptions = [
-  { key: 'relevance', label: 'Relevance' },
-  { key: 'recent', label: 'Recently Favorited' },
-  { key: 'popular', label: 'Most Popular' },
-  { key: 'alphabetical', label: 'Alphabetical' },
-  { key: 'places', label: 'Most Places' },
-]
-
-const filterOptions = [
-  { key: 'public', label: 'Public' },
-  { key: 'private', label: 'Private' },
-  { key: 'friends', label: 'Friends Only' },
-]
-
-const availableTags = ['coffee', 'food', 'outdoors', 'work', 'study', 'cozy', 'trendy', 'local', 'authentic']
+import { formatTimestamp } from '../utils/dateUtils'
 
 const Favorites = () => {
   const navigate = useNavigate()
@@ -42,110 +17,66 @@ const Favorites = () => {
 
   const [savedLists, setSavedLists] = useState<List[]>([])
   const [loading, setLoading] = useState(true)
-  const [sortBy, setSortBy] = useState('relevance')
   const [searchQuery, setSearchQuery] = useState('')
-  const [activeFilters, setActiveFilters] = useState<string[]>([])
-  const [selectedTags, setSelectedTags] = useState<string[]>([])
   const [showSaveModal, setShowSaveModal] = useState(false)
-  const [showCreatePost, setShowCreatePost] = useState(false)
   const [selectedPlace, setSelectedPlace] = useState<Place | null>(null)
-  const [createPostListId, setCreatePostListId] = useState<string | null>(null)
 
   useEffect(() => {
     const fetchSavedLists = async () => {
       if (authUser) {
         setLoading(true)
         const lists = await firebaseDataService.getSavedLists(authUser.id)
-        setSavedLists(lists)
+        // Hide legacy auto-lists that pre-date the auto-list removal — users
+        // shouldn't see "All Loved" / "All Tried" / "All Want" in their
+        // favorites.
+        const visible = lists.filter(l => {
+          const tags = (l as { tags?: string[] }).tags || []
+          if (tags.includes('auto-generated') || tags.includes('#auto-generated')) return false
+          const name = (l.name || '').trim().toLowerCase()
+          if (name === 'all loved' || name === 'all tried' || name === 'all want') return false
+          return true
+        })
+        setSavedLists(visible)
         setLoading(false)
       }
     }
     fetchSavedLists()
   }, [authUser])
 
+  const filteredLists = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase()
+    if (!q) return savedLists
+    return savedLists.filter(list =>
+      list.name.toLowerCase().includes(q) ||
+      (list.description || '').toLowerCase().includes(q) ||
+      (list.tags || []).some(t => t.toLowerCase().includes(q))
+    )
+  }, [savedLists, searchQuery])
+
   const handleUnfavoriteList = async (listId: string) => {
-    if (authUser) {
-      await firebaseDataService.saveList(listId, authUser.id);
-      setSavedLists(prev => prev.filter(list => list.id !== listId));
-    }
-  };
-
-  // Filter and sort lists
-  let filteredLists = savedLists.filter(list => {
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase()
-      const matches =
-        list.name.toLowerCase().includes(q) ||
-        (list.description || '').toLowerCase().includes(q) ||
-        (list.tags || []).some(t => t.toLowerCase().includes(q))
-      if (!matches) return false
-    }
-    // Filter by privacy
-    if (activeFilters.length > 0) {
-      const hasPrivacyFilter = activeFilters.some(f => list.privacy === f)
-      if (!hasPrivacyFilter) return false
-    }
-
-    // Filter by tags
-    if (selectedTags.length > 0) {
-      const hasTagFilter = selectedTags.some(tag => list.tags.includes(tag))
-      if (!hasTagFilter) return false
-    }
-
-    return true
-  })
-
-  // Sort lists
-  switch (sortBy) {
-    case 'relevance': {
-      const q = searchQuery.trim().toLowerCase()
-      const tags = selectedTags.map(t=>t.toLowerCase())
-      const score = (l: List) => {
-        let s = 0
-        const name = l.name.toLowerCase()
-        const desc = (l.description||'').toLowerCase()
-        const lt = (l.tags||[]).map(t=>t.toLowerCase())
-        if (q) { if (name.includes(q)) s+=4; if (desc.includes(q)) s+=2; if (lt.some(t=>t.includes(q))) s+=3 }
-        if (tags.length>0) { s += lt.filter(t=>tags.includes(t)).length * 5 }
-        return s
-      }
-      filteredLists = [...filteredLists].sort((a,b)=>{
-        const sa = score(a), sb = score(b)
-        if (sb !== sa) return sb - sa
-        return (b.likes||0) - (a.likes||0)
-      })
-      break
-    }
-    case 'recent':
-      filteredLists = [...filteredLists].sort((a, b) => new Date(b.updatedAt || 0).getTime() - new Date(a.updatedAt || 0).getTime())
-      break
-    case 'popular':
-      filteredLists = [...filteredLists].sort((a, b) => (b.likes || 0) - (a.likes || 0))
-      break
-    case 'alphabetical':
-      filteredLists = [...filteredLists].sort((a, b) => a.name.localeCompare(b.name))
-      break
-    case 'places':
-      filteredLists = [...filteredLists].sort((a, b) => (b.hubs?.length || 0) - (a.hubs?.length || 0))
-      break
+    if (!authUser) return
+    await firebaseDataService.saveList(listId, authUser.id)
+    setSavedLists(prev => prev.filter(list => list.id !== listId))
   }
 
-  const handleSaveToPlace = (place: Place) => {
-    setSelectedPlace(place)
-    setShowSaveModal(true)
-  }
-
-  const handleSave = async (status: 'loved' | 'tried' | 'want', rating?: 'liked' | 'neutral' | 'disliked', listIds?: string[], note?: string) => {
-    if (!selectedPlace || !currentUser) { setShowSaveModal(false); return }
+  const handleSave = async (
+    status: 'loved' | 'tried' | 'want',
+    rating?: 'liked' | 'neutral' | 'disliked',
+    listIds?: string[],
+    note?: string,
+  ) => {
+    // Previously this read `currentUser` from a name that didn't exist in
+    // scope (only `authUser` was ever defined), so the early return tripped
+    // and saves silently no-oped. Use authUser consistently.
+    if (!selectedPlace || !authUser) { setShowSaveModal(false); return }
     try {
       const ids = Array.isArray(listIds) ? listIds : []
       for (const lid of ids) {
-        await firebaseDataService.savePlaceToList(selectedPlace.id, lid, currentUser.id, note, undefined, status, rating)
+        await firebaseDataService.savePlaceToList(selectedPlace.id, lid, authUser.id, note, undefined, status, rating)
       }
-      await firebaseDataService.saveToAutoList(selectedPlace.id, currentUser.id, status, note, rating)
-      await firebaseDataService.recordUserSave(selectedPlace.id, currentUser.id)
+      await firebaseDataService.recordUserSave(selectedPlace.id, authUser.id)
     } catch (e) {
-      console.error('[saved-lists] save failed', e)
+      console.error('[favorites] save failed', e)
     } finally {
       setShowSaveModal(false)
       setSelectedPlace(null)
@@ -153,265 +84,176 @@ const Favorites = () => {
   }
 
   const handleCreateList = async (listData: { name: string; description: string; privacy: 'public' | 'private' | 'friends'; tags?: string[]; coverImage?: string }) => {
-    if (!selectedPlace || !currentUser) { setShowSaveModal(false); return }
+    if (!selectedPlace || !authUser) { setShowSaveModal(false); return }
     try {
-      const newId = await firebaseDataService.createList({ ...listData, tags: listData.tags || [], userId: currentUser.id })
+      const newId = await firebaseDataService.createList({ ...listData, tags: listData.tags || [], userId: authUser.id })
       if (newId) {
-        await firebaseDataService.savePlaceToList(selectedPlace.id, newId, currentUser.id, undefined, undefined, 'loved')
-        await firebaseDataService.recordUserSave(selectedPlace.id, currentUser.id)
+        await firebaseDataService.savePlaceToList(selectedPlace.id, newId, authUser.id, undefined, undefined, 'loved')
+        await firebaseDataService.recordUserSave(selectedPlace.id, authUser.id)
       }
     } catch (e) {
-      console.error('[saved-lists] create list failed', e)
+      console.error('[favorites] create list + save failed', e)
     } finally {
       setShowSaveModal(false)
       setSelectedPlace(null)
     }
   }
 
-  const handleCreatePost = (listId?: string) => {
-    setCreatePostListId(listId || null)
-    setShowCreatePost(true)
-  }
-
-  const toggleTag = (tag: string) => {
-    setSelectedTags(prev =>
-      prev.includes(tag)
-        ? prev.filter(t => t !== tag)
-        : [...prev, tag]
-    )
-  }
-
   if (loading) {
     return (
-      <div className="relative min-h-full overflow-x-hidden bg-linen-50 flex items-center justify-center">
+      <div className="min-h-full flex items-center justify-center bg-paper">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-sage-500 mx-auto mb-4"></div>
-          <p className="text-sage-600">Loading your favorites...</p>
+          <div className="animate-spin rounded-full h-10 w-10 border-2 border-ink/20 border-t-ink/80 mx-auto mb-3" />
+          <p className="font-mono text-[10px] tracking-[0.18em] uppercase text-ink-mute">Loading favorites…</p>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="relative min-h-full overflow-x-hidden bg-linen-50">
-      {/* Enhanced background */}
-      <div className="absolute inset-0 z-0 pointer-events-none">
-        <div className="absolute inset-0 bg-linen-texture opacity-80 mix-blend-multiply"></div>
-        <div className="absolute inset-0 bg-gradient-to-br from-gold-50/60 via-linen-100/80 to-sage-100/70 opacity-80"></div>
-        <div className="absolute inset-0 bg-gradient-radial from-transparent via-transparent to-charcoal-900/10"></div>
-      </div>
-
+    <div className="relative min-h-full bg-paper">
       {/* Header */}
-      <div className="relative z-10 px-4 pt-6">
-        <div className="max-w-2xl mx-auto">
-          <div className="flex items-center gap-4 mb-6">
-            <button
-              onClick={() => { if (window.history.length > 1) navigate(-1); else navigate('/profile') }}
-              className="p-2 rounded-xl bg-white/80 backdrop-blur-sm border border-linen-200 text-charcoal-600 hover:bg-white hover:shadow-soft transition"
-            >
-              <ArrowLeftIcon className="w-5 h-5" />
-            </button>
-            <div className="flex-1">
-              <h1 className="text-2xl font-serif font-bold text-charcoal-800">Favorites</h1>
-              <p className="text-sage-600 text-sm">{filteredLists.length} favorited lists</p>
-            </div>
-            <button
-              onClick={() => {
-                window.dispatchEvent(new CustomEvent('openCreateList'))
-              }}
-              className="p-2 rounded-xl bg-gradient-to-r from-sage-500 to-gold-500 text-white shadow-soft hover:shadow-botanical transition"
-            >
-              <PlusIcon className="w-5 h-5" />
-            </button>
+      <div className="relative z-10 px-5 pt-6 max-w-2xl mx-auto">
+        <div className="flex items-start gap-4 mb-5">
+          <button
+            onClick={() => { if (window.history.length > 1) navigate(-1); else navigate('/profile') }}
+            aria-label="Back"
+            className="p-2 rounded-full bg-card border border-edge text-ink-soft hover:border-ink/40 transition-colors"
+          >
+            <ArrowLeftIcon className="w-5 h-5" />
+          </button>
+          <div className="flex-1 pt-1">
+            <h1 className="font-display text-[34px] leading-tight text-ink">Favorites</h1>
+            <p className="font-mono text-[10px] tracking-[0.12em] uppercase text-ink-mute mt-1">
+              {filteredLists.length} {filteredLists.length === 1 ? 'list' : 'lists'} you've hearted
+            </p>
           </div>
+        </div>
 
-          {/* Search and Filter */}
-          <div className="mb-6">
-            <form onSubmit={(e) => { e.preventDefault(); }}>
-              <SearchAndFilter
-                placeholder="Search favorites..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                sortOptions={sortOptions}
-                filterOptions={filterOptions}
-                availableTags={availableTags}
-                sortBy={sortBy}
-                setSortBy={setSortBy}
-                activeFilters={activeFilters}
-                setActiveFilters={setActiveFilters}
-                dropdownPosition="top-right"
-                onSubmitQuery={() => { /* in-place filtering */ }}
-              />
-            </form>
-          </div>
-
-          {/* Selected Tags */}
-          {selectedTags.length > 0 && (
-            <div className="flex flex-wrap gap-2 mb-4">
-              {selectedTags.map(tag => (
-                <button
-                  key={tag}
-                  onClick={() => toggleTag(tag)}
-                  className="px-3 py-1 rounded-full text-sm font-medium bg-sage-100 text-sage-700 border border-sage-200 hover:bg-sage-200 transition flex items-center gap-1"
-                >
-                  #{tag}
-                  <span className="text-sage-500">×</span>
-                </button>
-              ))}
-            </div>
-          )}
+        {/* Search */}
+        <div className="flex items-center gap-2 h-11 px-4 rounded-full bg-card border border-edge focus-within:border-ink/40 transition-colors mb-6">
+          <MagnifyingGlassIcon className="w-[18px] h-[18px] text-ink-mute shrink-0" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search favorites…"
+            className="flex-1 bg-transparent outline-none text-[14px] text-ink placeholder:text-ink-mute"
+            aria-label="Search favorites"
+          />
         </div>
       </div>
 
-      {/* Lists Grid */}
-      <div className="relative z-10 px-4 pb-20">
-        <div className="max-w-2xl mx-auto">
-          <div className="grid gap-4">
-            {filteredLists.map((list) => (
-              <div
-                key={list.id}
-                className="relative rounded-2xl shadow-botanical border border-linen-200 bg-white/98 overflow-hidden transition hover:shadow-cozy hover:-translate-y-1"
-              >
-                {/* Botanical accent */}
-                <BotanicalAccent />
-
-                <div className="flex flex-col md:flex-row gap-0">
-                  {/* Cover Image */}
-                  <div className="w-full md:w-40 h-32 md:h-auto flex-shrink-0 bg-linen-100 relative">
-                    {list.coverImage ? (
-                      <img
-                        src={list.coverImage}
-                        alt={list.name}
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center font-serif text-3xl text-charcoal-400" aria-hidden>
-                        {(list.name || '?').slice(0, 1).toUpperCase()}
-                      </div>
-                    )}
-                    {/* Privacy indicator */}
-                    <div className="absolute top-2 right-2">
-                      {list.privacy === 'private' && (
-                        <div className="p-1.5 rounded-full bg-charcoal-900/70 backdrop-blur-sm">
-                          <EyeIcon className="w-3 h-3 text-white" />
-                        </div>
-                      )}
-                      {list.privacy === 'friends' && (
-                        <div className="p-1.5 rounded-full bg-sage-900/70 backdrop-blur-sm">
-                          <MapPinIcon className="w-3 h-3 text-white" />
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Content */}
-                  <div className="flex-1 p-4 flex flex-col justify-between">
-                    <div>
-                      <div className="flex items-start justify-between mb-2">
-                        <div className="flex items-center gap-2 pr-2">
-                          <h3 className="font-serif font-semibold text-lg text-charcoal-700">{list.name}</h3>
-                          {list.tags.includes('auto-generated') && (
-                            <span className="px-2 py-1 rounded-full text-xs font-medium bg-gold-100 text-gold-700 border border-gold-200">
-                              Auto
-                            </span>
-                          )}
-                        </div>
-                      </div>
-
-                      <p className="text-sm text-charcoal-500 mb-3 leading-relaxed">{list.description}</p>
-
-                      {/* List info */}
-                      <div className="flex items-center gap-4 text-xs text-charcoal-400 mb-3">
-                        <div className="flex items-center gap-1">
-                          <CalendarIcon className="w-3 h-3" />
-                          {new Date(list.updatedAt || 0).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <MapPinIcon className="w-3 h-3" />
-                          {list.hubs?.length || 0} places
-                        </div>
-                      </div>
-
-                      <div className="flex flex-wrap gap-2 mb-3">
-                        {list.tags.filter(tag => tag !== 'auto-generated').map(tag => (
-                          <button
-                            key={tag}
-                            onClick={() => toggleTag(tag)}
-                            className={`px-2 py-1 rounded-full text-xs font-medium transition ${
-                              selectedTags.includes(tag)
-                                ? 'bg-sage-200 text-sage-800 border border-sage-300'
-                                : 'bg-sage-50 text-sage-700 border border-sage-100 hover:bg-sage-100'
-                              }`}
-                          >
-                            #{tag}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Actions */}
-                    <div className="flex items-center gap-2 mt-4 pt-3 border-t border-linen-200">
-                      <button
-                        onClick={() => openListModal(list, 'saved-lists')}
-                        className="flex-1 py-2 px-3 rounded-lg bg-sage-100 text-sage-700 font-medium text-sm hover:bg-sage-200 transition"
-                      >
-                        View List
-                      </button>
-
-                      <button
-                        onClick={() => handleCreatePost(list.id)}
-                        className="p-2 rounded-lg bg-gold-50 text-gold-600 hover:bg-gold-100 transition"
-                        title="Add to list"
-                      >
-                        <PlusIcon className="w-4 h-4" />
-                      </button>
-
-                      <button
-                        onClick={() => handleSaveToPlace({
-                          id: list.id,
-                          name: list.name,
-                          address: 'Various locations',
-                          tags: list.tags,
-                          posts: [],
-                          savedCount: list.likes || 0,
-                          createdAt: list.createdAt || new Date().toISOString()
-                        })}
-                        className="p-2 rounded-lg bg-gold-50 text-gold-600 hover:bg-gold-100 transition"
-                        title="Save to list"
-                      >
-                        <BookmarkIcon className="w-4 h-4" />
-                      </button>
-
-                      <button
-                        onClick={() => handleUnfavoriteList(list.id)}
-                        className="p-2 rounded-lg bg-charcoal-50 text-charcoal-600 hover:bg-charcoal-100 transition"
-                        title="Remove from favorites"
-                      >
-                        <HeartIcon className="w-4 h-4 fill-current" />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {filteredLists.length === 0 && (
-            <div className="text-center py-12">
-              <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-linen-100 flex items-center justify-center">
-                <HeartIcon className="w-8 h-8 text-charcoal-400" />
-              </div>
-              <h3 className="text-lg font-serif font-semibold text-charcoal-700 mb-2">No favorites yet</h3>
-              <p className="text-charcoal-500 mb-4">Start exploring and heart lists you love</p>
+      {/* List grid */}
+      <div className="relative z-10 px-5 pb-20 max-w-2xl mx-auto">
+        {filteredLists.length === 0 ? (
+          <div className="border border-edge rounded-[14px] px-5 py-12 text-center bg-card">
+            <HeartIcon className="w-10 h-10 text-ink-mute mx-auto mb-3" />
+            <p className="font-display text-[24px] text-ink leading-tight">No favorites yet.</p>
+            <p className="text-[13px] text-ink-soft mt-1.5">
+              {searchQuery.trim() ? 'No lists match that search.' : 'Heart a list to keep it here.'}
+            </p>
+            {!searchQuery.trim() && (
               <button
                 onClick={() => navigate('/search')}
-                className="px-4 py-2 rounded-lg bg-gradient-to-r from-sage-500 to-gold-500 text-white font-medium hover:shadow-botanical transition"
+                className="btn-cta h-10 px-4 mt-4 label-eyebrow"
               >
-                Discover Lists
+                Discover lists
               </button>
-            </div>
-          )}
-        </div>
+            )}
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {filteredLists.map((list) => {
+              const placeCount = (list as { hubs?: unknown[] }).hubs?.length || 0
+              return (
+                <article
+                  key={list.id}
+                  className="bg-card border border-edge rounded-[14px] overflow-hidden hover:border-ink/30 transition-colors"
+                >
+                  <div className="flex flex-col sm:flex-row">
+                    {/* Cover */}
+                    <button
+                      type="button"
+                      onClick={() => openListModal(list, 'saved-lists')}
+                      aria-label={`Open ${list.name}`}
+                      className="w-full sm:w-40 h-32 sm:h-auto bg-paper-deep relative shrink-0 group"
+                    >
+                      {list.coverImage ? (
+                        <img
+                          src={list.coverImage}
+                          alt={list.name}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <HubImage
+                          aspect=""
+                          className="w-full h-full"
+                          alt={list.name}
+                          loadStrategy="fallback"
+                          types={list.tags}
+                        />
+                      )}
+                      {list.privacy === 'private' && (
+                        <div className="absolute top-2 right-2 p-1.5 rounded-full bg-ink/70 backdrop-blur-sm">
+                          <EyeIcon className="w-3 h-3 text-paper" />
+                        </div>
+                      )}
+                    </button>
+
+                    {/* Body */}
+                    <div className="flex-1 p-4 flex flex-col justify-between min-w-0">
+                      <div>
+                        <h3 className="font-display text-[20px] leading-tight text-ink truncate">{list.name}</h3>
+                        <div className="flex items-center gap-3 mt-1.5 text-[12px] text-ink-soft">
+                          <span className="inline-flex items-center gap-1">
+                            <MapPinIcon className="w-3.5 h-3.5" />
+                            {placeCount} {placeCount === 1 ? 'place' : 'places'}
+                          </span>
+                          <span aria-hidden>•</span>
+                          <span>Updated {formatTimestamp(list.updatedAt)}</span>
+                        </div>
+                        {list.description && (
+                          <p className="text-[13px] text-ink-soft mt-2 line-clamp-2">{list.description}</p>
+                        )}
+                        {(list.tags || []).length > 0 && (
+                          <div className="flex flex-wrap gap-1.5 mt-3">
+                            {(list.tags || []).slice(0, 4).map(tag => (
+                              <span
+                                key={tag}
+                                className="px-2.5 h-6 rounded-full bg-aurum-200/50 border border-aurum-200/70 inline-flex items-center label-eyebrow text-bark-900"
+                              >
+                                #{tag}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Actions */}
+                      <div className="flex items-center gap-2 mt-4 pt-3 border-t border-edge">
+                        <button
+                          onClick={() => openListModal(list, 'saved-lists')}
+                          className="btn-secondary h-9 px-4 label-eyebrow flex-1"
+                        >
+                          View list
+                        </button>
+                        <button
+                          onClick={() => handleUnfavoriteList(list.id)}
+                          aria-label="Remove from favorites"
+                          title="Remove from favorites"
+                          className="h-9 w-9 rounded-full border border-edge bg-card text-bark-900 hover:border-ink/40 inline-flex items-center justify-center transition-colors"
+                        >
+                          <HeartIconSolid className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </article>
+              )
+            })}
+          </div>
+        )}
       </div>
 
       {/* Modals */}
@@ -428,15 +270,6 @@ const Favorites = () => {
           onCreateList={handleCreateList}
         />
       )}
-
-      <CreatePost
-        isOpen={showCreatePost}
-        onClose={() => {
-          setShowCreatePost(false)
-          setCreatePostListId(null)
-        }}
-        preSelectedListIds={createPostListId ? [createPostListId] : undefined}
-      />
     </div>
   )
 }

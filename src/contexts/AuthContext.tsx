@@ -63,23 +63,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
     
     await firebaseDataService.createUser(newUser);
 
-    const defaultLists = [
-      { name: 'All Loved', description: 'All the places you\'ve loved.', privacy: 'private' as const, tags: ['auto-generated', 'loved'] },
-      { name: 'All Tried', description: 'All the places you\'ve tried.', privacy: 'private' as const, tags: ['auto-generated', 'tried'] },
-      { name: 'All Want', description: 'All the places you want to try.', privacy: 'private' as const, tags: ['auto-generated', 'want'] }
-    ];
-
-    // Parallelize the three default-list creates. Was a sequential loop —
-    // the third roundtrip was held up behind the first two, slowing
-    // signup→onboarding by a few seconds on cold connections.
-    await Promise.all(
-      defaultLists.map(list =>
-        firebaseDataService.createList({ ...list, userId: user.uid }).catch(e => {
-          console.warn('[signUp] failed to create default list', list.name, e)
-          return null
-        })
-      )
-    );
+    // We used to seed three "auto" lists (All Loved / All Tried / All Want)
+    // here and write a copy of every save into the matching one. That
+    // double-wrote each save into Firestore, inflated user-visible counts,
+    // and cluttered the favorites page. The status (loved/tried/want) is
+    // already stored on the per-list ListPlace row, so any "all loved across
+    // my lists" view can be a derived query — no extra collections needed.
 
     // Hydrate currentUser immediately so the UI advances past the auth gate
     // without waiting for the onAuthStateChanged race to resolve.
@@ -191,6 +180,17 @@ export function AuthProvider({ children }: AuthProviderProps) {
             }
             setCurrentUser(appUser);
             setLoading(false);
+
+            // Fire-and-forget backfill of users/{uid}/savedPlaces from the
+            // user's lists. Pre-existing accounts had saves that never wrote
+            // a user-side mirror, leaving the profile PLACES counter stuck
+            // at 0. The method is idempotent and self-gates with a session
+            // flag, so this is safe to run on every auth resolution.
+            if (appUser) {
+              firebaseDataService.backfillSavedPlacesFromLists(appUser.id)
+                .then(n => { if (n > 0) console.log(`[auth] backfilled ${n} saved-place mirrors`) })
+                .catch(e => console.warn('[auth] savedPlaces backfill failed', e))
+            }
         });
 
         // Listen for profile-update events so the cached `currentUser` reflects

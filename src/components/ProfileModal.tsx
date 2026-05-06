@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
-import { XMarkIcon, MapPinIcon, UserIcon, CalendarIcon, HeartIcon, BookmarkIcon, EyeIcon, PlusIcon, ShareIcon, ArrowsPointingOutIcon, ArrowLeftIcon } from '@heroicons/react/24/outline'
+import { XMarkIcon, MapPinIcon, UserIcon, CalendarIcon, HeartIcon, BookmarkIcon, EyeIcon, ShareIcon, ArrowsPointingOutIcon, ArrowLeftIcon } from '@heroicons/react/24/outline'
 import { HeartIcon as SolidHeartIcon } from '@heroicons/react/20/solid'
 import type { User, Post, List, Hub, Activity } from '../types/index.js'
 import { firebaseDataService } from '../services/firebaseDataService'
@@ -30,6 +30,8 @@ const ProfileModal = ({ userId, isOpen, onClose, onFollow, onShare, onOpenFullSc
   const navigate = useNavigate()
   const { openPostOverlay, openListModal, showPostOverlay } = useNavigation();
   const [isFollowing, setIsFollowing] = useState(false)
+  const [isFriend, setIsFriend] = useState(false)
+  const [followerCount, setFollowerCount] = useState(0)
   const [activeTab, setActiveTab] = useState<'posts' | 'lists'>('lists');
   const [isVisible, setIsVisible] = useState(false)
   const modalRef = useRef<HTMLDivElement>(null)
@@ -78,19 +80,36 @@ const ProfileModal = ({ userId, isOpen, onClose, onFollow, onShare, onOpenFullSc
             const userLists = await firebaseDataService.getUserLists(userId);
             setLists(userLists);
 
-            // Check if current user is following this user
+            // Followers count for the stats trio.
+            try {
+              const followers = await firebaseDataService.getFollowers(userId);
+              setFollowerCount(followers.length);
+            } catch (e) {
+              console.warn('Failed to load follower count:', e);
+              setFollowerCount(0);
+            }
+
+            // Check if current user is following this user, and whether the
+            // relationship is mutual ("friend"). A friend is both directions
+            // of follow.
             if (currentUser && currentUser.id !== userId) {
               try {
-                const following = await firebaseDataService.getUserFollowing(currentUser.id);
-                const isUserFollowing = following.some(user => user.id === userId);
+                const [following, theirFollowing] = await Promise.all([
+                  firebaseDataService.getUserFollowing(currentUser.id),
+                  firebaseDataService.getUserFollowing(userId),
+                ]);
+                const isUserFollowing = following.some(u => u.id === userId);
+                const theyFollowMe = theirFollowing.some(u => u.id === currentUser.id);
                 setIsFollowing(isUserFollowing);
-                console.log(`ProfileModal: Following status for ${userId}: ${isUserFollowing}`);
+                setIsFriend(isUserFollowing && theyFollowMe);
               } catch (error) {
                 console.error('Error checking following status:', error);
                 setIsFollowing(false);
+                setIsFriend(false);
               }
             } else {
               setIsFollowing(false); // Can't follow yourself
+              setIsFriend(false);
             }
           }
         } catch (error) {
@@ -260,6 +279,11 @@ const ProfileModal = ({ userId, isOpen, onClose, onFollow, onShare, onOpenFullSc
               <div className="text-center">
                 <h3 className="font-display text-[26px] leading-tight text-ink">{user.name}</h3>
                 <p className="font-mono text-[10px] tracking-[0.12em] uppercase text-ink-mute mt-1">@{user.username}</p>
+                {isFriend && (
+                  <span className="inline-flex items-center gap-1 mt-2 px-3 h-6 rounded-full bg-aurum-200/60 border border-aurum-200/70 label-eyebrow text-bark-900">
+                    Friend
+                  </span>
+                )}
                 {user.location && (
                   <p className="inline-flex items-center justify-center gap-1.5 mt-2 text-[13px] text-ink-soft">
                     <MapPinIcon className="w-4 h-4" />
@@ -282,24 +306,40 @@ const ProfileModal = ({ userId, isOpen, onClose, onFollow, onShare, onOpenFullSc
                 )}
               </div>
 
-              {/* Action row */}
-              <div className="my-6 flex gap-2">
-                <button
-                  type="button"
-                  onClick={handleFollow}
-                  aria-pressed={isFollowing}
-                  className={isFollowing ? 'btn-secondary flex-1 h-11 label-eyebrow' : 'btn-cta flex-1 h-11 label-eyebrow'}
-                >
-                  {isFollowing ? 'Following' : 'Follow'}
-                </button>
-                <button
-                  type="button"
-                  className="btn-secondary flex-1 h-11 label-eyebrow inline-flex items-center justify-center gap-1.5"
-                >
-                  <PlusIcon className="w-4 h-4" />
-                  Message
-                </button>
-              </div>
+              {/* Stats trio — mirrors the route Profile page so the layout is
+                  consistent whether you land on your own profile or a modal
+                  for someone else. */}
+              {currentUser && currentUser.id !== userId && (
+                <div className="grid grid-cols-3 divide-x divide-edge border-y border-edge mt-6">
+                  <div className="px-2 py-3 text-center">
+                    <div className="label-eyebrow text-ink-mute">Lists</div>
+                    <div className="font-display text-[24px] leading-none mt-1.5 text-ink">{lists.length}</div>
+                  </div>
+                  <div className="px-2 py-3 text-center">
+                    <div className="label-eyebrow text-ink-mute">Influence</div>
+                    <div className="font-display text-[24px] leading-none mt-1.5 text-ink">{user.influences || 0}</div>
+                  </div>
+                  <div className="px-2 py-3 text-center">
+                    <div className="label-eyebrow text-ink-mute">Followers</div>
+                    <div className="font-display text-[24px] leading-none mt-1.5 text-ink">{followerCount}</div>
+                  </div>
+                </div>
+              )}
+
+              {/* Action row — Follow only. Messaging isn't built yet, so we
+                  removed the dead Message button rather than ship a no-op. */}
+              {currentUser && currentUser.id !== userId && (
+                <div className="my-6">
+                  <button
+                    type="button"
+                    onClick={handleFollow}
+                    aria-pressed={isFollowing}
+                    className={isFollowing ? 'btn-secondary w-full h-11 label-eyebrow' : 'btn-cta w-full h-11 label-eyebrow'}
+                  >
+                    {isFollowing ? (isFriend ? 'Friends' : 'Following') : 'Follow'}
+                  </button>
+                </div>
+              )}
 
               {/* Tabs — same pattern as Profile.tsx route page */}
               <div className="border-b border-edge flex gap-6 mb-4">

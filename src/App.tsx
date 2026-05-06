@@ -169,7 +169,6 @@ const GlobalModals = () => {
             for (const listId of ids) {
               await firebaseDataService.savePlaceToList(placeId, listId, currentUser.id, note, undefined, status, rating);
             }
-            await firebaseDataService.saveToAutoList(placeId, currentUser.id, status, note, rating)
             // Idempotent save-count bump — once per user-place pair, not once per list.
             await firebaseDataService.recordUserSave(placeId, currentUser.id)
 

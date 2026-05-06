@@ -22,6 +22,7 @@ import { firebaseDataService } from '../services/firebaseDataService.js'
 import TagAutocomplete from '../components/TagAutocomplete'
 import TagPill from '../components/TagPill'
 import { formatTimestamp } from '../utils/dateUtils'
+import { readCoords } from '../utils/coords'
 // AdvancedFiltersDrawer removed in UX refresh
 // import Card from '../components/Card'
 import Section from '../components/Section'
@@ -51,7 +52,6 @@ const Profile = () => {
     const [userLists, setUserLists] = useState<List[]>([])
     const [savedListIds, setSavedListIds] = useState<Set<string>>(new Set())
     const [listCount, setListCount] = useState(0);
-    const [placeCount, setPlaceCount] = useState(0);
     const [followerCount, setFollowerCount] = useState(0);
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState('')
@@ -167,17 +167,15 @@ const Profile = () => {
                                 place = fetched
                             }
                         }
-                        const lat = place && place.coordinates ? place.coordinates.lat : undefined
-                        const lng = place && place.coordinates ? place.coordinates.lng : undefined
-                        if (typeof lat === 'number' && typeof lng === 'number') {
-                            const d = haversineKm(lat, lng, selectedLocation.lat, selectedLocation.lng)
+                        const coords = readCoords(place)
+                        if (coords) {
+                            const d = haversineKm(coords.lat, coords.lng, selectedLocation.lat, selectedLocation.lng)
                             if (d < min) min = d
                         }
                     } else {
-                        const lat = (hubRef.location && hubRef.location.lat) || hubRef.coordinates?.lat
-                        const lng = (hubRef.location && hubRef.location.lng) || hubRef.coordinates?.lng
-                        if (typeof lat === 'number' && typeof lng === 'number') {
-                            const d = haversineKm(lat, lng, selectedLocation.lat, selectedLocation.lng)
+                        const coords = readCoords(hubRef)
+                        if (coords) {
+                            const d = haversineKm(coords.lat, coords.lng, selectedLocation.lat, selectedLocation.lng)
                             if (d < min) min = d
                         }
                     }
@@ -197,10 +195,9 @@ const Profile = () => {
             }
             try {
                 setLoading(true)
-                const [userProfile, lists, savedPlaces, followers] = await Promise.all([
+                const [userProfile, lists, followers] = await Promise.all([
                     firebaseDataService.getCurrentUser(authUser.id),
                     firebaseDataService.getUserLists(authUser.id),
-                    firebaseDataService.getSavedPlaces(authUser.id),
                     firebaseDataService.getFollowers(authUser.id),
                 ]);
 
@@ -208,7 +205,6 @@ const Profile = () => {
                     setCurrentUser(userProfile);
                     setUserLists(lists);
                     setListCount(lists.length);
-                    setPlaceCount(savedPlaces.length);
                     setFollowerCount(followers.length);
                     
                     // Load profile comments
@@ -273,18 +269,17 @@ const Profile = () => {
         }
     }, [location.pathname, authUser, loading]);
 
-    // Refresh saved-place count and lists when a save happens elsewhere.
+    // Refresh user-owned lists when a save happens elsewhere. We don't refetch
+    // the user doc here — influence is computed by a daily Cloud Function and
+    // doesn't change in real time, so reading getCurrentUser on every save is
+    // wasted work.
     useEffect(() => {
         if (!authUser) return
         const onSaved = async () => {
             try {
-                const [lists, savedPlaces] = await Promise.all([
-                    firebaseDataService.getUserLists(authUser.id),
-                    firebaseDataService.getSavedPlaces(authUser.id),
-                ])
+                const lists = await firebaseDataService.getUserLists(authUser.id)
                 setUserLists(lists)
                 setListCount(lists.length)
-                setPlaceCount(savedPlaces.length)
             } catch (e) {
                 console.warn('[profile] saved-event refresh failed', e)
             }
@@ -342,7 +337,13 @@ const Profile = () => {
 
     // Derived data (must be above any early returns to keep hook order stable)
     const filteredLists = useMemo(() => userLists.filter(list => {
-        if ((list.tags || []).includes('auto-generated')) return false
+        // Legacy guard: pre-existing accounts may still have All Loved /
+        // All Tried / All Want lists tagged either 'auto-generated' or
+        // '#auto-generated'. Hide both so they don't pollute the profile.
+        const tags = list.tags || []
+        if (tags.includes('auto-generated') || tags.includes('#auto-generated')) return false
+        const nameLower = (list.name || '').trim().toLowerCase()
+        if (nameLower === 'all loved' || nameLower === 'all tried' || nameLower === 'all want') return false
         if (deferredSearch.trim()) {
             const q = deferredSearch.toLowerCase()
             const matches =
@@ -511,7 +512,6 @@ const Profile = () => {
             for (const lid of ids) {
                 await firebaseDataService.savePlaceToList(selectedPlace.id, lid, authUser.id, note, undefined, status, rating)
             }
-            await firebaseDataService.saveToAutoList(selectedPlace.id, authUser.id, status, note, rating)
             await firebaseDataService.recordUserSave(selectedPlace.id, authUser.id)
         } catch (e) {
             console.error('[profile] save failed', e)
@@ -633,8 +633,8 @@ const Profile = () => {
                         <div className="font-display text-[26px] leading-none mt-1.5 text-ink">{listCount}</div>
                     </div>
                     <div className="px-2 py-3 pl-4">
-                        <div className="label-eyebrow text-ink-mute">Places</div>
-                        <div className="font-display text-[26px] leading-none mt-1.5 text-ink">{placeCount}</div>
+                        <div className="label-eyebrow text-ink-mute">Influence</div>
+                        <div className="font-display text-[26px] leading-none mt-1.5 text-ink">{currentUser.influences || 0}</div>
                     </div>
                     <div className="px-2 py-3 pl-4">
                         <div className="label-eyebrow text-ink-mute">Followers</div>

@@ -13,8 +13,11 @@ interface PlaceVisualProps {
 const PHOTOS_ENABLED = import.meta.env.VITE_PLACES_PHOTOS_ENABLED === 'true'
 const PLACES_NEW_KEY = import.meta.env.VITE_PLACES_NEW_KEY || import.meta.env.VITE_GOOGLE_MAPS_API_KEY || ''
 
-// Simple daily photo budget (move to separate file if needed)
-const DAILY_LIMIT = Number(import.meta.env.VITE_DAILY_GOOGLE_PHOTO_LIMIT ?? 10)
+// Simple daily photo budget (move to separate file if needed). Default raised
+// from 10 → 200 because the prior cap was getting hit within minutes of test
+// sessions, after which the page looked half-broken (only posters, no photos).
+// Set VITE_DAILY_GOOGLE_PHOTO_LIMIT in .env.local to override per environment.
+const DAILY_LIMIT = Number(import.meta.env.VITE_DAILY_GOOGLE_PHOTO_LIMIT ?? 200)
 const BUDGET_KEY = 'photoBudget:v1'
 const FETCHED_KEY = 'photoFetched:v1'
 const fetchedThisSession = new Set<string>()

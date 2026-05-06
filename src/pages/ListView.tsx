@@ -27,6 +27,7 @@ import HubImage from '../components/HubImage'
 import ListMap from '../components/ListMap'
 import { XMarkIcon } from '@heroicons/react/24/outline'
 import { useDocumentTitle } from '../hooks/useDocumentTitle'
+import { formatTimestamp } from '../utils/dateUtils'
 
 const ListView = () => {
   const { id } = useParams<{ id: string }>()
@@ -615,8 +616,8 @@ const ListView = () => {
           
           <div className="flex items-center gap-4 text-sm text-meta">
             <span>{sortedPlaces.length} places</span>
-            <span>â€¢</span>
-            <span>Updated {new Date(list.updatedAt).toLocaleDateString()}</span>
+            <span aria-hidden>•</span>
+            <span>Updated {formatTimestamp(list.updatedAt)}</span>
           </div>
         </CardShell>
         )}
@@ -729,37 +730,41 @@ const ListView = () => {
             onClick={() => handlePlaceClick(listPlace)}
             className="glass rounded-3xl shadow-botanical overflow-hidden hover:shadow-cozy transition-all duration-300 flex flex-col relative cursor-pointer"
           >
-            {/* Three dots menu on image */}
-            <div className="absolute top-4 right-4 z-20">
-              <button
-                className="glass hover:bg-white/20 rounded-full p-2 shadow-soft focus:outline-none"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  setCardMenuOpen(cardMenuOpen === listPlace.id ? null : listPlace.id)
-                }}
-                aria-label="Open actions menu"
-              >
-                <EllipsisHorizontalIcon className="w-6 h-6 text-body" />
-              </button>
-              {cardMenuOpen === listPlace.id && (
-                <div className="absolute right-0 mt-2 w-32 glass rounded-xl shadow-botanical py-2 z-30">
-                  <button
-                    className="block w-full text-left px-4 py-2 text-body hover:bg-white/10 rounded-t-xl"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      handleEditPlace(listPlace)
-                    }}
-                  >Edit</button>
-                  <button
-                    className="block w-full text-left px-4 py-2 text-red-600 hover:bg-red-500/20 rounded-b-xl"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      handleRemovePlace(listPlace)
-                    }}
-                  >Remove</button>
-                </div>
-              )}
-            </div>
+            {/* Three-dot menu — only the list owner can edit or remove a
+                place. Hiding the entry point entirely is cleaner than letting
+                non-owners tap into a backend permission failure. */}
+            {isOwner && (
+              <div className="absolute top-4 right-4 z-20">
+                <button
+                  className="glass hover:bg-white/20 rounded-full p-2 shadow-soft focus:outline-none"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setCardMenuOpen(cardMenuOpen === listPlace.id ? null : listPlace.id)
+                  }}
+                  aria-label="Open actions menu"
+                >
+                  <EllipsisHorizontalIcon className="w-6 h-6 text-body" />
+                </button>
+                {cardMenuOpen === listPlace.id && (
+                  <div className="absolute right-0 mt-2 w-32 glass rounded-xl shadow-botanical py-2 z-30">
+                    <button
+                      className="block w-full text-left px-4 py-2 text-body hover:bg-white/10 rounded-t-xl"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        handleEditPlace(listPlace)
+                      }}
+                    >Edit</button>
+                    <button
+                      className="block w-full text-left px-4 py-2 text-red-600 hover:bg-red-500/20 rounded-b-xl"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        handleRemovePlace(listPlace)
+                      }}
+                    >Remove</button>
+                  </div>
+                )}
+              </div>
+            )}
             {/* Hub Image on top */}
             <div className="w-full h-40 bg-white/10 flex-shrink-0 relative overflow-hidden rounded-t-3xl">
               <HubImage
@@ -788,7 +793,7 @@ const ListView = () => {
                   {getStatusIcon(listPlace.status)}
                   <span className="capitalize">{listPlace.status}</span>
                   {listPlace.status === 'tried' && listPlace.feeling && (
-                    <span className="ml-1">â€¢ {listPlace.feeling}</span>
+                    <span className="ml-1">• {listPlace.feeling}</span>
                   )}
                 </div>
               </div>
@@ -809,10 +814,10 @@ const ListView = () => {
                 <div className="flex items-center space-x-4 text-sm text-meta">
                   <span className="flex items-center">
                     <BookmarkIcon className="w-4 h-4 mr-1" />
-                    {listPlace.place.savedCount} influence
+                    {listPlace.place.savedCount || 0} {(listPlace.place.savedCount || 0) === 1 ? 'save' : 'saves'}
                   </span>
-                  <span>â€¢</span>
-                  <span>Added {new Date(listPlace.addedAt).toLocaleDateString()}</span>
+                  <span aria-hidden>•</span>
+                  <span>Added {formatTimestamp(listPlace.addedAt)}</span>
                 </div>
               </div>
             </div>

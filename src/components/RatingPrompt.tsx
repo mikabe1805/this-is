@@ -46,16 +46,16 @@ const RatingPrompt = ({ placeName, placeImage, onSave, onDismiss, isVisible }: R
   const getSaveOptions = () => {
     switch (feeling) {
       case 'loved':
-        return [{ status: 'loved' as const, label: 'Save to All Loved', description: 'This place made your heart sing' }]
+        return [{ status: 'loved' as const, label: 'Mark as loved', description: 'This place made your heart sing' }]
       case 'liked':
         return [
-          { status: 'tried' as const, label: 'Save to All Tried', description: 'You enjoyed your time here' },
-          { status: 'loved' as const, label: 'Save to All Loved', description: 'Actually, you really loved it!' }
+          { status: 'tried' as const, label: 'Mark as tried', description: 'You enjoyed your time here' },
+          { status: 'loved' as const, label: 'Mark as loved', description: 'Actually, you really loved it!' }
         ]
       case 'neutral':
-        return [{ status: 'tried' as const, label: 'Save to All Tried', description: 'You experienced this place' }]
+        return [{ status: 'tried' as const, label: 'Mark as tried', description: 'You experienced this place' }]
       case 'disliked':
-        return [{ status: 'tried' as const, label: 'Save to All Tried', description: "You tried it, even if it wasn't great" }]
+        return [{ status: 'tried' as const, label: 'Mark as tried', description: "You tried it, even if it wasn't great" }]
       default: return []
     }
   }

@@ -40,7 +40,15 @@ export default function ListMap({ places, height = '60vh', onSelectPlace, select
   const [loadError, setLoadError] = useState(false)
   const [userPos, setUserPos] = useState<{ lat: number; lng: number } | null>(null)
 
-  const placesWithCoords = places.filter(p => p.place.coordinates?.lat && p.place.coordinates?.lng)
+  // Accept 0 as a valid component (typeof check, not truthy check) so a place
+  // sitting on the equator/prime meridian still pins. We also reject (0, 0)
+  // explicitly — that's the bad-fallback sentinel, not a real save.
+  const placesWithCoords = places.filter(p => {
+    const c = p.place.coordinates
+    if (!c || typeof c.lat !== 'number' || typeof c.lng !== 'number') return false
+    if (c.lat === 0 && c.lng === 0) return false
+    return true
+  })
 
   useEffect(() => {
     let cancelled = false

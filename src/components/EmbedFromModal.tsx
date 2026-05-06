@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { XMarkIcon, BookmarkIcon, EyeSlashIcon, CameraIcon, MusicalNoteIcon, LinkIcon, CheckCircleIcon, HeartIcon, HandThumbUpIcon, HandThumbDownIcon, MinusCircleIcon, LightBulbIcon } from '@heroicons/react/24/outline'
+import { XMarkIcon, BookmarkIcon, EyeSlashIcon, CameraIcon, MusicalNoteIcon, LinkIcon, CheckCircleIcon, HeartIcon, HandThumbUpIcon, HandThumbDownIcon, MinusCircleIcon } from '@heroicons/react/24/outline'
 import { createPortal } from 'react-dom'
 import { extractEmbedData, createEmbedPreview, parseSocialMediaUrl, validateUrl, getPlatformPlaceholder, getPlatformDisplayName, type EmbedData, type EmbedPreview } from '../utils/embedUtils'
 import { firebasePostService } from '../services/firebasePostService'
@@ -449,10 +449,6 @@ const EmbedFromModal = ({ isOpen, onClose, onEmbed }: EmbedFromModalProps) => {
               {/* Lists */}
               <div>
                 <label className="label-eyebrow text-ink-mute mb-2.5 block">Add to Lists</label>
-                <div className="text-[12px] text-ink-soft mb-3 bg-accent-soft rounded-lg p-3 border border-edge flex items-start gap-2">
-                  <LightBulbIcon className="w-3.5 h-3.5 text-accent-deep shrink-0 mt-0.5" />
-                  <span>Your selection will automatically be added to <span className="font-medium text-ink">{status === 'loved' ? 'All Loved' : status === 'tried' ? 'All Tried' : 'All Want'}</span></span>
-                </div>
                 <input
                   type="text"
                   value={listSearchQuery}

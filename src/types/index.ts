@@ -2,11 +2,20 @@ export interface User {
   id: string
   name: string
   username: string
+  email?: string
   avatar?: string
   bio?: string
   location?: string
-  influences?: number // Number of items from their lists saved by others + favorited items
-  tags?: string[] // User's tags/interests
+  /** Reddit-karma-style score: post likes × 2 + list likes × 5 + list saves × 10.
+   *  Computed daily by functions/src/influences.ts. Surfaced on profile pages. */
+  influences?: number
+  tags?: string[]
+  /** Cached counts that some legacy reads depend on. The Following.tsx /
+   *  follower fetches are the source of truth; these are best-effort. */
+  followersCount?: number
+  followingCount?: number
+  followers?: string[]
+  following?: string[]
   createdAt: string
 }
 
@@ -21,7 +30,17 @@ export interface Place {
   }
   category?: string
   tags: string[]
+  /** Original Google place id (ChIJ…) when this place was sourced from Google.
+   *  Lets the cover-photo picker re-fetch fresh photos for legacy docs. */
+  googlePlaceId?: string | null
+  /** First-saver–picked cover image (Firebase Storage URL or remote). */
+  mainImage?: string | null
   hubImage?: string
+  coverImage?: string
+  /** Google Places (New) photo references — `{ name: "places/.../photos/..." }[]` */
+  photos?: { name: string }[]
+  primaryType?: string | null
+  types?: string[]
   posts: Post[]
   savedCount: number
   createdAt: string
