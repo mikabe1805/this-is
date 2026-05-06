@@ -139,17 +139,24 @@ const PostModal = ({ postId, from, isOpen, onClose, showBackButton, onBack }: Po
   const handlePostComment = async () => {
     if (!currentUser || !post || !newComment.trim()) return;
 
-    console.log('PostModal: Posting comment:', { postId: post.id, userId: currentUser.id, text: newComment });
-
-    const postedComment = await firebaseDataService.postComment(post.id, currentUser.id, newComment);
-    if (postedComment) {
-      console.log('PostModal: Comment posted successfully:', postedComment);
-      setComments(prevComments => [postedComment, ...prevComments]);
-      setCommentCount(prevCount => prevCount + 1);
-      setNewComment('');
-    } else {
-      console.error('PostModal: Failed to post comment');
-      // You could add a toast notification here
+    // Hold on to the draft so we can restore it on failure — clearing the
+    // input optimistically before the write returned would lose the user's
+    // text if the call failed. Surface failures via the global toast.
+    const draft = newComment;
+    setNewComment('');
+    try {
+      const postedComment = await firebaseDataService.postComment(post.id, currentUser.id, draft);
+      if (postedComment) {
+        setComments(prevComments => [postedComment, ...prevComments]);
+        setCommentCount(prevCount => prevCount + 1);
+      } else {
+        setNewComment(draft);
+        window.dispatchEvent(new CustomEvent('this-is:toast', { detail: { message: "Couldn't post comment. Try again.", tone: 'error' } }));
+      }
+    } catch (e) {
+      console.error('PostModal: Failed to post comment', e);
+      setNewComment(draft);
+      window.dispatchEvent(new CustomEvent('this-is:toast', { detail: { message: "Couldn't post comment. Try again.", tone: 'error' } }));
     }
   };
 

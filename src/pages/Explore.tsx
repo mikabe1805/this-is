@@ -16,12 +16,15 @@ type FeedItem = DiscoveryCardItem & {
   isExternal?: boolean
 }
 
-const FILTER_KEYS = ['all', 'open', 'nearby', 'lists', 'friends'] as const
+// 'open' (Open now) was dropped because the field it gated on (`openNow`) is
+// never populated by the suggested-places or external-recommendations APIs.
+// The tab returned an empty result every time. Re-add it once the upstream
+// field is actually plumbed in.
+const FILTER_KEYS = ['all', 'nearby', 'lists', 'friends'] as const
 type FilterKey = (typeof FILTER_KEYS)[number]
 
 const FILTER_LABELS: Record<FilterKey, string> = {
   all: 'All',
-  open: 'Open now',
   nearby: 'Nearby',
   lists: 'Lists',
   friends: 'Friends',
@@ -150,8 +153,6 @@ const Explore = () => {
           feed = feed
             .filter(it => typeof it.distanceKm === 'number' && (it.distanceKm as number) <= NEARBY_MAX_KM)
             .sort((a, b) => (a.distanceKm || 0) - (b.distanceKm || 0))
-        } else if (key === 'open') {
-          feed = feed.filter(it => (it.raw as any)?.openNow === true)
         }
       }
 

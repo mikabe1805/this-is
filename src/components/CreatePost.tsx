@@ -311,20 +311,24 @@ const CreatePost = ({ isOpen, onClose, preSelectedHub, preSelectedListIds }: Cre
         listIds: Array.from(selectedListIds),
         location: extractedLocation
       };
-      
+
       // 2. Save post to Firestore
       await firebasePostService.createPost(postData);
 
-      console.log('✅ Post created successfully:', postData);
       // Notify subscribers (PlaceHub feed, etc.) so they can re-fetch posts.
       window.dispatchEvent(new CustomEvent('this-is:posted', {
         detail: { placeId: selectedHub.id, listIds: Array.from(selectedListIds) }
       }));
+      window.dispatchEvent(new CustomEvent('this-is:toast', { detail: { message: 'Posted' } }));
       handleClose();
     } catch (error) {
+      // Surface the failure visibly. Previously this silently closed the modal,
+      // wiping the user's photos / description / tags with zero feedback —
+      // they thought it posted, then realized minutes later it never did.
+      // Keep the modal open so the user can retry without re-uploading.
       console.error('❌ Error creating post:', error);
-      // Still close modal but show user an error
-      handleClose();
+      const message = error instanceof Error ? error.message : 'Failed to post. Try again.'
+      window.dispatchEvent(new CustomEvent('this-is:toast', { detail: { message, tone: 'error' } }))
     }
   }
   const resetForm = () => {

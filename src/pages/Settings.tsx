@@ -111,19 +111,24 @@ const Settings = () => {
     return <div>Loading...</div>
   }
 
+  // Push delivery + email digest aren't wired to a backend yet (no FCM token
+  // registration, no scheduled email job). The toggles persist your choice in
+  // your user-preferences doc so when delivery ships, the existing setting is
+  // honored — but until then, the labels say "Soon" so you don't expect the
+  // toggle to actually start sending notifications today.
   const notificationSettings: SettingItem[] = [
     {
       id: 'pushNotifications',
-      title: 'Push Notifications',
-      description: 'Receive notifications about new activity',
+      title: 'Push notifications · Soon',
+      description: 'Delivery isn\'t live yet — toggle saves your preference for when it ships.',
       icon: BellIcon,
       type: 'toggle',
       value: settings.notifications?.push
     },
     {
       id: 'emailUpdates',
-      title: 'Email Updates',
-      description: 'Get weekly summaries in your email',
+      title: 'Email updates · Soon',
+      description: 'Weekly digest isn\'t live yet — toggle saves your preference for when it ships.',
       icon: BellIcon,
       type: 'toggle',
       value: settings.notifications?.email

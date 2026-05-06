@@ -18,7 +18,15 @@ interface SaveModalProps {
   userLists: List[]
   selectedListIds?: string[]
   onSave: (status: SaveStatus, rating?: TriedRating, listIds?: string[], note?: string, savedFromListId?: string) => void
-  onCreateList: (listData: { name: string; description: string; privacy: 'public' | 'private' | 'friends'; tags?: string[]; coverImage?: string }) => void
+  /** Called from the "Create & Save" path. The picked status / rating /
+   *  note from the previous screen are forwarded so the new list also gets
+   *  the place added with the correct relationship. Previously these were
+   *  dropped, and every Create-and-Save persisted as 'loved' regardless of
+   *  what the user actually picked. */
+  onCreateList: (
+    listData: { name: string; description: string; privacy: 'public' | 'private' | 'friends'; tags?: string[]; coverImage?: string },
+    saveContext?: { status: SaveStatus; rating?: TriedRating; note?: string },
+  ) => void
   savedFromListId?: string
 }
 
@@ -72,13 +80,23 @@ const SaveModal: React.FC<SaveModalProps> = ({
 
   const handleCreateList = () => {
     if (newListName.trim()) {
+      // Forward the status / rating / note picked on the previous screen so
+      // the just-created list also gets the place added with the correct
+      // relationship. Falls back to 'loved' only if the user reached the
+      // Create flow without picking a status (the Save button gates against
+      // that, but defensive).
+      const ctx = selectedStatus ? {
+        status: selectedStatus,
+        rating: selectedStatus === 'tried' ? (triedRating || undefined) : undefined,
+        note: note.trim() || undefined,
+      } : undefined
       onCreateList({
         name: newListName.trim(),
         description: newListDescription.trim(),
         privacy: newListPrivacy,
         tags: newListTags,
         coverImage: newListCoverImage || undefined
-      });
+      }, ctx);
       setShowCreateList(false);
       setNewListName('');
       setNewListDescription('');
@@ -237,6 +255,9 @@ const SaveModal: React.FC<SaveModalProps> = ({
                     className="w-full h-10 pl-10 pr-3 rounded-xl border border-stone-200 bg-white text-[14px] text-stone-900 placeholder:text-stone-400 outline-none focus:border-stone-400"
                   />
                 </div>
+                {selectedStatus && selectedListIds.size === 0 && filteredLists.length > 0 && (
+                  <p className="text-[12px] text-stone-500 mt-2">Pick a list to save into, or tap New list above.</p>
+                )}
                 <div className="mt-2 max-h-40 overflow-y-auto -mx-2">
                   {filteredLists.length === 0 ? (
                     <p className="text-[13px] text-stone-500 text-center py-4">No lists. Create one above.</p>
@@ -342,16 +363,19 @@ const SaveModal: React.FC<SaveModalProps> = ({
           {!showCreateList ? (
             <button
               onClick={async () => {
-                if (!selectedStatus || isCommitting) return
-                // Lock the button immediately so a double-tap doesn't fire a
-                // second save → duplicate list entries / double save-count
-                // increments. onSave may be sync (legacy callers) or async.
+                // Require at least one list. Without this guard, the user could
+                // tap Save with status set but no list selected → savedCount got
+                // bumped via recordUserSave, but the place never appeared on
+                // any list. The status (loved/tried/want) lives on the
+                // ListPlace row, not on the place itself, so a "list-less"
+                // save dropped the relationship on the floor.
+                if (!selectedStatus || isCommitting || selectedListIds.size === 0) return
                 setIsCommitting(true)
                 try {
                   await Promise.resolve(onSave(
                     selectedStatus,
                     selectedStatus === 'tried' ? triedRating || undefined : undefined,
-                    selectedListIds.size > 0 ? Array.from(selectedListIds) : undefined,
+                    Array.from(selectedListIds),
                     note.trim() || undefined,
                     savedFromListId
                   ))
@@ -361,7 +385,13 @@ const SaveModal: React.FC<SaveModalProps> = ({
                   setIsCommitting(false)
                 }
               }}
-              disabled={isCommitting || !selectedStatus || (selectedStatus === 'tried' && !triedRating)}
+              disabled={
+                isCommitting ||
+                !selectedStatus ||
+                (selectedStatus === 'tried' && !triedRating) ||
+                selectedListIds.size === 0
+              }
+              title={selectedListIds.size === 0 ? 'Pick a list, or create a new one above' : undefined}
               className="btn-cta flex-1 h-12 font-semibold text-[15px]"
             >
               {isCommitting ? 'Saving…' : 'Save'}

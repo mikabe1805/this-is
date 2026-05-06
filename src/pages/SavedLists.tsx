@@ -83,12 +83,16 @@ const Favorites = () => {
     }
   }
 
-  const handleCreateList = async (listData: { name: string; description: string; privacy: 'public' | 'private' | 'friends'; tags?: string[]; coverImage?: string }) => {
+  const handleCreateList = async (
+    listData: { name: string; description: string; privacy: 'public' | 'private' | 'friends'; tags?: string[]; coverImage?: string },
+    saveContext?: { status: 'loved' | 'tried' | 'want'; rating?: 'liked' | 'neutral' | 'disliked'; note?: string },
+  ) => {
     if (!selectedPlace || !authUser) { setShowSaveModal(false); return }
     try {
       const newId = await firebaseDataService.createList({ ...listData, tags: listData.tags || [], userId: authUser.id })
       if (newId) {
-        await firebaseDataService.savePlaceToList(selectedPlace.id, newId, authUser.id, undefined, undefined, 'loved')
+        const status = saveContext?.status || 'loved'
+        await firebaseDataService.savePlaceToList(selectedPlace.id, newId, authUser.id, saveContext?.note, undefined, status, saveContext?.rating)
         await firebaseDataService.recordUserSave(selectedPlace.id, authUser.id)
       }
     } catch (e) {

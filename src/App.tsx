@@ -167,21 +167,30 @@ const GlobalModals = () => {
               if (!overwrite) return
             }
 
-            for (const listId of ids) {
-              await firebaseDataService.savePlaceToList(placeId, listId, currentUser.id, note, undefined, status, rating);
-            }
-            // Idempotent save-count bump — once per user-place pair, not once per list.
-            await firebaseDataService.recordUserSave(placeId, currentUser.id)
+            try {
+              for (const listId of ids) {
+                await firebaseDataService.savePlaceToList(placeId, listId, currentUser.id, note, undefined, status, rating);
+              }
+              // Idempotent save-count bump — once per user-place pair, not once per list.
+              await firebaseDataService.recordUserSave(placeId, currentUser.id)
 
-            if (seedHub) {
-              await firebaseDataService.trackUserInteraction(currentUser.id, 'save', {
-                placeId,
-                query: seedHub.name
-              });
+              if (seedHub) {
+                await firebaseDataService.trackUserInteraction(currentUser.id, 'save', {
+                  placeId,
+                  query: seedHub.name
+                });
+              }
+              // Notify subscribers (Home stats, Profile lists, etc.) so they can
+              // refresh their saved counts and saved-state markers.
+              window.dispatchEvent(new CustomEvent('this-is:saved', { detail: { placeId, status } }))
+              window.dispatchEvent(new CustomEvent('this-is:toast', { detail: { message: 'Saved' } }))
+            } catch (e) {
+              // Surface failures so the user knows the save didn't take. Without
+              // this the modal closes with no feedback and the place silently
+              // doesn't appear in their list.
+              console.error('[GlobalModals] save failed', e)
+              window.dispatchEvent(new CustomEvent('this-is:toast', { detail: { message: "Couldn't save. Try again.", tone: 'error' } }))
             }
-            // Notify subscribers (Home stats, Profile lists, etc.) so they can
-            // refresh their saved counts and saved-state markers.
-            window.dispatchEvent(new CustomEvent('this-is:saved', { detail: { placeId, status } }))
             closeSaveModal()
             // First-saver perk: pick a cover photo. Open the picker
             // whenever the hub doesn't have a cover image yet — even if we
@@ -196,7 +205,7 @@ const GlobalModals = () => {
               })
             }
           }}
-          onCreateList={async (listData) => {
+          onCreateList={async (listData, saveContext) => {
             if (!currentUser) return;
             const seedHub: any = saveModalData.hub
             const seedList: any = saveModalData.list
@@ -221,7 +230,13 @@ const GlobalModals = () => {
               tags: listData.tags || []
             });
             if (newListId) {
-              await firebaseDataService.savePlaceToList(placeId, newListId, currentUser.id, undefined, undefined, 'loved');
+              // Use the status / rating / note the user picked on the previous
+              // SaveModal screen instead of hardcoding 'loved'. Falls back to
+              // 'loved' only when no context was forwarded (legacy callers).
+              const status = saveContext?.status || 'loved'
+              const rating = saveContext?.rating
+              const noteToSave = saveContext?.note
+              await firebaseDataService.savePlaceToList(placeId, newListId, currentUser.id, noteToSave, undefined, status, rating);
               await firebaseDataService.recordUserSave(placeId, currentUser.id)
               // Keep local cache fresh so the next save flow shows the new list
               // immediately without waiting for the modal-open re-fetch.
@@ -231,7 +246,7 @@ const GlobalModals = () => {
               } catch (e) {
                 console.warn('[GlobalModals] failed to refresh user lists after create', e)
               }
-              window.dispatchEvent(new CustomEvent('this-is:saved', { detail: { placeId, status: 'loved', newListId } }))
+              window.dispatchEvent(new CustomEvent('this-is:saved', { detail: { placeId, status, newListId } }))
             }
             closeSaveModal()
             if (needsCover) {
