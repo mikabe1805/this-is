@@ -10,7 +10,10 @@ import type { List } from '../types'
 interface EmbedFromModalProps {
   isOpen: boolean
   onClose: () => void
-  onEmbed?: (embedData: EmbedPostData) => void
+  // Note: there used to be an `onEmbed` callback here, but it was never
+  // invoked — the modal calls firebasePostService.createEmbedPost itself
+  // and dispatches `this-is:posted`. Dropping the dead prop avoids
+  // confusing parents into writing onEmbed handlers that never fire.
 }
 
 interface EmbedPostData {
@@ -26,7 +29,7 @@ interface EmbedPostData {
   listIds: string[]
 }
 
-const EmbedFromModal = ({ isOpen, onClose, onEmbed }: EmbedFromModalProps) => {
+const EmbedFromModal = ({ isOpen, onClose }: EmbedFromModalProps) => {
   const { currentUser } = useAuth()
   const [step, setStep] = useState<'url' | 'details'>('url')
   const [url, setUrl] = useState('')
@@ -41,7 +44,9 @@ const EmbedFromModal = ({ isOpen, onClose, onEmbed }: EmbedFromModalProps) => {
   const [description, setDescription] = useState('')
   const [tags, setTags] = useState<string[]>([])
   const [newTag, setNewTag] = useState('')
-  const [privacy, setPrivacy] = useState<'public' | 'friends' | 'private'>('private') // Always private for embeds
+  // Privacy is always 'private' on embed posts to respect copyright. The
+  // setter and a toggle UI used to live here but were misleading — the
+  // submit handler hardcoded 'private' regardless. Removed both.
   const [selectedListIds, setSelectedListIds] = useState<Set<string>>(new Set())
   const [listSearchQuery, setListSearchQuery] = useState('')
   const [userLists, setUserLists] = useState<List[]>([])
@@ -142,18 +147,28 @@ const EmbedFromModal = ({ isOpen, onClose, onEmbed }: EmbedFromModalProps) => {
       privacy: 'private', // Always private for embeds to avoid copyright issues
       listIds: Array.from(selectedListIds)
     }
-    
-    await firebasePostService.createEmbedPost(embedData, currentUser.id);
 
-    // Notify subscribers (Profile activity, list views, friends feed) so
-    // they re-fetch instead of waiting for a route change.
     try {
-      window.dispatchEvent(new CustomEvent('this-is:posted', {
-        detail: { listIds: Array.from(selectedListIds), embed: true }
-      }))
-    } catch (e) { console.warn('[embed] post-event dispatch failed', e) }
+      const created = await firebasePostService.createEmbedPost(embedData, currentUser.id);
+      if (!created) {
+        window.dispatchEvent(new CustomEvent('this-is:toast', { detail: { message: "Couldn't save embed. Try again.", tone: 'error' } }))
+        return
+      }
 
-    onClose()
+      // Notify subscribers (Profile activity, list views, friends feed) so
+      // they re-fetch instead of waiting for a route change.
+      try {
+        window.dispatchEvent(new CustomEvent('this-is:posted', {
+          detail: { listIds: Array.from(selectedListIds), embed: true }
+        }))
+      } catch (e) { console.warn('[embed] post-event dispatch failed', e) }
+
+      window.dispatchEvent(new CustomEvent('this-is:toast', { detail: { message: 'Embed saved' } }))
+      onClose()
+    } catch (e) {
+      console.error('[embed] submit failed', e)
+      window.dispatchEvent(new CustomEvent('this-is:toast', { detail: { message: "Couldn't save embed. Try again.", tone: 'error' } }))
+    }
   }
 
   const handleClose = () => {
@@ -168,7 +183,6 @@ const EmbedFromModal = ({ isOpen, onClose, onEmbed }: EmbedFromModalProps) => {
     setDescription('')
     setTags([])
     setNewTag('')
-    setPrivacy('private')
     setSelectedListIds(new Set())
     setListSearchQuery('')
     onClose()

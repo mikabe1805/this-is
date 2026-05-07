@@ -247,6 +247,23 @@ class FirebaseDataService {
         console.warn('[followUser] auto-friend failed', e);
       }
 
+      // Log the follow so it shows up in the friends activity rail
+      // ("Mika followed Aya"). Without this, follow events were invisible
+      // beyond the followers count delta.
+      try {
+        const activityRef = doc(collection(db, 'users', currentUserId, 'activity'))
+        await setDoc(activityRef, {
+          id: activityRef.id,
+          type: 'follow',
+          userId: currentUserId,
+          targetUserId,
+          createdAt: new Date().toISOString(),
+        })
+        try { this.userActivityCache.delete(currentUserId) } catch {}
+      } catch (e) {
+        console.warn('[followUser] activity log failed', e)
+      }
+
       try {
         window.dispatchEvent(new CustomEvent('this-is:followed', {
           detail: { followerId: currentUserId, followedId: targetUserId, delta: 1 }
@@ -421,23 +438,6 @@ class FirebaseDataService {
     }
   }
 
-
-  async getPostsFromUsers(userIds: string[]): Promise<Post[]> {
-    if (userIds.length === 0) {
-      return [];
-    }
-    try {
-      const postsQuery = query(
-        collection(db, 'posts'),
-        where('userId', 'in', userIds)
-      );
-      const postsSnapshot = await getDocs(postsQuery);
-      return postsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Post[];
-    } catch (error) {
-      console.error('Error fetching posts from users:', error);
-      return [];
-    }
-  }
 
   async getSavedLists(userId: string): Promise<List[]> {
     try {
@@ -1428,35 +1428,6 @@ class FirebaseDataService {
     }
   }
 
-  async addReplyToComment(postId: string, commentId: string, userId: string, text: string): Promise<{ id: string; userId: string; username: string; userAvatar: string; text: string; createdAt: string } | null> {
-    try {
-      const currentUser = await this.getCurrentUser(userId)
-      if (!currentUser) throw new Error('User not found')
-
-      const commentRef = doc(db, 'posts', postId, 'comments', commentId)
-      const snap = await getDoc(commentRef)
-      if (!snap.exists()) return null
-      const data = snap.data() as PostComment & { replies?: any[] }
-
-      const replyId = doc(collection(db, 'posts', postId, 'comments', commentId, 'replies')).id
-      const reply = {
-        id: replyId,
-        userId,
-        username: currentUser.username,
-        userAvatar: currentUser.avatar || '',
-        text,
-        createdAt: new Date().toISOString()
-      }
-
-      const existingReplies = Array.isArray((data as any).replies) ? (data as any).replies : []
-      await updateDoc(commentRef, { replies: [...existingReplies, reply] })
-      return reply
-    } catch (error) {
-      console.error('firebaseDataService: Error adding reply to comment:', error)
-      return null
-    }
-  }
-
   async postProfileComment(profileUserId: string, authorUserId: string, text: string): Promise<PostComment | null> {
     try {
       const author = await this.getCurrentUser(authorUserId);
@@ -1659,20 +1630,6 @@ class FirebaseDataService {
     }
   }
 
-  async getListLikeCount(listId: string): Promise<number> {
-    try {
-      const listRef = doc(db, 'lists', listId);
-      const listSnap = await getDoc(listRef);
-      if (listSnap.exists()) {
-        return listSnap.data().likes || 0;
-      }
-      return 0;
-    } catch (error) {
-      console.error('Error getting list like count:', error);
-      return 0;
-    }
-  }
-
   async isListSavedByUser(listId: string, userId: string): Promise<boolean> {
     try {
       const userSavedListsRef = doc(db, 'users', userId, 'savedLists', listId);
@@ -1812,18 +1769,6 @@ class FirebaseDataService {
     }
   }
 
-  async removeListFromList(childListId: string, parentListId: string): Promise<void> {
-    try {
-      const parentRef = doc(db, 'lists', parentListId)
-      await updateDoc(parentRef, {
-        subLists: arrayRemove(childListId),
-        updatedAt: Timestamp.now(),
-      })
-    } catch (e) {
-      console.warn('[removeListFromList] failed', e)
-    }
-  }
-
   /**
    * Hydrate the sub-lists collected inside a parent list. Reads the
    * parent's `subLists` array and fans out a getList per id.
@@ -1894,58 +1839,6 @@ class FirebaseDataService {
       return listsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as List[];
     } catch (error) {
       console.error('Error fetching user lists:', error);
-      return [];
-    }
-  }
-
-  async getListsContainingHub(hubId: string): Promise<List[]> {
-    try {
-      // Was: scan every list, then per-list check whether `lists/{id}/places/{hubId}`
-      // exists. That's O(N) reads per call (one per list in the database) and
-      // grows linearly forever. Replaced with a single `hubs` array-contains
-      // query — list docs already maintain a `hubs[]` denormalized array of
-      // place IDs that's kept in sync via savePlaceToList / removePlaceFromList.
-      const listsQuery = query(
-        collection(db, 'lists'),
-        where('hubs', 'array-contains', hubId),
-        fsLimit(50)
-      );
-      const listsSnapshot = await getDocs(listsQuery);
-      return listsSnapshot.docs.map(d => ({ id: d.id, ...(d.data() as Omit<List, 'id'>) }));
-    } catch (error) {
-      console.error('Error fetching lists containing hub:', error);
-      return [];
-    }
-  }
-
-  async getFriendsListsContainingHub(hubId: string, currentUserId: string): Promise<List[]> {
-    try {
-      const friends = await this.getUserFriends(currentUserId);
-      const friendIds = new Set(friends.map(friend => friend.id));
-      if (friendIds.size === 0) return [];
-
-      // Was: get every list owned by any friend, then per-list getDoc to
-      // check the places subcollection. With N friends owning M lists each,
-      // that's M*N reads. Now one query against the denormalized `hubs[]`
-      // array, then filter by friend ownership client-side. Also avoids
-      // Firestore's 30-element `in` cap that the old code would hit for
-      // a user with many friends.
-      const listsQuery = query(
-        collection(db, 'lists'),
-        where('hubs', 'array-contains', hubId),
-        fsLimit(100)
-      );
-      const snap = await getDocs(listsQuery);
-      const out: List[] = [];
-      snap.forEach(d => {
-        const data = d.data() as List;
-        if (data.userId && friendIds.has(data.userId)) {
-          out.push({ id: d.id, ...data });
-        }
-      });
-      return out;
-    } catch (error) {
-      console.error('Error fetching friends lists containing hub:', error);
       return [];
     }
   }
@@ -2030,60 +1923,6 @@ class FirebaseDataService {
     }
   }
 
-  async getBatchPostAndListData(
-    activities: Activity[]
-  ): Promise<{ posts: Post[]; lists: List[] }> {
-    const postIds = activities
-      .filter((a) => a.type === 'post' && a.postId)
-      .map((a) => a.postId)
-    const listIds = activities
-      .filter((a) => (a.type === 'list' || a.type === 'create_list') && a.listId)
-      .map((a) => a.listId)
-
-    const posts: Post[] = []
-    const lists: List[] = []
-
-    try {
-      // Firestore 'in' queries are limited to 30 items. Batch if necessary.
-      const postPromises = []
-      for (let i = 0; i < postIds.length; i += 10) {
-        const batchIds = postIds.slice(i, i + 10)
-        if (batchIds.length > 0) {
-          const q = query(collection(db, 'posts'), where('__name__', 'in', batchIds))
-          postPromises.push(getDocs(q))
-        }
-      }
-
-      const listPromises = []
-      for (let i = 0; i < listIds.length; i += 10) {
-        const batchIds = listIds.slice(i, i + 10)
-        if (batchIds.length > 0) {
-          const q = query(collection(db, 'lists'), where('__name__', 'in', batchIds))
-          listPromises.push(getDocs(q))
-        }
-      }
-
-      const postSnapshots = await Promise.all(postPromises)
-      postSnapshots.forEach((snapshot) => {
-        snapshot.forEach((doc) => {
-          posts.push({ id: doc.id, ...doc.data() } as Post)
-        })
-      })
-
-      const listSnapshots = await Promise.all(listPromises)
-      listSnapshots.forEach((snapshot) => {
-        snapshot.forEach((doc) => {
-          lists.push({ id: doc.id, ...doc.data() } as List)
-        })
-      })
-
-      return { posts, lists }
-    } catch (error) {
-      console.error('Error fetching batch post and list data:', error)
-      return { posts: [], lists: [] }
-    }
-  }
-
 
   async getUserActivity(userId: string, limitCount: number = 50): Promise<Activity[]> {
     const cached = this.userActivityCache.get(userId)
@@ -2136,16 +1975,20 @@ class FirebaseDataService {
       // from the resulting maps.
       const listIds = new Set<string>()
       const placeIds = new Set<string>()
+      const targetUserIds = new Set<string>()
       for (const a of activities) {
         if (a.listId && !a.list) listIds.add(a.listId)
         if (a.placeId && !a.place) placeIds.add(a.placeId)
+        if (a.type === 'follow' && a.targetUserId && !a.targetUser) targetUserIds.add(a.targetUserId)
       }
-      const [lists, places] = await Promise.all([
+      const [lists, places, targetUsers] = await Promise.all([
         Promise.all(Array.from(listIds).map(id => this.getList(id).catch(() => null))),
         Promise.all(Array.from(placeIds).map(id => this.getPlace(id).catch(() => null))),
+        Promise.all(Array.from(targetUserIds).map(id => this.getCurrentUser(id).catch(() => null))),
       ])
       const listById = new Map(Array.from(listIds).map((id, i) => [id, lists[i]]))
       const placeById = new Map(Array.from(placeIds).map((id, i) => [id, places[i]]))
+      const targetUserById = new Map(Array.from(targetUserIds).map((id, i) => [id, targetUsers[i]]))
       activities = activities.map(a => {
         const activity: any = { ...a }
         if (a.listId && !a.list) {
@@ -2155,6 +1998,10 @@ class FirebaseDataService {
         if (a.placeId && !a.place) {
           const p = placeById.get(a.placeId)
           if (p) activity.place = p
+        }
+        if (a.type === 'follow' && a.targetUserId && !a.targetUser) {
+          const u = targetUserById.get(a.targetUserId)
+          if (u) activity.targetUser = u
         }
         return activity as Activity
       })
@@ -2183,6 +2030,11 @@ class FirebaseDataService {
         }
         if (a.type === 'save' && a.listId && !a.placeId && list && isAutoListName(list.name)) {
           // saveListToList logging into an auto bucket is also noise
+          return false
+        }
+        if (a.type === 'follow' && !a.targetUser) {
+          // Followed user couldn't be hydrated (deleted account, etc.) —
+          // a "Followed someone" row with no name is just noise.
           return false
         }
         return true
@@ -2275,19 +2127,6 @@ class FirebaseDataService {
     }
   }
 
-  // Soft negative feedback: user is not interested in a place
-  async markPlaceNotInterested(userId: string, placeId: string): Promise<void> {
-    try {
-      const prefs = await this.getUserPreferences(userId)
-      const hidden = Array.isArray((prefs as any).hiddenPlaces) ? (prefs as any).hiddenPlaces as string[] : []
-      if (!hidden.includes(placeId)) hidden.unshift(placeId)
-      ;(prefs as any).hiddenPlaces = hidden.slice(0, 500)
-      await this.saveUserPreferences(userId, prefs)
-    } catch (e) {
-      console.error('Failed to mark not interested', e)
-    }
-  }
-
   // ====================
   // GLOBAL TAG MANAGEMENT
   // ====================
@@ -2331,16 +2170,6 @@ class FirebaseDataService {
       }
     } catch (error) {
       console.error('Error adding tag:', error)
-      throw error
-    }
-  }
-
-  async addTags(tagNames: string[]): Promise<void> {
-    try {
-      const uniqueTags = [...new Set(tagNames.map(tag => tag.toLowerCase().trim()).filter(tag => tag))]
-      await Promise.all(uniqueTags.map(tag => this.addTag(tag)))
-    } catch (error) {
-      console.error('Error adding tags:', error)
       throw error
     }
   }
@@ -2571,38 +2400,6 @@ class FirebaseDataService {
       } catch (e) {
         console.warn('[clearAllUserScopedState] localStorage cleanup failed', e)
       }
-    }
-  }
-
-  // Record a suppression for a suggestion by stable key for ~14 days
-  async suppressSuggestion(params: { userId?: string | null; stableKey: string; reason?: string }): Promise<void> {
-    try {
-      const { userId, stableKey, reason } = params
-      if (!userId || !stableKey) return
-      const ref = doc(db, 'users', userId, 'suggestSuppress', stableKey)
-      const ttlMs = 14 * 24 * 60 * 60 * 1000
-      await setDoc(ref, {
-        reason: reason || 'not_interested',
-        createdAt: serverTimestamp(),
-        expiresAt: Timestamp.fromDate(new Date(Date.now() + ttlMs))
-      }, { merge: true })
-    } catch (e) {
-      console.warn('suppressSuggestion failed', e)
-    }
-  }
-
-  // Fetch active suppressed stable keys for a user (not expired)
-  async getSuppressedSuggestionKeys(userId: string): Promise<string[]> {
-    try {
-      const qy = query(
-        collection(db, 'users', userId, 'suggestSuppress'),
-        where('expiresAt', '>', Timestamp.now())
-      )
-      const snap = await getDocs(qy)
-      return snap.docs.map(d => (d.id || (d.data() as any)?.stableKey)).filter(Boolean) as string[]
-    } catch (e) {
-      console.warn('getSuppressedSuggestionKeys failed', e)
-      return []
     }
   }
 
@@ -3586,27 +3383,6 @@ class FirebaseDataService {
     }
   }
 
-  async updateAllHubBannerImages(): Promise<void> {
-    try {
-      // Get all hubs
-      const hubsRef = collection(db, 'places');
-      const hubsSnapshot = await getDocs(hubsRef);
-      
-      const updatePromises = hubsSnapshot.docs.map(doc => 
-        this.updateHubBannerImage(doc.id)
-      );
-      
-      await Promise.all(updatePromises);
-    } catch (error) {
-      console.error('Error updating all hub banner images:', error);
-    }
-  }
-
-  // Helper function to manually trigger banner update (for testing)
-  async refreshHubBannerImage(hubId: string): Promise<void> {
-    await this.updateHubBannerImage(hubId);
-  }
-
   async addUserTag(tagName: string): Promise<void> {
     try {
       const normalizedTag = tagName.toLowerCase().trim()
@@ -3628,18 +3404,6 @@ class FirebaseDataService {
       }
     } catch (error) {
       console.error('Error adding user tag:', error)
-    }
-  }
-
-  async getAllUserTags(): Promise<string[]> {
-    try {
-      const snapshot = await getDocs(collection(db, 'userTags'))
-      const tags: string[] = []
-      snapshot.forEach(doc => tags.push(doc.id))
-      return tags.sort()
-    } catch (error) {
-      console.error('Error fetching all user tags:', error)
-      return []
     }
   }
 

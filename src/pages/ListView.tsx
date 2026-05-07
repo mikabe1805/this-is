@@ -366,11 +366,10 @@ const ListView = () => {
     setShowEmbedFromModal(true)
   }
 
-  const handleEmbed = (embedData: any) => {
-    console.log('Creating embed post:', embedData)
-    // TODO: Implement embed post creation
-    // This would create a private post with the embed data
-  }
+  // Embed posts are created inside EmbedFromModal itself (it calls
+  // firebasePostService.createEmbedPost and dispatches this-is:posted).
+  // No additional handler needed here — the listener that refreshes posts
+  // on the post-event picks it up.
 
   const handleSaveToPlace = (place: Place) => {
     setSelectedPlace(place)
@@ -1005,7 +1004,6 @@ const ListView = () => {
       <EmbedFromModal
         isOpen={showEmbedFromModal}
         onClose={() => setShowEmbedFromModal(false)}
-        onEmbed={handleEmbed}
       />
 
       {/* Save Modal */}

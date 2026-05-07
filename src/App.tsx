@@ -460,11 +460,6 @@ function AppContent() {
       <EmbedFromModal
         isOpen={showEmbedFromModal}
         onClose={() => setShowEmbedFromModal(false)}
-        onEmbed={(embedData) => {
-          console.log('Creating embed post:', embedData)
-          // TODO: Implement embed post creation
-          setShowEmbedFromModal(false)
-        }}
       />
 
       {/* Create List Modal */}

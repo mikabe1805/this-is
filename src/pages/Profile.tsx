@@ -43,7 +43,7 @@ const filterOptions = [
 // Tags for filters are fetched from Firebase so tag search can reach the full set
 
 const Profile = () => {
-    const { openListModal, openHubModal } = useNavigation()
+    const { openListModal, openHubModal, openProfileModal } = useNavigation()
     const { currentUser: authUser, logout } = useAuth()
     const navigate = useNavigate()
     const location = useLocation()
@@ -817,6 +817,7 @@ const Profile = () => {
                         {activityToShow.map((activity) => {
                             const placeName = activity.place?.name
                             const listName = activity.list?.name
+                            const targetUserName = (activity as any).targetUser?.name || (activity as any).targetUser?.username
                             // Render based on activity type — every row was previously
                             // hard-coded as "Saved X to Y", which surfaced phantom
                             // "Saved to RU bored" entries for create_list / like /
@@ -847,6 +848,11 @@ const Profile = () => {
                                         ? <>Posted about <span className="font-semibold">{placeName}</span></>
                                         : <>Shared a post</>
                                     break
+                                case 'follow':
+                                    body = targetUserName
+                                        ? <>Followed <span className="font-semibold">{targetUserName}</span></>
+                                        : <>Followed someone</>
+                                    break
                                 default:
                                     body = <>Activity</>
                             }
@@ -856,7 +862,9 @@ const Profile = () => {
                                     key={activity.id}
                                     type="button"
                                     onClick={() => {
-                                        if (activity.type === 'create_list' && activity.list) {
+                                        if (activity.type === 'follow' && (activity as any).targetUserId) {
+                                            openProfileModal((activity as any).targetUserId, 'profile-activity')
+                                        } else if (activity.type === 'create_list' && activity.list) {
                                             openListModal(activity.list as any, 'profile-activity')
                                         } else if (activity.place) {
                                             openHubModal(activity.place as any, 'profile-activity')

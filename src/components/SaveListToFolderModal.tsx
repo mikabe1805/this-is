@@ -45,21 +45,48 @@ export default function SaveListToFolderModal({
   useModalDismiss(isOpen, onClose)
   useSwipeToDismiss({ ref: sheetRef, onDismiss: onClose, enabled: isOpen })
 
+  // Transitive descendant set of `list` within userLists. We can't allow the
+  // user to nest list A into any folder X where X is already (directly or
+  // indirectly) a descendant of A — that would create a cycle and break
+  // recursive folder traversal. Computed via BFS bounded by userLists size,
+  // so worst case is O(n) per render.
+  const descendantIds = useMemo(() => {
+    if (!list) return new Set<string>()
+    const byId = new Map(userLists.map(l => [l.id, l]))
+    const out = new Set<string>()
+    const queue: string[] = [list.id]
+    while (queue.length) {
+      const id = queue.shift()!
+      const node = byId.get(id)
+      const subs = (node as { subLists?: string[] } | undefined)?.subLists || []
+      for (const child of subs) {
+        if (!out.has(child) && child !== list.id) {
+          out.add(child)
+          queue.push(child)
+        }
+      }
+    }
+    return out
+  }, [userLists, list])
+
   const candidates = useMemo(() => {
     const q = search.trim().toLowerCase()
     return userLists.filter(l => {
       // Don't allow nesting a list into itself.
       if (list && l.id === list.id) return false
+      // Don't allow nesting into a list that's already (transitively) inside
+      // this one — that would close the loop and break folder traversal.
+      if (descendantIds.has(l.id)) return false
       // Hide auto-generated lists (loved/tried/want) — those are place buckets.
       const tags = Array.isArray((l as { tags?: string[] }).tags) ? (l as { tags?: string[] }).tags! : []
-      const isAuto = tags.includes('#auto-generated')
+      const isAuto = tags.includes('#auto-generated') || tags.includes('auto-generated')
       const nameLower = (l.name || '').toLowerCase()
       const isAutoByName = nameLower === 'all loved' || nameLower === 'all tried' || nameLower === 'all want'
       if (isAuto || isAutoByName) return false
       if (q && !nameLower.includes(q) && !((l.description || '').toLowerCase().includes(q))) return false
       return true
     })
-  }, [userLists, list, search])
+  }, [userLists, list, search, descendantIds])
 
   if (!isOpen || !list) return null
 

@@ -20,6 +20,9 @@ interface FriendEvent {
   list?: string
   listId?: string
   listRef?: List
+  /** Set on follow events — the user that was followed. */
+  targetUserId?: string
+  targetUser?: User
   createdAt: string
 }
 
@@ -207,6 +210,8 @@ const Home = () => {
             list: a.list?.name,
             listId: a.list?.id,
             listRef: a.list as List | undefined,
+            targetUserId: (a as { targetUserId?: string }).targetUserId,
+            targetUser: (a as { targetUser?: User }).targetUser,
             createdAt: a.createdAt,
           })
         }
@@ -464,16 +469,19 @@ const Home = () => {
           <ul className="divide-y divide-edge border-y border-edge">
             {friendEvents.map(e => {
               const action = ACTION_LABEL[e.type] || 'updated'
-              const target = e.place?.name || e.list || ''
+              const target = e.place?.name || e.list || (e.type === 'follow' ? (e.targetUser?.name || e.targetUser?.username || '') : '')
               return (
                 <li key={e.id}>
                   <button
                     type="button"
                     onClick={() => {
+                      // Follow → followed user's profile modal.
                       // Like/save/post about a place → hub modal.
                       // Create-list / list-targeted activity → list modal.
                       // Fallback to the friend's profile only when neither side has data.
-                      if (e.type === 'create_list' && (e.listRef || e.listId)) {
+                      if (e.type === 'follow' && e.targetUserId) {
+                        openProfileModal(e.targetUserId, 'home-activity')
+                      } else if (e.type === 'create_list' && (e.listRef || e.listId)) {
                         const list = e.listRef || ({ id: e.listId, name: e.list || '' } as unknown as List)
                         openListModal(list, 'home-activity')
                       } else if (e.place) {

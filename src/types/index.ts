@@ -125,13 +125,16 @@ export interface Tag {
 
 export interface Activity {
   id: string
-  type: 'save' | 'like' | 'post' | 'create_list'
+  type: 'save' | 'like' | 'post' | 'create_list' | 'follow'
   userId: string
   user: User
   placeId?: string
   place?: Place
   listId?: string
   list?: List
+  /** Set on type==='follow' — the user that was followed. Hydrated on read. */
+  targetUserId?: string
+  targetUser?: User
   createdAt: string
 }
 
