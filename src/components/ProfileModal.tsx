@@ -5,6 +5,7 @@ import { XMarkIcon, MapPinIcon, UserIcon, CalendarIcon, HeartIcon, BookmarkIcon,
 import { HeartIcon as SolidHeartIcon } from '@heroicons/react/20/solid'
 import type { User, Post, List, Hub, Activity, PostComment } from '../types/index.js'
 import { firebaseDataService } from '../services/firebaseDataService'
+import { firebaseMessagingService } from '../services/firebaseMessagingService'
 import { useNavigation } from '../contexts/NavigationContext.tsx'
 import { useAuth } from '../contexts/AuthContext.tsx'
 import { formatTimestamp } from '../utils/dateUtils.ts'
@@ -340,17 +341,33 @@ const ProfileModal = ({ userId, isOpen, onClose, onFollow, onShare, onOpenFullSc
                 </div>
               )}
 
-              {/* Action row — Follow only. Messaging isn't built yet, so we
-                  removed the dead Message button rather than ship a no-op. */}
+              {/* Action row — Follow + Message. Messaging is built now;
+                  the button opens (or creates) a 1:1 thread between the
+                  viewer and this user, then navigates into it. */}
               {currentUser && currentUser.id !== userId && (
-                <div className="my-6">
+                <div className="my-6 flex gap-2">
                   <button
                     type="button"
                     onClick={handleFollow}
                     aria-pressed={isFollowing}
-                    className={isFollowing ? 'btn-secondary w-full h-11 label-eyebrow' : 'btn-cta w-full h-11 label-eyebrow'}
+                    className={isFollowing ? 'btn-secondary flex-1 h-11 label-eyebrow' : 'btn-cta flex-1 h-11 label-eyebrow'}
                   >
                     {isFollowing ? (isFriend ? 'Friends' : 'Following') : 'Follow'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      const id = await firebaseMessagingService.getOrCreateThread(currentUser.id, userId)
+                      if (id) {
+                        onClose()
+                        navigate(`/messages/${id}`)
+                      } else {
+                        window.dispatchEvent(new CustomEvent('this-is:toast', { detail: { message: "Couldn't open chat. Try again.", tone: 'error' } }))
+                      }
+                    }}
+                    className="btn-secondary flex-1 h-11 label-eyebrow inline-flex items-center justify-center gap-1.5"
+                  >
+                    Message
                   </button>
                 </div>
               )}

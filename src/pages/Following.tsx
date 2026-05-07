@@ -51,6 +51,12 @@ const Following = () => {
   // flicker.
   const handleUnfollow = async (userId: string) => {
     if (!authUser) return
+    // Confirm before unfollowing — was a single-tap action that could
+    // unintentionally fire on a stray bump, especially in the friends list
+    // where the button reads "Following" (looks like a label, not a CTA).
+    const target = followingUsers.find(u => u.id === userId)
+    const name = target?.name || target?.username || 'this person'
+    if (!window.confirm(`Unfollow ${name}? You can follow them back at any time.`)) return
     const prev = followingUsers
     setFollowingUsers(curr => curr.filter(u => u.id !== userId))
     try {

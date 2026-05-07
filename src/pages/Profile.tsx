@@ -505,12 +505,25 @@ const Profile = () => {
 
     const handleSave = async (status: 'loved' | 'tried' | 'want', rating?: 'liked' | 'neutral' | 'disliked', listIds?: string[], note?: string) => {
         if (!selectedPlace || !authUser) { setShowSaveModal(false); return }
+        const placeForCover = selectedPlace
         try {
             const ids = Array.isArray(listIds) ? listIds : []
             for (const lid of ids) {
                 await firebaseDataService.savePlaceToList(selectedPlace.id, lid, authUser.id, note, undefined, status, rating)
             }
             await firebaseDataService.recordUserSave(selectedPlace.id, authUser.id)
+            // Offer the cover picker after every save. The listener skips
+            // silently when the place already has a mainImage.
+            try {
+                window.dispatchEvent(new CustomEvent('openCoverPicker', {
+                    detail: {
+                        hubId: placeForCover.id,
+                        googlePlaceId: (placeForCover as { googlePlaceId?: string }).googlePlaceId,
+                        hubName: placeForCover.name,
+                        hubAddress: placeForCover.address,
+                    },
+                }))
+            } catch {}
         } catch (e) {
             console.error('[profile] save failed', e)
         } finally {
@@ -678,7 +691,7 @@ const Profile = () => {
             )}
             {!searchQuery.trim() && (
             <div className="relative z-10 px-5 max-w-2xl mx-auto mt-6">
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-2 gap-2">
                     <button
                         onClick={() => window.dispatchEvent(new CustomEvent('openCreateList'))}
                         className="rounded-2xl px-4 py-4 bg-card border border-edge text-ink flex flex-col items-start gap-3 hover:border-ink/30 transition-colors press"
@@ -699,6 +712,20 @@ const Profile = () => {
                     >
                         <HeartIcon className="w-5 h-5 text-ink" />
                         <span className="label-eyebrow">Favorites</span>
+                    </button>
+                    <button
+                        onClick={() => navigate('/maps')}
+                        className="rounded-2xl px-4 py-4 bg-card border border-edge text-ink flex flex-col items-start gap-3 hover:border-ink/30 transition-colors press"
+                    >
+                        <MapPinIcon className="w-5 h-5 text-ink" />
+                        <span className="label-eyebrow">Map</span>
+                    </button>
+                    <button
+                        onClick={() => navigate('/messages')}
+                        className="rounded-2xl px-4 py-4 bg-card border border-edge text-ink flex flex-col items-start gap-3 hover:border-ink/30 transition-colors press col-span-2"
+                    >
+                        <PlusIcon className="w-5 h-5 text-ink" />
+                        <span className="label-eyebrow">Messages</span>
                     </button>
                 </div>
             </div>

@@ -28,6 +28,8 @@ const ViewAllLists = lazy(() => import('./pages/ViewAllLists.tsx'))
 const Favorites = lazy(() => import('./pages/SavedLists.tsx'))
 const PlaceHub = lazy(() => import('./pages/PlaceHub.tsx'))
 const Maps = lazy(() => import('./pages/Maps.tsx'))
+const Messages = lazy(() => import('./pages/Messages.tsx'))
+const MessageThread = lazy(() => import('./pages/MessageThread.tsx'))
 const UserProfile = lazy(() => import('./pages/UserProfile.tsx'))
 import { setupViewportHandler } from './utils/viewportHandler.ts'
 import EmbedFromModal from './components/EmbedFromModal.tsx'
@@ -62,14 +64,32 @@ const GlobalModals = () => {
     return () => window.removeEventListener('openSaveListToFolder', onOpen)
   }, [])
 
-  // Manual cover-picker trigger — dispatched from HubModal so users can
-  // re-open the picker for any place they've already saved that doesn't
-  // have a cover image yet. Especially important for places saved before
-  // the googlePlaceId-storage fix.
+  // Cover-picker trigger. Dispatched from any save handler that wants to
+  // give the user the "first-saver picks a cover" UX. The global SaveModal
+  // (in this same component) sets coverPick directly; PlaceHub, Profile,
+  // SavedLists, and HubModal can dispatch this event to get the same
+  // behavior without duplicating the picker plumbing.
+  //
+  // The listener also re-checks the place doc — if a cover already exists
+  // (from a prior save by anyone), the picker is skipped silently. That's
+  // what makes "always dispatch" safe from the call-site's perspective.
   useEffect(() => {
-    const onOpen = (e: Event) => {
+    const onOpen = async (e: Event) => {
       const detail = (e as CustomEvent).detail as { hubId?: string; googlePlaceId?: string; hubName?: string; hubAddress?: string } | undefined
-      if (detail?.hubId && detail?.hubName) {
+      if (!detail?.hubId || !detail?.hubName) return
+      try {
+        const place = await firebaseDataService.getPlace(detail.hubId)
+        const mainImage = (place as { mainImage?: string } | null)?.mainImage
+        if (mainImage) return // already has a cover — nothing to pick
+        const placeGoogleId = (place as { googlePlaceId?: string } | null)?.googlePlaceId
+        setCoverPick({
+          hubId: detail.hubId,
+          googlePlaceId: detail.googlePlaceId || placeGoogleId || undefined,
+          hubName: detail.hubName,
+          hubAddress: detail.hubAddress,
+        })
+      } catch (err) {
+        console.warn('[openCoverPicker] precheck failed, opening anyway', err)
         setCoverPick({
           hubId: detail.hubId,
           googlePlaceId: detail.googlePlaceId || undefined,
@@ -78,8 +98,8 @@ const GlobalModals = () => {
         })
       }
     }
-    window.addEventListener('openCoverPicker', onOpen)
-    return () => window.removeEventListener('openCoverPicker', onOpen)
+    window.addEventListener('openCoverPicker', onOpen as EventListener)
+    return () => window.removeEventListener('openCoverPicker', onOpen as EventListener)
   }, [])
 
   useEffect(() => {
@@ -455,6 +475,8 @@ function AppContent() {
                     <Route path="/place/:id" element={<PlaceHub />} />
                     <Route path="/user/:userId" element={<UserProfile />} />
                     <Route path="/maps" element={<Maps />} />
+                    <Route path="/messages" element={<Messages />} />
+                    <Route path="/messages/:threadId" element={<MessageThread />} />
                     {/* Catch-all 404. Without this, an unknown URL silently
                         rendered nothing — leaving the previous page's stale
                         content visible with no indication anything was

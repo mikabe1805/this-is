@@ -7,6 +7,7 @@ import type { User, Post, List } from '../types/index.js';
 import { firebaseListService } from '../services/firebaseListService.js';
 import { useAuth } from '../contexts/AuthContext.js';
 import firebaseDataService from '../services/firebaseDataService.js';
+import { firebaseMessagingService } from '../services/firebaseMessagingService';
 import SearchAndFilter from '../components/SearchAndFilter';
 import TagPill from '../components/TagPill';
 import TagSearchModal from '../components/TagSearchModal';
@@ -101,6 +102,10 @@ const UserProfile = () => {
     if (currentUser && userId) {
       try {
         if (isFollowing) {
+          // Confirm unfollow — guards against accidental taps on the
+          // "Following" pill (which looks more like a label than a CTA).
+          const name = user?.name || user?.username || 'this person'
+          if (!window.confirm(`Unfollow ${name}? You can follow them back at any time.`)) return
           await firebaseDataService.unfollowUser(currentUser.id, userId);
         } else {
           await firebaseDataService.followUser(currentUser.id, userId);
@@ -316,8 +321,7 @@ const UserProfile = () => {
             </div>
           )}
 
-          {/* Action Buttons. Messaging isn't built yet, so we show only Follow
-              instead of a dead "Message" button. */}
+          {/* Action Buttons — Follow + Message. Messaging is wired now. */}
           {currentUser && currentUser.id !== userId && (
             <div className="flex gap-3 mt-6">
               <button
@@ -329,6 +333,17 @@ const UserProfile = () => {
                 }`}
               >
                 {isFollowing ? (isFriendOfViewer ? 'Friends' : 'Following') : 'Follow'}
+              </button>
+              <button
+                onClick={async () => {
+                  if (!userId) return
+                  const id = await firebaseMessagingService.getOrCreateThread(currentUser.id, userId)
+                  if (id) navigate(`/messages/${id}`)
+                  else window.dispatchEvent(new CustomEvent('this-is:toast', { detail: { message: "Couldn't open chat. Try again.", tone: 'error' } }))
+                }}
+                className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-semibold shadow-botanical hover:shadow-liquid hover:scale-102 transition-all duration-200 bg-gradient-to-r from-gold-500 to-gold-600 text-white"
+              >
+                Message
               </button>
             </div>
           )}

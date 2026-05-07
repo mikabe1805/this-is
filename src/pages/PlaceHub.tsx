@@ -188,6 +188,19 @@ const PlaceHub = () => {
           detail: { placeId: place.id, status }
         }))
       } catch (e) { console.warn('[place-hub] saved-event dispatch failed', e) }
+      // Offer to pick a cover photo if this place doesn't have one yet.
+      // The global listener checks place.mainImage and skips silently when
+      // a cover already exists, so this is safe to fire on every save.
+      try {
+        window.dispatchEvent(new CustomEvent('openCoverPicker', {
+          detail: {
+            hubId: place.id,
+            googlePlaceId: (place as { googlePlaceId?: string }).googlePlaceId,
+            hubName: place.name,
+            hubAddress: place.address,
+          },
+        }))
+      } catch (e) { console.warn('[place-hub] cover-picker dispatch failed', e) }
     } catch (e) {
       console.error('[place-hub] save failed', e)
     } finally {

@@ -69,12 +69,24 @@ const Favorites = () => {
     // scope (only `authUser` was ever defined), so the early return tripped
     // and saves silently no-oped. Use authUser consistently.
     if (!selectedPlace || !authUser) { setShowSaveModal(false); return }
+    const placeForCover = selectedPlace
     try {
       const ids = Array.isArray(listIds) ? listIds : []
       for (const lid of ids) {
         await firebaseDataService.savePlaceToList(selectedPlace.id, lid, authUser.id, note, undefined, status, rating)
       }
       await firebaseDataService.recordUserSave(selectedPlace.id, authUser.id)
+      // Cover-picker prompt — listener skips silently if cover already exists.
+      try {
+        window.dispatchEvent(new CustomEvent('openCoverPicker', {
+          detail: {
+            hubId: placeForCover.id,
+            googlePlaceId: (placeForCover as { googlePlaceId?: string }).googlePlaceId,
+            hubName: placeForCover.name,
+            hubAddress: placeForCover.address,
+          },
+        }))
+      } catch {}
     } catch (e) {
       console.error('[favorites] save failed', e)
     } finally {

@@ -209,6 +209,12 @@ const NavigationModals = () => {
               const following = await firebaseDataService.getUserFollowing(authUser.id);
               const already = following.some(u => u.id === userId);
               if (already) {
+                // Confirm unfollow — a single tap on a "Following" pill
+                // (which reads more like a label than a CTA) was too easy
+                // to fire by accident.
+                const target = following.find(u => u.id === userId)
+                const name = target?.name || target?.username || 'this person'
+                if (!window.confirm(`Unfollow ${name}? You can follow them back at any time.`)) return
                 await firebaseDataService.unfollowUser(authUser.id, userId);
               } else {
                 await firebaseDataService.followUser(authUser.id, userId);
