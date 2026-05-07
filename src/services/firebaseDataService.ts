@@ -2676,8 +2676,10 @@ class FirebaseDataService {
       const clientKey = (import.meta as any).env?.VITE_GOOGLE_MAPS_API_KEY
       let resp: any = await fetch(`/geocodeLocation?q=${encodeURIComponent(query)}&clientKey=${encodeURIComponent(clientKey || '')}` as any)
       if (!resp || !resp.ok) {
-        // Fallback to deployed Cloud Function URL
-        const cfUrl = 'https://us-central1-this-is-76332.cloudfunctions.net/geocodeLocation'
+        // Fallback to deployed Cloud Function URL — uses the configured
+        // project id so a fork / staging env doesn't accidentally hit prod.
+        const projectId = (import.meta as any).env?.VITE_FIREBASE_PROJECT_ID || 'this-is-76332'
+        const cfUrl = `https://us-central1-${projectId}.cloudfunctions.net/geocodeLocation`
         resp = await fetch(`${cfUrl}?q=${encodeURIComponent(query)}&clientKey=${encodeURIComponent(clientKey || '')}` as any)
       }
       if (!resp || !resp.ok) {

@@ -17,7 +17,6 @@ import PrivacyModal from '../components/PrivacyModal'
 import { firebaseListService } from '../services/firebaseListService';
 import { firebaseDataService } from '../services/firebaseDataService';
 import { useAuth } from '../contexts/AuthContext'
-// AdvancedFiltersDrawer removed in UX refresh
 import { useFilters } from '../contexts/FiltersContext'
 import { PageHeader } from '../components/primitives/PageHeader'
 import { ActionBar } from '../components/primitives/ActionBar'
@@ -1098,7 +1097,6 @@ const ListView = () => {
         onPrivacyChange={handlePrivacyChange}
         listName={list.name}
       />
-      {/* AdvancedFiltersDrawer removed in UX refresh */}
 
       {/* Action Bar */}
       <ActionBar

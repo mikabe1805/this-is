@@ -100,9 +100,12 @@ export async function extractEmbedData(url: string): Promise<EmbedData> {
   
   // Skip callable function for now, go directly to HTTP (more reliable)
   try {
+    // Use the configured Firebase project id rather than hardcoding it, so a
+    // fork or staging environment can target its own functions URL.
+    const projectId = import.meta.env.VITE_FIREBASE_PROJECT_ID || 'this-is-76332'
     const functionUrl = import.meta.env.DEV && import.meta.env.VITE_USE_FIREBASE_EMULATORS === 'true'
-      ? 'http://localhost:5001/this-is-76332/us-central1/extractEmbed'
-      : 'https://us-central1-this-is-76332.cloudfunctions.net/extractEmbed'
+      ? `http://localhost:5001/${projectId}/us-central1/extractEmbed`
+      : `https://us-central1-${projectId}.cloudfunctions.net/extractEmbed`
     
     console.log('📡 Calling Firebase Function:', functionUrl)
     

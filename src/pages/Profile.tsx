@@ -23,7 +23,6 @@ import TagAutocomplete from '../components/TagAutocomplete'
 import TagPill from '../components/TagPill'
 import { formatTimestamp } from '../utils/dateUtils'
 import { readCoords } from '../utils/coords'
-// AdvancedFiltersDrawer removed in UX refresh
 // import Card from '../components/Card'
 import Section from '../components/Section'
 

@@ -22,7 +22,15 @@ const Search = () => {
   const { currentUser } = useAuth()
   const { openHubModal, openListModal, openProfileModal } = useNavigation()
   const { openSaveModal } = useModal()
-  const { searchQuery, setSearchQuery, displayResults, isSearching, performSearch } = useSearch()
+  const { searchQuery, setSearchQuery, displayResults, isSearching, performSearch, error: searchError } = useSearch()
+
+  // Surface search failures via the global toast. Previously useSearch set an
+  // `error` field that nothing read — failures were console-only.
+  useEffect(() => {
+    if (searchError) {
+      window.dispatchEvent(new CustomEvent('this-is:toast', { detail: { message: searchError, tone: 'error' } }))
+    }
+  }, [searchError])
 
   const [popularTags, setPopularTags] = useState<string[]>([])
   const [recents, setRecents] = useState<string[]>([])

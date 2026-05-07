@@ -52,7 +52,7 @@ npm run status:ui        # Screenshot UI and update snapshot
 
 ### Frontend Structure
 
-**Pages** (`src/pages/`): Core app views including Home, Explore (card stack discovery), Search/SearchV2, Profile, ListView, PlaceHub, MapsView.
+**Pages** (`src/pages/`): Core app views — Home, Explore, Search, Profile, EditProfile, Settings, Following, ListView, ViewAllLists, PlaceHub, UserProfile, Favorites (a.k.a. SavedLists), Auth.
 
 **Components** (`src/components/`): Reusable UI organized by function:
 - Core components: Card, Navbar, modals (SaveModal, HubModal, ProfileModal, etc.)
@@ -73,8 +73,8 @@ npm run status:ui        # Screenshot UI and update snapshot
 - `firebasePostService.ts`: Post CRUD operations
 - `firebaseStorageService.ts`: Firebase Storage uploads/downloads
 - `aiSearchService.ts`: OpenAI-powered semantic search
-- `enhancedDiscoveryService.ts`: AI-driven place discovery
-- `featureFlags.ts`: Feature toggle system
+
+Feature flags live at `src/config/featureFlags.ts`.
 
 **Places API Integration** (`src/lib/placesNew.ts`):
 - Wrapper for Google Places API (New) v1 REST endpoints
@@ -152,8 +152,10 @@ See `docs/audit.md` and `README-maps.md` for detailed cost analysis and API usag
 ## Feature Flags
 
 `src/config/featureFlags.ts` (imported as `featureFlags`) controls experimental features:
-- `search_v2`: Enable SearchV2 page with enhanced search
-- `keep_reels_route`: Legacy Reels route (deprecated, redirects to Explore)
+- `explore_stacks`: Legacy deck view in Explore (the post-refresh UI is a single feed)
+- `search_v2`: Use the legacy SearchV2 page (had add-to-tags / make-a-hub flows)
+
+Both default to `false`. Add new flags to the same object — keep them tightly scoped and remove them once the experiment lands.
 
 ## Firebase Emulators
 
@@ -198,5 +200,5 @@ Set `VITE_USE_FIREBASE_EMULATORS=true` in `.env.local` to use local emulators in
 - **API Keys in .env.local**: Never commit `.env.local` or expose API keys. Server-side keys should have IP restrictions in Google Cloud Console.
 - **Photo URLs**: Always use `src/components/ui/PlaceVisual.tsx` or `SafeImage.tsx` for displaying Google Places photos. Never use plain `<img>` tags with Places photo URLs to prevent 403 errors and control costs.
 - **Poster Mapping**: `src/utils/posterMapping.ts` maps place types to curated poster images in `public/posters/` for fallback visuals.
-- **Main Branch**: Check git status/recent commits for main branch name (may be `main` or `master`). Current branch is `hotfix/places-freeze-02`.
+- **Main Branch**: `main`. Check `git status` to see your current working branch — sessions branch off freely; the recent UX-pass work landed on `refresh/ux-pass-01`.
 - **Node Version**: Cloud Functions require Node 22 (specified in `functions/package.json`).
