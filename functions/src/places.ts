@@ -39,8 +39,15 @@ function setCache(key: string, data: any) {
 
 export const suggestPlaces = onRequest({ cors: true }, async (req, res) => {
   try {
-    const { lat, lng, tags = [], interests = [], limit = 12, radiusKm = 20, clientKey } = (req.method === 'POST' ? req.body : req.query) as any
-    
+    const raw = (req.method === 'POST' ? req.body : req.query) as any
+    const { lat, lng, tags = [], interests = [], radiusKm = 20, clientKey } = raw
+    // Cap the result count: Google Places (New) accepts up to 20 per call; we
+    // defend the upper bound (50) so a misbehaving / malicious client can't
+    // request 999 places and inflate cost. Negative / NaN inputs fall back
+    // to the default of 12.
+    const rawLimit = Number(raw.limit)
+    const limit = Number.isFinite(rawLimit) && rawLimit > 0 ? Math.min(rawLimit, 50) : 12
+
     // Validate inputs
     if (typeof lat !== 'number' || typeof lng !== 'number') {
       logger.error('Invalid lat/lng', { lat, lng })

@@ -34,19 +34,19 @@ service firebase.storage {
       allow write: if request.auth != null;
     }
 
-    // Allow uploads to seed-data folder (for development)
+    // Dev / seed / test / temp paths require auth at minimum. Were
+    // previously open to the world (`allow read, write: if true`) which let
+    // anyone on the internet write into the bucket — a real abuse vector.
+    // Production seeding uses the admin SDK (rules bypassed), so requiring
+    // auth here doesn't break the local seed flow.
     match /seed-data/{allPaths=**} {
-      allow read, write: if true;
+      allow read, write: if request.auth != null;
     }
-    
-    // Allow uploads to test folder (for development)
     match /test/{allPaths=**} {
-      allow read, write: if true;
+      allow read, write: if request.auth != null;
     }
-    
-    // Allow uploads to temporary folders for demos
     match /temp/{allPaths=**} {
-      allow read, write: if true;
+      allow read, write: if request.auth != null;
     }
   }
 }
