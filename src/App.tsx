@@ -27,6 +27,7 @@ const ListView = lazy(() => import('./pages/ListView.tsx'))
 const ViewAllLists = lazy(() => import('./pages/ViewAllLists.tsx'))
 const Favorites = lazy(() => import('./pages/SavedLists.tsx'))
 const PlaceHub = lazy(() => import('./pages/PlaceHub.tsx'))
+const Maps = lazy(() => import('./pages/Maps.tsx'))
 const UserProfile = lazy(() => import('./pages/UserProfile.tsx'))
 import { setupViewportHandler } from './utils/viewportHandler.ts'
 import EmbedFromModal from './components/EmbedFromModal.tsx'
@@ -183,7 +184,18 @@ const GlobalModals = () => {
               // Notify subscribers (Home stats, Profile lists, etc.) so they can
               // refresh their saved counts and saved-state markers.
               window.dispatchEvent(new CustomEvent('this-is:saved', { detail: { placeId, status } }))
-              window.dispatchEvent(new CustomEvent('this-is:toast', { detail: { message: 'Saved' } }))
+              // Surface a tappable toast that jumps to the list the user just
+              // saved into. When multiple lists, prefer the first one and
+              // pluralise. Showing the list name beats a generic 'Saved' —
+              // the user immediately sees where the place landed.
+              const targetList = (userLists || []).find(l => l.id === ids[0])
+              const message = ids.length === 1 && targetList
+                ? `Saved to ${targetList.name}`
+                : ids.length > 1
+                  ? `Saved to ${ids.length} lists`
+                  : 'Saved'
+              const action = ids.length === 1 && ids[0] ? { label: 'View', href: `/list/${ids[0]}` } : undefined
+              window.dispatchEvent(new CustomEvent('this-is:toast', { detail: { message, action } }))
             } catch (e) {
               // Surface failures so the user knows the save didn't take. Without
               // this the modal closes with no feedback and the place silently
@@ -247,6 +259,12 @@ const GlobalModals = () => {
                 console.warn('[GlobalModals] failed to refresh user lists after create', e)
               }
               window.dispatchEvent(new CustomEvent('this-is:saved', { detail: { placeId, status, newListId } }))
+              window.dispatchEvent(new CustomEvent('this-is:toast', {
+                detail: {
+                  message: `Saved to ${listData.name}`,
+                  action: { label: 'View', href: `/list/${newListId}` },
+                },
+              }))
             }
             closeSaveModal()
             if (needsCover) {
@@ -436,6 +454,7 @@ function AppContent() {
                     <Route path="/favorites" element={<Favorites />} />
                     <Route path="/place/:id" element={<PlaceHub />} />
                     <Route path="/user/:userId" element={<UserProfile />} />
+                    <Route path="/maps" element={<Maps />} />
                     {/* Catch-all 404. Without this, an unknown URL silently
                         rendered nothing — leaving the previous page's stale
                         content visible with no indication anything was
