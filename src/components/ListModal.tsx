@@ -2,6 +2,7 @@ import type { List, Place, Post } from '../types/index.js'
 import { MapPinIcon, HeartIcon, BookmarkIcon, PlusIcon, ShareIcon, XMarkIcon, UserIcon, CalendarIcon, ArrowsPointingOutIcon, ArrowLeftIcon, EllipsisHorizontalIcon, CheckCircleIcon, HandThumbUpIcon, HandThumbDownIcon, MinusCircleIcon } from '@heroicons/react/24/outline'
 import { HeartIcon as HeartIconSolid } from '@heroicons/react/24/solid'
 import { useState, useEffect, useRef } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useBodyScrollLock } from '../hooks/useBodyScrollLock'
 import { useSwipeToDismiss } from '../hooks/useSwipeToDismiss'
 import SearchAndFilter from './SearchAndFilter'
@@ -77,6 +78,7 @@ const RatingPill = ({ rating }: { rating?: 'liked' | 'neutral' | 'disliked' }) =
 const ListModal = ({ list, isOpen, onClose, onSave, onShare, onAddPost, onOpenFullScreen, onOpenHub, showBackButton, onBack, onLikeChange, onEditList, onChangePrivacy, onDeleteList }: ListModalProps) => {
   const { currentUser } = useAuth()
   const { openPostOverlay, openFullScreenList } = useNavigation()
+  const navigate = useNavigate()
   const [isLiked, setIsLiked] = useState(false)
   const [likes, setLikes] = useState(list.likes)
   const [isVisible, setIsVisible] = useState(false)
@@ -279,8 +281,9 @@ const ListModal = ({ list, isOpen, onClose, onSave, onShare, onAddPost, onOpenFu
   // and never opened from the UI. Removed to keep this surface honest.
 
   const handleSeeAllLists = (listType: 'popular' | 'friends') => {
-    // Navigate to ViewAllLists page with appropriate filters
-    window.location.href = `/lists?type=${listType}&hub=${list.id}`
+    // Use the SPA router instead of `window.location.href` — a hard nav blew
+    // away modal stack state, scroll position, and any in-flight forms.
+    navigate(`/lists?type=${listType}&hub=${list.id}`)
   }
 
   const modalContent = (
@@ -295,6 +298,8 @@ const ListModal = ({ list, isOpen, onClose, onSave, onShare, onAddPost, onOpenFu
     >
       <div
         ref={sheetRef}
+        role="dialog"
+        aria-modal={true}
         className={`modal-container modal-paper w-full max-w-[600px] mx-1 max-h-[88vh] sm:max-h-[92vh] rounded-3xl border border-edge overflow-hidden relative transition-all duration-300 ease-out ${
           isVisible ? 'opacity-100 scale-100' : 'opacity-0 scale-95'
         }`}

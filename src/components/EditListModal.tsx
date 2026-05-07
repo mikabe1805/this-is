@@ -129,6 +129,8 @@ const EditListModal = ({ isOpen, onClose, list, onSave }: EditListModalProps) =>
       onClick={onClose}
     >
       <div
+        role="dialog"
+        aria-modal={true}
         className="modal-paper relative w-full sm:max-w-md rounded-t-3xl sm:rounded-3xl border border-edge max-h-[92vh] flex flex-col overflow-hidden"
         style={{ boxShadow: '0 18px 60px rgba(46, 28, 13, 0.22)' }}
         onClick={(e) => e.stopPropagation()}

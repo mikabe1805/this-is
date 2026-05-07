@@ -222,6 +222,8 @@ const ProfileModal = ({ userId, isOpen, onClose, onFollow, onShare, onOpenFullSc
       ></div>
       <div
         ref={modalRef}
+        role="dialog"
+        aria-modal={true}
         className={`modal-paper absolute bottom-0 left-0 right-0 w-full max-w-md mx-auto h-[95vh] border-t border-edge sm:border sm:rounded-3xl rounded-t-3xl transform transition-transform duration-300 ease-out flex flex-col overflow-hidden ${isVisible ? 'translate-y-0' : 'translate-y-full'}`}
         style={{ boxShadow: '0 -8px 40px rgba(46, 28, 13, 0.25), 0 24px 60px rgba(46, 28, 13, 0.30)' }}
       >

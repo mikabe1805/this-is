@@ -155,6 +155,8 @@ const SaveModal: React.FC<SaveModalProps> = ({
     <div className="fixed inset-0 z-[10001] flex items-end sm:items-center justify-center bg-[#1A1815]/55 backdrop-blur-sm" onClick={onClose}>
       <div
         ref={sheetRef}
+        role="dialog"
+        aria-modal={true}
         className="modal-paper w-full sm:max-w-md max-h-[88vh] rounded-t-[24px] sm:rounded-[24px] overflow-hidden flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >

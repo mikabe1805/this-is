@@ -436,6 +436,20 @@ function AppContent() {
                     <Route path="/favorites" element={<Favorites />} />
                     <Route path="/place/:id" element={<PlaceHub />} />
                     <Route path="/user/:userId" element={<UserProfile />} />
+                    {/* Catch-all 404. Without this, an unknown URL silently
+                        rendered nothing — leaving the previous page's stale
+                        content visible with no indication anything was
+                        wrong. */}
+                    <Route path="*" element={
+                      <div className="min-h-full flex items-center justify-center px-6 py-20 text-center">
+                        <div>
+                          <p className="font-mono text-[10px] tracking-[0.18em] uppercase text-ink-mute">404</p>
+                          <h1 className="font-display text-[34px] leading-tight text-ink mt-2">Lost the trail<span style={{ color: 'var(--bloom)' }}>.</span></h1>
+                          <p className="text-[14px] text-ink-soft mt-3 max-w-sm mx-auto">That page didn't lead anywhere we know. Maybe it moved, or maybe it never existed.</p>
+                          <button onClick={() => navigate('/')} className="btn-cta h-11 px-5 mt-6 label-eyebrow">Take me home</button>
+                        </div>
+                      </div>
+                    } />
                   </Routes>
                 </Suspense>
               </main>

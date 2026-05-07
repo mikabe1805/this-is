@@ -137,6 +137,8 @@ const CreateListModal = ({ isOpen, onClose, onCreate }: CreateListModalProps) =>
     <div className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center sm:p-4 bg-[#1A1815]/55 backdrop-blur-sm" onClick={handleClose}>
       {/* Modal — paper surface, drag-handle on mobile, edge token border. */}
       <div
+        role="dialog"
+        aria-modal={true}
         className="relative modal-paper w-full sm:max-w-md rounded-t-3xl sm:rounded-3xl border border-edge max-h-[92vh] overflow-hidden"
         style={{ boxShadow: '0 18px 60px rgba(46, 28, 13, 0.22)' }}
         onClick={(e) => e.stopPropagation()}

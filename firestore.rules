@@ -63,6 +63,16 @@ service cloud.firestore {
       allow read: if true; // Allow all reads for demo
       allow write: if isDevMode() || isAuthenticated();
       allow delete: if isDevMode(); // Allow deletion in dev mode for cleanup
+
+      // Per-user "I saved this place" markers. recordUserSave writes
+      // places/{placeId}/saves/{userId} as the source-of-truth for
+      // savedCount denormalization. Without this rule the write was
+      // silently rejected with a permission error and the global
+      // savedCount counter never incremented.
+      match /saves/{userId} {
+        allow read: if isAuthenticated();
+        allow write: if isDevMode() || (isAuthenticated() && isOwner(userId));
+      }
     }
 
     // Hubs collection

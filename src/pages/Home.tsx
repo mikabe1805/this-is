@@ -58,6 +58,9 @@ const Home = () => {
   const [recentSearches, setRecentSearches] = useState<string[]>([])
   const [savedIds, setSavedIds] = useState<Set<string>>(new Set())
   const placeRefs = useRef<Record<string, Place>>({})
+  // Tracks the latest currentUser.id so async loaders can detect a user
+  // switch and bail before writing stale data into state.
+  const currentUserIdRef = useRef<string | null>(null)
 
   const loadForYou = async (refresh = false) => {
     if (!currentUser) return
@@ -171,15 +174,19 @@ const Home = () => {
           distanceKm,
         }
       })
+      // Bail if the auth user changed mid-flight — without this guard, a
+      // rapid sign-out/sign-in or account switch lets the old user's
+      // recommendations land in the new user's For-You rail.
+      if (currentUser && currentUserIdRef.current !== currentUser.id) return
       // Remember what we just showed so the next Refresh skips them.
       finalPicks.forEach(p => seenIds.add(p.id))
       persistSeen(seenIds)
       setForYou(items)
     } catch (e) {
       console.error('[home] forYou failed', e)
-      setForYou([])
+      if (currentUser && currentUserIdRef.current === currentUser.id) setForYou([])
     } finally {
-      setLoadingForYou(false)
+      if (currentUser && currentUserIdRef.current === currentUser.id) setLoadingForYou(false)
     }
   }
 
@@ -216,13 +223,16 @@ const Home = () => {
           })
         }
       }
+      // Same user-switch bail as loadForYou — getUserFriends + 8 parallel
+      // getUserActivity calls can run for several seconds on slow networks.
+      if (currentUser && currentUserIdRef.current !== currentUser.id) return
       all.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
       setFriendEvents(all.slice(0, 8))
     } catch (e) {
       console.warn('[home] loadFriends failed', e)
-      setFriendEvents([])
+      if (currentUser && currentUserIdRef.current === currentUser.id) setFriendEvents([])
     } finally {
-      setLoadingFriends(false)
+      if (currentUser && currentUserIdRef.current === currentUser.id) setLoadingFriends(false)
     }
   }
 
@@ -243,6 +253,11 @@ const Home = () => {
 
   useEffect(() => {
     if (!currentUser) return
+    // Stale-effect guard: if the user signs out or switches accounts mid-load,
+    // the in-flight promises must not call setForYou / setFriendEvents with
+    // the previous user's data. Each loader checks the latest id against the
+    // ref and bails before writing state.
+    currentUserIdRef.current = currentUser.id
     void loadForYou()
     void loadFriends()
     void loadStats()

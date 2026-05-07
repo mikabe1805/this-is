@@ -75,7 +75,7 @@ const EditProfile = () => {
   }
 
   const handleSave = async () => {
-    if (!authUser) return;
+    if (!authUser || isSaving) return;
     setSaveError(null)
     setIsSaving(true)
     try {

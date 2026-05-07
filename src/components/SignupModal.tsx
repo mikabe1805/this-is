@@ -197,6 +197,8 @@ export default function SignupModal({ isOpen, onClose, onSwitchToLogin }: Signup
       onClick={onClose}
     >
       <div
+        role="dialog"
+        aria-modal={true}
         className="modal-paper relative w-full sm:max-w-md max-h-[92vh] rounded-t-3xl sm:rounded-3xl border border-edge overflow-hidden flex flex-col"
         style={{ boxShadow: '0 18px 60px rgba(46, 28, 13, 0.22)' }}
         onClick={(e) => e.stopPropagation()}

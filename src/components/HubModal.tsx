@@ -89,6 +89,8 @@ const HubModal = ({
     >
       <div
         ref={sheetRef}
+        role="dialog"
+        aria-modal={true}
         className="modal-paper w-full sm:max-w-md max-h-[92vh] rounded-t-3xl sm:rounded-3xl border border-edge overflow-hidden flex flex-col"
         style={{ boxShadow: '0 18px 60px rgba(46, 28, 13, 0.22), 0 4px 14px rgba(46, 28, 13, 0.08)' }}
         onClick={(e) => e.stopPropagation()}

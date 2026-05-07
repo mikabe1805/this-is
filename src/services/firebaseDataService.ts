@@ -1249,22 +1249,6 @@ class FirebaseDataService {
     }
   }
 
-  async getPlaceKeysLite(limitCount: number = 500): Promise<Array<{ id: string; name: string; address?: string; lat?: number; lng?: number }>> {
-    try {
-      const placesQuery = query(collection(db, 'places'), fsLimit(limitCount))
-      const snap = await getDocs(placesQuery)
-      return snap.docs.map(d => {
-        const data: any = d.data()
-        const lat = (data.coordinates && data.coordinates.lat) || data.location?.lat
-        const lng = (data.coordinates && data.coordinates.lng) || data.location?.lng
-        return { id: d.id, name: data.name || data.placeName || '', address: data.address || data.location?.address, lat, lng }
-      })
-    } catch (e) {
-      console.warn('getPlaceKeysLite failed', e)
-      return []
-    }
-  }
-
   async getList(listId: string): Promise<List | null> {
     try {
       const listDoc = await getDoc(doc(db, 'lists', listId))
@@ -1275,64 +1259,6 @@ class FirebaseDataService {
     } catch (error) {
       console.error('Error fetching list:', error)
       return null
-    }
-  }
-
-  async getPostsForHub(hubId: string, viewerId?: string): Promise<Post[]> {
-    try {
-      const postsQuery = query(
-        collection(db, 'posts'),
-        where('hubId', '==', hubId),
-        orderBy('createdAt', 'desc')
-      );
-      const postsSnapshot = await getDocs(postsQuery);
-      const allPosts = postsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Post[];
-
-      // Privacy gate. 'public' is always visible. 'friends' is visible to the
-      // author and to mutual-follow friends of the author. 'private' is only
-      // ever visible to the author. Without this filter, calling this method
-      // with no viewerId leaks private posts on the hub feed.
-      let friendsOfViewer = new Set<string>();
-      if (viewerId) {
-        try {
-          const fr = await this.getUserFriends(viewerId)
-          friendsOfViewer = new Set(fr.map(u => u.id))
-        } catch (e) {
-          console.warn('[getPostsForHub] friend lookup failed', e)
-        }
-      }
-      const posts = allPosts.filter(p => {
-        const privacy = (p as { privacy?: string }).privacy
-        if (!privacy || privacy === 'public') return true
-        if (privacy === 'friends') return !!viewerId && (p.userId === viewerId || friendsOfViewer.has(p.userId))
-        return p.userId === viewerId
-      })
-
-      // Enrich posts with user information
-      const enrichedPosts = await Promise.all(
-        posts.map(async (post) => {
-          if (post.userId && !post.username) {
-            try {
-              const username = await this.getUserDisplayName(post.userId);
-              const user = await this.getCurrentUser(post.userId);
-              return {
-                ...post,
-                username,
-                userAvatar: user?.avatar || ''
-              };
-            } catch (error) {
-              console.error('Error fetching username for post:', error);
-              return { ...post, username: 'Unknown User', userAvatar: '' };
-            }
-          }
-          return post;
-        })
-      );
-
-      return enrichedPosts;
-    } catch (error) {
-      console.error('Error fetching posts for hub:', error);
-      return [];
     }
   }
 
@@ -2993,32 +2919,6 @@ class FirebaseDataService {
   }
 
   /**
-   * Inverse of recordUserSave. Idempotent — only decrements savedCount if
-   * a marker doc actually exists for this user, so removing a place that
-   * was never personally saved (e.g. removing it from a friend's view) is
-   * a no-op rather than dragging the global counter negative.
-   */
-  async recordUserUnsave(placeId: string, userId: string): Promise<boolean> {
-    try {
-      if (!placeId || !userId) return false
-      const markerRef = doc(db, 'places', placeId, 'saves', userId)
-      const userSavedRef = doc(db, 'users', userId, 'savedPlaces', placeId)
-      // Drop the user-side mirror unconditionally so the PLACES counter
-      // updates immediately even if the global marker was already gone.
-      try { await deleteDoc(userSavedRef) } catch (e) { console.warn('[recordUserUnsave] user-side delete failed', e) }
-      const existing = await getDoc(markerRef)
-      if (!existing.exists()) return false
-      await deleteDoc(markerRef)
-      const placeRef = doc(db, 'places', placeId)
-      await updateDoc(placeRef, { savedCount: increment(-1) })
-      return true
-    } catch (e) {
-      console.warn('[recordUserUnsave] failed', e)
-      return false
-    }
-  }
-
-  /**
    * One-shot reconciliation for accounts whose saves predate the user-side
    * mirror introduced alongside `recordUserSave` v2. Walks the user's lists,
    * gathers unique place ids, and writes any missing
@@ -3071,46 +2971,6 @@ class FirebaseDataService {
       console.warn('[backfillSavedPlacesFromLists] failed', e)
       return 0
     }
-  }
-
-  /**
-   * Returns the set of place ids the current user has saved. Used to render
-   * "saved" state on cards without N+1 reads.
-   *
-   * Reads the user-side mirror first (cheap single subcollection read), then
-   * unions in any place ids found across the user's lists. The list pass
-   * handles legacy accounts where a place got added to a list before
-   * recordUserSave wrote a mirror — so the bookmark indicator is accurate
-   * even when the backfill hasn't completed yet.
-   */
-  async getUserSavedPlaceIds(userId: string): Promise<Set<string>> {
-    const out = new Set<string>()
-    try {
-      const snap = await getDocs(collection(db, 'users', userId, 'savedPlaces'))
-      snap.docs.forEach(d => {
-        const id = (d.data() as { placeId?: string }).placeId || d.id
-        if (id) out.add(id)
-      })
-    } catch (e) {
-      console.warn('[getUserSavedPlaceIds] mirror read failed', e)
-    }
-    try {
-      const lists = await this.getUserLists(userId)
-      for (const l of lists) {
-        const hubs = (l as { hubs?: unknown[] }).hubs || []
-        for (const raw of hubs) {
-          const id = typeof raw === 'string'
-            ? raw
-            : (raw && typeof raw === 'object' && 'id' in (raw as object))
-              ? String((raw as { id: string }).id)
-              : ''
-          if (id) out.add(id)
-        }
-      }
-    } catch (e) {
-      console.warn('[getUserSavedPlaceIds] list scan failed', e)
-    }
-    return out
   }
 
   /**

@@ -197,6 +197,8 @@ const PostModal = ({ postId, from, isOpen, onClose, showBackButton, onBack }: Po
         <div className="absolute inset-0 bg-[#1A1815]/55 backdrop-blur-sm" onClick={onClose}></div>
         <div
           ref={modalRef}
+          role="dialog"
+          aria-modal={true}
           className={`relative modal-paper rounded-t-3xl sm:rounded-3xl border border-edge w-full sm:max-w-2xl max-h-[90vh] flex flex-col overflow-hidden transition-all duration-300 ${isVisible ? 'scale-100 opacity-100' : 'scale-95 opacity-0'}`}
           style={{ boxShadow: '0 18px 60px rgba(46, 28, 13, 0.22), 0 4px 14px rgba(46, 28, 13, 0.08)' }}
         >

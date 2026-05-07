@@ -1,4 +1,4 @@
-import {onCall, onRequest} from "firebase-functions/v2/https";
+import {onRequest} from "firebase-functions/v2/https";
 import {setGlobalOptions} from "firebase-functions";
 import {logger} from "firebase-functions";
 import cors from "cors";
@@ -383,24 +383,9 @@ export const extractEmbed = onRequest((req, res) => {
   });
 });
 
-// Callable function version (alternative)
-export const extractEmbedCallable = onCall(async (request) => {
-  const { url } = request.data;
-  
-  if (!url || typeof url !== 'string') {
-    throw new Error('URL is required');
-  }
-  
-  try {
-    new URL(url);
-  } catch {
-    throw new Error('Invalid URL format');
-  }
-  
-  logger.info('Extracting embed data for URL:', url);
-  
-  return await extractEmbedData(url);
-});
+// (extractEmbedCallable was a never-called duplicate of the HTTP variant —
+// the frontend uses extractEmbed via fetch(). Removed to keep the deployed
+// function set tight.)
 
 export * from './analytics-cleanup';
 export * from './influences';

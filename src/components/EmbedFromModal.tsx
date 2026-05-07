@@ -199,6 +199,8 @@ const EmbedFromModal = ({ isOpen, onClose }: EmbedFromModalProps) => {
   return createPortal(
     <div className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center sm:p-4 bg-[#1A1815]/55 backdrop-blur-sm" onClick={handleClose}>
       <div
+        role="dialog"
+        aria-modal={true}
         className="modal-paper w-full sm:max-w-md rounded-t-3xl sm:rounded-3xl border border-edge overflow-hidden max-h-[92vh] flex flex-col"
         style={{ boxShadow: '0 18px 60px rgba(46, 28, 13, 0.22)' }}
         onClick={(e) => e.stopPropagation()}
