@@ -342,9 +342,56 @@ export function setupLazyPhotoLoading(
 
 let loadPromise: Promise<boolean> | null = null;
 
+// Flipped true by Google's global auth-failure callback — fired when the key
+// is rejected (Maps JavaScript API not enabled, HTTP-referrer restriction
+// mismatch, or billing disabled). Without this hook the SDK silently renders
+// its gray "can't load Google Maps" overlay while our loader still reports
+// success, so /maps looked broken with no diagnosable cause. We also broadcast
+// an event so any mounted map surface can flip to a clean error state even when
+// the failure arrives *after* the map object was created.
+let mapsAuthFailed = false;
+export function didMapsAuthFail(): boolean {
+  return mapsAuthFailed;
+}
+if (typeof window !== 'undefined') {
+  (window as unknown as { gm_authFailure?: () => void }).gm_authFailure = () => {
+    mapsAuthFailed = true;
+    console.error(
+      '[Maps] gm_authFailure — Google rejected the Maps key. In Google Cloud Console: enable "Maps JavaScript API" for this key and confirm the HTTP-referrer allowlist includes this origin.'
+    );
+    try { window.dispatchEvent(new CustomEvent('this-is:maps-auth-failed')); } catch { /* noop */ }
+  };
+}
+
+/**
+ * Resolve once the Maps SDK is genuinely usable. With `loading=async`, the
+ * `<script>` onload fires when the bootstrap parses — *before* the
+ * `google.maps` namespace and its libraries are populated. Polling for the
+ * real `Map` constructor (not just onload) is what makes a cold first load
+ * reliable; the previous code resolved on onload and callers then hit an
+ * undefined `window.google.maps`, tripping the error state instead of showing
+ * the map.
+ */
+function waitForMapsReady(timeoutMs = 10000): Promise<boolean> {
+  return new Promise((resolve) => {
+    const ready = () => !!window.google?.maps?.Map && !!window.google?.maps?.places;
+    if (ready()) { resolve(true); return; }
+    const started = Date.now();
+    const iv = setInterval(() => {
+      if (mapsAuthFailed) { clearInterval(iv); resolve(false); return; }
+      if (ready()) { clearInterval(iv); resolve(true); return; }
+      if (Date.now() - started > timeoutMs) {
+        clearInterval(iv);
+        console.error('[Maps] timed out waiting for google.maps to initialize');
+        resolve(false);
+      }
+    }, 80);
+  });
+}
+
 /**
  * Load Google Maps API script once.
- * Returns true if loaded successfully, false otherwise.
+ * Returns true once the SDK is actually ready to use, false otherwise.
  */
 export async function loadGoogleMapsAPI(): Promise<boolean> {
   // Kill switch check - if Places disabled, still load API but warn
@@ -357,38 +404,26 @@ export async function loadGoogleMapsAPI(): Promise<boolean> {
     return loadPromise;
   }
 
-  // Check if already loaded
-  if (window.google?.maps?.places) {
+  // Already fully initialized.
+  if (window.google?.maps?.Map && window.google?.maps?.places) {
     return true;
   }
 
-  // Check if script is already in DOM
+  // Script already in the DOM (added by another surface) — just wait for the
+  // namespace to finish initializing. Clear the cached promise on failure so a
+  // later mount can retry instead of being stuck with a settled-false promise.
   const existingScript = document.querySelector('script[src*="maps.googleapis.com"]');
   if (existingScript) {
-    loadPromise = new Promise<boolean>((resolve) => {
-      const checkLoaded = setInterval(() => {
-        if (window.google?.maps?.places) {
-          clearInterval(checkLoaded);
-          resolve(true);
-        }
-      }, 100);
-      
-      // Timeout after 10s
-      setTimeout(() => {
-        clearInterval(checkLoaded);
-        resolve(false);
-      }, 10000);
-    });
+    loadPromise = waitForMapsReady().then(ok => { if (!ok) loadPromise = null; return ok; });
     return loadPromise;
   }
 
   // Load the API
   const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
   if (!apiKey) {
-    console.error('[Places API] Missing API key');
+    console.error('[Places API] Missing API key (VITE_GOOGLE_MAPS_API_KEY)');
     return false;
   }
-
 
   loadPromise = new Promise<boolean>((resolve) => {
     const script = document.createElement('script');
@@ -396,12 +431,20 @@ export async function loadGoogleMapsAPI(): Promise<boolean> {
     script.async = true;
     script.defer = true;
 
+    // onload only means the bootstrap parsed — poll for the real namespace
+    // before reporting success. If readiness times out or the key is rejected,
+    // clear the cached promise so a subsequent attempt can retry rather than
+    // forever returning this settled-false promise (the onerror path below
+    // already does this; the timeout/auth path must too).
     script.onload = () => {
-      resolve(true);
+      waitForMapsReady().then(ready => {
+        if (!ready) loadPromise = null;
+        resolve(ready);
+      });
     };
 
     script.onerror = () => {
-      console.error('[Places API] Failed to load');
+      console.error('[Places API] Failed to load Maps JS script');
       loadPromise = null;
       resolve(false);
     };

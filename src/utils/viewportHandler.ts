@@ -1,8 +1,11 @@
-// Viewport handler to prevent keyboard displacement issues on mobile
-export const setupViewportHandler = () => {
+// Viewport handler to prevent keyboard displacement issues on mobile.
+// Always returns a cleanup function (no-op on early exits) so the caller's
+// useEffect cleanup is never `undefined`.
+export const setupViewportHandler = (): (() => void) => {
+  const noop = () => {}
   // Only run on mobile devices
   if (typeof window === 'undefined' || window.innerWidth > 768) {
-    return
+    return noop
   }
 
   // Store initial viewport height

@@ -112,13 +112,19 @@ class FirebasePostService {
 
       await setDoc(newPostRef, finalPostData);
 
-      // If the post is associated with lists, update those lists
+      // Attach to all selected lists atomically (one writeBatch). The old
+      // sequential savePostToList loop left the post in only some lists with
+      // no rollback if one write failed, and overwrote the single legacy
+      // listId each iteration — same data-loss bug already fixed for regular
+      // posts. attachPostToLists writes the canonical listIds[] array too.
       if (embedData.listIds && embedData.listIds.length > 0) {
-        for (const listId of embedData.listIds) {
-          await this.savePostToList(postId, listId);
+        try {
+          await this.attachPostToLists(postId, embedData.listIds);
+        } catch (error) {
+          console.error(`❌ Failed to attach embed post ${postId} to lists:`, error);
         }
       }
-      
+
       return postId;
     } catch (error) {
       console.error('Error creating embed post:', error);

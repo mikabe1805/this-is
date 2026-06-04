@@ -6,9 +6,9 @@ import { auth } from '../firebase/config'
 import { firebaseStorageService } from './firebaseStorageService'
 import { firebaseListService } from './firebaseListService'
 import { stablePlaceKey } from '../utils/stablePlaceKey'
-import { mapInterestsToTypes, getComplementaryTypes } from '../utils/placeTypes'
+import { mapInterestsToTypes, getComplementaryTypes, detectInterests, placeInterestKeys, detectVibes, interestQuery, interestLabel, vibeLabel } from '../utils/placeTypes'
 import { readCoords } from '../utils/coords'
-import { searchNearby, getDetails } from '../lib/placesNew'
+import { searchNearby, searchText, getDetails } from '../lib/placesNew'
 
 
 
@@ -81,8 +81,48 @@ function shuffleIfSeed<T>(arr: T[], seed: number | string | undefined): T[] {
   return out
 }
 
+/** A user's derived taste — what we've "learned" about them. Built from the
+ *  ACCUMULATED interaction vector (saves, opens, likes, searches — see
+ *  StoredTaste) blended with their saved-place categories, signup vibes, and
+ *  bio. Drives recommendation queries + ranking + the "why" reason, and the
+ *  "getting to know you" UI. The more the user interacts, the higher
+ *  signalCount climbs and the sharper the interests become. */
+export interface TasteProfile {
+  /** Canonical interests, highest-weight first. */
+  interests: Array<{ key: string; label: string; weight: number }>
+  /** Mood adjectives (cozy/trendy/…) detected from vibes + bio. */
+  vibes: string[]
+  /** True once we have any signal at all (saves/tags/bio/interactions). */
+  hasSignal: boolean
+  savedCount: number
+  /** Total weighted interactions recorded — drives the confidence/"getting to
+   *  know you" indicator. Grows the more the user uses the app. */
+  signalCount: number
+  /** 'new' | 'learning' | 'known' — coarse confidence band for UI copy. */
+  confidence: 'new' | 'learning' | 'known'
+  /** Place ids the user marked "not interested" — excluded from recs. */
+  suppressed: Set<string>
+}
+
+/** The durable, accumulating interaction vector persisted at userTaste/{uid}.
+ *  Updated via atomic increments on every signal, so it survives sessions and
+ *  compounds — this is what makes "the more you use it, the more it knows you"
+ *  literally true rather than cosmetic. */
+export interface StoredTaste {
+  interests: Record<string, number>
+  vibes: Record<string, number>
+  signalCount: number
+  suppressed: Record<string, boolean>
+  /** ms timestamp of the last decay pass — drives recency decay so the profile
+   *  tracks EVOLVING taste instead of accumulating forever. */
+  lastDecayedAt?: number
+}
+
 class FirebaseDataService {
   private userPreferencesCache = new Map<string, UserPreferences>()
+  private tasteProfileCache = new Map<string, { t: number; v: TasteProfile }>()
+  private storedTasteCache = new Map<string, { t: number; v: StoredTaste }>()
+  private friendSavedCache = new Map<string, { t: number; v: Map<string, string[]> }>()
   private searchCache = new Map<string, { data: FirebaseSearchData; timestamp: number }>()
   private userCache = new Map<string, { user: User; timestamp: number }>()
   private userActivityCache = new Map<string, { activities: Activity[]; timestamp: number }>()
@@ -455,19 +495,96 @@ class FirebaseDataService {
     }
   }
 
-  async getSavedPlaces(userId: string): Promise<Place[]> {
+  async getSavedPlaces(userId: string, max = 200): Promise<Place[]> {
     try {
       const savedPlacesQuery = query(
         collection(db, 'users', userId, 'savedPlaces'),
-        orderBy('savedAt', 'desc')
+        orderBy('savedAt', 'desc'),
+        fsLimit(Math.max(max, 1))
       );
       const savedPlacesSnapshot = await getDocs(savedPlacesQuery);
       const placePromises = savedPlacesSnapshot.docs.map(doc => this.getPlace(doc.data().placeId));
-      return Promise.all(placePromises.filter(p => p !== null)) as Promise<Place[]>;
+      // Await the fetches FIRST, then drop the nulls. The previous code called
+      // .filter(p => p !== null) on the array of *pending Promises* (never null),
+      // so missing/deleted places resolved to null and leaked into the result —
+      // breaking the saved-places list, Favorites, and the Home saved count.
+      const places = await Promise.all(placePromises);
+      return places.filter((p): p is Place => p !== null);
     } catch (error) {
       console.error('Error fetching saved places:', error);
       return [];
     }
+  }
+
+  /**
+   * Just the set of place ids a user has saved — ONE query against the
+   * savedPlaces subcollection, no per-place getDoc fan-out. Use this (not
+   * getSavedPlaces) whenever you only need "is this saved?" — e.g. excluding
+   * already-saved places from recommendations.
+   */
+  async getSavedPlaceIds(userId: string, max = 500): Promise<Set<string>> {
+    const ids = new Set<string>()
+    if (!userId) return ids
+    try {
+      const snap = await getDocs(query(collection(db, 'users', userId, 'savedPlaces'), fsLimit(Math.max(max, 1))))
+      snap.forEach(d => { const pid = (d.data() as { placeId?: string }).placeId; if (pid) ids.add(pid) })
+    } catch (error) {
+      console.warn('[getSavedPlaceIds] failed', error)
+    }
+    return ids
+  }
+
+  /**
+   * Self-heal saved places that were persisted without coordinates (the old
+   * save path dropped Google's top-level lat/lng). For each such place that
+   * still carries a googlePlaceId, fetch its location once via Place Details,
+   * WRITE IT BACK to the place doc (so it's a one-time cost), and return a
+   * map of id → coords for the caller to patch its in-memory state. Bounded by
+   * `cap` per call to keep the Places bill controlled; heals a few per view.
+   */
+  async backfillMissingCoords(
+    places: Array<Place & { googlePlaceId?: string | null; address?: string; location?: { lat?: number; lng?: number; address?: string } }>,
+    cap = 8
+  ): Promise<Map<string, { lat: number; lng: number }>> {
+    const out = new Map<string, { lat: number; lng: number }>()
+    // Heal any place that has no coords but enough to look one up: either a
+    // googlePlaceId (precise, via Details) OR a name + address (via Text
+    // Search). The name+address path is what fixes legacy saves that predate
+    // the googlePlaceId field — so existing lists pin without a data wipe.
+    const needs = (places || [])
+      .filter(p => p && p.id && !readCoords(p) && (!!p.googlePlaceId || (!!p.name && !!(p.address || p.location?.address))))
+      .slice(0, cap)
+    if (needs.length === 0) return out
+    await Promise.all(needs.map(async (p) => {
+      try {
+        let lat: number | undefined
+        let lng: number | undefined
+        if (p.googlePlaceId) {
+          const det = await getDetails(p.googlePlaceId)
+          if (det) { lat = det.lat; lng = det.lng }
+        }
+        if ((typeof lat !== 'number' || typeof lng !== 'number') && p.name) {
+          const addr = p.address || p.location?.address || ''
+          const res = await searchText(`${p.name} ${addr}`.trim(), { max: 1 })
+          if (res[0]) { lat = res[0].lat; lng = res[0].lng }
+        }
+        if (typeof lat === 'number' && typeof lng === 'number' && !(lat === 0 && lng === 0)) {
+          const coords = { lat, lng }
+          out.set(p.id, coords)
+          try {
+            await updateDoc(doc(db, 'places', p.id), {
+              coordinates: coords,
+              location: { ...(p.location || {}), lat, lng },
+            })
+          } catch (e) {
+            console.warn('[backfillMissingCoords] write-back failed', e)
+          }
+        }
+      } catch (e) {
+        console.warn('[backfillMissingCoords] lookup failed', e)
+      }
+    }))
+    return out
   }
 
   // ====================
@@ -1192,13 +1309,26 @@ class FirebaseDataService {
     }
 
     if (searchQuery) {
-      const searchLower = searchQuery.toLowerCase()
-      return users.filter(user => 
+      const searchLower = searchQuery.toLowerCase().replace(/^@/, '').trim()
+      const matched = users.filter(user =>
         user.name.toLowerCase().includes(searchLower) ||
         user.username.toLowerCase().includes(searchLower) ||
         (user.bio && user.bio.toLowerCase().includes(searchLower)) ||
         (user.tags && user.tags.some(tag => tag.toLowerCase().includes(searchLower)))
       )
+      // Rank by how directly the query names the person — exact handle/name
+      // first, then prefix, then substring, then bio/tag-only matches. The DB
+      // order (by influences) is only a tiebreaker. Previously results stayed
+      // influences-ordered, so the person you typed could sit below strangers.
+      const rank = (user: User): number => {
+        const name = (user.name || '').toLowerCase()
+        const handle = (user.username || '').toLowerCase()
+        if (handle === searchLower || name === searchLower) return 0
+        if (handle.startsWith(searchLower) || name.startsWith(searchLower)) return 1
+        if (handle.includes(searchLower) || name.includes(searchLower)) return 2
+        return 3 // bio/tag-only match
+      }
+      return matched.sort((a, b) => rank(a) - rank(b))
     }
 
     return users
@@ -1823,6 +1953,44 @@ class FirebaseDataService {
     }
   }
 
+  /**
+   * All posts attached to a place/hub, newest first, privacy-gated for the
+   * viewer. Queries `posts where hubId == id` (no orderBy, so no composite
+   * index is needed) and sorts in memory — mirrors getPostsForList. This was
+   * referenced by updateHubBannerImage but never defined, which threw
+   * "getPostsForHub is not a function" on every hub-banner refresh.
+   */
+  async getPostsForHub(hubId: string, viewerId?: string): Promise<Post[]> {
+    if (!hubId) return [];
+    try {
+      const snap = await getDocs(query(collection(db, 'posts'), where('hubId', '==', hubId)));
+      const allPosts = (snap.docs.map(d => ({ id: d.id, ...d.data() })) as Post[])
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+      // Privacy gate — same logic as getPostsForList.
+      let friendsOfViewer = new Set<string>();
+      if (viewerId) {
+        try {
+          const fr = await this.getUserFriends(viewerId);
+          friendsOfViewer = new Set(fr.map(u => u.id));
+        } catch (e) {
+          console.warn('[getPostsForHub] friend lookup failed', e);
+        }
+      }
+      const posts = allPosts.filter(p => {
+        const privacy = (p as { privacy?: string }).privacy;
+        if (!privacy || privacy === 'public') return true;
+        if (privacy === 'friends') return !!viewerId && (p.userId === viewerId || friendsOfViewer.has(p.userId));
+        return p.userId === viewerId;
+      });
+
+      return posts;
+    } catch (error) {
+      console.error('Error fetching posts for hub:', error);
+      return [];
+    }
+  }
+
   async getProfileComments(userId: string): Promise<PostComment[]> {
     try {
       const commentsQuery = query(
@@ -2191,6 +2359,484 @@ class FirebaseDataService {
   }
 
   // ====================
+  // TASTE-DRIVEN RECOMMENDATIONS
+  // ====================
+
+  /**
+   * Read the durable, accumulating interaction vector (userTaste/{uid}). This
+   * is the memory that grows with every save/open/like/search — the thing that
+   * makes the app know you better the more you use it. Cached 2 min.
+   */
+  async getStoredTaste(userId: string): Promise<StoredTaste> {
+    const empty: StoredTaste = { interests: {}, vibes: {}, signalCount: 0, suppressed: {} }
+    if (!userId) return empty
+    const c = this.storedTasteCache.get(userId)
+    if (c && Date.now() - c.t < 2 * 60 * 1000) return c.v
+    try {
+      const snap = await getDoc(doc(db, 'userTaste', userId))
+      const data = (snap.exists() ? snap.data() : {}) as Partial<StoredTaste>
+      const v: StoredTaste = {
+        interests: data.interests || {},
+        vibes: data.vibes || {},
+        signalCount: typeof data.signalCount === 'number' ? data.signalCount : 0,
+        suppressed: data.suppressed || {},
+        lastDecayedAt: typeof data.lastDecayedAt === 'number' ? data.lastDecayedAt : undefined,
+      }
+      this.storedTasteCache.set(userId, { t: Date.now(), v })
+      return v
+    } catch (e) {
+      console.warn('[getStoredTaste] failed', e)
+      return empty
+    }
+  }
+
+  /**
+   * Record a taste signal into the persistent vector via ATOMIC increments
+   * (no read-modify-write race, creates the doc if missing). Positive weight =
+   * "more of this"; negative = "less". Fire-and-forget from the UI. This is the
+   * write half of the learning loop — call it on save/open/like/search/dismiss.
+   */
+  async recordTasteSignal(
+    userId: string,
+    opts: { interests: string[]; vibes?: string[]; weight: number; suppressPlaceId?: string }
+  ): Promise<void> {
+    if (!userId || (!opts.interests?.length && !opts.suppressPlaceId)) return
+    // Use updateDoc with DOTTED FIELD PATHS (e.g. 'interests.coffee') — this is
+    // the canonical, unambiguous way to atomically deep-merge nested map keys.
+    // (setDoc(merge:true) on a nested map OBJECT is easy to get wrong — it can
+    // replace the whole map and wipe sibling keys, e.g. losing every previously
+    // suppressed place. Dotted paths only ever touch the one key.) Interest
+    // keys and place ids contain no dots, so they're path-safe.
+    const updates: Record<string, unknown> = { signalCount: increment(1), updatedAt: Timestamp.now() }
+    for (const k of new Set(opts.interests || [])) updates[`interests.${k}`] = increment(opts.weight)
+    if (opts.vibes?.length) {
+      for (const v of new Set(opts.vibes)) updates[`vibes.${v}`] = increment(Math.max(0.5, opts.weight))
+    }
+    if (opts.suppressPlaceId) updates[`suppressed.${opts.suppressPlaceId}`] = true
+    const ref = doc(db, 'userTaste', userId)
+    try {
+      try {
+        await updateDoc(ref, updates)
+      } catch (e) {
+        // updateDoc throws not-found if the doc doesn't exist yet — create an
+        // empty shell (plain set, only when truly absent so we never clobber),
+        // then apply the same dotted-path increments.
+        if ((e as { code?: string })?.code === 'not-found') {
+          await setDoc(ref, { interests: {}, vibes: {}, suppressed: {}, signalCount: 0, createdAt: Timestamp.now() })
+          await updateDoc(ref, updates)
+        } else {
+          throw e
+        }
+      }
+      // Bust caches so the next profile build reflects the new signal.
+      this.storedTasteCache.delete(userId)
+      this.invalidateTasteProfile(userId)
+    } catch (e) {
+      console.warn('[recordTasteSignal] failed', e)
+    }
+  }
+
+  /** Convenience: learn from a place the user engaged with. weight encodes
+   *  intent (loved 3 / tried 2 / want 1.5 / opened 0.6 / liked 1). */
+  recordTasteFromPlace(userId: string, place: Parameters<typeof placeInterestKeys>[0] & { id?: string; tags?: string[]; name?: string }, weight: number): void {
+    const interests = Array.from(placeInterestKeys(place))
+    // Derive the aesthetic vibe from the place's category AND its tags/name, so
+    // the "Your vibe" word-cluster grows richer with every place you engage
+    // with (a candlelit wine bar adds "candlelit · moody"; a matcha cafe adds
+    // "matcha hour · slow mornings").
+    const vibes = detectVibes([
+      place.primaryType || undefined,
+      ...(place.types || []),
+      ...(place.tags || []),
+      place.name,
+    ])
+    if (!interests.length && !vibes.length) return
+    void this.recordTasteSignal(userId, { interests, vibes, weight })
+  }
+
+  /** Convenience: learn intent from a search query. */
+  recordTasteFromQuery(userId: string, query: string, weight = 0.5): void {
+    const interests = Array.from(detectInterests([query]).keys())
+    if (!interests.length) return
+    void this.recordTasteSignal(userId, { interests, weight })
+  }
+
+  /** "Not interested" — down-weight the place's interests and suppress it. */
+  markNotInterested(userId: string, place: Parameters<typeof placeInterestKeys>[0] & { id: string }): void {
+    const interests = Array.from(placeInterestKeys(place))
+    void this.recordTasteSignal(userId, { interests, weight: -2, suppressPlaceId: place.id })
+  }
+
+  /**
+   * Map of placeId → names of people the user FOLLOWS who saved it. Powers
+   * "Maya saved this" social proof + a recommendation boost — your social graph
+   * shaping your feed. Bounded to `cap` follows and cached 10 min (one query
+   * per followed user), so it doesn't run on every feed load.
+   */
+  async getFriendSavedPlaceMap(userId: string, cap = 12): Promise<Map<string, string[]>> {
+    if (!userId) return new Map()
+    const c = this.friendSavedCache.get(userId)
+    if (c && Date.now() - c.t < 10 * 60 * 1000) return c.v
+    const map = new Map<string, string[]>()
+    try {
+      const following = (await this.getUserFollowing(userId).catch(() => [] as User[])).slice(0, cap)
+      await Promise.all(following.map(async (f) => {
+        const ids = await this.getSavedPlaceIds(f.id, 100).catch(() => new Set<string>())
+        const name = (f.name || f.username || 'A friend').split(' ')[0]
+        for (const pid of ids) {
+          const arr = map.get(pid)
+          if (arr) { if (!arr.includes(name)) arr.push(name) }
+          else map.set(pid, [name])
+        }
+      }))
+    } catch (e) {
+      console.warn('[getFriendSavedPlaceMap] failed', e)
+    }
+    this.friendSavedCache.set(userId, { t: Date.now(), v: map })
+    return map
+  }
+
+  /**
+   * Build (and cache, 5 min) the user's taste profile by BLENDING the
+   * accumulated interaction vector (primary — grows with use) with their
+   * saved-place categories, signup vibes, and bio. Pure internal data, no
+   * Places API cost. signalCount/confidence drive the "getting to know you" UI.
+   */
+  async buildTasteProfile(userId: string): Promise<TasteProfile> {
+    const cached = this.tasteProfileCache.get(userId)
+    if (cached && Date.now() - cached.t < 5 * 60 * 1000) return cached.v
+
+    const [user, saved, stored] = await Promise.all([
+      this.getCurrentUser(userId).catch(() => null),
+      this.getSavedPlaces(userId, 60).catch(() => [] as Place[]),
+      this.getStoredTaste(userId).catch(() => ({ interests: {}, vibes: {}, signalCount: 0, suppressed: {} } as StoredTaste)),
+    ])
+
+    // RECENCY DECAY — fade the accumulated vector over time so the profile
+    // tracks EVOLVING taste rather than accumulating forever. Every ~2 weeks
+    // since the last pass, multiply scores by 0.85 and drop near-zero entries;
+    // interests you still engage with get re-incremented and stay high, while
+    // abandoned ones quietly fade. Runs at most once per interval (cheap).
+    const now = Date.now()
+    const hasStoredData = stored.signalCount > 0 || Object.keys(stored.interests).length > 0
+    if (hasStoredData) {
+      const DECAY_INTERVAL = 14 * 24 * 60 * 60 * 1000
+      const DECAY_FACTOR = 0.85
+      if (stored.lastDecayedAt === undefined) {
+        // First time we've seen this (pre-decay) doc — set the baseline.
+        stored.lastDecayedAt = now
+        this.storedTasteCache.set(userId, { t: now, v: stored })
+        updateDoc(doc(db, 'userTaste', userId), { lastDecayedAt: now }).catch(() => {})
+      } else if (now - stored.lastDecayedAt > DECAY_INTERVAL) {
+        const periods = Math.floor((now - stored.lastDecayedAt) / DECAY_INTERVAL)
+        const factor = Math.pow(DECAY_FACTOR, periods)
+        // Apply decay as ATOMIC per-key decrements (increment(-amount)) rather
+        // than replacing the whole map. A full-map updateDoc would clobber any
+        // taste signal that landed concurrently; atomic decrements compose with
+        // those increments, so no signal is ever lost.
+        const updates: Record<string, unknown> = { lastDecayedAt: now }
+        const applyDecay = (m: Record<string, number>, field: 'interests' | 'vibes'): Record<string, number> => {
+          const next: Record<string, number> = {}
+          for (const [k, val] of Object.entries(m)) {
+            const target = val * factor >= 0.2 ? Math.round(val * factor * 100) / 100 : 0 // drop dust
+            const dec = val - target
+            if (dec > 0) updates[`${field}.${k}`] = increment(-dec)
+            if (target > 0) next[k] = target
+          }
+          return next
+        }
+        stored.interests = applyDecay(stored.interests, 'interests')
+        stored.vibes = applyDecay(stored.vibes, 'vibes')
+        stored.lastDecayedAt = now
+        // Force a fresh read next time so we never re-decay stale data.
+        this.storedTasteCache.delete(userId)
+        updateDoc(doc(db, 'userTaste', userId), updates).catch(() => {})
+      }
+    }
+
+    const weights = new Map<string, number>()
+    const bump = (key: string, w: number) => weights.set(key, (weights.get(key) || 0) + w)
+
+    // (0) Accumulated interaction vector — PRIMARY signal. Captures every
+    //     save/open/like/search/dismiss over the user's whole history, so this
+    //     is what makes recommendations sharpen the more they use the app.
+    for (const [k, v] of Object.entries(stored.interests)) bump(k, v)
+    // (1) Saved places — folded in at a MODEST weight. This serves two roles:
+    //     it bootstraps users whose saves predate the interaction log (their
+    //     stored vector is empty), and it gently reinforces saved categories
+    //     for everyone. There IS deliberate overlap with stored.interests for
+    //     post-log saves, but it's bounded (a loved save = stored 3 + 1.5) and
+    //     desirable — an explicit save should outweigh light open/search
+    //     signals. We don't gate on signalCount, because that created a cliff
+    //     where a legacy user's first new save would drop all their older
+    //     saves from the profile. Weight ×1.5 per save.
+    for (const p of saved) {
+      for (const k of placeInterestKeys(p as Place)) bump(k, 1.5)
+    }
+    // (2) Signup vibes / categories (user.tags). Weight ×2 per hit.
+    for (const [k, n] of detectInterests((user?.tags as string[]) || [])) bump(k, 2 * n)
+    // (3) Bio keywords. Weight ×1.5 per hit.
+    let bioPrefs: string[] = []
+    if (user?.bio) {
+      try {
+        const bio = await this.analyzeUserBio(user.bio)
+        for (const [k, n] of detectInterests([...bio.interests, ...bio.suggestedCategories, ...bio.suggestedTags])) bump(k, 1.5 * n)
+        bioPrefs = bio.preferences || []
+      } catch { /* bio analysis is best-effort */ }
+    }
+
+    // Keep only net-positive interests (a dismissed-heavy category can go ≤0).
+    const interests = Array.from(weights.entries())
+      .filter(([, w]) => w > 0)
+      .map(([key, weight]) => ({ key, weight, label: interestLabel(key) }))
+      .sort((a, b) => b.weight - a.weight)
+
+    // Accumulated vibes lead (highest-scoring first), then fill from signup
+    // vibes + bio. All normalized to vibe KEYS. Keep up to 8 so "Your vibe"
+    // reads like a growing mood-board, not a single word.
+    const storedTopVibes = Object.entries(stored.vibes).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]).slice(0, 8).map(([k]) => k)
+    const seedVibes = detectVibes([...((user?.tags as string[]) || []), ...bioPrefs])
+    const vibes = Array.from(new Set([...storedTopVibes, ...seedVibes])).slice(0, 8)
+
+    const signalCount = stored.signalCount
+    const confidence: TasteProfile['confidence'] = signalCount >= 25 ? 'known' : signalCount >= 6 ? 'learning' : 'new'
+
+    const profile: TasteProfile = {
+      interests,
+      vibes,
+      hasSignal: interests.length > 0,
+      savedCount: saved.length,
+      signalCount,
+      confidence,
+      suppressed: new Set(Object.keys(stored.suppressed || {})),
+    }
+    this.tasteProfileCache.set(userId, { t: Date.now(), v: profile })
+    return profile
+  }
+
+  invalidateTasteProfile(userId: string) {
+    this.tasteProfileCache.delete(userId)
+  }
+
+  /**
+   * Taste-matched place recommendations: queries Google `searchText` with
+   * vibe-rich phrases derived from the user's top interests ("cozy specialty
+   * coffee shop", "scenic beach") near their location, blends in taste-ranked
+   * internal places, drops anything already saved, and ranks by taste fit +
+   * proximity + popularity. Each result carries a human "reason".
+   *
+   * Cost: external queries are capped (top ~4 interests) and cached per
+   * (interest, vibe, ~1km cell) for 24h; forceFresh (Refresh) bypasses cache.
+   */
+  async getTasteRecommendations(
+    userId: string,
+    location: { lat: number; lng: number } | null,
+    opts: { limit?: number; seed?: number | string; forceFresh?: boolean } = {}
+  ): Promise<Array<Place & { reason?: string }>> {
+    const limit = opts.limit || 12
+    const profile = await this.buildTasteProfile(userId)
+
+    // Interests to fetch for. With no signal yet (brand-new user), fall back to
+    // broadly-loved categories so the feed is never empty.
+    const topKeys = profile.interests.slice(0, 4).map(i => i.key)
+    const queryKeys = topKeys.length ? topKeys : ['coffee', 'restaurant', 'nature']
+    const profileWeight = new Map(profile.interests.map(i => [i.key, i.weight]))
+    const vibe = profile.vibes[0]
+    // Outdoor interests read awkwardly with a vibe prefix ("cozy beach").
+    const noVibePrefix = new Set(['beach', 'hiking', 'nature', 'viewpoint'])
+
+    type Cand = Place & { lat?: number; lng?: number; __interestKey?: string; userRatingCount?: number }
+    const pool: Cand[] = []
+
+    // (A) External taste queries near the user.
+    if (location) {
+      const perInterest = Math.max(6, Math.ceil((limit * 2) / queryKeys.length))
+      const cell = `${location.lat.toFixed(2)},${location.lng.toFixed(2)}`
+      const batches = await Promise.all(queryKeys.map(async (key) => {
+        const base = interestQuery(key) || key
+        // vibe is a slug KEY ('slow_mornings') — use its human label in the
+        // actual search text ("slow mornings specialty coffee shop").
+        const q = vibe && !noVibePrefix.has(key) ? `${vibeLabel(vibe)} ${base}` : base
+        const cacheKey = `taste:v1:${key}|${vibe || ''}|${cell}`
+        if (!opts.forceFresh) {
+          try {
+            const raw = localStorage.getItem(cacheKey)
+            if (raw) {
+              const { t, v } = JSON.parse(raw)
+              if (Date.now() - t < 24 * 60 * 60 * 1000) return (v as Cand[]).map(p => ({ ...p, __interestKey: key }))
+            }
+          } catch { /* ignore */ }
+        }
+        let found: Cand[] = []
+        try {
+          found = (await searchText(q, { lat: location.lat, lng: location.lng, max: perInterest })) as Cand[]
+        } catch (e) { console.warn('[taste] searchText failed', key, e) }
+        try { localStorage.setItem(cacheKey, JSON.stringify({ t: Date.now(), v: found })) } catch { /* quota */ }
+        return found.map(p => ({ ...p, __interestKey: key }))
+      }))
+      for (const b of batches) pool.push(...b)
+    }
+
+    // (B) Internal taste-ranked places (user-curated hubs with real photos +
+    //     saved counts). Cheap — pure Firestore.
+    try {
+      const internal = await this.getSuggestedPlaces({
+        tags: queryKeys,
+        location: location || undefined,
+        limit: Math.max(limit, 12),
+      })
+      for (const p of internal) pool.push(p as Cand)
+    } catch { /* internal pool is a bonus */ }
+
+    // (C) Places people you FOLLOW have saved — your social graph shaping your
+    //     feed. Strong signal: trusted-taste social proof. Pull in any that
+    //     aren't already in the pool (the friend map is cached 10 min).
+    const friendMap = await this.getFriendSavedPlaceMap(userId).catch(() => new Map<string, string[]>())
+    if (friendMap.size > 0) {
+      const poolIds = new Set(pool.map(p => p.id))
+      const friendOnly = Array.from(friendMap.keys()).filter(id => !poolIds.has(id)).slice(0, 8)
+      const docs = await Promise.all(friendOnly.map(id => this.getPlace(id).catch(() => null)))
+      for (const d of docs) if (d) pool.push(d as Cand)
+    }
+
+    // Dedupe by id and by normalized name|address.
+    const byId = new Set<string>()
+    const byFp = new Set<string>()
+    const fp = (p: Cand) => {
+      const n = String(p.name || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
+      const a = String(p.address || (p as { location?: { address?: string } }).location?.address || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
+      return n && a ? `${n}|${a.slice(0, 24)}` : ''
+    }
+    const unique = pool.filter(p => {
+      if (!p?.id || !p?.name) return false
+      if (byId.has(p.id)) return false
+      const f = fp(p)
+      if (f && byFp.has(f)) return false
+      byId.add(p.id); if (f) byFp.add(f)
+      return true
+    })
+
+    // Exclude places the user already saved — recommendations are for NEW
+    // spots. Use the id-only fetch (one query) rather than the N+1 getSavedPlaces.
+    const savedIds = await this.getSavedPlaceIds(userId).catch(() => new Set<string>())
+    const suppressed = profile.suppressed
+
+    // Score by taste fit.
+    const scored = unique
+      .filter(p => !savedIds.has(p.id) && !suppressed.has(p.id))
+      .map(p => {
+        const keys = placeInterestKeys(p)
+        let score = 0
+        let bestKey = ''
+        let bestW = -1
+        for (const k of keys) {
+          const w = profileWeight.get(k) || 0
+          score += w * 4
+          if (w > bestW) { bestW = w; bestKey = k }
+        }
+        // Credit the interest it was fetched under (so a "beach" query result
+        // still scores even if its Google types don't map cleanly).
+        if (p.__interestKey) {
+          const w = profileWeight.get(p.__interestKey) || 0.5
+          score += w * 2
+          if (bestW < 0) bestKey = p.__interestKey
+        }
+        // Proximity (0–12 pts, decaying over ~12km).
+        const c = readCoords(p)
+        if (c && location) score += Math.max(0, 12 - Math.min(12, this.distanceKm(c, location)))
+        // Popularity prior: Google rating count (external) or savedCount (internal).
+        const pop = (p.userRatingCount || 0) + ((p as Place).savedCount || 0)
+        score += Math.min(5, Math.log10(pop + 1) * 2.2)
+        // Friend-saved boost — trusted-taste social proof is a strong signal.
+        const friendNames = friendMap.get(p.id)
+        if (friendNames && friendNames.length) score += 11
+        return { p, score, reasonKey: bestKey, friendNames }
+      })
+      .sort((a, b) => b.score - a.score)
+
+    // Refresh variety: shuffle within the top window so repeated taps rotate.
+    let ranked = scored
+    if (opts.seed !== undefined && scored.length > limit) {
+      const window = scored.slice(0, Math.min(scored.length, limit * 3))
+      const rng = seededRandom(String(opts.seed))
+      for (let i = window.length - 1; i > 0; i--) {
+        const j = Math.floor(rng() * (i + 1))
+        ;[window[i], window[j]] = [window[j], window[i]]
+      }
+      ranked = window
+    }
+
+    return ranked.slice(0, limit).map(s => {
+      // Friend social proof wins the reason slot — it's the most compelling.
+      const fn = s.friendNames
+      let reason: string | undefined
+      if (fn && fn.length) {
+        reason = fn.length === 1 ? `${fn[0]} saved this` : `${fn[0]} + ${fn.length - 1} you follow saved this`
+      } else if (profile.hasSignal && s.reasonKey && profileWeight.get(s.reasonKey)) {
+        reason = `Because you love ${interestLabel(s.reasonKey)}`
+      }
+      return { ...(s.p as Place), reason }
+    })
+  }
+
+  /**
+   * Themed recommendation LANES built from the user's top interests — e.g.
+   * "More coffee you'll love", "Beaches for your next trip". Each lane is one
+   * interest. Reuses the SAME per-interest searchText cache that
+   * getTasteRecommendations populates, so when the feed has already loaded
+   * these are essentially free. Returns [] for users with no taste signal.
+   */
+  async getTasteLanes(
+    userId: string,
+    location: { lat: number; lng: number } | null,
+    opts: { perLane?: number; maxLanes?: number } = {}
+  ): Promise<Array<{ key: string; title: string; items: Place[] }>> {
+    if (!location) return []
+    const perLane = opts.perLane || 8
+    const maxLanes = opts.maxLanes || 2
+    const profile = await this.buildTasteProfile(userId)
+    if (!profile.hasSignal) return []
+
+    const keys = profile.interests.slice(0, maxLanes).map(i => i.key)
+    const savedIds = await this.getSavedPlaceIds(userId).catch(() => new Set<string>())
+    const suppressed = profile.suppressed
+    const vibe = profile.vibes[0]
+    const noVibePrefix = new Set(['beach', 'hiking', 'nature', 'viewpoint'])
+    const cell = `${location.lat.toFixed(2)},${location.lng.toFixed(2)}`
+
+    const titleFor = (key: string): string => {
+      const label = interestLabel(key)
+      if (key === 'beach') return 'Beaches for your next trip'
+      if (key === 'hiking') return 'Trails for your next adventure'
+      if (key === 'viewpoint' || key === 'nature') return `${label[0].toUpperCase()}${label.slice(1)} to explore`
+      return `More ${label} you'll love`
+    }
+
+    const lanes: Array<{ key: string; title: string; items: Place[] }> = []
+    for (const key of keys) {
+      const cacheKey = `taste:v1:${key}|${vibe || ''}|${cell}`
+      let found: Array<Place & { id?: string; name?: string }> = []
+      try {
+        const raw = localStorage.getItem(cacheKey)
+        if (raw) { const { t, v } = JSON.parse(raw); if (Date.now() - t < 24 * 60 * 60 * 1000) found = v }
+      } catch { /* ignore */ }
+      if (!found.length) {
+        const base = interestQuery(key) || key
+        const q = vibe && !noVibePrefix.has(key) ? `${vibeLabel(vibe)} ${base}` : base
+        try {
+          found = (await searchText(q, { lat: location.lat, lng: location.lng, max: perLane + 4 })) as typeof found
+          try { localStorage.setItem(cacheKey, JSON.stringify({ t: Date.now(), v: found })) } catch { /* quota */ }
+        } catch (e) { console.warn('[taste-lanes] searchText failed', key, e) }
+      }
+      const items = (found || [])
+        .filter(p => p?.id && p?.name && !savedIds.has(p.id) && !suppressed.has(p.id))
+        .slice(0, perLane) as Place[]
+      if (items.length >= 3) lanes.push({ key, title: titleFor(key), items })
+    }
+    return lanes
+  }
+
+  // ====================
   // SEARCH CONTEXT BUILDER
   // ====================
 
@@ -2290,6 +2936,9 @@ class FirebaseDataService {
    */
   clearAllUserScopedState(): void {
     this.userPreferencesCache.clear()
+    this.tasteProfileCache.clear()
+    this.storedTasteCache.clear()
+    this.friendSavedCache.clear()
     this.userCache.clear()
     this.userActivityCache.clear()
     this.searchCache.clear()
@@ -2318,7 +2967,7 @@ class FirebaseDataService {
         for (let i = 0; i < localStorage.length; i++) {
           const key = localStorage.key(i)
           if (!key) continue
-          if (key.startsWith('reco:') || key.startsWith('places:v1:near|') || key.startsWith('map:')) {
+          if (key.startsWith('reco:') || key.startsWith('places:v1:near|') || key.startsWith('map:') || key.startsWith('taste:v1:')) {
             remove.push(key)
           }
         }
@@ -2909,6 +3558,9 @@ class FirebaseDataService {
       // exists — that's the path that recovers PLACES counts for accounts
       // who saved before this mirror was added.
       await setDoc(userSavedRef, { placeId, savedAt: ts }, { merge: true })
+      // A new save changes the user's taste — drop the cached profile so the
+      // next recommendation load reflects it (cheap; just clears the 5-min cache).
+      this.invalidateTasteProfile(userId)
       if (existing.exists()) return false
       await setDoc(markerRef, { userId, savedAt: ts })
       const placeRef = doc(db, 'places', placeId)

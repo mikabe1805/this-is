@@ -12,7 +12,13 @@ import { PLACES_ENABLED, PLACES_PHOTOS_ENABLED } from '../../lib/flags';
 
 let currentSessionToken: string | null = null;
 let autocompleteCallCount = 0;
-const MAX_AUTOCOMPLETE_PER_SESSION = 3;
+// Autocomplete is billed per-session (not per-keystroke) when the same session
+// token is reused, so a few extra suggestions inside one typing session are
+// effectively free. 3 was so low that typing+correcting a city name silently
+// killed the dropdown; 8 covers normal typing. The idle timer ends the session
+// after ~5s, resetting this — and callers commit typed free-text on blur/Enter
+// as the graceful fallback if the cap is still hit.
+const MAX_AUTOCOMPLETE_PER_SESSION = 8;
 
 export function beginPlacesSession() {
   if (!PLACES_ENABLED) {

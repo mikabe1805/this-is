@@ -62,12 +62,16 @@ class FirebaseMessagingService {
           id,
           participants: [currentUserId, otherUserId].sort(),
           createdAt: Timestamp.now(),
-          // No lastMessage / lastMessageAt yet — set on the first send.
+          // Seed lastMessageAt so the new thread is visible in the inbox query
+          // (which orders by lastMessageAt and would otherwise EXCLUDE a doc
+          // missing the field — making freshly-started conversations vanish
+          // from the list until the first message).
+          lastMessageAt: Timestamp.now(),
         })
       }
       return id
     } catch (e) {
-      console.error('[messaging] getOrCreateThread failed', e)
+      console.error('[messaging] getOrCreateThread failed', e, '(if permission-denied: check Firebase Auth session; if failed-precondition: deploy the threads composite index — npm run db:deploy-indexes)')
       return null
     }
   }
@@ -104,7 +108,10 @@ class FirebaseMessagingService {
         createdAt: new Date().toISOString(),
       }
     } catch (e) {
-      console.error('[messaging] sendMessage failed', e)
+      // Surface the Firestore error code so failures are diagnosable instead
+      // of a generic "couldn't send" (permission-denied = auth/rules,
+      // not-found = thread missing, failed-precondition = missing index).
+      console.error('[messaging] sendMessage failed:', (e as { code?: string })?.code || e)
       return null
     }
   }
@@ -113,6 +120,39 @@ class FirebaseMessagingService {
    * Inbox list — every thread the user is a participant in, newest first.
    * Hydrates `otherUser` so the list can show avatar + name without N+1.
    */
+  private mapThreadDoc(d: { id: string; data: () => Record<string, unknown> }): MessageThread {
+    const data = d.data()
+    const participants = Array.isArray(data.participants) ? (data.participants as string[]) : []
+    const lastMessageAtRaw = data.lastMessageAt as { toDate?: () => Date } | string | undefined
+    const lastMessageAt = lastMessageAtRaw && typeof (lastMessageAtRaw as { toDate?: () => Date }).toDate === 'function'
+      ? (lastMessageAtRaw as { toDate: () => Date }).toDate().toISOString()
+      : (typeof lastMessageAtRaw === 'string' ? lastMessageAtRaw : undefined)
+    return {
+      id: d.id,
+      participants,
+      lastMessage: data.lastMessage as string | undefined,
+      lastMessageAt,
+      lastSenderId: data.lastSenderId as string | undefined,
+    } as MessageThread
+  }
+
+  // Hydrate the "other user" for each thread so the UI can render it without a
+  // per-row fetch. Threads with only the current user get otherUser = null.
+  private async hydrateOtherUsers(rows: MessageThread[], currentUserId: string): Promise<MessageThread[]> {
+    const otherIds = Array.from(new Set(
+      rows.flatMap(t => t.participants.filter(uid => uid !== currentUserId))
+    ))
+    const users = await Promise.all(
+      otherIds.map(uid => firebaseDataService.getCurrentUser(uid).catch(() => null))
+    )
+    const userById = new Map<string, User | null>()
+    otherIds.forEach((uid, i) => userById.set(uid, users[i]))
+    return rows.map(t => {
+      const otherId = t.participants.find(uid => uid !== currentUserId)
+      return { ...t, otherUser: otherId ? userById.get(otherId) || null : null }
+    })
+  }
+
   async listMyThreads(currentUserId: string): Promise<MessageThread[]> {
     if (!currentUserId) return []
     try {
@@ -123,36 +163,8 @@ class FirebaseMessagingService {
         fsLimit(50),
       )
       const snap = await getDocs(q)
-      const rows = snap.docs.map(d => {
-        const data = d.data() as Record<string, unknown>
-        const participants = Array.isArray(data.participants) ? (data.participants as string[]) : []
-        const lastMessageAtRaw = data.lastMessageAt as { toDate?: () => Date } | string | undefined
-        const lastMessageAt = lastMessageAtRaw && typeof (lastMessageAtRaw as { toDate?: () => Date }).toDate === 'function'
-          ? (lastMessageAtRaw as { toDate: () => Date }).toDate().toISOString()
-          : (typeof lastMessageAtRaw === 'string' ? lastMessageAtRaw : undefined)
-        return {
-          id: d.id,
-          participants,
-          lastMessage: data.lastMessage as string | undefined,
-          lastMessageAt,
-          lastSenderId: data.lastSenderId as string | undefined,
-        } as MessageThread
-      })
-      // Hydrate the "other user" for each thread so the UI can render it
-      // without a per-row fetch. Threads with only the current user (a
-      // self-thread, shouldn't happen but defensive) get otherUser = null.
-      const otherIds = Array.from(new Set(
-        rows.flatMap(t => t.participants.filter(uid => uid !== currentUserId))
-      ))
-      const users = await Promise.all(
-        otherIds.map(uid => firebaseDataService.getCurrentUser(uid).catch(() => null))
-      )
-      const userById = new Map<string, User | null>()
-      otherIds.forEach((uid, i) => userById.set(uid, users[i]))
-      return rows.map(t => {
-        const otherId = t.participants.find(uid => uid !== currentUserId)
-        return { ...t, otherUser: otherId ? userById.get(otherId) || null : null }
-      })
+      const rows = snap.docs.map(d => this.mapThreadDoc(d))
+      return this.hydrateOtherUsers(rows, currentUserId)
     } catch (e) {
       // Most likely a missing composite index — log loudly so the dev sees
       // the auto-create link in the console, then return empty so the UI
@@ -160,6 +172,33 @@ class FirebaseMessagingService {
       console.error('[messaging] listMyThreads failed (often: missing index)', e)
       return []
     }
+  }
+
+  /**
+   * Live inbox. Mirrors listMyThreads but via onSnapshot so the thread list,
+   * last-message previews, and ordering update the instant a message is sent
+   * or received — instead of going stale until the user navigates away and
+   * back. Returns an unsubscribe fn for the caller's effect cleanup.
+   */
+  subscribeMyThreads(currentUserId: string, onChange: (threads: MessageThread[]) => void): () => void {
+    if (!currentUserId) return () => {}
+    const q = query(
+      collection(db, 'threads'),
+      where('participants', 'array-contains', currentUserId),
+      orderBy('lastMessageAt', 'desc'),
+      fsLimit(50),
+    )
+    // Latest-snapshot-wins guard: async hydration means an older snapshot's
+    // resolve could land after a newer one. Drop stale results.
+    let seq = 0
+    return onSnapshot(q, async snap => {
+      const mySeq = ++seq
+      const rows = snap.docs.map(d => this.mapThreadDoc(d))
+      const hydrated = await this.hydrateOtherUsers(rows, currentUserId)
+      if (mySeq === seq) onChange(hydrated)
+    }, e => {
+      console.error('[messaging] subscribeMyThreads failed (often: missing index)', e)
+    })
   }
 
   /**
@@ -189,8 +228,10 @@ class FirebaseMessagingService {
       })
       onChange(messages)
     }, e => {
-      console.error('[messaging] subscribeMessages failed', e)
-      onChange([])
+      // Don't blank the conversation on a transient listener error — keep
+      // whatever was last rendered. A permission-denied here usually means the
+      // auth session lapsed; failed-precondition means a missing index.
+      console.error('[messaging] subscribeMessages failed', (e as { code?: string })?.code || e)
     })
   }
 

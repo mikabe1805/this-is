@@ -61,6 +61,9 @@ export interface Post {
   triedRating?: TriedRating
   createdAt: string
   privacy: Privacy
+  /** Canonical list membership. A post can live in several lists. */
+  listIds?: string[]
+  /** @deprecated Legacy single-list field (first of listIds). Kept for old docs. */
   listId?: string
   likes: number
   likedBy: string[]
