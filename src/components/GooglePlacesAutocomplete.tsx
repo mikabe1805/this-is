@@ -41,6 +41,10 @@ export default function GooglePlacesAutocomplete({
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const idleTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const abortController = useRef<AbortController | null>(null)
+  // True once the user has committed a value (picked a suggestion, pressed
+  // Enter, or used current location). Lets blur safely commit free-text
+  // WITHOUT clobbering a real selection's place details.
+  const committedRef = useRef(false)
 
   useEffect(() => {
     loadAdapter().then(setIsLoaded)
@@ -57,7 +61,11 @@ export default function GooglePlacesAutocomplete({
   const handleBlur = () => {
     setTimeout(() => {
       setShowDropdown(false)
-      if (!isLoaded && inputValue.trim()) onPlaceSelect(inputValue.trim())
+      // Commit whatever the user typed as free-text if they didn't pick a
+      // suggestion. Previously this only fired when the API hadn't loaded, so
+      // a user who typed a city but didn't tap a dropdown row left the field
+      // value empty — Continue silently did nothing, a hard stop in signup.
+      if (!committedRef.current && inputValue.trim()) onPlaceSelect(inputValue.trim())
     }, 200)
   }
 
@@ -71,6 +79,8 @@ export default function GooglePlacesAutocomplete({
     setInputValue(newValue)
     setSelectedIndex(-1)
     setDetectError(null)
+    // Typing after a commit re-arms the free-text fallback on the next blur.
+    committedRef.current = false
 
     if (!isLoaded) return
 
@@ -104,6 +114,7 @@ export default function GooglePlacesAutocomplete({
     setShowDropdown(false)
     setPredictions([])
 
+    committedRef.current = true
     try {
       const details = await getPlaceDetails(prediction.place_id)
       onPlaceSelect(prediction.description, details || undefined)
@@ -116,6 +127,19 @@ export default function GooglePlacesAutocomplete({
   }
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    // Enter always commits — a highlighted suggestion if there is one,
+    // otherwise the typed text — so the field is never silently empty.
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      if (showDropdown && selectedIndex >= 0 && selectedIndex < predictions.length) {
+        handleSelectPrediction(predictions[selectedIndex])
+      } else if (inputValue.trim()) {
+        committedRef.current = true
+        setShowDropdown(false)
+        onPlaceSelect(inputValue.trim())
+      }
+      return
+    }
     if (!showDropdown || predictions.length === 0) return
     if (e.key === 'ArrowDown') {
       e.preventDefault()
@@ -123,11 +147,6 @@ export default function GooglePlacesAutocomplete({
     } else if (e.key === 'ArrowUp') {
       e.preventDefault()
       setSelectedIndex(prev => (prev > 0 ? prev - 1 : -1))
-    } else if (e.key === 'Enter') {
-      e.preventDefault()
-      if (selectedIndex >= 0 && selectedIndex < predictions.length) {
-        handleSelectPrediction(predictions[selectedIndex])
-      }
     } else if (e.key === 'Escape') {
       setShowDropdown(false)
       setPredictions([])
@@ -198,6 +217,7 @@ export default function GooglePlacesAutocomplete({
       const { latitude: lat, longitude: lng } = pos.coords
       const label = await reverseGeocode(lat, lng) || `${lat.toFixed(3)}, ${lng.toFixed(3)}`
       setInputValue(label)
+      committedRef.current = true
       onPlaceSelect(label, {
         geometry: { location: { lat: () => lat, lng: () => lng } },
         formatted_address: label,

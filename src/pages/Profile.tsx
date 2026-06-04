@@ -5,6 +5,7 @@ import { useState, useRef, useEffect, useMemo, useDeferredValue } from 'react'
 // SearchAndFilter removed in UX refresh — replaced by inline header search
 import SaveModal from '../components/SaveModal'
 import PageWatermark from '../components/ui/PageWatermark'
+import TasteCard from '../components/ui/TasteCard'
 import LocationSelectModal from '../components/LocationSelectModal'
 import CreatePost from '../components/CreatePost'
 import UserMenuDropdown from '../components/UserMenuDropdown'
@@ -49,7 +50,10 @@ const Profile = () => {
 
     const [currentUser, setCurrentUser] = useState<User | null>(null)
     const [userLists, setUserLists] = useState<List[]>([])
-    const [savedListIds, setSavedListIds] = useState<Set<string>>(new Set())
+    // Lists this user has LIKED (drives the heart). The heart used to read a
+    // "saved lists" set, so it showed filled when bookmarked and empty when
+    // liked — exactly backwards. Seeded from each list's likedBy[].
+    const [likedListIds, setLikedListIds] = useState<Set<string>>(new Set())
     const [listCount, setListCount] = useState(0);
     const [followerCount, setFollowerCount] = useState(0);
     const [loading, setLoading] = useState(true)
@@ -202,6 +206,9 @@ const Profile = () => {
                 if (userProfile) {
                     setCurrentUser(userProfile);
                     setUserLists(lists);
+                    setLikedListIds(new Set(
+                        lists.filter(l => Array.isArray(l.likedBy) && l.likedBy.includes(authUser.id)).map(l => l.id)
+                    ));
                     setListCount(lists.length);
                     setFollowerCount(followers.length);
                     
@@ -214,14 +221,6 @@ const Profile = () => {
                         setComments([]);
                     }
                     
-                    // Load saved list IDs in one shot
-                    try {
-                        const savedLists = await firebaseDataService.getSavedLists(authUser.id)
-                        setSavedListIds(new Set(savedLists.map(l => l.id)))
-                    } catch (e) {
-                        console.warn('Failed to load saved lists, falling back to empty set', e)
-                        setSavedListIds(new Set())
-                    }
                 } else {
                     setError('User profile not found.');
                 }
@@ -442,58 +441,43 @@ const Profile = () => {
         const handleLikeList = async (listId: string) => {
         if (!currentUser) return;
 
-        // Optimistic update - immediately update the UI
-        setSavedListIds(prevIds => {
+        // Read the current liked-state ONCE, before any setState. Reading
+        // savedListIds.has() inside a setUserLists updater (as the old code did)
+        // saw a stale snapshot, so rapid taps miscounted.
+        const wasLiked = likedListIds.has(listId);
+        const delta = wasLiked ? -1 : 1;
+
+        // Optimistic toggle of the heart + count.
+        setLikedListIds(prevIds => {
             const newIds = new Set(prevIds);
-            if (newIds.has(listId)) {
-                newIds.delete(listId);
-            } else {
-                newIds.add(listId);
-            }
+            if (wasLiked) newIds.delete(listId); else newIds.add(listId);
             return newIds;
         });
-
-        // Optimistic update for like count
         setUserLists(prevLists =>
-            prevLists.map(list => {
-                if (list.id === listId) {
-                    const isCurrentlySaved = savedListIds.has(listId);
-                    return {
-                        ...list,
-                        likes: isCurrentlySaved ? (list.likes || 1) - 1 : (list.likes || 0) + 1
-                    };
-                }
-                return list;
-            })
+            prevLists.map(list =>
+                list.id === listId
+                    ? { ...list, likes: Math.max(0, (list.likes || 0) + delta) }
+                    : list
+            )
         );
-        
+
         try {
             // Only toggle like, not save, to avoid double counting likes
             await firebaseListService.likeList(listId, currentUser.id);
         } catch (error) {
             console.error("Failed to like list:", error);
-            // Revert on failure
-            setSavedListIds(prevIds => {
+            // Revert both on failure.
+            setLikedListIds(prevIds => {
                 const newIds = new Set(prevIds);
-                if (newIds.has(listId)) {
-                    newIds.delete(listId);
-                } else {
-                    newIds.add(listId);
-                }
+                if (wasLiked) newIds.add(listId); else newIds.delete(listId);
                 return newIds;
             });
-            // Revert like count
             setUserLists(prevLists =>
-                prevLists.map(list => {
-                    if (list.id === listId) {
-                        const isCurrentlySaved = savedListIds.has(listId);
-                        return {
-                            ...list,
-                            likes: isCurrentlySaved ? (list.likes || 0) + 1 : (list.likes || 1) - 1
-                        };
-                    }
-                    return list;
-                })
+                prevLists.map(list =>
+                    list.id === listId
+                        ? { ...list, likes: Math.max(0, (list.likes || 0) - delta) }
+                        : list
+                )
             );
         }
     }
@@ -689,6 +673,11 @@ const Profile = () => {
                 </div>
             </div>
             )}
+            {!searchQuery.trim() && authUser && (
+            <div className="relative z-10 px-5 max-w-2xl mx-auto mt-6">
+                <TasteCard userId={authUser.id} />
+            </div>
+            )}
             {!searchQuery.trim() && (
             <div className="relative z-10 px-5 max-w-2xl mx-auto mt-6">
                 <div className="grid grid-cols-2 gap-2">
@@ -790,7 +779,7 @@ const Profile = () => {
                                                 className="h-8 px-2 rounded-full font-mono text-[11px] tracking-wide flex items-center gap-1 transition-colors text-ink-mute hover:text-ink"
                                                 title="Like"
                                             >
-                                                {savedListIds.has(list.id) ? (
+                                                {likedListIds.has(list.id) ? (
                                                     <HeartIconSolid className="w-4 h-4" style={{ color: 'var(--bloom-deep)' }} />
                                                 ) : (
                                                     <HeartIcon className="w-4 h-4" />

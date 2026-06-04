@@ -118,6 +118,9 @@ const PlaceHub = () => {
           return
         }
         setPlace(p)
+        // Opening a place is a light interest signal — feeds the taste model
+        // so even browsing (not just saving) teaches the app what you're drawn to.
+        if (authUser) firebaseDataService.recordTasteFromPlace(authUser.id, p as { primaryType?: string|null; types?: string[]; category?: string; tags?: string[]; name?: string; id?: string }, 0.6)
         const visiblePosts = await filterPostsByPrivacy(p.posts || [])
         if (cancelled) return
         setPosts(visiblePosts)
@@ -224,12 +227,17 @@ const PlaceHub = () => {
   }
 
   const handleLikePost = async (postId: string) => {
+    const wasLiked = likedPosts.has(postId)
     setLikedPosts(prev => {
       const next = new Set(prev)
       if (next.has(postId)) next.delete(postId)
       else next.add(postId)
       return next
     })
+    // Liking a post about this place is a positive taste signal (not on un-like).
+    if (!wasLiked && authUser && place) {
+      firebaseDataService.recordTasteFromPlace(authUser.id, place as { primaryType?: string|null; types?: string[]; category?: string; tags?: string[]; name?: string; id?: string }, 1)
+    }
     try {
       if (authUser) await firebaseDataService.likePost(postId, authUser.id)
     } catch {
@@ -425,7 +433,12 @@ const PlaceHub = () => {
             {posts.map(p => {
               const liked = likedPosts.has(p.id)
               const saved = savedPosts.has(p.id)
-              const likeCount = (p.likes || 0) + (liked && !((p.likedBy || []).includes(authUser?.id || '')) ? 1 : 0)
+              // Optimistic count = server likes, adjusted by the difference
+              // between my current toggle state and whether the server already
+              // counts my like. The old formula only ever added (never removed
+              // on un-like) and flickered once likedBy refreshed.
+              const alreadyLikedByMe = (p.likedBy || []).includes(authUser?.id || '')
+              const likeCount = Math.max(0, (p.likes || 0) + (liked ? 1 : 0) - (alreadyLikedByMe ? 1 : 0))
               return (
                 <li key={p.id} className="py-5">
                   <div className="flex items-center gap-2.5">
@@ -459,7 +472,7 @@ const PlaceHub = () => {
                       }`}
                     >
                       {liked ? <HeartIconSolid className="w-[18px] h-[18px]" /> : <HeartIcon className="w-[18px] h-[18px]" />}
-                      {likeCount > 0 ? likeCount : ''}
+                      {liked ? Math.max(likeCount, 1) : (likeCount > 0 ? likeCount : '')}
                     </button>
                     <button
                       onClick={() => { setActivePost(p); setShowCommentsModal(true) }}

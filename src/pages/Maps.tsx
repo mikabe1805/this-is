@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { firebaseDataService } from '../services/firebaseDataService'
 import { firebaseListService } from '../services/firebaseListService'
-import { loadGoogleMapsAPI } from '../services/google/places'
+import { loadGoogleMapsAPI, didMapsAuthFail } from '../services/google/places'
 import { readCoords } from '../utils/coords'
 import type { Place, List } from '../types/index.js'
 
@@ -87,10 +87,15 @@ const Maps = () => {
     let cancelled = false
     loadGoogleMapsAPI().then(ok => {
       if (cancelled) return
-      if (!ok) setMapsError(true)
+      if (!ok || didMapsAuthFail()) setMapsError(true)
       else setMapsLoaded(true)
     })
-    return () => { cancelled = true }
+    // The key can be rejected *after* the SDK object exists (auth check runs
+    // when tiles load). Catch that late failure and show the clean error
+    // state instead of Google's gray overlay.
+    const onAuthFail = () => { if (!cancelled) setMapsError(true) }
+    window.addEventListener('this-is:maps-auth-failed', onAuthFail)
+    return () => { cancelled = true; window.removeEventListener('this-is:maps-auth-failed', onAuthFail) }
   }, [])
 
   // Best-effort current location — only if permission is already granted, no

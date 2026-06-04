@@ -32,15 +32,28 @@ const Messages = lazy(() => import('./pages/Messages.tsx'))
 const MessageThread = lazy(() => import('./pages/MessageThread.tsx'))
 const UserProfile = lazy(() => import('./pages/UserProfile.tsx'))
 import { setupViewportHandler } from './utils/viewportHandler.ts'
+import { useScrollRestoration } from './hooks/useScrollRestoration.ts'
 import EmbedFromModal from './components/EmbedFromModal.tsx'
 import SaveModal from './components/SaveModal.tsx'
 import CoverPhotoPicker from './components/CoverPhotoPicker.tsx'
 import SaveListToFolderModal from './components/SaveListToFolderModal.tsx'
+import SendToFriendModal from './components/SendToFriendModal.tsx'
 import { firebaseDataService } from './services/firebaseDataService.js'
 
+// Page-shaped skeleton for code-split routes. Every page except Home is
+// React.lazy, so the first navigation to each used to flash plain mono
+// "Loading…" text — the jankiest moment in the app. This roughly matches the
+// header + card-grid layout most routes render, so the transition reads as the
+// page arriving rather than a hard cut.
 const RouteFallback = () => (
-  <div className="flex items-center justify-center h-full py-20">
-    <span className="font-mono text-[10px] tracking-[0.18em] uppercase text-ink-mute">Loading…</span>
+  <div className="px-5 pt-8 animate-fade-in" aria-busy="true" aria-label="Loading">
+    <div className="skeleton h-7 w-40 rounded-[8px]" />
+    <div className="skeleton h-4 w-24 rounded-[6px] mt-3" />
+    <div className="grid grid-cols-2 gap-3 mt-8">
+      {Array.from({ length: 6 }).map((_, i) => (
+        <div key={i} className="skeleton aspect-[5/6] rounded-[14px]" />
+      ))}
+    </div>
   </div>
 )
 
@@ -51,6 +64,18 @@ const GlobalModals = () => {
   const [userLists, setUserLists] = useState<List[]>([]);
   const [coverPick, setCoverPick] = useState<{ hubId: string; googlePlaceId?: string; hubName: string; hubAddress?: string } | null>(null)
   const [saveListToFolder, setSaveListToFolder] = useState<List | null>(null)
+  const [sendTo, setSendTo] = useState<{ title: string; url: string } | null>(null)
+
+  // "Send to a friend" intent — dispatched from ShareModal / place / list. Opens
+  // the friend picker that DMs the place/list link.
+  useEffect(() => {
+    const onSend = (e: Event) => {
+      const d = (e as CustomEvent).detail as { title?: string; url?: string } | undefined
+      if (d?.title && d?.url) setSendTo({ title: d.title, url: d.url })
+    }
+    window.addEventListener('this-is:send-to-friend', onSend as EventListener)
+    return () => window.removeEventListener('this-is:send-to-friend', onSend as EventListener)
+  }, [])
 
   // Listen for the "Save list" intent dispatched from ListModal — opens a
   // dedicated picker that nests the list inside one of the user's lists
@@ -173,20 +198,18 @@ const GlobalModals = () => {
             // gets to set the cover."
             const needsCover = !!(seedHub && ensured && (ensured.created || !ensured.mainImage))
 
-            const owned = userLists || []
             const ids = Array.isArray(listIds) ? listIds : []
 
-            // Check for duplicates
+            // Note which lists already contain this place — only to word the
+            // confirmation toast ("Updated" vs "Saved"). We no longer pop a
+            // blocking window.confirm: the user just picked a status/rating, so
+            // re-saving = update, which is the obviously-intended action.
             const already: string[] = []
             for (const lid of ids) {
               const exists = await firebaseDataService.isPlaceInList(lid, placeId)
               if (exists) already.push(lid)
             }
-            if (already.length > 0) {
-              const names = owned.filter(l => already.includes(l.id)).map(l => l.name).join(', ')
-              const overwrite = window.confirm(`You've already saved this hub to the following lists: ${names}.\nWould you like to overwrite your previous save?`)
-              if (!overwrite) return
-            }
+            const allAlreadySaved = ids.length > 0 && already.length === ids.length
 
             try {
               for (const listId of ids) {
@@ -200,6 +223,11 @@ const GlobalModals = () => {
                   placeId,
                   query: seedHub.name
                 });
+                // Teach the taste model — strongest learning signal. Weighted by
+                // intent: loved ≫ tried > want. This is what makes the feed get
+                // more "you" the more you save.
+                const w = status === 'loved' ? 3 : status === 'tried' ? 2 : 1.5
+                firebaseDataService.recordTasteFromPlace(currentUser.id, seedHub, w)
               }
               // Notify subscribers (Home stats, Profile lists, etc.) so they can
               // refresh their saved counts and saved-state markers.
@@ -209,11 +237,12 @@ const GlobalModals = () => {
               // pluralise. Showing the list name beats a generic 'Saved' —
               // the user immediately sees where the place landed.
               const targetList = (userLists || []).find(l => l.id === ids[0])
+              const verb = allAlreadySaved ? 'Updated' : 'Saved'
               const message = ids.length === 1 && targetList
-                ? `Saved to ${targetList.name}`
+                ? `${verb} in ${targetList.name}`
                 : ids.length > 1
-                  ? `Saved to ${ids.length} lists`
-                  : 'Saved'
+                  ? `${verb} in ${ids.length} lists`
+                  : verb
               const action = ids.length === 1 && ids[0] ? { label: 'View', href: `/list/${ids[0]}` } : undefined
               window.dispatchEvent(new CustomEvent('this-is:toast', { detail: { message, action } }))
             } catch (e) {
@@ -238,30 +267,36 @@ const GlobalModals = () => {
             }
           }}
           onCreateList={async (listData, saveContext) => {
-            if (!currentUser) return;
-            const seedHub: any = saveModalData.hub
-            const seedList: any = saveModalData.list
-            const ensured = seedHub
-              ? await firebaseDataService.ensureHubFromPlace({
-                  id: seedHub.id,
-                  name: seedHub.name,
-                  address: seedHub.address || (seedHub as { location?: { address?: string } })?.location?.address,
-                  coordinates: (seedHub as { coordinates?: { lat: number; lng: number } }).coordinates,
-                  location: (seedHub as { location?: { address?: string; lat?: number; lng?: number } }).location,
-                  photos: seedHub.photos,
-                  primaryType: seedHub.primaryType,
-                  types: seedHub.types,
-                })
-              : null
-            const placeId = ensured?.id || (seedHub ? seedHub.id : seedList.id)
-            const googlePlaceId: string | null = ensured?.googlePlaceId || (typeof seedHub?.id === 'string' && /^ChIJ/.test(seedHub.id) ? seedHub.id : null)
-            const needsCover = !!(seedHub && ensured && (ensured.created || !ensured.mainImage))
-            const newListId = await firebaseDataService.createList({
-              ...listData,
-              userId: currentUser.id,
-              tags: listData.tags || []
-            });
-            if (newListId) {
+            if (!currentUser) return false;
+            try {
+              const seedHub: any = saveModalData.hub
+              const seedList: any = saveModalData.list
+              const ensured = seedHub
+                ? await firebaseDataService.ensureHubFromPlace({
+                    id: seedHub.id,
+                    name: seedHub.name,
+                    address: seedHub.address || (seedHub as { location?: { address?: string } })?.location?.address,
+                    coordinates: (seedHub as { coordinates?: { lat: number; lng: number } }).coordinates,
+                    location: (seedHub as { location?: { address?: string; lat?: number; lng?: number } }).location,
+                    photos: seedHub.photos,
+                    primaryType: seedHub.primaryType,
+                    types: seedHub.types,
+                  })
+                : null
+              const placeId = ensured?.id || (seedHub ? seedHub.id : seedList.id)
+              const googlePlaceId: string | null = ensured?.googlePlaceId || (typeof seedHub?.id === 'string' && /^ChIJ/.test(seedHub.id) ? seedHub.id : null)
+              const needsCover = !!(seedHub && ensured && (ensured.created || !ensured.mainImage))
+              const newListId = await firebaseDataService.createList({
+                ...listData,
+                userId: currentUser.id,
+                tags: listData.tags || []
+              });
+              // Creation failed — keep the SaveModal open (return false) so the
+              // user doesn't lose their list name / tags / cover, and tell them.
+              if (!newListId) {
+                window.dispatchEvent(new CustomEvent('this-is:toast', { detail: { message: "Couldn't create the list. Try again.", tone: 'error' } }))
+                return false
+              }
               // Use the status / rating / note the user picked on the previous
               // SaveModal screen instead of hardcoding 'loved'. Falls back to
               // 'loved' only when no context was forwarded (legacy callers).
@@ -270,6 +305,10 @@ const GlobalModals = () => {
               const noteToSave = saveContext?.note
               await firebaseDataService.savePlaceToList(placeId, newListId, currentUser.id, noteToSave, undefined, status, rating);
               await firebaseDataService.recordUserSave(placeId, currentUser.id)
+              if (seedHub) {
+                const w = status === 'loved' ? 3 : status === 'tried' ? 2 : 1.5
+                firebaseDataService.recordTasteFromPlace(currentUser.id, seedHub, w)
+              }
               // Keep local cache fresh so the next save flow shows the new list
               // immediately without waiting for the modal-open re-fetch.
               try {
@@ -285,15 +324,20 @@ const GlobalModals = () => {
                   action: { label: 'View', href: `/list/${newListId}` },
                 },
               }))
-            }
-            closeSaveModal()
-            if (needsCover) {
-              setCoverPick({
-                hubId: placeId,
-                googlePlaceId: googlePlaceId || undefined,
-                hubName: seedHub.name,
-                hubAddress: seedHub.address || (seedHub as { location?: { address?: string } })?.location?.address || undefined,
-              })
+              closeSaveModal()
+              if (needsCover) {
+                setCoverPick({
+                  hubId: placeId,
+                  googlePlaceId: googlePlaceId || undefined,
+                  hubName: seedHub.name,
+                  hubAddress: seedHub.address || (seedHub as { location?: { address?: string } })?.location?.address || undefined,
+                })
+              }
+              return true
+            } catch (e) {
+              console.error('[GlobalModals] create-list save failed', e)
+              window.dispatchEvent(new CustomEvent('this-is:toast', { detail: { message: "Couldn't create the list. Try again.", tone: 'error' } }))
+              return false
             }
           }}
         />
@@ -336,6 +380,13 @@ const GlobalModals = () => {
         }}
       />
 
+      <SendToFriendModal
+        isOpen={!!sendTo}
+        onClose={() => setSendTo(null)}
+        shareTitle={sendTo?.title || ''}
+        shareUrl={sendTo?.url || ''}
+      />
+
 
       {/* Create Post Modal */}
       {showCreatePost && createPostData && (
@@ -359,12 +410,19 @@ const GlobalModals = () => {
 
 function AppContent() {
   const [activeTab, setActiveTab] = useState('home')
-  const [showCreatePost, setShowCreatePost] = useState(false)
   const [showEmbedFromModal, setShowEmbedFromModal] = useState(false)
   const [showCreateList, setShowCreateList] = useState(false)
   const navigate = useNavigate()
   const location = useLocation()
   const { currentUser } = useAuth()
+  // Create-post is owned by ModalContext (rendered once in GlobalModals). The
+  // navbar routes through here so there's a SINGLE CreatePost instance — there
+  // used to be two (this local one + the context one), which split state and
+  // could leave one stale after a save.
+  const { openCreatePostModal } = useModal()
+
+  // Preserve feed scroll position across back-navigation.
+  useScrollRestoration()
 
   // Prevent scroll when touching navbar area (but allow button interactions)
   useEffect(() => {
@@ -498,18 +556,15 @@ function AppContent() {
               <Navbar
                 activeTab={activeTab}
                 setActiveTab={handleTabChange}
-                onCreatePost={() => setShowCreatePost(true)}
+                onCreatePost={() => openCreatePostModal()}
                 onEmbedFrom={() => setShowEmbedFromModal(true)}
               />
             </div>
           </div>
         </div>
 
-      {/* Create Post Modal */}
-      <CreatePost 
-        isOpen={showCreatePost} 
-        onClose={() => setShowCreatePost(false)} 
-      />
+      {/* Create Post Modal is rendered once inside GlobalModals (driven by
+          ModalContext) — the navbar opens it via openCreatePostModal(). */}
 
       {/* Embed From Modal */}
       <EmbedFromModal

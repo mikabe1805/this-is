@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { loadGoogleMapsAPI } from '../services/google/places'
+import { loadGoogleMapsAPI, didMapsAuthFail } from '../services/google/places'
 import type { ListPlace } from '../types'
 
 interface ListMapProps {
@@ -54,10 +54,12 @@ export default function ListMap({ places, height = '60vh', onSelectPlace, select
     let cancelled = false
     loadGoogleMapsAPI().then(ok => {
       if (cancelled) return
-      if (!ok) { setLoadError(true); return }
+      if (!ok || didMapsAuthFail()) { setLoadError(true); return }
       setLoaded(true)
     })
-    return () => { cancelled = true }
+    const onAuthFail = () => { if (!cancelled) setLoadError(true) }
+    window.addEventListener('this-is:maps-auth-failed', onAuthFail)
+    return () => { cancelled = true; window.removeEventListener('this-is:maps-auth-failed', onAuthFail) }
   }, [])
 
   // Try to grab the user's current location (silent — only if permission is

@@ -13,12 +13,14 @@ const Messages = () => {
 
   useEffect(() => {
     if (!currentUser) return
-    let cancelled = false
     setLoading(true)
-    firebaseMessagingService.listMyThreads(currentUser.id)
-      .then(rows => { if (!cancelled) setThreads(rows) })
-      .finally(() => { if (!cancelled) setLoading(false) })
-    return () => { cancelled = true }
+    // Live subscription so new/updated threads and last-message previews
+    // appear without a manual refresh.
+    const unsub = firebaseMessagingService.subscribeMyThreads(currentUser.id, rows => {
+      setThreads(rows)
+      setLoading(false)
+    })
+    return () => { unsub() }
   }, [currentUser])
 
   return (

@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { PlusIcon, PhotoIcon, BookmarkIcon, LinkIcon, RectangleStackIcon } from '@heroicons/react/24/outline'
 import { createPortal } from 'react-dom'
+import { haptics } from '../utils/haptics'
 
 interface PlusDropdownProps {
   onCreatePost: () => void
@@ -70,6 +71,7 @@ const PlusDropdown: React.FC<PlusDropdownProps> = ({ onCreatePost, onSaveHub, on
   }
 
   const handleToggleDropdown = () => {
+    haptics.tap()
     if (buttonRef.current) {
       if (!isOpen) {
         const rect = buttonRef.current.getBoundingClientRect()

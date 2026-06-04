@@ -37,7 +37,7 @@ const ShareModal = ({ isOpen, onClose, title, description, url, image, type }: S
     },
     {
       id: 'message',
-      label: 'Message',
+      label: 'Send to friend',
       icon: ChatBubbleLeftIcon,
       color: 'text-blue-600',
       bgColor: 'bg-blue-50',
@@ -83,9 +83,11 @@ const ShareModal = ({ isOpen, onClose, title, description, url, image, type }: S
   }
 
   const handleMessage = () => {
-    // In a real app, this would open the messaging app
-    console.log('Opening message app...')
+    // Open the in-app "send to a friend" picker (DMs the link). Replaces the
+    // old console.log stub.
     setSelectedOption('message')
+    window.dispatchEvent(new CustomEvent('this-is:send-to-friend', { detail: { title, url } }))
+    handleClose()
   }
 
   const handleEmail = () => {

@@ -11,7 +11,10 @@ interface PlaceVisualProps {
 }
 
 const PHOTOS_ENABLED = import.meta.env.VITE_PLACES_PHOTOS_ENABLED === 'true'
-const PLACES_NEW_KEY = import.meta.env.VITE_PLACES_NEW_KEY || import.meta.env.VITE_GOOGLE_MAPS_API_KEY || ''
+// Photos must bill against the dedicated Places key only. Falling back to the
+// Maps key (as before) routed Photo SKU charges through a key outside the
+// photo-budget discipline; if it's unset we degrade to the poster instead.
+const PLACES_NEW_KEY = import.meta.env.VITE_PLACES_NEW_KEY || ''
 
 // Simple daily photo budget (move to separate file if needed). Default raised
 // from 10 → 200 because the prior cap was getting hit within minutes of test
@@ -55,29 +58,52 @@ export default function PlaceVisual({
   const [googlePhotoLoaded, setGooglePhotoLoaded] = useState(false)
   
   const hasUserPhotos = userPhotos.length > 0
-  const hasGooglePhoto = PHOTOS_ENABLED && photoResourceName && canFetchGooglePhoto()
-  
+  // Also require a configured Places key — without it the media URL 403s, so
+  // we'd rather show the poster than a broken image.
+  const hasGooglePhoto = PHOTOS_ENABLED && !!PLACES_NEW_KEY && !!photoResourceName && canFetchGooglePhoto()
+
   useEffect(() => {
-    // Dwell-based loading: wait 400ms before showing Google photo
+    // Brief dwell before swapping in the Google photo (lets the poster paint
+    // and avoids fetching photos for cards scrolled past instantly).
     if (hasGooglePhoto) {
       const timer = setTimeout(() => {
         setShowGooglePhoto(true)
-      }, 400)
+      }, 180)
       return () => clearTimeout(timer)
     }
   }, [hasGooglePhoto])
-  
+
   const handleGooglePhotoLoad = () => {
     setGooglePhotoLoaded(true)
-    markGooglePhotoFetched()
+    // Count this photo against the daily budget AT MOST ONCE per unique URL.
+    // onLoad fires on every (re)mount, so the old code double-counted
+    // re-renders. The in-memory `fetchedThisSession` set is the source of
+    // truth for "already counted" so a failing sessionStorage write can never
+    // cause a second increment.
+    const url = googlePhotoUrl(photoResourceName!, 600)
+    if (fetchedThisSession.has(url)) return
+
+    let persistedSeen = false
     try {
-      const url = googlePhotoUrl(photoResourceName!, 600)
-      fetchedThisSession.add(url)
+      const raw = sessionStorage.getItem(FETCHED_KEY)
+      persistedSeen = !!raw && (JSON.parse(raw) as string[]).includes(url)
+    } catch {
+      // sessionStorage unreadable — rely on the in-memory guard only.
+    }
+
+    fetchedThisSession.add(url)
+    if (persistedSeen) return // counted on a previous page load today
+
+    markGooglePhotoFetched()
+    // Persisting is best-effort; a failure here must NOT re-count.
+    try {
       const raw = sessionStorage.getItem(FETCHED_KEY)
       const set = new Set<string>(raw ? JSON.parse(raw) : [])
       set.add(url)
       sessionStorage.setItem(FETCHED_KEY, JSON.stringify(Array.from(set)))
-    } catch {}
+    } catch {
+      // ignore — in-memory guard prevents same-session double counting
+    }
   }
   
   return (

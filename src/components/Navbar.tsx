@@ -71,7 +71,7 @@ const NavTab = ({
       onClick={onClick}
       aria-label={tab.label}
       aria-current={active ? 'page' : undefined}
-      className={`relative flex flex-col items-center justify-center gap-0.5 py-2 rounded-full transition-colors ${
+      className={`relative flex flex-col items-center justify-center gap-0.5 py-2 min-h-[44px] rounded-2xl transition-colors press focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/60 ${
         active ? 'text-ink' : 'text-ink-mute hover:text-ink-soft'
       }`}
     >

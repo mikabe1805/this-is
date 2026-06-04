@@ -26,7 +26,7 @@ interface SaveModalProps {
   onCreateList: (
     listData: { name: string; description: string; privacy: 'public' | 'private' | 'friends'; tags?: string[]; coverImage?: string },
     saveContext?: { status: SaveStatus; rating?: TriedRating; note?: string },
-  ) => void
+  ) => Promise<boolean> | void
   savedFromListId?: string
 }
 
@@ -78,33 +78,44 @@ const SaveModal: React.FC<SaveModalProps> = ({
     }
   }, [selectedListIdsProp])
 
-  const handleCreateList = () => {
-    if (newListName.trim()) {
-      // Forward the status / rating / note picked on the previous screen so
-      // the just-created list also gets the place added with the correct
-      // relationship. Falls back to 'loved' only if the user reached the
-      // Create flow without picking a status (the Save button gates against
-      // that, but defensive).
-      const ctx = selectedStatus ? {
-        status: selectedStatus,
-        rating: selectedStatus === 'tried' ? (triedRating || undefined) : undefined,
-        note: note.trim() || undefined,
-      } : undefined
-      onCreateList({
-        name: newListName.trim(),
-        description: newListDescription.trim(),
-        privacy: newListPrivacy,
-        tags: newListTags,
-        coverImage: newListCoverImage || undefined
-      }, ctx);
-      setShowCreateList(false);
-      setNewListName('');
-      setNewListDescription('');
-      setNewListPrivacy(userPrivacyPreference);
-      setNewListTags([]);
-      setNewTag('');
-      setNewListCoverImage('');
-    }
+  // The parent (App.tsx) closes — and thus unmounts — this modal on a
+  // successful save/create. These async handlers run setState after the
+  // awaited call resolves, so guard against touching state post-unmount.
+  const mountedRef = useRef(true)
+  useEffect(() => () => { mountedRef.current = false }, [])
+
+  const handleCreateList = async () => {
+    if (!newListName.trim()) return
+    // Forward the status / rating / note picked on the previous screen so
+    // the just-created list also gets the place added with the correct
+    // relationship. Falls back to 'loved' only if the user reached the
+    // Create flow without picking a status (the Save button gates against
+    // that, but defensive).
+    const ctx = selectedStatus ? {
+      status: selectedStatus,
+      rating: selectedStatus === 'tried' ? (triedRating || undefined) : undefined,
+      note: note.trim() || undefined,
+    } : undefined
+    // Only clear the form on success. On failure we keep every field intact
+    // so the user can retry without re-typing — the previous code reset and
+    // closed unconditionally, silently discarding the list name, tags, and
+    // cover on a transient Firestore error.
+    const result = await onCreateList({
+      name: newListName.trim(),
+      description: newListDescription.trim(),
+      privacy: newListPrivacy,
+      tags: newListTags,
+      coverImage: newListCoverImage || undefined
+    }, ctx)
+    if (result === false) return // failed — modal stays open, toast already shown
+    if (!mountedRef.current) return // success path: parent already closed/unmounted us
+    setShowCreateList(false)
+    setNewListName('')
+    setNewListDescription('')
+    setNewListPrivacy(userPrivacyPreference)
+    setNewListTags([])
+    setNewTag('')
+    setNewListCoverImage('')
   };
 
   const resetForm = () => {
@@ -382,9 +393,13 @@ const SaveModal: React.FC<SaveModalProps> = ({
                     savedFromListId
                   ))
                 } finally {
-                  onClose()
-                  resetForm()
-                  setIsCommitting(false)
+                  // On success the parent already closed us; only touch state
+                  // if still mounted.
+                  if (mountedRef.current) {
+                    onClose()
+                    resetForm()
+                    setIsCommitting(false)
+                  }
                 }
               }}
               disabled={
@@ -415,7 +430,7 @@ const SaveModal: React.FC<SaveModalProps> = ({
                   try {
                     await Promise.resolve(handleCreateList())
                   } finally {
-                    setIsCommitting(false)
+                    if (mountedRef.current) setIsCommitting(false)
                   }
                 }}
                 disabled={isCommitting || !newListName.trim()}

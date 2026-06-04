@@ -97,6 +97,20 @@ const ListView = () => {
       setList(fetchedList)
       const places = await firebaseListService.getPlacesForList(id)
       setListPlaces(places.map(p => ({ ...p, status: 'loved' })))
+      // Self-heal saved places that have no coordinates (old save path dropped
+      // Google's lat/lng) so the list map can actually pin them. Bounded +
+      // writes coords back to the doc, so it's a one-time cost per place.
+      const missing = places.map(p => p.place).filter(pl => pl && !pl.coordinates)
+      if (missing.length > 0) {
+        firebaseDataService.backfillMissingCoords(missing as never[]).then(patched => {
+          if (patched.size === 0) return
+          setListPlaces(prev => prev.map(lp =>
+            lp.place && patched.has(lp.place.id)
+              ? { ...lp, place: { ...lp.place, coordinates: patched.get(lp.place.id)! } }
+              : lp
+          ))
+        }).catch(() => {})
+      }
       if (fetchedList.userId) {
         try {
           const name = await firebaseDataService.getUserDisplayName(fetchedList.userId)

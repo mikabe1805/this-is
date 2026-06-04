@@ -1,4 +1,4 @@
-import { BookmarkIcon } from '@heroicons/react/24/outline'
+import { BookmarkIcon, HandThumbDownIcon } from '@heroicons/react/24/outline'
 import { BookmarkIcon as BookmarkIconSolid } from '@heroicons/react/24/solid'
 import HubImage from '../HubImage'
 import PlacePoster from './PlacePoster'
@@ -19,12 +19,16 @@ export interface DiscoveryCardItem {
   savedCount?: number
   friendCount?: number
   postCount?: number
+  /** Why this was recommended, e.g. "Because you love coffee". */
+  reason?: string
 }
 
 interface DiscoveryCardProps {
   item: DiscoveryCardItem
   onOpen: () => void
   onSave?: () => void
+  /** "Not interested" — when provided, shows a thumbs-down that tunes the feed. */
+  onDismiss?: () => void
   loadImage?: boolean
   variant?: 'standard' | 'compact'
 }
@@ -44,6 +48,7 @@ export default function DiscoveryCard({
   item,
   onOpen,
   onSave,
+  onDismiss,
   loadImage = false,
   variant = 'standard',
 }: DiscoveryCardProps) {
@@ -114,29 +119,54 @@ export default function DiscoveryCard({
           </span>
         )}
 
-        {/* Save button — minimal black pill */}
-        {onSave && (
-          <button
-            onClick={e => { e.stopPropagation(); onSave() }}
-            className="absolute top-3 right-3 h-9 w-9 rounded-full bg-white/95 backdrop-blur-sm flex items-center justify-center hover:bg-white transition-colors"
-            aria-label={item.saved ? 'Saved' : 'Save'}
-          >
-            {item.saved ? (
-              <BookmarkIconSolid className="w-[18px] h-[18px] text-ink" />
-            ) : (
-              <BookmarkIcon className="w-[18px] h-[18px] text-ink" />
+        {/* Action cluster — "not interested" (tunes the feed) + save */}
+        {(onSave || onDismiss) && (
+          <div className="absolute top-3 right-3 flex items-center gap-1.5">
+            {onDismiss && (
+              <button
+                onClick={e => { e.stopPropagation(); onDismiss() }}
+                className="press h-9 w-9 rounded-full bg-white/85 backdrop-blur-sm flex items-center justify-center hover:bg-white transition-colors"
+                aria-label="Not interested — show less like this"
+                title="Not interested"
+              >
+                <HandThumbDownIcon className="w-[17px] h-[17px] text-ink-soft" />
+              </button>
             )}
-          </button>
+            {onSave && (
+              <button
+                onClick={e => { e.stopPropagation(); onSave() }}
+                className="press h-9 w-9 rounded-full bg-white/95 backdrop-blur-sm flex items-center justify-center hover:bg-white transition-colors"
+                aria-label={item.saved ? 'Saved' : 'Save'}
+              >
+                {item.saved ? (
+                  <BookmarkIconSolid className="w-[18px] h-[18px] text-ink" />
+                ) : (
+                  <BookmarkIcon className="w-[18px] h-[18px] text-ink" />
+                )}
+              </button>
+            )}
+          </div>
         )}
 
         {/* Caption block — overlaid on bottom of photo */}
         <div className="absolute inset-x-3 bottom-3 text-white">
-          <p className="font-mono text-[10px] tracking-[0.16em] opacity-80 mb-1">
-            {[distance, typeLabel].filter(Boolean).join('  ·  ')}
-          </p>
+          {item.reason ? (
+            <p className="font-display-italic text-[12px] leading-tight mb-1 line-clamp-1" style={{ color: '#F6E7C8' }}>
+              {item.reason}
+            </p>
+          ) : (
+            <p className="font-mono text-[10px] tracking-[0.16em] opacity-80 mb-1">
+              {[distance, typeLabel].filter(Boolean).join('  ·  ')}
+            </p>
+          )}
           <h3 className="font-display text-[20px] leading-[1.05] line-clamp-2">
             {item.title}
           </h3>
+          {item.reason && (distance || typeLabel) && (
+            <p className="font-mono text-[9px] tracking-[0.16em] opacity-70 mt-1">
+              {[distance, typeLabel].filter(Boolean).join('  ·  ')}
+            </p>
+          )}
         </div>
       </div>
     </article>

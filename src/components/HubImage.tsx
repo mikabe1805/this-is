@@ -55,7 +55,10 @@ export default function HubImage({
     if (resolvedUserImage) return resolvedUserImage
     if (!doLoad) return ''
     const name = (photos || place?.photos)?.[0]?.name
-    const key = (import.meta as any).env?.VITE_GOOGLE_MAPS_API_KEY || (import.meta as any).env?.VITE_PLACES_NEW_KEY
+    // Photos bill on the dedicated Places key only — never the Maps key (that
+    // routed Photo SKU charges outside the photo-budget controls). No key ⇒
+    // fall through to the poster.
+    const key = (import.meta as any).env?.VITE_PLACES_NEW_KEY
     if (!name || !key) return ''
     return `https://places.googleapis.com/v1/${name}/media?maxWidthPx=${maxWidthPx}&key=${key}`
   }, [resolvedUserImage, photos?.[0]?.name, place?.photos?.[0]?.name, maxWidthPx, doLoad])

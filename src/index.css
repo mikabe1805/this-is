@@ -101,7 +101,10 @@
 
   --ink: #2A1F14;
   --ink-soft: #5C4530;
-  --ink-mute: #9C8970;
+  /* Darkened from #9C8970 (~2.5:1 on paper — failed WCAG AA) to clear ~4.5:1
+     while staying in the same muted-walnut family, so the editorial mono
+     labels stay legible without losing their quiet character. */
+  --ink-mute: #6F5C46;
   --ink-faint: #D7C9B0;
   --paper: #F2EAD9;          /* warm cream — pinterest golden-hour body */
   --paper-deep: #E8DBC2;     /* tea-stained */
@@ -135,6 +138,16 @@
   /* Warm shadow base — slightly cooler than before, café-stone vibe */
   --shadow-warm-soft: 0 1px 0 rgba(74, 47, 26, 0.06), 0 6px 18px rgba(74, 47, 26, 0.10);
   --shadow-warm: 0 2px 0 rgba(74, 47, 26, 0.06), 0 14px 30px -10px rgba(74, 47, 26, 0.20);
+
+  /* === Motion language === one source of truth for timing + easing so every
+     transition feels like it came from the same hand instead of being
+     hand-tuned per component. */
+  --dur-fast: 120ms;     /* taps, toggles, hovers */
+  --dur-base: 220ms;     /* most state changes */
+  --dur-screen: 320ms;   /* route / sheet transitions */
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);   /* general */
+  --ease-out: cubic-bezier(0.22, 0.61, 0.36, 1); /* enter */
+  --ease-in: cubic-bezier(0.4, 0, 1, 1);         /* exit */
 }
 
 .text-ink       { color: var(--ink); }
@@ -193,12 +206,13 @@
   text-decoration-thickness: 2px;
 }
 
-/* Press effect on big buttons */
+/* Press effect — a quick physical "give" on tap. Driven purely by CSS :active
+   so it fires instantly on touch without waiting for a JS handler. */
 .press {
-  transition: transform 80ms ease, box-shadow 200ms ease;
+  transition: transform var(--dur-fast) var(--ease-standard), box-shadow var(--dur-base) var(--ease-standard);
 }
 .press:active {
-  transform: translateY(1px);
+  transform: scale(0.97);
 }
 
 /* === Liquid honey glass primary CTA ===
@@ -538,6 +552,23 @@ input, textarea{ color:#3D3630; }
   @keyframes fade-in { from { opacity: 0 } to { opacity: 1 } }
   @keyframes rise { from { opacity: 0; transform: translateY(6px) } to { opacity: 1; transform: translateY(0) } }
   @keyframes sheen { from { opacity:.35 } to { opacity:.75 } }
+  @keyframes toast-in { from { opacity: 0; transform: translateY(14px) scale(0.98) } to { opacity: 1; transform: translateY(0) scale(1) } }
+  @keyframes skeleton-sweep { 100% { transform: translateX(100%) } }
+}
+
+/* Toast entrance */
+.animate-toast-in { animation: toast-in var(--dur-base) var(--ease-out) both; }
+
+/* Skeleton shimmer — a soft light sweep over a placeholder block. Use on
+   loading cards/rows so feeds don't pop in as raw grey boxes. */
+.skeleton { position: relative; overflow: hidden; background-color: var(--paper-deep); }
+.skeleton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.42), transparent);
+  animation: skeleton-sweep 1.4s ease-in-out infinite;
 }
 
 /* Bottom nav active underline */
@@ -546,9 +577,25 @@ input, textarea{ color:#3D3630; }
   .nav-active::after { content:""; position:absolute; bottom:4px; left:50%; transform:translateX(-50%); width:24px; height:3px; border-radius:9999px; background-color: rgba(111,138,107,0.30); }
 }
 
-/* Reduced motion: disable animations and transitions */
+/* Reduced motion: kill large translational/keyframe motion, but PRESERVE the
+   small opacity/color transitions and the tap "give" — a blanket
+   `* { animation:none; transition:none }` actually made the app feel MORE
+   broken for these users (instant snapping, no press feedback), the opposite
+   of the accommodation's intent. */
 @media (prefers-reduced-motion: reduce) {
-  * { animation: none !important; transition: none !important; }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    /* Collapse transition durations but keep opacity/color/visibility fades
+       so state changes still read as intentional, not jarring. */
+    transition-duration: var(--dur-fast) !important;
+    transition-property: opacity, color, background-color, border-color, fill, stroke !important;
+  }
+  /* Press feedback stays, just without the scale transform. */
+  .press:active { transform: none; opacity: 0.7; }
 }
 
 /* === Legacy palette alias layer ===

@@ -1,6 +1,7 @@
 import type { List, Place } from '../types/index.js'
-import { ArrowLeftIcon, EyeIcon, HeartIcon, MagnifyingGlassIcon, MapPinIcon } from '@heroicons/react/24/outline'
+import { ArrowLeftIcon, EyeIcon, MagnifyingGlassIcon, MapPinIcon } from '@heroicons/react/24/outline'
 import { HeartIcon as HeartIconSolid } from '@heroicons/react/24/solid'
+import EmptyState from '../components/ui/EmptyState'
 import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import SaveModal from '../components/SaveModal'
@@ -163,21 +164,12 @@ const Favorites = () => {
       {/* List grid */}
       <div className="relative z-10 px-5 pb-20 max-w-2xl mx-auto">
         {filteredLists.length === 0 ? (
-          <div className="border border-edge rounded-[14px] px-5 py-12 text-center bg-card">
-            <HeartIcon className="w-10 h-10 text-ink-mute mx-auto mb-3" />
-            <p className="font-display text-[24px] text-ink leading-tight">No favorites yet.</p>
-            <p className="text-[13px] text-ink-soft mt-1.5">
-              {searchQuery.trim() ? 'No lists match that search.' : 'Heart a list to keep it here.'}
-            </p>
-            {!searchQuery.trim() && (
-              <button
-                onClick={() => navigate('/search')}
-                className="btn-cta h-10 px-4 mt-4 label-eyebrow"
-              >
-                Discover lists
-              </button>
-            )}
-          </div>
+          <EmptyState
+            botanical="rose-stem"
+            title={searchQuery.trim() ? 'No matches.' : 'No favorites yet.'}
+            body={searchQuery.trim() ? 'No lists match that search.' : 'Heart a list to keep it here — your favorites become a quick way back to the collections you love.'}
+            action={searchQuery.trim() ? undefined : { label: 'Discover lists', href: '/search' }}
+          />
         ) : (
           <div className="space-y-4">
             {filteredLists.map((list) => {

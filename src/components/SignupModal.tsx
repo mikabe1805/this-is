@@ -31,10 +31,13 @@ const CATEGORIES = [
   'Architecture', 'Hidden Gems',
 ]
 
+// Aesthetic vibes (mood, not category). These seed the taste model's vibe
+// vocabulary, which then grows from the places you actually engage with. Worded
+// to read like a mood-board — the words map onto src/utils/placeTypes VIBES.
 const VIBES = [
-  'Cozy', 'Romantic', 'Lively', 'Quiet', 'Trendy',
-  'Local', 'Family-Friendly', 'Date Night', 'Solo-Friendly',
-  'Photo-Worthy', 'Late Night', 'Outdoors',
+  'Slow mornings', 'Sun-drenched', 'Cottagecore', 'Dark academia', 'Moody',
+  'Coastal', 'Old money', 'Clean girl', 'Outdoorsy', 'Hidden gems',
+  'Golden hour', 'Matcha hour', 'Plant-filled', 'Buzzy', 'Low-key', 'Nostalgic',
 ]
 
 export default function SignupModal({ isOpen, onClose, onSwitchToLogin }: SignupModalProps) {
@@ -171,6 +174,19 @@ export default function SignupModal({ isOpen, onClose, onSwitchToLogin }: Signup
       try { await refreshCurrentUser() } catch {}
 
       onClose()
+      // Warm welcome that lands the new user in the discovery loop instead of a
+      // blank-ish Home — the weakest possible first impression otherwise.
+      const first = (data.displayName || '').trim().split(' ')[0]
+      setTimeout(() => {
+        try {
+          window.dispatchEvent(new CustomEvent('this-is:toast', {
+            detail: {
+              message: first ? `Welcome, ${first} — here's what's nearby.` : "Welcome — here's what's nearby.",
+              action: { label: 'Explore', href: '/explore' },
+            },
+          }))
+        } catch { /* noop */ }
+      }, 600)
     } catch (e: unknown) {
       const code = (e as { code?: string } | null)?.code || ''
       if (code === 'auth/email-already-in-use') {

@@ -10,6 +10,13 @@ import EXIF from 'exif-js';
 import GooglePlacesAutocomplete from './GooglePlacesAutocomplete';
 import AddressAutocomplete from './AddressAutocomplete';
 import TagAutocomplete from './TagAutocomplete';
+import { haptics } from '../utils/haptics';
+
+const MAX_PHOTOS = 5
+const MAX_PHOTO_BYTES = 10 * 1024 * 1024 // 10MB — matches the storage-service cap
+
+const toast = (message: string, tone?: 'error') =>
+  window.dispatchEvent(new CustomEvent('this-is:toast', { detail: { message, tone } }))
 
 interface CreatePostProps {
   isOpen: boolean
@@ -54,6 +61,7 @@ const CreatePost = ({ isOpen, onClose, preSelectedHub, preSelectedListIds }: Cre
   const [listSearchQuery, setListSearchQuery] = useState('')
   const [userLists, setUserLists] = useState<List[]>([])
   const [availableTags, setAvailableTags] = useState<string[]>([])
+  const [isSubmitting, setIsSubmitting] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const photoInputRef = useRef<HTMLInputElement>(null)
 
@@ -99,8 +107,35 @@ const CreatePost = ({ isOpen, onClose, preSelectedHub, preSelectedListIds }: Cre
 
   // Step 1: Photo upload/take
   const handlePhotoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(event.target.files || []);
-    if (files.length > 0) {
+    const picked = Array.from(event.target.files || []);
+    // Reset the input so re-picking the same file fires onChange again.
+    if (event.target) event.target.value = ''
+    if (picked.length === 0) return
+
+    // Validate type + size BEFORE adding, so users learn immediately instead of
+    // at upload time (after they've composed the whole post). Cap total photos.
+    const valid: File[] = []
+    let rejectedType = false
+    let rejectedSize = false
+    for (const f of picked) {
+      if (!f.type.startsWith('image/')) { rejectedType = true; continue }
+      if (f.size > MAX_PHOTO_BYTES) { rejectedSize = true; continue }
+      valid.push(f)
+    }
+    if (rejectedSize) toast('Some photos were over 10MB and skipped.', 'error')
+    else if (rejectedType) toast('Only image files can be added.', 'error')
+
+    const room = Math.max(0, MAX_PHOTOS - photos.length)
+    const toAdd = valid.slice(0, room)
+    if (valid.length > room) toast(`You can add up to ${MAX_PHOTOS} photos.`, 'error')
+    if (toAdd.length === 0) return
+    haptics.tap()
+    // Honest screenshot hint (was a stub that never set true): flag when an
+    // added file looks like a screenshot by name.
+    if (toAdd.some(f => /screen.?shot/i.test(f.name))) setIsScreenshot(true)
+
+    const files = toAdd
+    {
       setPhotos(prev => [...prev, ...files]);
 
       // Try to extract location from the first new photo with proper error handling
@@ -287,8 +322,11 @@ const CreatePost = ({ isOpen, onClose, preSelectedHub, preSelectedListIds }: Cre
     }
   }
   const handleSubmit = async () => {
-    if (!currentUser || !selectedHub) return;
+    if (!currentUser || isSubmitting) return;
+    // Guard against the silent-fail path: no hub = nothing to post about.
+    if (!selectedHub) { toast('Pick a place for your post first.', 'error'); return }
 
+    setIsSubmitting(true)
     try {
       // 1. Create post data object
       const postData = {
@@ -304,23 +342,33 @@ const CreatePost = ({ isOpen, onClose, preSelectedHub, preSelectedListIds }: Cre
         location: extractedLocation
       };
 
-      // 2. Save post to Firestore
-      await firebasePostService.createPost(postData);
+      // 2. Save post to Firestore. createPost RETURNS NULL on failure (it
+      //    doesn't throw), so we must check — the old code treated null as
+      //    success and closed the modal on a failed post.
+      const postId = await firebasePostService.createPost(postData);
+      if (!postId) throw new Error("Couldn't save your post. Check your connection and try again.")
+
+      // Teach the taste model — posting about a place is a strong signal.
+      firebaseDataService.recordTasteFromPlace(currentUser.id, selectedHub as { id?: string; primaryType?: string | null; types?: string[]; tags?: string[]; name?: string }, 2)
 
       // Notify subscribers (PlaceHub feed, etc.) so they can re-fetch posts.
       window.dispatchEvent(new CustomEvent('this-is:posted', {
         detail: { placeId: selectedHub.id, listIds: Array.from(selectedListIds) }
       }));
-      window.dispatchEvent(new CustomEvent('this-is:toast', { detail: { message: 'Posted' } }));
+      haptics.success()
+      window.dispatchEvent(new CustomEvent('this-is:toast', {
+        detail: { message: 'Posted', action: { label: 'View', href: `/place/${selectedHub.id}` } }
+      }));
       handleClose();
     } catch (error) {
-      // Surface the failure visibly. Previously this silently closed the modal,
-      // wiping the user's photos / description / tags with zero feedback —
-      // they thought it posted, then realized minutes later it never did.
-      // Keep the modal open so the user can retry without re-uploading.
+      // Surface the failure visibly + keep the modal open so the user can retry
+      // without re-uploading. Previously a failed post silently "succeeded".
       console.error('❌ Error creating post:', error);
+      haptics.warn()
       const message = error instanceof Error ? error.message : 'Failed to post. Try again.'
-      window.dispatchEvent(new CustomEvent('this-is:toast', { detail: { message, tone: 'error' } }))
+      toast(message, 'error')
+    } finally {
+      setIsSubmitting(false)
     }
   }
   const resetForm = () => {
@@ -672,6 +720,7 @@ const CreatePost = ({ isOpen, onClose, preSelectedHub, preSelectedListIds }: Cre
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                   placeholder="What did you think?"
+                  aria-label="Your thoughts about this place"
                   rows={4}
                   className="w-full px-4 py-3 rounded-[18px] bg-card border border-edge text-[14px] text-ink placeholder:text-ink-mute outline-none focus:border-ink/40 resize-none"
                 />
@@ -784,9 +833,10 @@ const CreatePost = ({ isOpen, onClose, preSelectedHub, preSelectedListIds }: Cre
                 </button>
                 <button
                   onClick={handleSubmit}
-                  className="btn-cta flex-1 h-12 font-semibold text-[15px]"
+                  disabled={isSubmitting || !selectedHub}
+                  className="btn-cta flex-1 h-12 font-semibold text-[15px] disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  Post
+                  {isSubmitting ? 'Posting…' : 'Post'}
                 </button>
               </div>
             </div>

@@ -5,6 +5,7 @@ import { useAuth } from '../contexts/AuthContext.js'
 import { firebaseDataService } from '../services/firebaseDataService.js'
 import type { UserPreferences } from '../services/firebaseDataService.js'
 import ConfirmModal from '../components/ConfirmModal.js'
+import { haptics } from '../utils/haptics'
 
 interface SettingItem {
   id: string
@@ -35,6 +36,9 @@ const Settings = () => {
         setLoading(true)
         const prefs = await firebaseDataService.getUserPreferences(authUser.id);
         setSettings(prefs);
+        // Mirror the haptic preference to localStorage so the haptics util can
+        // read it synchronously on the tap path (default on when unset).
+        haptics.setEnabled(prefs.app?.hapticFeedback !== false);
         setLoading(false)
       }
     }
@@ -85,7 +89,14 @@ const Settings = () => {
   const handleToggle = (key: string) => {
     const path = SETTING_PATHS[key] || [key]
     const current = getNestedPath(settings, path)
-    handleSettingChange(key, !current)
+    const next = !current
+    if (key === 'hapticFeedback') {
+      // Update the synchronous mirror first, then buzz so the user feels the
+      // toggle they just flipped (when turning it on).
+      haptics.setEnabled(next)
+      if (next) haptics.select()
+    }
+    handleSettingChange(key, next)
   }
 
   const handleSelect = (key: string, value: string) => {

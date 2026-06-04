@@ -7,7 +7,7 @@ import PageWatermark from '../components/ui/PageWatermark'
 import { useAuth } from '../contexts/AuthContext'
 import { useNavigation } from '../contexts/NavigationContext'
 import { useModal } from '../contexts/ModalContext'
-import { firebaseDataService } from '../services/firebaseDataService'
+import { firebaseDataService, type TasteProfile } from '../services/firebaseDataService'
 import { formatTimestamp } from '../utils/dateUtils'
 import { readCoords } from '../utils/coords'
 import type { Hub, Place, User, Activity, List } from '../types/index.js'
@@ -48,12 +48,15 @@ const Home = () => {
   const { openSaveModal } = useModal()
 
   const [forYou, setForYou] = useState<DiscoveryCardItem[]>([])
+  const [lanes, setLanes] = useState<{ key: string; title: string; items: DiscoveryCardItem[] }[]>([])
   const [friendEvents, setFriendEvents] = useState<FriendEvent[]>([])
   const [savedPlaceCount, setSavedPlaceCount] = useState<number | null>(null)
   const [savedListCount, setSavedListCount] = useState<number | null>(null)
   const [loadingForYou, setLoadingForYou] = useState(true)
   const [loadingFriends, setLoadingFriends] = useState(true)
   const [searchOpen, setSearchOpen] = useState(false)
+  const [locating, setLocating] = useState(false)
+  const [taste, setTaste] = useState<TasteProfile | null>(null)
   const [popularTags, setPopularTags] = useState<string[]>([])
   const [recentSearches, setRecentSearches] = useState<string[]>([])
   const [savedIds, setSavedIds] = useState<Set<string>>(new Set())
@@ -68,95 +71,51 @@ const Home = () => {
     try {
       const eff = await firebaseDataService.getEffectiveLocation(currentUser.id)
       const seed = refresh ? Date.now() : undefined
-      // Pull a much wider candidate pool than we'll show, so successive
-      // Refresh taps can keep finding fresh places. The external limit being
-      // ≥ 40 is what triggers `getExternalSuggestedPlaces`'s multi-call
-      // strategy — three Google searches with different type mixes and
-      // geographic offsets. Single-call returns ≤ 20 candidates which the
-      // seen-set filter exhausts after 2 refreshes.
-      const internal = await firebaseDataService.getSuggestedPlaces({
-        tags: (currentUser as unknown as { tags?: string[] }).tags || [],
-        location: eff ? { lat: eff.lat, lng: eff.lng } : undefined,
-        limit: 40,
-        seed,
-      })
-      let external: Place[] = []
-      if (eff) {
-        external = await firebaseDataService.getBatchedExternalRecommendations(eff.lat, eff.lng, {
-          limit: 60,
-          forceFresh: refresh,
-          seed,
-        })
-      }
-      // Dedup by id AND by normalised name+address — internal+external can
-      // surface the same place under different ids, and a name-only key
-      // doesn't catch chains with the same name in different cities.
-      const merged: Place[] = [...internal, ...external]
-      const dedupIds = new Set<string>()
-      const dedupFingerprints = new Set<string>()
-      const fingerprint = (p: Place & { address?: string; location?: { address?: string } }) => {
-        const name = String(p?.name || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
-        const addr = String(p?.address || p?.location?.address || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
-        return name && addr ? `${name}|${addr.slice(0, 24)}` : ''
-      }
-      let unique = merged.filter((p) => {
-        const id = p.id || ''
-        if (id && dedupIds.has(id)) return false
-        const fp = fingerprint(p as Place)
-        if (fp && dedupFingerprints.has(fp)) return false
-        if (id) dedupIds.add(id)
-        if (fp) dedupFingerprints.add(fp)
-        return true
-      })
+      // Taste-driven recommendations. getTasteRecommendations builds a profile
+      // from the user's SAVES (strongest signal) + signup vibes + bio, queries
+      // Google with vibe-rich phrases ("cozy specialty coffee shop", "scenic
+      // beach") near them, blends in taste-ranked internal places, drops what
+      // they've already saved, and ranks by taste fit + proximity. Each result
+      // carries a "why" reason. Pull a wider pool (24) so the seen-set can
+      // rotate picks across Refresh taps.
+      const recs = await firebaseDataService.getTasteRecommendations(
+        currentUser.id,
+        eff ? { lat: eff.lat, lng: eff.lng } : null,
+        { limit: 24, seed, forceFresh: refresh }
+      )
 
-      // Refresh = "show me different places". Drop ones we've already shown
-      // this session. If we'd run out of candidates after filtering, reset the
-      // seen-set and start over from the fresh pool.
+      // Refresh = "show me different places". Drop ones already shown this
+      // session; reset once the pool is exhausted.
       const SEEN_KEY = 'home_for_you_seen'
       const loadSeen = (): Set<string> => {
-        try {
-          const raw = sessionStorage.getItem(SEEN_KEY)
-          return new Set(raw ? JSON.parse(raw) : [])
-        } catch {
-          return new Set()
-        }
+        try { const raw = sessionStorage.getItem(SEEN_KEY); return new Set(raw ? JSON.parse(raw) : []) } catch { return new Set() }
       }
       const persistSeen = (s: Set<string>) => {
-        try {
-          // Cap so the set doesn't grow unbounded.
-          const arr = Array.from(s).slice(-200)
-          sessionStorage.setItem(SEEN_KEY, JSON.stringify(arr))
-        } catch {
-          // sessionStorage full or denied; not fatal
-        }
+        try { sessionStorage.setItem(SEEN_KEY, JSON.stringify(Array.from(s).slice(-200))) } catch { /* quota */ }
       }
       const seenIds = refresh ? loadSeen() : new Set<string>()
+      let pool = recs
       if (refresh && seenIds.size > 0) {
-        const filtered = unique.filter(p => !seenIds.has(p.id))
-        if (filtered.length >= 6) {
-          unique = filtered
-        } else {
-          // Pool exhausted — reset and show whatever we got.
-          sessionStorage.removeItem(SEEN_KEY)
-        }
+        const filtered = recs.filter(p => !seenIds.has(p.id))
+        if (filtered.length >= 6) pool = filtered
+        else sessionStorage.removeItem(SEEN_KEY)
       }
+
       type PlaceLoose = Place & {
+        reason?: string
         primaryType?: string
         types?: string[]
         photos?: { name: string }[]
         mainImage?: string
         hubImage?: string
         coverImage?: string
-        coordinates?: { lat?: number; lng?: number; latitude?: number; longitude?: number }
-        location?: { lat?: number; lng?: number; latitude?: number; longitude?: number; address?: string }
+        location?: { address?: string }
         address?: string
       }
-      const finalPicks = unique.slice(0, 12)
+      const finalPicks = pool.slice(0, 12)
       const items: DiscoveryCardItem[] = finalPicks.map((rawP) => {
         const p = rawP as PlaceLoose
         placeRefs.current[p.id] = p
-        // readCoords rejects (0, 0) — that bad fallback was making every saved
-        // place show ~5409 mi away (great-circle from Null Island to NJ).
         const coords = readCoords(p)
         const distanceKm = eff && coords
           ? firebaseDataService.distanceKm(coords, { lat: eff.lat, lng: eff.lng })
@@ -172,19 +131,60 @@ const Home = () => {
           // Prefer a user-uploaded picture over the Google photo / poster.
           imageUrl: p.mainImage || p.hubImage || p.coverImage || undefined,
           distanceKm,
+          savedCount: typeof (p as { savedCount?: number }).savedCount === 'number'
+            ? (p as { savedCount?: number }).savedCount
+            : undefined,
+          // The "why" — e.g. "Because you love coffee".
+          reason: p.reason,
         }
       })
-      // Bail if the auth user changed mid-flight — without this guard, a
-      // rapid sign-out/sign-in or account switch lets the old user's
-      // recommendations land in the new user's For-You rail.
+      // Bail if the auth user changed mid-flight.
       if (currentUser && currentUserIdRef.current !== currentUser.id) return
-      // Remember what we just showed so the next Refresh skips them.
       finalPicks.forEach(p => seenIds.add(p.id))
       persistSeen(seenIds)
       setForYou(items)
+
+      // Themed lanes ("More coffee you'll love", "Beaches for your next trip").
+      // Reuses the per-interest cache the recs above just warmed, so it adds no
+      // Google calls in the common case. Exclude what's already in the grid so
+      // lanes show MORE, not repeats.
+      try {
+        const shown = new Set(finalPicks.map(p => p.id))
+        const laneData = await firebaseDataService.getTasteLanes(
+          currentUser.id,
+          eff ? { lat: eff.lat, lng: eff.lng } : null
+        )
+        if (currentUser && currentUserIdRef.current === currentUser.id) {
+          const mapped = laneData.map(l => ({
+            key: l.key,
+            title: l.title,
+            items: (l.items as PlaceLoose[])
+              .filter(p => p?.id && !shown.has(p.id))
+              .slice(0, 8)
+              .map((p) => {
+                placeRefs.current[p.id] = p
+                const coords = readCoords(p)
+                const distanceKm = eff && coords ? firebaseDataService.distanceKm(coords, { lat: eff.lat, lng: eff.lng }) : undefined
+                return {
+                  id: p.id,
+                  kind: 'place' as const,
+                  title: p.name,
+                  subtitle: p.address || (p.location && p.location.address) || '',
+                  primaryType: p.primaryType,
+                  types: p.types,
+                  photos: p.photos,
+                  imageUrl: p.mainImage || p.hubImage || p.coverImage || undefined,
+                  distanceKm,
+                  savedCount: typeof (p as { savedCount?: number }).savedCount === 'number' ? (p as { savedCount?: number }).savedCount : undefined,
+                } as DiscoveryCardItem
+              }),
+          })).filter(l => l.items.length >= 3)
+          setLanes(mapped)
+        }
+      } catch (e) { console.warn('[home] lanes failed', e) }
     } catch (e) {
       console.error('[home] forYou failed', e)
-      if (currentUser && currentUserIdRef.current === currentUser.id) setForYou([])
+      if (currentUser && currentUserIdRef.current === currentUser.id) { setForYou([]); setLanes([]) }
     } finally {
       if (currentUser && currentUserIdRef.current === currentUser.id) setLoadingForYou(false)
     }
@@ -245,6 +245,11 @@ const Home = () => {
       ])
       setSavedPlaceCount(Array.isArray(places) ? places.length : 0)
       setSavedListCount(Array.isArray(lists) ? lists.filter((l: { userId?: string }) => l.userId === currentUser.id).length : 0)
+      // Seed the saved-state set so For-You cards show a FILLED bookmark for
+      // places already saved. Without this, every already-saved place rendered
+      // an empty bookmark until the user re-saved it — eroding trust in the
+      // core feature.
+      if (Array.isArray(places)) setSavedIds(new Set(places.map((p: Place) => p.id)))
     } catch {
       setSavedPlaceCount(0)
       setSavedListCount(0)
@@ -261,6 +266,7 @@ const Home = () => {
     void loadForYou()
     void loadFriends()
     void loadStats()
+    firebaseDataService.buildTasteProfile(currentUser.id).then(setTaste).catch(() => {})
     firebaseDataService.getPopularTags(20).then(setPopularTags).catch(() => {})
     try {
       const r = JSON.parse(localStorage.getItem('recentSearches') || '[]')
@@ -277,7 +283,20 @@ const Home = () => {
   // Refresh saved-count and recommendations whenever a save happens elsewhere.
   useEffect(() => {
     if (!currentUser) return
-    const onSaved = () => { void loadStats() }
+    const onSaved = (e: Event) => {
+      // Reflect the new save immediately in the bookmark state, then refresh
+      // counts. The event carries the placeId of whatever was just saved.
+      const pid = (e as CustomEvent).detail?.placeId as string | undefined
+      if (pid) setSavedIds(prev => new Set(prev).add(pid))
+      void loadStats()
+      // A save just taught the model something — invalidate the cached profile
+      // FIRST (the save's taste write may not have invalidated it yet on this
+      // tick), then rebuild the taste header from fresh data.
+      if (currentUser) {
+        firebaseDataService.invalidateTasteProfile(currentUser.id)
+        firebaseDataService.buildTasteProfile(currentUser.id).then(setTaste).catch(() => {})
+      }
+    }
     const onUserUpdated = (e: Event) => {
       const detail = (e as CustomEvent).detail as { fields?: string[] } | undefined
       if (!detail?.fields || detail.fields.includes('location')) void loadForYou()
@@ -291,6 +310,23 @@ const Home = () => {
   }, [currentUser?.id])
 
   const greeting = useMemo(() => HomeGreeting({ name: currentUser?.name }), [currentUser?.name])
+
+  // The "we know you" line that makes the feed feel built for this person and
+  // visibly deepen with use. Names the user's actual top interests + a
+  // confidence eyebrow driven by how many signals we've gathered.
+  const tasteSummary = useMemo(() => {
+    if (!taste || !taste.hasSignal || taste.interests.length === 0) return null
+    const labels = taste.interests.slice(0, 3).map(i => i.label)
+    const joined = labels.length <= 1
+      ? labels[0]
+      : `${labels.slice(0, -1).join(', ')} & ${labels[labels.length - 1]}`
+    const eyebrow = taste.confidence === 'known'
+      ? 'Tuned to you'
+      : taste.confidence === 'learning'
+        ? 'Learning your taste'
+        : 'Getting to know you'
+    return { joined, eyebrow }
+  }, [taste])
 
   const handleSavePlace = (it: DiscoveryCardItem) => {
     const raw = placeRefs.current[it.id]
@@ -314,7 +350,10 @@ const Home = () => {
       name: p.name,
       address: p.address || p.location?.address || '',
       location: p.location || { address: p.address || '' },
-      coordinates: p.coordinates || (p.location?.lat && p.location?.lng ? { lat: p.location.lat, lng: p.location.lng } : undefined),
+      // readCoords handles Google's top-level lat/lng (the old check only looked
+      // at p.coordinates / p.location, so recommended places saved with NO
+      // coordinates and never pinned on the list map).
+      coordinates: readCoords(p),
       tags: p.tags || [],
       photos: Array.isArray(p.photos) ? p.photos : [],
       primaryType: p.primaryType,
@@ -322,8 +361,21 @@ const Home = () => {
       mainImage: p.mainImage,
       posts: [],
     }
+    // Don't mark saved on modal-OPEN — the user may cancel. The bookmark
+    // fills when the `this-is:saved` event confirms an actual save.
     try { openSaveModal(hubLike as unknown as Hub) } catch (e) { console.warn('[home] openSaveModal failed', e) }
-    setSavedIds(prev => new Set(prev).add(it.id))
+  }
+
+  // "Not interested" — down-weight this place's interests in the taste model,
+  // remember the dismissal so it won't resurface, and pull it from the feed.
+  const handleDismiss = (it: DiscoveryCardItem) => {
+    const raw = placeRefs.current[it.id] as (Place & { primaryType?: string | null; types?: string[]; category?: string; tags?: string[] }) | undefined
+    if (currentUser && raw?.id) {
+      firebaseDataService.markNotInterested(currentUser.id, raw as typeof raw & { id: string })
+    }
+    setForYou(prev => prev.filter(x => x.id !== it.id))
+    setLanes(prev => prev.map(l => ({ ...l, items: l.items.filter(x => x.id !== it.id) })).filter(l => l.items.length >= 3))
+    window.dispatchEvent(new CustomEvent('this-is:toast', { detail: { message: "Got it — we'll show less like this." } }))
   }
 
   return (
@@ -387,19 +439,25 @@ const Home = () => {
         <div className="flex items-baseline justify-between mb-4">
           <div>
             <span className="label-eyebrow flex items-center gap-1.5" style={{ color: 'var(--accent-deep)' }}>
-              <span className="accent-bead-sm accent-bead" /> № 01
+              <span className="accent-bead-sm accent-bead" /> {tasteSummary ? tasteSummary.eyebrow : '№ 01'}
             </span>
             <h2 className="font-display text-[28px] leading-none text-ink mt-1.5">
               For you<span style={{ color: 'var(--bloom)' }}>.</span>
             </h2>
             <div className="amber-hairline mt-2 w-12" />
+            {tasteSummary && (
+              <p className="font-display-italic text-[13px] text-ink-soft mt-2 max-w-[16rem] leading-snug">
+                Tuned to your love of {tasteSummary.joined}.
+              </p>
+            )}
           </div>
           <button
             type="button"
             onClick={() => void loadForYou(true)}
-            className="label-eyebrow text-ink-soft hover:text-ink"
+            disabled={loadingForYou}
+            className="label-eyebrow text-ink-soft hover:text-ink disabled:opacity-40 disabled:cursor-not-allowed"
           >
-            Refresh
+            {loadingForYou ? 'Refreshing…' : 'Refresh'}
           </button>
         </div>
         {loadingForYou ? (
@@ -416,18 +474,31 @@ const Home = () => {
             </p>
             <button
               type="button"
+              disabled={locating}
               onClick={() => {
-                if (!('geolocation' in navigator)) return
+                if (!('geolocation' in navigator)) {
+                  window.dispatchEvent(new CustomEvent('this-is:toast', { detail: { message: "This device can't share location — set it in your profile.", tone: 'error' } }))
+                  return
+                }
+                setLocating(true)
                 navigator.geolocation.getCurrentPosition(
-                  () => { void loadForYou(true) },
-                  () => { /* permission denied — link to profile is the fallback */ },
+                  () => { setLocating(false); void loadForYou(true) },
+                  (err) => {
+                    // Was a silent no-op: the empty state just sat there with
+                    // no explanation of why nothing happened.
+                    setLocating(false)
+                    const msg = err.code === err.PERMISSION_DENIED
+                      ? 'Location blocked. Set your city in your profile instead.'
+                      : "Couldn't get your location. Try again or set it in your profile."
+                    window.dispatchEvent(new CustomEvent('this-is:toast', { detail: { message: msg, tone: 'error', action: { label: 'Profile', href: '/profile/edit' } } }))
+                  },
                   { enableHighAccuracy: false, timeout: 8000, maximumAge: 60000 }
                 )
               }}
-              className="btn-cta h-10 px-4 mt-4 text-[13px] font-semibold inline-flex items-center gap-2"
+              className="btn-cta h-10 px-4 mt-4 text-[13px] font-semibold inline-flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <MapPinIcon className="w-4 h-4" />
-              Use my current location
+              {locating ? 'Finding you…' : 'Use my current location'}
             </button>
           </div>
         ) : (
@@ -441,12 +512,37 @@ const Home = () => {
                   if (p) openHubModal(p as unknown as Hub, 'home')
                 }}
                 onSave={() => handleSavePlace(it)}
+                onDismiss={() => handleDismiss(it)}
                 variant="compact"
               />
             ))}
           </div>
         )}
       </section>
+
+      {/* Themed taste lanes — horizontally scrolling rows built from the
+          user's top interests. Each one reads as "the app curated this lane
+          for me". */}
+      {!loadingForYou && lanes.map(lane => (
+        <section key={lane.key} className="pt-9">
+          <h2 className="px-5 font-display text-[22px] leading-none text-ink mb-4">
+            {lane.title}<span style={{ color: 'var(--bloom)' }}>.</span>
+          </h2>
+          <div className="flex gap-3 overflow-x-auto px-5 pb-2" style={{ scrollbarWidth: 'none' }}>
+            {lane.items.map(it => (
+              <div key={it.id} className="w-[150px] shrink-0">
+                <DiscoveryCard
+                  item={{ ...it, saved: savedIds.has(it.id) }}
+                  onOpen={() => { const p = placeRefs.current[it.id]; if (p) openHubModal(p as unknown as Hub, 'home') }}
+                  onSave={() => handleSavePlace(it)}
+                  onDismiss={() => handleDismiss(it)}
+                  variant="compact"
+                />
+              </div>
+            ))}
+          </div>
+        </section>
+      ))}
 
       <section className="px-5 pt-10 pb-12">
         <div className="flex items-baseline justify-between mb-4">

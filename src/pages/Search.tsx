@@ -9,6 +9,7 @@ import { useModal } from '../contexts/ModalContext'
 import { firebaseDataService } from '../services/firebaseDataService'
 import { useSearch } from '../hooks/useSearch'
 import { searchText as googleSearchText, type PlaceLite } from '../lib/placesNew'
+import { readCoords } from '../utils/coords'
 import type { Place, List, User } from '../types/index.js'
 
 const MIN_INTERNAL_PLACES_THRESHOLD = 4
@@ -77,6 +78,9 @@ const Search = () => {
     if (!trimmed) return
     setSearchQuery(trimmed)
     performSearch(trimmed)
+    // What you search for is intent — feed it to the taste model so the feed
+    // reflects what you're actively looking for.
+    if (currentUser) firebaseDataService.recordTasteFromQuery(currentUser.id, trimmed, 0.5)
     try {
       const next = [trimmed, ...recents.filter(r => r !== trimmed)].slice(0, 8)
       localStorage.setItem(RECENT_KEY, JSON.stringify(next))
@@ -228,6 +232,20 @@ const Search = () => {
   const hasQuery = searchQuery.trim().length > 0
   const hasResults = places.length + lists.length + users.length > 0
 
+  // Surface the result type the query most likely wants FIRST. Typing a
+  // person's name (or @handle) used to bury them under Places because the
+  // section order was hardcoded Places → Lists → People.
+  const peopleFirst = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase().replace(/^@/, '')
+    if (!q || users.length === 0) return false
+    if (searchQuery.trim().startsWith('@')) return true
+    return users.some(u => {
+      const name = (u.title || '').toLowerCase()
+      const handle = ((u.raw as User).username || '').toLowerCase()
+      return handle === q || name === q || handle.startsWith(q) || name.startsWith(q)
+    })
+  }, [searchQuery, users])
+
   const handleSavePlace = (it: DiscoveryCardItem) => {
     const p = placeRefs.current[it.id] as Place & {
       address?: string
@@ -244,7 +262,10 @@ const Search = () => {
       name: p.name,
       address: p.address || p.location?.address || '',
       location: p.location || { address: p.address || '' },
-      coordinates: p.coordinates || (p.location?.lat && p.location?.lng ? { lat: p.location.lat, lng: p.location.lng } : undefined),
+      // readCoords normalizes every shape incl. Google's top-level lat/lng —
+      // the old check missed it, so saved Google places stored no coordinates
+      // and never pinned on the list map.
+      coordinates: readCoords(p),
       tags: p.tags || [],
       // Carry the Google metadata so ensureHubFromPlace can persist a real
       // place doc — otherwise list rows render the poster placeholder
@@ -346,9 +367,9 @@ const Search = () => {
             <p className="text-[13px] text-ink-soft mt-2">Try a different word, or browse Explore.</p>
           </div>
         ) : (
-          <div className="space-y-9">
+          <div className="flex flex-col gap-9">
             {places.length > 0 && (
-              <section>
+              <section style={{ order: peopleFirst ? 2 : 1 }}>
                 <div className="flex items-baseline justify-between mb-4">
                   <h3 className="label-eyebrow text-ink">
                     Places <span className="text-ink-mute">· {places.length}</span>
@@ -377,7 +398,7 @@ const Search = () => {
             )}
 
             {lists.length > 0 && (
-              <section>
+              <section style={{ order: peopleFirst ? 3 : 2 }}>
                 <h3 className="label-eyebrow text-ink mb-4">
                   Lists <span className="text-ink-mute">· {lists.length}</span>
                 </h3>
@@ -395,7 +416,7 @@ const Search = () => {
             )}
 
             {users.length > 0 && (
-              <section>
+              <section style={{ order: peopleFirst ? 1 : 3 }}>
                 <h3 className="label-eyebrow text-ink mb-4">
                   People <span className="text-ink-mute">· {users.length}</span>
                 </h3>
