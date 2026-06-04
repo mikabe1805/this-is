@@ -162,6 +162,14 @@ service cloud.firestore {
       allow write: if true; // Allow all writes for demo
     }
 
+    // Per-user taste vector (accumulated interaction signals). Owner-writable
+    // only (dev-mode bypass mirrors the rest of this prototype's rules); reads
+    // open so the "Your taste" surface and reco engine can hydrate it.
+    match /userTaste/{userId} {
+      allow read: if true;
+      allow write: if isDevMode() || (isAuthenticated() && request.auth.uid == userId);
+    }
+
     // Analytics collection - Allow writes for demo purposes
     match /analytics/{document=**} {
       allow create: if true; // Allow all writes for demo

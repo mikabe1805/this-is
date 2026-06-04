@@ -3,17 +3,21 @@
   "short_name": "this.is",
   "start_url": "/?source=pwa",
   "display": "standalone",
-  "background_color": "#FFF8EF",
-  "theme_color": "#B08968",
+  "background_color": "#F2EAD9",
+  "theme_color": "#F2EAD9",
   "description": "Discover, save, and share cozy places, curated by you and friends.",
   "icons": [
     { "src": "/assets/thisis_logoOnly.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
     { "src": "/assets/thisis_logoOnly.png", "sizes": "256x256", "type": "image/png", "purpose": "any" },
     { "src": "/assets/thisis_logoOnly.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/assets/thisis_logoOnly.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
     { "src": "/assets/thisis_transparent.png", "sizes": "1024x1024", "type": "image/png", "purpose": "any" }
+  ],
+  "shortcuts": [
+    { "name": "Discover places", "short_name": "Discover", "url": "/explore?source=pwa-shortcut" },
+    { "name": "Search", "short_name": "Search", "url": "/search?source=pwa-shortcut" },
+    { "name": "Your favorites", "short_name": "Favorites", "url": "/favorites?source=pwa-shortcut" }
   ],
   "prefer_related_applications": false,
   "categories": ["lifestyle", "travel", "social"]
 }
-
-

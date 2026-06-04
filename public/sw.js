@@ -1,4 +1,4 @@
-const CACHE_NAME = 'thisis-cache-v1';
+const CACHE_NAME = 'thisis-cache-v2';
 const OFFLINE_URL = '/';
 
 // DEVELOPMENT MODE: Completely bypass service worker caching on localhost
@@ -64,15 +64,31 @@ self.addEventListener('activate', (event) => {
   })());
 });
 
+// Hosts whose responses must NEVER be cached by the SW: paid Google APIs
+// (Places/Maps — already deliberately cached for 24h in app code; double-
+// caching here risks serving stale paid data and undermines the app's cache
+// accounting) and live data/auth endpoints (Firestore, Identity Toolkit).
+// Firebase Storage image bytes are intentionally allowed through to cache.
+const NETWORK_ONLY_HOSTS = [
+  'places.googleapis.com',
+  'maps.googleapis.com',
+  'firestore.googleapis.com',
+  'identitytoolkit.googleapis.com',
+  'securetoken.googleapis.com',
+];
+
 self.addEventListener('fetch', (event) => {
   const { request } = event;
   if (request.method !== 'GET') return;
+  let url;
   try {
-    const url = new URL(request.url);
+    url = new URL(request.url);
     if (url.protocol !== 'http:' && url.protocol !== 'https:') return;
   } catch {
     return;
   }
+  // Pass paid/live endpoints straight to the network, never cache.
+  if (NETWORK_ONLY_HOSTS.some(h => url.hostname === h)) return;
   event.respondWith((async () => {
     try {
       const fresh = await fetch(request);

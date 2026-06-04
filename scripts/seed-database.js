@@ -465,10 +465,15 @@ async function seedLists(lists, placeIds) {
   
   for (const list of lists) {
     const listRef = db.collection('lists').doc(list.id)
-    batch.set(listRef, list)
-    
-    // Add places to list
+
+    // Pick the list's places FIRST so we can store them on the list doc's
+    // `hubs` array too — getPlacesForList() iterates list.hubs (the
+    // subcollection only supplies per-place metadata), so without this the
+    // seeded lists render zero places and the map shows no pins.
     const placesToAdd = randomItems(placeIds, randomNumber(3, 12))
+    batch.set(listRef, { ...list, hubs: placesToAdd })
+
+    // Add places to list
     for (const placeId of placesToAdd) {
       const listPlaceRef = listRef.collection('places').doc(placeId)
       batch.set(listPlaceRef, {
