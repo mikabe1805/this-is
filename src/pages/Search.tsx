@@ -10,7 +10,8 @@ import { firebaseDataService } from '../services/firebaseDataService'
 import { useSearch } from '../hooks/useSearch'
 import { searchText as googleSearchText, type PlaceLite } from '../lib/placesNew'
 import { readCoords } from '../utils/coords'
-import type { Place, List, User } from '../types/index.js'
+import { haptics } from '../utils/haptics'
+import type { Place, List, User, Post } from '../types/index.js'
 
 const MIN_INTERNAL_PLACES_THRESHOLD = 4
 const GOOGLE_FALLBACK_DEBOUNCE_MS = 500
@@ -76,13 +77,16 @@ const Search = () => {
   const submit = (q: string) => {
     const trimmed = q.trim()
     if (!trimmed) return
+    haptics.tap()
     setSearchQuery(trimmed)
     performSearch(trimmed)
     // What you search for is intent — feed it to the taste model so the feed
     // reflects what you're actively looking for.
     if (currentUser) firebaseDataService.recordTasteFromQuery(currentUser.id, trimmed, 0.5)
     try {
-      const next = [trimmed, ...recents.filter(r => r !== trimmed)].slice(0, 8)
+      // Case-insensitive dedup so "Coffee" then "coffee" don't pile up as two
+      // near-identical recents (iOS autocapitalize makes this easy to trigger).
+      const next = [trimmed, ...recents.filter(r => r.toLowerCase() !== trimmed.toLowerCase())].slice(0, 8)
       localStorage.setItem(RECENT_KEY, JSON.stringify(next))
       setRecents(next)
     } catch (e) {
@@ -142,6 +146,12 @@ const Search = () => {
     if (!q) {
       setGoogleResults([])
       googleAbortRef.current?.abort()
+      return
+    }
+    // Don't fire a billable Google Text Search on 1–2 character queries — they
+    // can't usefully match a place and just burn the Places budget.
+    if (q.length < 3) {
+      setGoogleResults([])
       return
     }
 
@@ -229,8 +239,15 @@ const Search = () => {
     })
   }, [displayResults])
 
+  const posts = useMemo(() => {
+    const arr = (displayResults as { posts?: unknown[] }).posts || []
+    return arr
+      .map((entry) => ('item' in (entry as Record<string, unknown>) ? (entry as { item: Post }).item : entry) as Post)
+      .filter(p => p && p.id && p.hubId && (p.description || '').trim().length > 0)
+  }, [displayResults])
+
   const hasQuery = searchQuery.trim().length > 0
-  const hasResults = places.length + lists.length + users.length > 0
+  const hasResults = places.length + lists.length + users.length + posts.length > 0
 
   // Surface the result type the query most likely wants FIRST. Typing a
   // person's name (or @handle) used to bury them under Places because the
@@ -257,6 +274,7 @@ const Search = () => {
       mainImage?: string
     }
     if (!p) return
+    haptics.select()
     const hubLike: Record<string, unknown> = {
       id: p.id,
       name: p.name,
@@ -283,7 +301,7 @@ const Search = () => {
     <div className="min-h-full relative overflow-x-hidden">
       <PageWatermark variant="branch" anchor="top-right" size={240} opacity={0.20} />
       <header className="sticky top-0 z-30 bg-paper/95 backdrop-blur-md">
-        <div className="px-5 pt-5 pb-4">
+        <div className="px-5 safe-top pb-4">
           <p className="label-eyebrow text-ink-mute mb-2">Search</p>
           <div className="flex items-center gap-2 h-12 px-4 rounded-full bg-card border border-edge focus-within:border-ink/40 transition-colors">
             <MagnifyingGlassIcon className="w-[18px] h-[18px] text-ink-mute shrink-0" />
@@ -293,12 +311,18 @@ const Search = () => {
               onChange={e => setSearchQuery(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter') submit(searchQuery) }}
               placeholder="Try “h mart”, “coffee”, “Anna”…"
-              className="flex-1 bg-transparent outline-none text-[15px] text-ink placeholder:text-ink-mute"
+              type="search"
+              inputMode="search"
+              enterKeyHint="search"
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
+              className="flex-1 bg-transparent outline-none text-[16px] text-ink placeholder:text-ink-mute [&::-webkit-search-cancel-button]:hidden"
             />
             {searchQuery && (
               <button
                 type="button"
-                onClick={() => { setSearchQuery(''); navigate('/search', { replace: true }) }}
+                onClick={() => { haptics.tap(); setSearchQuery(''); navigate('/search', { replace: true }) }}
                 className="text-ink-mute hover:text-ink"
                 aria-label="Clear"
               >
@@ -367,7 +391,7 @@ const Search = () => {
             <p className="text-[13px] text-ink-soft mt-2">Try a different word, or browse Explore.</p>
           </div>
         ) : (
-          <div className="flex flex-col gap-9">
+          <div className="flex flex-col gap-9 animate-fade-slow">
             {places.length > 0 && (
               <section style={{ order: peopleFirst ? 2 : 1 }}>
                 <div className="flex items-baseline justify-between mb-4">
@@ -381,12 +405,13 @@ const Search = () => {
                   )}
                 </div>
                 <div className="grid grid-cols-2 gap-3">
-                  {places.map(({ item, raw }) => (
+                  {places.map(({ item, raw }, idx) => (
                     <DiscoveryCard
                       key={item.id}
                       item={item}
-                      onOpen={() => openHubModal(raw as Place, 'search')}
+                      onOpen={() => { haptics.select(); openHubModal(raw as Place, 'search') }}
                       onSave={() => handleSavePlace(item)}
+                      loadImage={idx < 6}
                       variant="compact"
                     />
                   ))}
@@ -440,6 +465,39 @@ const Search = () => {
                         <span className="flex-1 min-w-0">
                           <span className="block text-[15px] font-medium text-ink truncate">{u.title}</span>
                           {u.bio && <span className="block text-[12px] text-ink-soft truncate mt-0.5">{u.bio}</span>}
+                        </span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            )}
+
+            {posts.length > 0 && (
+              <section style={{ order: 4 }}>
+                <h3 className="label-eyebrow text-ink mb-4">
+                  Posts <span className="text-ink-mute">· {posts.length}</span>
+                </h3>
+                <ul className="divide-y divide-edge border-y border-edge">
+                  {posts.map(p => (
+                    <li key={p.id}>
+                      <button
+                        type="button"
+                        onClick={() => { haptics.select(); navigate(`/place/${p.hubId}`) }}
+                        className="w-full flex items-center gap-3.5 py-3.5 text-left hover:bg-paper-deep -mx-1 px-1 transition-colors"
+                      >
+                        <span className="shrink-0 w-11 h-11 rounded-full overflow-hidden bg-paper-deep ring-1 ring-edge">
+                          {p.userAvatar ? (
+                            <img src={p.userAvatar} alt="" className="w-full h-full object-cover" onError={(e) => { e.currentTarget.style.display = 'none' }} />
+                          ) : (
+                            <span className="w-full h-full flex items-center justify-center font-mono text-[11px] tracking-wider text-ink-soft">
+                              {(p.username || 'U').slice(0, 2).toUpperCase()}
+                            </span>
+                          )}
+                        </span>
+                        <span className="flex-1 min-w-0">
+                          {p.username && <span className="block text-[12px] text-ink-mute truncate">@{p.username}</span>}
+                          <span className="block text-[14px] text-ink line-clamp-2 mt-0.5">{p.description}</span>
                         </span>
                       </button>
                     </li>

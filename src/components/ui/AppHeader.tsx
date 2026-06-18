@@ -24,7 +24,7 @@ export default function AppHeader({
 }: AppHeaderProps) {
   return (
     <header className="sticky top-0 z-30 bg-paper/90 backdrop-blur-md">
-      <div className="px-5 pt-5 pb-4">
+      <div className="px-5 safe-top pb-4">
         <div className="flex items-start justify-between mb-4 gap-3">
           <div className="min-w-0">
             {eyebrow && (

@@ -187,6 +187,97 @@ categories + signup vibes + bio, so it works on day one and sharpens with use.
 
 ---
 
+## ✅ Shipped in pass 6 — verified journey audit: correctness, iOS-feel, dead-code (June 2026)
+
+Driven by a ~20-agent trace-and-adversarially-verify audit of every live journey
+(65 confirmed findings). Landed the high-value, low-risk set; `tsc` baseline diff
+shows **0 new type errors** (net −20 from deleted dead code) and `npm run build`
+is green.
+
+**Core correctness**
+- **Taste model no longer self-corrupts.** `detectInterests`/`detectVibes`
+  (`placeTypes.ts`) matched short keywords as substrings of place *names*
+  ("Embarcadero"→bar, "Cartwright"→art, "iPhone"→pho, "parking"→park), writing
+  phantom interests into the persistent `userTaste` vector. Now tokenizes and
+  requires whole-token matches for ≤4-char keywords (substring kept for longer /
+  multi-word). Diacritics stripped so "café"→coffee still hits.
+- **Failed saves no longer show "Saved".** `savePlaceToList` swallowed write
+  errors → the bookmark flipped + `savedCount` bumped + success toast fired even
+  when nothing landed. Now rethrows; callers show the real error.
+- **People search isn't truncated to the top-50 most-influential** before name
+  matching (most users were unfindable). Fetches a wider unordered pool, ranks
+  client-side, keeps influence as a tiebreaker.
+- **UserProfile list-like double-counted influence (+15 vs +5)** via a stray
+  `saveList` call — removed (matches Profile.tsx). Like/follow are now optimistic;
+  Followers count is fetched live (`getFollowerCount` via `getCountFromServer`)
+  instead of the always-0 `followersCount` field.
+- **PlaceHub comments modal** now fetches the real subcollection on tap (was
+  reading the usually-empty embedded array).
+- **Own-profile saves** now teach the taste model + dispatch `this-is:saved`
+  (TasteCard refreshes), matching the global save path.
+- **ListView**: the dead header Share button is wired (native share / copy);
+  the bespoke save path now saves to **all** picked lists and runs the global
+  pipeline (mirror, taste signal, event, toast) instead of dropping them.
+- **/maps** self-heals coord-less legacy saves (`backfillMissingCoords`, mirrors
+  ListView) so they stop vanishing from the map.
+- **Route crashes no longer wipe the shell**: a keyed `ErrorBoundary` around the
+  routes resets on navigation and keeps the Navbar alive so the user can escape.
+
+**The save→smarter-feed loop is finally legible**
+- Home now optimistically drops a saved card and debounce-re-ranks the For-You
+  grid (no Places cost — reuses the 24h cache); dismiss backfills from a spare
+  pool so the grid never shrinks; empty-state copy stops blaming location when
+  location is known. Ranking: sublinear (sqrt) interest weighting so one category
+  can't run away; popularity prior scored per-pool; Refresh reshuffles even in
+  low-density areas; **lanes now source from interests *beyond* the grid's top-4**
+  so they add breadth instead of echoing it.
+
+**iOS-native feel (for the upcoming wrapper launch)**
+- **Haptics now have an iOS path**: `haptics.ts` posts to a
+  `window.webkit.messageHandlers.haptic` bridge (→ `UIImpactFeedbackGenerator`)
+  when present, falling back to `navigator.vibrate` on Android. ⚠️ The native
+  shell must register that handler for buzz on iOS. Wired across Home, Search,
+  Explore, PlaceHub, profiles, message send, tab switches.
+- **Optimistic message send** (instant bubble, duplicate-safe id reconciliation);
+  composer respects the home-indicator safe area; chat/inbox timestamps are now
+  relative ("5m"/"3h") / clock-with-day instead of a full year-date.
+- **Top safe-area** (`.safe-top`) on every sticky header (was notch-clipped);
+  Navbar hidden inside a chat thread so the composer owns the bottom edge.
+- Sub-44px tap targets fixed (Explore filter pills, Home refresh); Search input
+  gets the iOS "Search" key + no autocapitalize/autocorrect; case-insensitive
+  recents; avatar broken-image fallbacks; TasteCard meter no longer shows 6% at
+  zero signal.
+
+**Cost / cleanup**
+- Search Google fallback no longer fires a billable Text Search on 1–2 char
+  queries; `useSearch` skips its 4-read context build when the AI path is off.
+- Deleted dead `discoveryAlgorithm.ts` (613 LOC), the discovery half of
+  `intelligentSearchService.ts`, and the unused `explore/StackDeck`/`StackCard`
+  + `explore_stacks` flag.
+
+**Pass 6 (cont.) — feed photos, search posts, hardening**
+- **Real photos in discovery feeds.** Home/Explore/Search rendered a generic
+  risograph poster for every external place (the `photos.name` we already pay for
+  was discarded). Now eager-loads real Google photos for the first ~6
+  above-the-fold cards (lanes: 4), posters below — bounding the Photo-SKU cost.
+  Also made `HubImage` respect the global `PLACES_PHOTOS_ENABLED` kill-switch (it
+  was loading photos whenever the key existed, ignoring the flag — now
+  authoritative everywhere: feeds, hub/list modals, ListView).
+- **Search now renders matching Posts** (post-text was fetched and discarded, so a
+  query matching only a post showed "No matches"); skeleton→results cross-fade.
+- **AI-search launch hardening.** Browser-side OpenAI (`dangerouslyAllowBrowser`)
+  now requires an explicit `VITE_OPENAI_ALLOW_BROWSER=true` opt-in, not just the
+  key's presence — a stray `VITE_OPENAI_API_KEY` can no longer silently ship the
+  key in the bundle + bill per search.
+- **Inbox** literal "Loading…" → page-shaped skeleton rows.
+- **`userTaste.suppressed` can't grow unbounded** toward the 1MB doc limit:
+  dismissals now store a timestamp and the decay pass prunes entries past a 90-day
+  TTL (dismissed places can eventually resurface).
+- **Influence 0-state** now reads "Influence grows from likes & saves on your
+  lists · updates daily" instead of a bare, broken-looking 0.
+
+---
+
 ## 🎯 Next up — high impact, low/medium effort
 
 ### Sharing experiences & trips with friends

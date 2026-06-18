@@ -6,6 +6,7 @@ import { firebaseDataService } from '../services/firebaseDataService'
 import { firebaseListService } from '../services/firebaseListService'
 import { loadGoogleMapsAPI, didMapsAuthFail } from '../services/google/places'
 import { readCoords } from '../utils/coords'
+import { haptics } from '../utils/haptics'
 import type { Place, List } from '../types/index.js'
 
 /**
@@ -71,6 +72,23 @@ const Maps = () => {
           return c ? { ...p, coords: c } : null
         }).filter(Boolean) as (Place & { coords: { lat: number; lng: number } })[]
         if (!cancelled) setPlaces(enriched)
+
+        // Self-heal legacy saves that have no coordinates so they stop silently
+        // vanishing from the map (mirrors ListView). Bounded + writes coords
+        // back to the doc — a one-time Places cost per healed place.
+        const missing = Array.from(byId.values()).filter(p => !readCoords(p))
+        if (missing.length > 0) {
+          firebaseDataService.backfillMissingCoords(missing as never[]).then(patched => {
+            if (cancelled || patched.size === 0) return
+            setPlaces(prev => {
+              const have = new Set(prev.map(p => p.id))
+              const healed = Array.from(byId.values())
+                .filter(p => patched.has(p.id) && !have.has(p.id))
+                .map(p => ({ ...p, coords: patched.get(p.id)! }))
+              return healed.length ? [...prev, ...healed] : prev
+            })
+          }).catch(() => {})
+        }
       } catch (e) {
         console.error('[maps] load failed', e)
         if (!cancelled) setPlaces([])
@@ -170,7 +188,7 @@ const Maps = () => {
           anchor: new window.google.maps.Point(16, 40),
         },
       })
-      marker.addListener('click', () => navigate(`/place/${p.id}`))
+      marker.addListener('click', () => { haptics.select(); navigate(`/place/${p.id}`) })
       markersRef.current.push(marker)
       bounds.extend(p.coords)
     }
@@ -210,10 +228,30 @@ const Maps = () => {
 
   const placeCount = useMemo(() => places.length, [places])
 
+  // User-initiated location request — the one moment a permission prompt is
+  // acceptable (vs the silent granted-only path above). De-jars the SF default
+  // for anyone outside the Bay Area.
+  const requestLocation = () => {
+    if (typeof navigator === 'undefined' || !navigator.geolocation) {
+      window.dispatchEvent(new CustomEvent('this-is:toast', { detail: { message: "This device can't share location.", tone: 'error' } }))
+      return
+    }
+    haptics.tap()
+    navigator.geolocation.getCurrentPosition(
+      pos => {
+        const p = { lat: pos.coords.latitude, lng: pos.coords.longitude }
+        setUserPos(p)
+        if (mapRef.current) { mapRef.current.panTo(p); mapRef.current.setZoom(13) }
+      },
+      () => window.dispatchEvent(new CustomEvent('this-is:toast', { detail: { message: "Couldn't get your location. Check permissions.", tone: 'error' } })),
+      { enableHighAccuracy: false, timeout: 8000, maximumAge: 60000 }
+    )
+  }
+
   return (
     <div className="relative min-h-full bg-paper">
       <header className="sticky top-0 z-30 bg-paper/90 backdrop-blur-md">
-        <div className="px-5 pt-5 pb-3 flex items-center gap-3">
+        <div className="px-5 safe-top pb-3 flex items-center gap-3">
           <button
             onClick={() => { if (window.history.length > 1) navigate(-1); else navigate('/') }}
             aria-label="Back"
@@ -263,9 +301,16 @@ const Maps = () => {
             <p className="text-[13px] text-ink-soft mt-2 max-w-sm mx-auto">
               Once you save places they'll appear here on a single map.
             </p>
-            <button onClick={() => navigate('/explore')} className="btn-cta h-11 px-5 mt-5 label-eyebrow">
-              Find places
-            </button>
+            <div className="flex items-center justify-center gap-2 mt-5">
+              <button onClick={() => { haptics.tap(); navigate('/explore') }} className="btn-cta h-11 px-5 label-eyebrow">
+                Find places
+              </button>
+              {!userPos && (
+                <button onClick={requestLocation} className="btn-secondary h-11 px-4 label-eyebrow">
+                  Use my location
+                </button>
+              )}
+            </div>
           </div>
         )}
       </div>

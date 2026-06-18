@@ -237,7 +237,24 @@ export const VIBES: Vibe[] = [
 const VIBE_BY_KEY: Record<string, Vibe> = Object.fromEntries(VIBES.map(v => [v.key, v]))
 
 function norm(s: unknown): string {
-  return String(s || '').toLowerCase().replace(/_/g, ' ').trim()
+  return String(s || '')
+    .toLowerCase()
+    .normalize('NFD').replace(/[̀-ͯ]/g, '') // strip diacritics: "cafe" accents
+    .replace(/_/g, ' ')
+    .trim()
+}
+
+/**
+ * Does match-keyword `k` apply to a normalized signal `sig` (pre-tokenized to
+ * `tokens`)? Long/multi-word keywords match as substrings ("coffee" hits
+ * "coffeehouse"); short keywords (≤4 chars like "bar"/"art"/"dj") must match a
+ * whole token (+ simple plural) so a place NAME can't fabricate the keyword
+ * ("Embarcadero"→bar, "Cartwright"→art, "iPhone"→pho were all false hits).
+ */
+function keywordMatches(sig: string, tokens: string[], k: string): boolean {
+  if (k.includes(' ')) return sig.includes(k)
+  if (k.length > 4) return sig.includes(k)
+  return tokens.includes(k) || tokens.includes(`${k}s`)
 }
 
 /**
@@ -249,11 +266,11 @@ export function detectInterests(signals: Array<string | undefined | null>): Map<
   const hits = new Map<string, number>()
   const normed = signals.map(norm).filter(Boolean)
   for (const sig of normed) {
+    const tokens = sig.split(/[^a-z]+/).filter(Boolean)
     for (const interest of INTERESTS) {
-      // a signal matches an interest if any match-keyword appears in it (or it
-      // appears in a keyword) — handles both "coffee" and "coffee shop".
-      const matched = interest.match.some(k => sig.includes(k) || k.includes(sig))
-      if (matched) hits.set(interest.key, (hits.get(interest.key) || 0) + 1)
+      if (interest.match.some(k => keywordMatches(sig, tokens, k))) {
+        hits.set(interest.key, (hits.get(interest.key) || 0) + 1)
+      }
     }
   }
   return hits
@@ -282,12 +299,16 @@ export function placeInterestKeys(place: {
  *  with vibeLabel(). The taste model accumulates these over time. */
 export function detectVibes(signals: Array<string | undefined | null>): string[] {
   const normed = signals.map(norm).filter(Boolean)
+  const tokenized = normed.map(s => s.split(/[^a-z]+/).filter(Boolean))
   const out: string[] = []
   for (const vibe of VIBES) {
     // Match the vibe's own label/key too, so a signup chip like "cottagecore"
-    // or "dark academia" maps directly (not just its trigger keywords).
+    // or "dark academia" maps directly (not just its trigger keywords). Uses the
+    // same token-aware matcher as interests so short keywords ("dim", "bay",
+    // "date") can't be fabricated from inside a longer place name.
     const terms = [vibe.label, vibe.key.replace(/_/g, ' '), ...vibe.match]
-    if (terms.some(k => normed.some(s => s.includes(k) || k.includes(s)))) out.push(vibe.key)
+    if (terms.some(k => normed.some((s, i) => keywordMatches(s, tokenized[i], norm(k)))))
+      out.push(vibe.key)
   }
   return out
 }

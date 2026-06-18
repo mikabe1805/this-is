@@ -3,7 +3,7 @@ import { ArrowLeftIcon, ChatBubbleLeftIcon } from '@heroicons/react/24/outline'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { firebaseMessagingService, type MessageThread } from '../services/firebaseMessagingService'
-import { formatTimestamp } from '../utils/dateUtils'
+import { formatRelativeTime } from '../utils/dateUtils'
 
 const Messages = () => {
   const navigate = useNavigate()
@@ -26,7 +26,7 @@ const Messages = () => {
   return (
     <div className="relative min-h-full bg-paper">
       <header className="sticky top-0 z-30 bg-paper/90 backdrop-blur-md">
-        <div className="px-5 pt-5 pb-3 flex items-center gap-3">
+        <div className="px-5 safe-top pb-3 flex items-center gap-3">
           <button
             onClick={() => { if (window.history.length > 1) navigate(-1); else navigate('/profile') }}
             aria-label="Back"
@@ -41,7 +41,17 @@ const Messages = () => {
 
       <div className="relative z-10 px-5 py-5 max-w-2xl mx-auto">
         {loading ? (
-          <p className="font-mono text-[10px] tracking-[0.18em] uppercase text-ink-mute text-center py-12">Loading…</p>
+          <ul className="divide-y divide-edge border-y border-edge">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <li key={i} className="flex items-center gap-3 px-1 py-3.5">
+                <span className="skeleton w-12 h-12 rounded-full shrink-0" />
+                <span className="flex-1 min-w-0">
+                  <span className="skeleton block h-[14px] w-1/3 rounded-md" />
+                  <span className="skeleton block h-[12px] w-2/3 rounded-md mt-2" />
+                </span>
+              </li>
+            ))}
+          </ul>
         ) : threads.length === 0 ? (
           <div className="border border-edge rounded-[14px] px-5 py-12 text-center bg-card">
             <ChatBubbleLeftIcon className="w-8 h-8 text-ink-mute mx-auto mb-3" />
@@ -73,7 +83,7 @@ const Messages = () => {
                         </p>
                         {t.lastMessageAt && (
                           <span className="font-mono text-[10px] tracking-[0.10em] uppercase text-ink-mute shrink-0">
-                            {formatTimestamp(t.lastMessageAt)}
+                            {formatRelativeTime(t.lastMessageAt)}
                           </span>
                         )}
                       </div>

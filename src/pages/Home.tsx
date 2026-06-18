@@ -10,6 +10,7 @@ import { useModal } from '../contexts/ModalContext'
 import { firebaseDataService, type TasteProfile } from '../services/firebaseDataService'
 import { formatTimestamp } from '../utils/dateUtils'
 import { readCoords } from '../utils/coords'
+import { haptics } from '../utils/haptics'
 import type { Hub, Place, User, Activity, List } from '../types/index.js'
 
 interface FriendEvent {
@@ -60,16 +61,42 @@ const Home = () => {
   const [popularTags, setPopularTags] = useState<string[]>([])
   const [recentSearches, setRecentSearches] = useState<string[]>([])
   const [savedIds, setSavedIds] = useState<Set<string>>(new Set())
+  // Whether the last load had an effective location — drives which empty state
+  // we show (a location prompt is wrong when location is already known).
+  const [locKnown, setLocKnown] = useState(false)
   const placeRefs = useRef<Record<string, Place>>({})
+  // Spare, already-fetched candidates (beyond the 12 shown) used to backfill the
+  // grid instantly when a card is saved/dismissed — no extra fetch, no shrink.
+  const poolTailRef = useRef<DiscoveryCardItem[]>([])
+  // Debounce the post-save re-rank so a burst of saves coalesces into one reload.
+  const rerankTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   // Tracks the latest currentUser.id so async loaders can detect a user
   // switch and bail before writing stale data into state.
   const currentUserIdRef = useRef<string | null>(null)
+
+  // Remove a card from the grid + lanes, backfilling the grid from the spare
+  // pool so it stays full (and even-numbered for the 2-col layout).
+  const removeFromFeed = (id: string) => {
+    setForYou(prev => {
+      if (!prev.some(x => x.id === id)) return prev
+      const next = prev.filter(x => x.id !== id)
+      while (next.length < prev.length && poolTailRef.current.length > 0) {
+        const cand = poolTailRef.current.shift()!
+        if (cand.id !== id && !next.some(x => x.id === cand.id)) next.push(cand)
+      }
+      return next
+    })
+    setLanes(prev => prev
+      .map(l => ({ ...l, items: l.items.filter(x => x.id !== id) }))
+      .filter(l => l.items.length >= 3))
+  }
 
   const loadForYou = async (refresh = false) => {
     if (!currentUser) return
     setLoadingForYou(true)
     try {
       const eff = await firebaseDataService.getEffectiveLocation(currentUser.id)
+      setLocKnown(!!eff)
       const seed = refresh ? Date.now() : undefined
       // Taste-driven recommendations. getTasteRecommendations builds a profile
       // from the user's SAVES (strongest signal) + signup vibes + bio, queries
@@ -112,9 +139,8 @@ const Home = () => {
         location?: { address?: string }
         address?: string
       }
-      const finalPicks = pool.slice(0, 12)
-      const items: DiscoveryCardItem[] = finalPicks.map((rawP) => {
-        const p = rawP as PlaceLoose
+      const toItem = (rawP: PlaceLoose): DiscoveryCardItem => {
+        const p = rawP
         placeRefs.current[p.id] = p
         const coords = readCoords(p)
         const distanceKm = eff && coords
@@ -137,10 +163,15 @@ const Home = () => {
           // The "why" — e.g. "Because you love coffee".
           reason: p.reason,
         }
-      })
+      }
+      // Map a wider slice than we render (12) so a dismiss/save can backfill the
+      // grid from already-fetched spares — no extra fetch, no shrinking grid.
+      const allItems = (pool.slice(0, 24) as PlaceLoose[]).map(toItem)
+      const items = allItems.slice(0, 12)
       // Bail if the auth user changed mid-flight.
       if (currentUser && currentUserIdRef.current !== currentUser.id) return
-      finalPicks.forEach(p => seenIds.add(p.id))
+      poolTailRef.current = allItems.slice(12)
+      pool.slice(0, 12).forEach(p => seenIds.add(p.id))
       persistSeen(seenIds)
       setForYou(items)
 
@@ -149,7 +180,7 @@ const Home = () => {
       // Google calls in the common case. Exclude what's already in the grid so
       // lanes show MORE, not repeats.
       try {
-        const shown = new Set(finalPicks.map(p => p.id))
+        const shown = new Set(items.map(p => p.id))
         const laneData = await firebaseDataService.getTasteLanes(
           currentUser.id,
           eff ? { lat: eff.lat, lng: eff.lng } : null
@@ -287,7 +318,13 @@ const Home = () => {
       // Reflect the new save immediately in the bookmark state, then refresh
       // counts. The event carries the placeId of whatever was just saved.
       const pid = (e as CustomEvent).detail?.placeId as string | undefined
-      if (pid) setSavedIds(prev => new Set(prev).add(pid))
+      if (pid) {
+        setSavedIds(prev => new Set(prev).add(pid))
+        // Recs are for NEW spots — drop the just-saved card and backfill from
+        // the spare pool so the feed visibly reacts to the save right away.
+        removeFromFeed(pid)
+      }
+      haptics.success()
       void loadStats()
       // A save just taught the model something — invalidate the cached profile
       // FIRST (the save's taste write may not have invalidated it yet on this
@@ -295,6 +332,11 @@ const Home = () => {
       if (currentUser) {
         firebaseDataService.invalidateTasteProfile(currentUser.id)
         firebaseDataService.buildTasteProfile(currentUser.id).then(setTaste).catch(() => {})
+        // Debounced re-rank: a save reshapes the taste vector, so re-pull and
+        // re-rank the feed. NOT forceFresh — this reuses the 24h searchText
+        // cache (zero Places cost) and only re-ranks the pool + internal places.
+        if (rerankTimer.current) clearTimeout(rerankTimer.current)
+        rerankTimer.current = setTimeout(() => { void loadForYou() }, 450)
       }
     }
     const onUserUpdated = (e: Event) => {
@@ -306,6 +348,7 @@ const Home = () => {
     return () => {
       window.removeEventListener('this-is:saved', onSaved)
       window.removeEventListener('this-is:userUpdated', onUserUpdated)
+      if (rerankTimer.current) clearTimeout(rerankTimer.current)
     }
   }, [currentUser?.id])
 
@@ -373,8 +416,8 @@ const Home = () => {
     if (currentUser && raw?.id) {
       firebaseDataService.markNotInterested(currentUser.id, raw as typeof raw & { id: string })
     }
-    setForYou(prev => prev.filter(x => x.id !== it.id))
-    setLanes(prev => prev.map(l => ({ ...l, items: l.items.filter(x => x.id !== it.id) })).filter(l => l.items.length >= 3))
+    haptics.tap()
+    removeFromFeed(it.id)
     window.dispatchEvent(new CustomEvent('this-is:toast', { detail: { message: "Got it — we'll show less like this." } }))
   }
 
@@ -453,9 +496,9 @@ const Home = () => {
           </div>
           <button
             type="button"
-            onClick={() => void loadForYou(true)}
+            onClick={() => { haptics.tap(); void loadForYou(true) }}
             disabled={loadingForYou}
-            className="label-eyebrow text-ink-soft hover:text-ink disabled:opacity-40 disabled:cursor-not-allowed"
+            className="label-eyebrow text-ink-soft hover:text-ink disabled:opacity-40 disabled:cursor-not-allowed press inline-flex items-center min-h-[44px] -my-2 -mr-2 px-2"
           >
             {loadingForYou ? 'Refreshing…' : 'Refresh'}
           </button>
@@ -465,6 +508,23 @@ const Home = () => {
             {Array.from({ length: 4 }).map((_, i) => (
               <div key={i} className="animate-pulse aspect-[5/6] rounded-[14px] bg-paper-deep" />
             ))}
+          </div>
+        ) : forYou.length === 0 && locKnown ? (
+          // Location IS known — the feed is just empty (no fresh picks, or all
+          // candidates already saved/dismissed). Don't send the user on a
+          // location goose-chase; offer a refresh instead.
+          <div className="border border-edge rounded-[14px] px-5 py-10 text-center bg-card">
+            <p className="font-display text-[22px] text-ink leading-tight">All caught up.</p>
+            <p className="text-[13px] text-ink-soft mt-2">
+              No fresh picks right now. Pull to refresh, or follow a few people whose taste you trust.
+            </p>
+            <button
+              type="button"
+              onClick={() => { haptics.tap(); void loadForYou(true) }}
+              className="btn-cta h-10 px-4 mt-4 text-[13px] font-semibold inline-flex items-center gap-2"
+            >
+              Refresh picks
+            </button>
           </div>
         ) : forYou.length === 0 ? (
           <div className="border border-edge rounded-[14px] px-5 py-10 text-center bg-card">
@@ -503,16 +563,21 @@ const Home = () => {
           </div>
         ) : (
           <div className="grid grid-cols-2 gap-3">
-            {forYou.map(it => (
+            {forYou.map((it, idx) => (
               <DiscoveryCard
                 key={it.id}
                 item={{ ...it, saved: savedIds.has(it.id) }}
                 onOpen={() => {
+                  haptics.select()
                   const p = placeRefs.current[it.id]
                   if (p) openHubModal(p as unknown as Hub, 'home')
                 }}
                 onSave={() => handleSavePlace(it)}
                 onDismiss={() => handleDismiss(it)}
+                /* Eager-load real photos only for the above-the-fold cards;
+                   the rest stay posters until the place is opened (bounds the
+                   Photo-SKU cost to ~6 per feed load). */
+                loadImage={idx < 6}
                 variant="compact"
               />
             ))}
@@ -529,13 +594,14 @@ const Home = () => {
             {lane.title}<span style={{ color: 'var(--bloom)' }}>.</span>
           </h2>
           <div className="flex gap-3 overflow-x-auto px-5 pb-2" style={{ scrollbarWidth: 'none' }}>
-            {lane.items.map(it => (
+            {lane.items.map((it, idx) => (
               <div key={it.id} className="w-[150px] shrink-0">
                 <DiscoveryCard
                   item={{ ...it, saved: savedIds.has(it.id) }}
-                  onOpen={() => { const p = placeRefs.current[it.id]; if (p) openHubModal(p as unknown as Hub, 'home') }}
+                  onOpen={() => { haptics.select(); const p = placeRefs.current[it.id]; if (p) openHubModal(p as unknown as Hub, 'home') }}
                   onSave={() => handleSavePlace(it)}
                   onDismiss={() => handleDismiss(it)}
+                  loadImage={idx < 4}
                   variant="compact"
                 />
               </div>

@@ -4,18 +4,37 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { firebaseDataService } from '../services/firebaseDataService'
 import { firebaseMessagingService, type DirectMessage } from '../services/firebaseMessagingService'
-import { formatTimestamp } from '../utils/dateUtils'
+import { formatChatTime } from '../utils/dateUtils'
+import { haptics } from '../utils/haptics'
 import type { User } from '../types/index.js'
+
+// A locally-held copy of a message that hasn't been confirmed by the server yet.
+type LocalMessage = DirectMessage & { pending?: boolean }
 
 const MessageThread = () => {
   const { threadId = '' } = useParams<{ threadId: string }>()
   const navigate = useNavigate()
   const { currentUser } = useAuth()
-  const [messages, setMessages] = useState<DirectMessage[]>([])
+  // Server snapshot + optimistic (pending) sends, merged for render.
+  const [serverMessages, setServerMessages] = useState<DirectMessage[]>([])
+  const [pending, setPending] = useState<LocalMessage[]>([])
   const [otherUser, setOtherUser] = useState<User | null>(null)
   const [draft, setDraft] = useState('')
   const [sending, setSending] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
+
+  // Merge server + pending, de-duped by id (so a confirmed optimistic message
+  // collapses onto its server copy) and ordered oldest→newest.
+  const messages = useMemo<LocalMessage[]>(() => {
+    const seen = new Set<string>()
+    const merged: LocalMessage[] = []
+    for (const m of [...serverMessages, ...pending]) {
+      if (seen.has(m.id)) continue
+      seen.add(m.id)
+      merged.push(m)
+    }
+    return merged.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
+  }, [serverMessages, pending])
 
   // Derive the "other" user id from the deterministic thread id.
   // Format: `<sortedAId>__<sortedBId>`. If currentUser is one of the two,
@@ -37,10 +56,14 @@ const MessageThread = () => {
     return () => { cancelled = true }
   }, [otherUserId])
 
-  // Live-subscribe to messages.
+  // Live-subscribe to messages. Each snapshot also prunes any optimistic temp
+  // the server has now confirmed (matched by real id).
   useEffect(() => {
     if (!threadId || !currentUser) return
-    const unsub = firebaseMessagingService.subscribeMessages(threadId, setMessages)
+    const unsub = firebaseMessagingService.subscribeMessages(threadId, rows => {
+      setServerMessages(rows)
+      setPending(prev => prev.filter(p => !rows.some(r => r.id === p.id)))
+    })
     return () => unsub()
   }, [threadId, currentUser])
 
@@ -57,14 +80,25 @@ const MessageThread = () => {
     setSending(true)
     const text = draft.trim()
     setDraft('')
+    haptics.tap()
+    // Optimistic: show the bubble instantly so the input doesn't empty into a
+    // void on a slow link. The temp carries its own id; on success we swap in
+    // the real id so the subscription can reconcile it (duplicate-safe even if
+    // the same text is sent twice).
+    const tempId = `tmp-${messages.length}-${text.length}-${Math.round(performance.now())}`
+    const temp: LocalMessage = { id: tempId, senderId: currentUser.id, text, createdAt: new Date().toISOString(), pending: true }
+    setPending(prev => [...prev, temp])
     try {
       const sent = await firebaseMessagingService.sendMessage(threadId, currentUser.id, text)
-      if (!sent) {
-        setDraft(text)
-        window.dispatchEvent(new CustomEvent('this-is:toast', { detail: { message: "Couldn't send. Try again.", tone: 'error' } }))
-      }
+      if (!sent) throw new Error('sendMessage returned null')
+      haptics.success()
+      // Re-key the temp to the real id; dedup/prune then collapses it onto the
+      // server copy when the snapshot arrives.
+      setPending(prev => prev.map(p => (p.id === tempId ? { ...p, id: sent.id, pending: false } : p)))
     } catch (err) {
       console.error('[message-thread] send failed', err)
+      haptics.warn()
+      setPending(prev => prev.filter(p => p.id !== tempId))
       setDraft(text)
       window.dispatchEvent(new CustomEvent('this-is:toast', { detail: { message: "Couldn't send. Try again.", tone: 'error' } }))
     } finally {
@@ -75,7 +109,7 @@ const MessageThread = () => {
   return (
     <div className="relative h-full flex flex-col bg-paper">
       <header className="sticky top-0 z-30 bg-paper/90 backdrop-blur-md">
-        <div className="px-5 pt-5 pb-3 flex items-center gap-3">
+        <div className="px-5 safe-top pb-3 flex items-center gap-3">
           <button
             onClick={() => { if (window.history.length > 1) navigate(-1); else navigate('/messages') }}
             aria-label="Back"
@@ -94,9 +128,13 @@ const MessageThread = () => {
               className="w-9 h-9 rounded-full object-cover bg-paper-deep ring-1 ring-edge shrink-0"
             />
             <div className="flex-1 min-w-0">
-              <p className="font-display text-[18px] leading-tight text-ink truncate">
-                {otherUser?.name || otherUser?.username || 'Loading…'}
-              </p>
+              {otherUser ? (
+                <p className="font-display text-[18px] leading-tight text-ink truncate">
+                  {otherUser.name || otherUser.username}
+                </p>
+              ) : (
+                <span className="skeleton inline-block h-[18px] w-32 rounded-md align-middle" />
+              )}
               {otherUser?.username && (
                 <p className="font-mono text-[10px] tracking-[0.10em] uppercase text-ink-mute mt-0.5 truncate">@{otherUser.username}</p>
               )}
@@ -123,15 +161,15 @@ const MessageThread = () => {
                   <div className="max-w-[78%]">
                     {showTimestamp && (
                       <p className={`font-mono text-[10px] tracking-[0.10em] uppercase text-ink-mute mb-1 ${mine ? 'text-right' : 'text-left'}`}>
-                        {formatTimestamp(m.createdAt)}
+                        {formatChatTime(m.createdAt)}
                       </p>
                     )}
                     <div
-                      className={`px-3.5 py-2.5 rounded-2xl text-[14px] leading-relaxed whitespace-pre-wrap break-words ${
+                      className={`px-3.5 py-2.5 rounded-2xl text-[14px] leading-relaxed whitespace-pre-wrap break-words transition-opacity ${
                         mine
                           ? 'bg-ink text-paper rounded-br-md'
                           : 'bg-card border border-edge text-ink rounded-bl-md'
-                      }`}
+                      } ${(m as LocalMessage).pending ? 'opacity-60' : 'opacity-100'}`}
                     >
                       {m.text}
                     </div>
@@ -145,7 +183,8 @@ const MessageThread = () => {
 
       <form
         onSubmit={handleSend}
-        className="sticky bottom-0 z-20 bg-paper/95 backdrop-blur-md border-t border-edge px-5 py-3"
+        className="sticky bottom-0 z-20 bg-paper/95 backdrop-blur-md border-t border-edge px-5 pt-3"
+        style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 0.75rem)' }}
       >
         <div className="flex items-center gap-2 max-w-2xl mx-auto">
           <input
@@ -154,7 +193,9 @@ const MessageThread = () => {
             onChange={(e) => setDraft(e.target.value)}
             placeholder={`Message ${otherUser?.name?.split(' ')[0] || ''}…`}
             maxLength={1000}
-            className="flex-1 h-11 px-4 rounded-full bg-card border border-edge text-[14px] text-ink placeholder:text-ink-mute outline-none focus:border-ink/40"
+            enterKeyHint="send"
+            autoComplete="off"
+            className="flex-1 h-11 px-4 rounded-full bg-card border border-edge text-[16px] text-ink placeholder:text-ink-mute outline-none focus:border-ink/40"
           />
           <button
             type="submit"

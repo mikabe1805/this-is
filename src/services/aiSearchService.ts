@@ -7,13 +7,20 @@ class AISearchService {
 
   constructor() {
     this.apiKey = import.meta.env.VITE_OPENAI_API_KEY || null;
-    if (this.apiKey) {
+    // Browser-side OpenAI ships the key in the client bundle (extractable) and
+    // bills an LLM call per search, so it must be EXPLICITLY opted into — a
+    // stray VITE_OPENAI_API_KEY alone no longer silently enables it. For
+    // production, proxy through a Cloud Function that holds the key server-side.
+    const allowBrowser = import.meta.env.VITE_OPENAI_ALLOW_BROWSER === 'true';
+    if (this.apiKey && allowBrowser) {
       this.openai = new OpenAI({
         apiKey: this.apiKey,
         dangerouslyAllowBrowser: true,
       });
       this.isEnabled = true;
-      console.log('✅ OpenAI API key found, AI search is enabled.');
+      console.log('✅ OpenAI key + VITE_OPENAI_ALLOW_BROWSER set — browser AI search enabled.');
+    } else if (this.apiKey && !allowBrowser) {
+      console.warn('⚠️ OpenAI key present but VITE_OPENAI_ALLOW_BROWSER!=true — browser AI search stays OFF (the key would otherwise ship in the bundle).');
     } else {
       console.warn('⚠️ OpenAI API key not found. AI search is disabled.');
     }

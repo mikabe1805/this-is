@@ -1,18 +1,11 @@
 import type { User, Place, List, Post } from '../types/index.js'
-import { 
-  parseSearchQuery, 
-  rankSearchResults, 
-  type ParsedQuery, 
-  type SearchContext, 
-  type SearchResult 
+import {
+  parseSearchQuery,
+  rankSearchResults,
+  type ParsedQuery,
+  type SearchContext,
+  type SearchResult
 } from './searchAlgorithm.js'
-import { 
-  analyzeUserPreferences, 
-  generateDiscoveryRecommendations,
-  type UserPreferences,
-  type DiscoveryContext,
-  type DiscoveryRecommendation 
-} from './discoveryAlgorithm.js'
 import { aiSearchService } from '../services/aiSearchService';
 import { firebaseDataService } from '../services/firebaseDataService.js'
 
@@ -61,9 +54,10 @@ export interface IntelligentSearchResult {
   users: SearchResult<User>[]
   posts: SearchResult<Post>[]
   
-  // Discovery recommendations (when query is empty or very broad)
-  discoveries: DiscoveryRecommendation[]
-  
+  // Discovery recommendations — always empty here; the live discovery engine is
+  // firebaseDataService.getTasteRecommendations, not this search path.
+  discoveries: never[]
+
   // Meta information
   query: {
     original: string
@@ -93,12 +87,6 @@ export interface IntelligentSearchResult {
 // ========================================
 
 export class IntelligentSearchService {
-  private userPreferences: Map<string, UserPreferences> = new Map()
-  
-  constructor() {
-    // Constructor is now empty, can be removed if not needed.
-  }
-
   /**
    * Main search method that handles both direct search and discovery
    */
@@ -206,130 +194,6 @@ export class IntelligentSearchService {
     };
   }
 
-  /**
-   * Get personalized discovery recommendations without search query
-   */
-  async getDiscoveryRecommendations(
-    context: SearchContext,
-    maxRecommendations: number = 20
-  ): Promise<DiscoveryRecommendation[]> {
-    const userPrefs = await this.getUserPreferences(context.currentUser.id, context)
-    
-    const discoveryContext: DiscoveryContext = {
-      currentUser: context.currentUser,
-      userPreferences: userPrefs,
-      allUsers: context.friends.concat(context.following),
-      allPlaces: [], // Would be loaded from data source
-      allLists: [], // Would be loaded from data source
-      allPosts: [], // Would be loaded from data source
-      userInteractions: {
-        userId: context.currentUser.id,
-        savedPlaces: context.userPreferences.interactionHistory.savedPlaces,
-        likedLists: context.userPreferences.interactionHistory.likedPosts,
-        visitedPlaces: context.userPreferences.interactionHistory.visitedLists,
-        createdLists: [],
-        friendsList: context.friends.map(f => f.id),
-        following: context.following.map(f => f.id)
-      },
-      currentLocation: context.currentUser.location,
-      timeContext: {
-        currentTime: new Date(),
-        season: this.getCurrentSeason(),
-        isWeekend: this.isWeekend()
-      }
-    }
-
-    return generateDiscoveryRecommendations(discoveryContext, maxRecommendations)
-  }
-
-  /**
-   * Update user preferences based on their interactions
-   */
-  async updateUserPreferences(
-    userId: string,
-    interaction: {
-      type: 'save' | 'like' | 'visit' | 'search' | 'view'
-      itemType: 'place' | 'list' | 'user' | 'post'
-      itemId: string
-      metadata?: any
-    }
-  ): Promise<void> {
-    // This would update the user's preference model in real-time
-    // For now, we'll just invalidate cached preferences
-    this.userPreferences.delete(userId)
-  }
-
-  // ========================================
-  // PRIVATE HELPER METHODS
-  // ========================================
-
-
-
-  private async getUserPreferences(userId: string, context: SearchContext): Promise<UserPreferences> {
-    if (this.userPreferences.has(userId)) {
-      return this.userPreferences.get(userId)!
-    }
-
-    try {
-      // Use Firebase service to get user preferences
-      const firebasePreferences = await firebaseDataService.getUserPreferences(userId)
-      
-      // Convert Firebase preferences to our UserPreferences format
-      const preferences: UserPreferences = {
-        favoriteCategories: firebasePreferences.favoriteCategories,
-        preferredPriceRange: firebasePreferences.preferredPriceRange,
-        socialPatterns: {
-          exploreNew: firebasePreferences.socialPreferences.exploreNew,
-          followFriends: firebasePreferences.socialPreferences.followFriends,
-          trendingContent: firebasePreferences.socialPreferences.trendingContent
-        },
-        locationPatterns: {
-          nearbyRadius: firebasePreferences.locationPreferences.nearbyRadius,
-          preferredAreas: firebasePreferences.locationPreferences.preferredAreas
-        }
-      }
-
-      this.userPreferences.set(userId, preferences)
-      return preferences
-    } catch (error) {
-      console.error('Error fetching user preferences:', error)
-      
-      // Fallback to analyzing user behavior from context
-      const mockInteractions = {
-        userId,
-        savedPlaces: [], // Will be populated from Firebase preferences
-        likedLists: [], 
-        visitedPlaces: [],
-        createdLists: [],
-        friendsList: context.friends.map(f => f.id),
-        following: context.following.map(f => f.id)
-      }
-
-      const fallbackPreferences = analyzeUserPreferences(
-        context.currentUser,
-        mockInteractions,
-        [], // Empty arrays as fallback
-        [],
-        []
-      )
-
-      this.userPreferences.set(userId, fallbackPreferences)
-      return fallbackPreferences
-    }
-  }
-
-  private getCurrentSeason(): 'spring' | 'summer' | 'fall' | 'winter' {
-    const month = new Date().getMonth();
-    if (month >= 2 && month <= 4) return 'spring';
-    if (month >= 5 && month <= 7) return 'summer';
-    if (month >= 8 && month <= 10) return 'fall';
-    return 'winter';
-  }
-
-  private isWeekend(): boolean {
-    const day = new Date().getDay();
-    return day === 0 || day === 6;
-  }
 }
 
 // ========================================
@@ -348,11 +212,4 @@ export async function searchIntelligently(
   options?: { sortBy?: string, tags?: string[] }
 ): Promise<IntelligentSearchResult> {
   return intelligentSearch.performSearch(query, context, options)
-}
-
-export async function getPersonalizedRecommendations(
-  context: SearchContext,
-  maxRecommendations?: number
-): Promise<DiscoveryRecommendation[]> {
-  return intelligentSearch.getDiscoveryRecommendations(context, maxRecommendations)
 }

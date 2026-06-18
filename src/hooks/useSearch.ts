@@ -23,7 +23,11 @@ export const useSearch = () => {
 
   useEffect(() => {
     const loadSearchContext = async () => {
-      if (!authUser) {
+      // The search context is consumed ONLY by the AI path
+      // (aiSearchService.isAISearchEnabled()). In the shipping build (no OpenAI
+      // key) that path is dead, so skip the 4 Firestore reads it would cost on
+      // every Search-screen open.
+      if (!authUser || !aiSearchService.isAISearchEnabled()) {
         setContextLoading(false);
         return;
       }

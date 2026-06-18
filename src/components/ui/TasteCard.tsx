@@ -33,7 +33,10 @@ export default function TasteCard({ userId }: { userId: string }) {
 
   const hasSignal = !!taste?.hasSignal
   const top = (taste?.interests || []).slice(0, 6)
-  const progress = Math.max(0.06, Math.min(1, (taste?.signalCount || 0) / 25))
+  // Truly empty bar for a brand-new user (the 6% floor contradicted the
+  // "we haven't started learning yet" copy); keep the 6% minimum once there's
+  // any signal so a tiny sliver is visible.
+  const progress = hasSignal ? Math.max(0.06, Math.min(1, (taste?.signalCount || 0) / 25)) : 0
   const eyebrow = taste?.confidence === 'known'
     ? 'We know your taste'
     : taste?.confidence === 'learning'

@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import PlacePoster from './ui/PlacePoster'
+import { PLACES_PHOTOS_ENABLED } from '../lib/flags'
 
 type PlaceLike = {
   name?: string
@@ -54,6 +55,11 @@ export default function HubImage({
   const src = useMemo(() => {
     if (resolvedUserImage) return resolvedUserImage
     if (!doLoad) return ''
+    // Respect the global photos kill-switch — without this, HubImage loaded
+    // Google photos (billing the Photo SKU) whenever the Places key existed,
+    // even with VITE_PLACES_PHOTOS_ENABLED=false. Now the flag is authoritative
+    // everywhere HubImage is used (feeds, hub/list modals, ListView).
+    if (!PLACES_PHOTOS_ENABLED) return ''
     const name = (photos || place?.photos)?.[0]?.name
     // Photos bill on the dedicated Places key only — never the Maps key (that
     // routed Photo SKU charges outside the photo-budget controls). No key ⇒

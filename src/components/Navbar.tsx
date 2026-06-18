@@ -6,6 +6,7 @@ import {
   GlobeAltIcon as GlobeAltIconSolid,
 } from '@heroicons/react/24/solid'
 import PlusDropdown from './PlusDropdown'
+import { haptics } from '../utils/haptics'
 
 interface NavbarProps {
   activeTab: string
@@ -22,6 +23,12 @@ const TABS = [
 ] as const
 
 const Navbar = ({ activeTab, setActiveTab, onCreatePost, onEmbedFrom }: NavbarProps) => {
+  // Light tick on a real tab change — re-tapping the current tab stays silent
+  // so it doesn't feel like a misfire.
+  const selectTab = (id: string) => {
+    if (id !== activeTab) haptics.tap()
+    setActiveTab(id)
+  }
   return (
     <nav
       className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md z-[1001]"
@@ -39,7 +46,7 @@ const Navbar = ({ activeTab, setActiveTab, onCreatePost, onEmbedFrom }: NavbarPr
       <div className="dock-glass mx-3 mb-3 relative">
         <div className="grid grid-cols-5 items-center px-1.5 py-1.5 relative z-[1]">
           {TABS.slice(0, 2).map(tab => (
-            <NavTab key={tab.id} tab={tab} active={activeTab === tab.id} onClick={() => setActiveTab(tab.id)} />
+            <NavTab key={tab.id} tab={tab} active={activeTab === tab.id} onClick={() => selectTab(tab.id)} />
           ))}
 
           <div className="flex items-center justify-center">
@@ -47,7 +54,7 @@ const Navbar = ({ activeTab, setActiveTab, onCreatePost, onEmbedFrom }: NavbarPr
           </div>
 
           {TABS.slice(2).map(tab => (
-            <NavTab key={tab.id} tab={tab} active={activeTab === tab.id} onClick={() => setActiveTab(tab.id)} />
+            <NavTab key={tab.id} tab={tab} active={activeTab === tab.id} onClick={() => selectTab(tab.id)} />
           ))}
         </div>
       </div>

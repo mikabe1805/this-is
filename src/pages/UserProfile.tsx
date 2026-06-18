@@ -8,6 +8,7 @@ import { firebaseListService } from '../services/firebaseListService.js';
 import { useAuth } from '../contexts/AuthContext.js';
 import firebaseDataService from '../services/firebaseDataService.js';
 import { firebaseMessagingService } from '../services/firebaseMessagingService';
+import { haptics } from '../utils/haptics';
 import SearchAndFilter from '../components/SearchAndFilter';
 import TagPill from '../components/TagPill';
 import TagSearchModal from '../components/TagSearchModal';
@@ -26,6 +27,8 @@ const UserProfile = () => {
   const [likedPosts, setLikedPosts] = useState<Set<string>>(new Set());
   const [savedPosts, setSavedPosts] = useState<Set<string>>(new Set());
   const [likedLists, setLikedLists] = useState<Set<string>>(new Set());
+  const [followerCount, setFollowerCount] = useState(0);
+  const [openingChat, setOpeningChat] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [loadState, setLoadState] = useState<'loading' | 'ready' | 'not-found'>('loading');
 
@@ -41,6 +44,10 @@ const UserProfile = () => {
       if (!userData) { setLoadState('not-found'); return }
       setUser(userData);
       setLoadState('ready');
+
+      // Live follower count — user.followersCount is never persisted for real
+      // accounts (only set in demo fallbacks), so it always rendered 0.
+      firebaseDataService.getFollowerCount(userId).then(setFollowerCount).catch(() => {});
 
       // Privacy gate. Determine what relationship the *viewer* has to the
       // owner: self / friend / stranger. Then filter the owner's lists and
@@ -99,34 +106,34 @@ const UserProfile = () => {
   }, [userId, currentUser]);
 
   const handleFollow = async () => {
-    if (currentUser && userId) {
-      try {
-        if (isFollowing) {
-          // Confirm unfollow — guards against accidental taps on the
-          // "Following" pill (which looks more like a label than a CTA).
-          const name = user?.name || user?.username || 'this person'
-          if (!window.confirm(`Unfollow ${name}? You can follow them back at any time.`)) return
-          await firebaseDataService.unfollowUser(currentUser.id, userId);
-        } else {
-          await firebaseDataService.followUser(currentUser.id, userId);
-        }
-        
-        // Refetch the following status from Firebase to confirm the change
-        const following = await firebaseDataService.getUserFollowing(currentUser.id);
-        const isUserFollowing = following.some(user => user.id === userId);
-        setIsFollowing(isUserFollowing);
-        
-        console.log(`Follow status updated: ${isUserFollowing ? 'following' : 'not following'}`);
-      } catch (error) {
-        console.error('Error updating follow status:', error);
-        // Don't update local state if the operation failed
-      }
+    if (!currentUser || !userId) return;
+    const wasFollowing = isFollowing;
+    if (wasFollowing) {
+      // Confirm unfollow — guards against accidental taps on the
+      // "Following" pill (which looks more like a label than a CTA).
+      const name = user?.name || user?.username || 'this person'
+      if (!window.confirm(`Unfollow ${name}? You can follow them back at any time.`)) return
+    }
+    haptics.success();
+    // Optimistic flip + follower-count nudge so the button responds instantly
+    // instead of waiting on the write + a refetch.
+    setIsFollowing(!wasFollowing);
+    setFollowerCount(c => Math.max(0, c + (wasFollowing ? -1 : 1)));
+    try {
+      if (wasFollowing) await firebaseDataService.unfollowUser(currentUser.id, userId);
+      else await firebaseDataService.followUser(currentUser.id, userId);
+    } catch (error) {
+      console.error('Error updating follow status:', error);
+      setIsFollowing(wasFollowing);
+      setFollowerCount(c => Math.max(0, c + (wasFollowing ? 1 : -1)));
+      window.dispatchEvent(new CustomEvent('this-is:toast', { detail: { message: "Couldn't update follow. Try again.", tone: 'error' } }));
     }
   };
 
   const handleLikePost = async (postId: string) => {
     if (!currentUser) return;
     const wasLiked = likedPosts.has(postId);
+    haptics.tap();
     // Optimistic toggle. Bump the post's count locally too so the heart
     // number updates immediately. Reverts on Firestore failure.
     setLikedPosts(prev => {
@@ -183,18 +190,25 @@ const UserProfile = () => {
 
   const handleLikeList = async (listId: string) => {
     if (!currentUser) return;
-
+    const uid = currentUser.id;
+    const wasLiked = lists.find(l => l.id === listId)?.likedBy?.includes(uid) || false;
+    haptics.tap();
+    // Optimistic: toggle likedBy + count locally so the heart flips instantly.
+    const toggle = (like: boolean) => setLists(prev => prev.map(l => {
+      if (l.id !== listId) return l;
+      const likedBy = new Set(l.likedBy || []);
+      if (like) likedBy.add(uid); else likedBy.delete(uid);
+      return { ...l, likedBy: Array.from(likedBy), likes: Math.max(0, (l.likes || 0) + (like ? 1 : -1)) };
+    }));
+    toggle(!wasLiked);
     try {
-      // First, update Firebase directly
-      await firebaseListService.likeList(listId, currentUser.id);
-      await firebaseDataService.saveList(listId, currentUser.id);
-      
-      // Then refetch the lists to get the true state from Firebase
-      const updatedLists = await firebaseDataService.getUserLists(userId || '');
-      setLists(updatedLists);
-      
+      // likeList toggles atomically (arrayUnion/Remove + increment). Note: the
+      // stray saveList() call here was DOUBLE-counting influence (+15 vs +5) by
+      // also bumping list.saves — Profile.tsx was already fixed; this matches it.
+      await firebaseListService.likeList(listId, uid);
     } catch (error) {
       console.error("Failed to like list:", error);
+      toggle(wasLiked); // revert
     }
   };
 
@@ -271,10 +285,11 @@ const UserProfile = () => {
         <div className="bg-white/98 backdrop-blur-sm rounded-3xl shadow-botanical border border-linen-200 p-6 mb-6">
           <div className="flex items-start gap-6">
             <img
-              src={user.avatar}
+              src={user.avatar || '/assets/default-avatar.svg'}
               alt={user.name}
-              className="w-24 h-24 rounded-full border-4 border-white shadow-botanical"
+              className="w-24 h-24 rounded-full border-4 border-white shadow-botanical object-cover bg-linen-100"
               loading="lazy"
+              onError={(e) => { e.currentTarget.src = '/assets/default-avatar.svg' }}
             />
             <div className="flex-1">
               <div className="flex items-center gap-3 mb-2">
@@ -335,15 +350,22 @@ const UserProfile = () => {
                 {isFollowing ? (isFriendOfViewer ? 'Friends' : 'Following') : 'Follow'}
               </button>
               <button
+                disabled={openingChat}
                 onClick={async () => {
-                  if (!userId) return
-                  const id = await firebaseMessagingService.getOrCreateThread(currentUser.id, userId)
-                  if (id) navigate(`/messages/${id}`)
-                  else window.dispatchEvent(new CustomEvent('this-is:toast', { detail: { message: "Couldn't open chat. Try again.", tone: 'error' } }))
+                  if (!userId || openingChat) return
+                  haptics.tap()
+                  setOpeningChat(true)
+                  try {
+                    const id = await firebaseMessagingService.getOrCreateThread(currentUser.id, userId)
+                    if (id) navigate(`/messages/${id}`)
+                    else window.dispatchEvent(new CustomEvent('this-is:toast', { detail: { message: "Couldn't open chat. Try again.", tone: 'error' } }))
+                  } finally {
+                    setOpeningChat(false)
+                  }
                 }}
-                className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-semibold shadow-botanical hover:shadow-liquid hover:scale-102 transition-all duration-200 bg-gradient-to-r from-gold-500 to-gold-600 text-white"
+                className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-semibold shadow-botanical hover:shadow-liquid hover:scale-102 transition-all duration-200 bg-gradient-to-r from-gold-500 to-gold-600 text-white disabled:opacity-60"
               >
-                Message
+                {openingChat ? 'Opening…' : 'Message'}
               </button>
             </div>
           )}
@@ -360,10 +382,15 @@ const UserProfile = () => {
               <div className="text-sm text-charcoal-600">Influence</div>
             </div>
             <div className="text-center">
-              <div className="text-2xl font-bold text-charcoal-800">{user.followersCount || 0}</div>
+              <div className="text-2xl font-bold text-charcoal-800">{followerCount}</div>
               <div className="text-sm text-charcoal-600">Followers</div>
             </div>
           </div>
+          {(user.influences || 0) === 0 && (
+            <p className="text-center text-[11px] text-charcoal-400 mt-3">
+              Influence grows from likes &amp; saves on their lists · updates daily
+            </p>
+          )}
         </div>
 
         {/* Tabs */}

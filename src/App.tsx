@@ -6,6 +6,7 @@ import { ModalProvider, useModal } from './contexts/ModalContext.tsx'
 import { AuthProvider, useAuth } from './contexts/AuthContext.tsx'
 import type { List } from './types/index.js'
 import Navbar from './components/Navbar.tsx'
+import ErrorBoundary from './components/ErrorBoundary.tsx'
 import CreatePost from './components/CreatePost.tsx'
 import CreateListModal from './components/CreateListModal.tsx'
 import NavigationModals from './components/NavigationModals.tsx';
@@ -515,8 +516,20 @@ function AppContent() {
       <div className="h-dvh">
         <div className="max-w-md mx-auto h-full">
           <div className="flex flex-col h-full">
-              {/* Main Content Area */}
-              <main className="flex-1 overflow-y-auto pb-28 overflow-x-hidden" data-scroll-root>
+              {/* Main Content Area. pb-28 clears the bottom Navbar; on the chat
+                  thread the Navbar is hidden, so drop the padding and let the
+                  sticky composer own the bottom edge. */}
+              <main
+                className={`flex-1 overflow-y-auto overflow-x-hidden ${location.pathname.startsWith('/messages/') ? '' : 'pb-28'}`}
+                data-scroll-root
+              >
+                {/* Route-scoped boundary, keyed on pathname so it resets on
+                    navigation. A render crash in one lazy route (e.g. legacy
+                    data with a missing field) now shows the recovery panel
+                    INSIDE <main> while the Navbar (its sibling, below) stays
+                    alive — the user can tap another tab to escape instead of
+                    being stranded on a full-screen error. */}
+                <ErrorBoundary key={location.pathname}>
                 <Suspense fallback={<RouteFallback />}>
                   <Routes>
                     <Route path="/" element={<Home />} />
@@ -551,14 +564,19 @@ function AppContent() {
                     } />
                   </Routes>
                 </Suspense>
+                </ErrorBoundary>
               </main>
-              {/* Bottom Navigation */}
-              <Navbar
-                activeTab={activeTab}
-                setActiveTab={handleTabChange}
-                onCreatePost={() => openCreatePostModal()}
-                onEmbedFrom={() => setShowEmbedFromModal(true)}
-              />
+              {/* Bottom Navigation — hidden inside a 1:1 chat thread so the
+                  sticky composer owns the bottom edge (the tab bar would
+                  otherwise overlap it, iOS-detail-screen style). */}
+              {!location.pathname.startsWith('/messages/') && (
+                <Navbar
+                  activeTab={activeTab}
+                  setActiveTab={handleTabChange}
+                  onCreatePost={() => openCreatePostModal()}
+                  onEmbedFrom={() => setShowEmbedFromModal(true)}
+                />
+              )}
             </div>
           </div>
         </div>

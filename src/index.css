@@ -206,6 +206,14 @@
   text-decoration-thickness: 2px;
 }
 
+/* Top safe-area inset for sticky page headers. On a notched iPhone (the app
+   ships viewport-fit=cover + status-bar-style default) content draws under the
+   status bar / Dynamic Island; this pushes the header title row clear of it
+   while keeping the original 20px (pt-5) on non-notched devices and desktop via
+   the max() floor. Apply to a header's inner padding row, NOT the scroll root,
+   to avoid double-padding full-bleed pages. */
+.safe-top { padding-top: max(env(safe-area-inset-top), 1.25rem); }
+
 /* Press effect — a quick physical "give" on tap. Driven purely by CSS :active
    so it fires instantly on touch without waiting for a JS handler. */
 .press {

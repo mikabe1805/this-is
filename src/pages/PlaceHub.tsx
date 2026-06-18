@@ -21,6 +21,7 @@ import { useAuth } from '../contexts/AuthContext.tsx'
 import { firebaseDataService } from '../services/firebaseDataService.js'
 import type { List, Place, Post } from '../types/index.js'
 import { formatTimestamp } from '../utils/dateUtils'
+import { haptics } from '../utils/haptics'
 
 type LoosePlace = Place & {
   primaryType?: string
@@ -226,8 +227,25 @@ const PlaceHub = () => {
     setShowSaveModal(false)
   }
 
+  // Open the comments modal, fetching the real subcollection comments. The
+  // posts here come from the place-doc's embedded array, whose `comments` is
+  // usually stale/empty — so without this fetch the modal opened blank even
+  // when the post had comments.
+  const openComments = async (p: Post) => {
+    haptics.tap()
+    setActivePost(p)
+    setShowCommentsModal(true)
+    try {
+      const fetched = await firebaseDataService.getCommentsForPost(p.id)
+      setActivePost(cur => (cur && cur.id === p.id ? { ...cur, comments: fetched } : cur))
+    } catch (e) {
+      console.warn('[placehub] load comments failed', e)
+    }
+  }
+
   const handleLikePost = async (postId: string) => {
     const wasLiked = likedPosts.has(postId)
+    haptics.tap()
     setLikedPosts(prev => {
       const next = new Set(prev)
       if (next.has(postId)) next.delete(postId)
@@ -475,7 +493,7 @@ const PlaceHub = () => {
                       {liked ? Math.max(likeCount, 1) : (likeCount > 0 ? likeCount : '')}
                     </button>
                     <button
-                      onClick={() => { setActivePost(p); setShowCommentsModal(true) }}
+                      onClick={() => { void openComments(p) }}
                       aria-label={`View comments (${p.comments?.length || 0})`}
                       className="h-9 px-3 rounded-full font-mono text-[11px] tracking-wide text-ink-mute hover:text-ink flex items-center gap-1.5"
                     >

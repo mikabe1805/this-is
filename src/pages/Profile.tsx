@@ -14,6 +14,7 @@ import EditListModal from '../components/EditListModal'
 import PrivacyModal from '../components/PrivacyModal'
 import ConfirmModal from '../components/ConfirmModal'
 import { firebaseListService } from '../services/firebaseListService.js'
+import { haptics } from '../utils/haptics'
 import GoogleMapsImportModal from '../components/GoogleMapsImportModal'
 import { useNavigate } from 'react-router-dom'
 import { useLocation } from 'react-router-dom'
@@ -496,6 +497,12 @@ const Profile = () => {
                 await firebaseDataService.savePlaceToList(selectedPlace.id, lid, authUser.id, note, undefined, status, rating)
             }
             await firebaseDataService.recordUserSave(selectedPlace.id, authUser.id)
+            // Teach the taste model + announce the save, matching the global
+            // SaveModal path (App.tsx). Without these, own-profile saves taught
+            // the model nothing and the "Your taste" card never refreshed.
+            firebaseDataService.recordTasteFromPlace(authUser.id, selectedPlace, status === 'loved' ? 3 : status === 'tried' ? 2 : 1.5)
+            window.dispatchEvent(new CustomEvent('this-is:saved', { detail: { placeId: selectedPlace.id, status } }))
+            haptics.success()
             // Offer the cover picker after every save. The listener skips
             // silently when the place already has a mainImage.
             try {
@@ -510,6 +517,8 @@ const Profile = () => {
             } catch {}
         } catch (e) {
             console.error('[profile] save failed', e)
+            haptics.warn()
+            window.dispatchEvent(new CustomEvent('this-is:toast', { detail: { message: "Couldn't save. Try again.", tone: 'error' } }))
         } finally {
             setShowSaveModal(false)
             setSelectedPlace(null)
@@ -527,9 +536,14 @@ const Profile = () => {
                 const status = saveContext?.status || 'loved'
                 await firebaseDataService.savePlaceToList(selectedPlace.id, newId, authUser.id, saveContext?.note, undefined, status, saveContext?.rating)
                 await firebaseDataService.recordUserSave(selectedPlace.id, authUser.id)
+                firebaseDataService.recordTasteFromPlace(authUser.id, selectedPlace, status === 'loved' ? 3 : status === 'tried' ? 2 : 1.5)
+                window.dispatchEvent(new CustomEvent('this-is:saved', { detail: { placeId: selectedPlace.id, status } }))
+                haptics.success()
             }
         } catch (e) {
             console.error('[profile] create list + save failed', e)
+            haptics.warn()
+            window.dispatchEvent(new CustomEvent('this-is:toast', { detail: { message: "Couldn't save. Try again.", tone: 'error' } }))
         } finally {
             setShowSaveModal(false)
             setSelectedPlace(null)
@@ -640,6 +654,11 @@ const Profile = () => {
                         <div className="font-display text-[26px] leading-none mt-1.5 text-ink">{followerCount}</div>
                     </div>
                 </div>
+                {(currentUser.influences || 0) === 0 && (
+                    <p className="text-[11px] text-ink-mute mt-2.5">
+                        Influence grows from likes &amp; saves on your lists · updates daily
+                    </p>
+                )}
                 <p className="font-mono text-[10px] tracking-[0.12em] uppercase text-ink-mute mt-3 flex items-center gap-1.5">
                     <CalendarIcon className="w-3 h-3" />
                     Member since {formatTimestamp(currentUser.createdAt)}

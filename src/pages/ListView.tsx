@@ -27,6 +27,8 @@ import ListMap from '../components/ListMap'
 import { XMarkIcon } from '@heroicons/react/24/outline'
 import { useDocumentTitle } from '../hooks/useDocumentTitle'
 import { formatTimestamp } from '../utils/dateUtils'
+import { haptics } from '../utils/haptics'
+import { shareLink, listShareUrl } from '../utils/share'
 
 const ListView = () => {
   const { id } = useParams<{ id: string }>()
@@ -396,11 +398,46 @@ const ListView = () => {
   }
 
   const handleSave = async (status: 'loved' | 'tried' | 'want', rating?: 'liked' | 'neutral' | 'disliked', listIds?: string[], note?: string) => {
-    if (hubToSave && currentUser) {
-      await firebaseListService.savePlaceToList(hubToSave.id, listIds![0], currentUser.id, note, status, rating)
+    if (!hubToSave || !currentUser) { setShowSaveModal(false); setHubToSave(null); return }
+    const place = hubToSave
+    const ids = Array.isArray(listIds) ? listIds : []
+    try {
+      // Save to EVERY picked list (was only listIds[0] — extra picks were
+      // silently dropped), then run the same side-effects as the global save
+      // pipeline so the save mirror/savedCount, taste model, and listeners all
+      // stay in sync (previously this bespoke path skipped all of them).
+      for (const lid of ids) {
+        await firebaseListService.savePlaceToList(place.id, lid, currentUser.id, note, status, rating)
+      }
+      await firebaseDataService.recordUserSave(place.id, currentUser.id)
+      firebaseDataService.recordTasteFromPlace(
+        currentUser.id,
+        place as { id?: string; primaryType?: string | null; types?: string[]; category?: string; tags?: string[]; name?: string },
+        status === 'loved' ? 3 : status === 'tried' ? 2 : 1.5,
+      )
+      window.dispatchEvent(new CustomEvent('this-is:saved', { detail: { placeId: place.id, status } }))
+      haptics.success()
+      window.dispatchEvent(new CustomEvent('this-is:toast', { detail: { message: 'Saved' } }))
+    } catch (e) {
+      console.error('[listview] save failed', e)
+      haptics.warn()
+      window.dispatchEvent(new CustomEvent('this-is:toast', { detail: { message: "Couldn't save. Try again.", tone: 'error' } }))
+    } finally {
+      setShowSaveModal(false)
+      setHubToSave(null)
     }
-    setShowSaveModal(false)
-    setHubToSave(null)
+  }
+
+  const handleShareList = async () => {
+    if (!list) return
+    haptics.tap()
+    const status = await shareLink({
+      title: list.name,
+      text: list.description || `Check out "${list.name}" on this.is`,
+      url: listShareUrl(list.id),
+    })
+    if (status === 'copied') window.dispatchEvent(new CustomEvent('this-is:toast', { detail: { message: 'Link copied' } }))
+    else if (status === 'error') window.dispatchEvent(new CustomEvent('this-is:toast', { detail: { message: "Couldn't share. Try again.", tone: 'error' } }))
   }
 
   const handleCreateList = async (listData: { name: string; description: string; privacy: 'public' | 'private' | 'friends'; tags?: string[]; coverImage?: File }) => {
@@ -593,7 +630,7 @@ const ListView = () => {
               >
                 <BookmarkIcon className={`w-5 h-5 ${isSaved ? 'fill-current' : ''}`} />
               </button>
-              <button className="p-2 rounded-lg glass text-body hover:bg-white/10 transition" aria-label="Share list">
+              <button onClick={handleShareList} className="p-2 rounded-lg glass text-body hover:bg-white/10 transition press" aria-label="Share list">
                 <ShareIcon className="w-5 h-5" />
               </button>
               <button

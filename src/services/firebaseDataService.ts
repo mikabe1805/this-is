@@ -1,4 +1,4 @@
-﻿import { collection, doc, getDoc, getDocs, setDoc, updateDoc, query, where, orderBy, limit as fsLimit, startAfter, endBefore, onSnapshot, Timestamp, QueryConstraint, addDoc, deleteDoc, increment, writeBatch, arrayUnion, arrayRemove } from 'firebase/firestore'
+﻿import { collection, doc, getDoc, getDocs, setDoc, updateDoc, query, where, orderBy, limit as fsLimit, startAfter, endBefore, onSnapshot, Timestamp, QueryConstraint, addDoc, deleteDoc, increment, writeBatch, arrayUnion, arrayRemove, getCountFromServer, deleteField } from 'firebase/firestore'
 import { db } from '../firebase/config'
 import { serverTimestamp } from 'firebase/firestore'
 import type { User, Place, List, Post, PostComment, Activity, Hub } from '../types'
@@ -198,6 +198,21 @@ class FirebaseDataService {
     } catch (error) {
       console.error('Error fetching user followers:', error);
       return [];
+    }
+  }
+
+  /**
+   * Follower COUNT without hydrating every follower. getFollowers does an N+1
+   * getCurrentUser fan-out (one read per follower) purely so callers can read
+   * `.length`; this is a single server-side aggregation (billed as 1 read).
+   */
+  async getFollowerCount(userId: string): Promise<number> {
+    try {
+      const snap = await getCountFromServer(collection(db, 'users', userId, 'followers'))
+      return snap.data().count
+    } catch (error) {
+      console.error('Error fetching follower count:', error)
+      return 0
     }
   }
 
@@ -1290,11 +1305,15 @@ class FirebaseDataService {
   }
 
   private async searchUsers(searchQuery: string, filters: any, limitCount: number): Promise<User[]> {
-    const usersQuery = query(
-      collection(db, 'users'),
-      orderBy('influences', 'desc'),
-      fsLimit(limitCount)
-    )
+    // When there's a query, fetch a wider UNORDERED pool and rank client-side —
+    // mirroring searchPlaces/searchLists. Ordering by influences and capping at
+    // limitCount BEFORE name-matching made anyone outside the top-N most
+    // influential accounts unfindable by name. Influence stays a tiebreaker via
+    // the rank() comparator below. With no query, keep the influence-ranked top.
+    const hasQuery = !!(searchQuery && searchQuery.trim())
+    const usersQuery = hasQuery
+      ? query(collection(db, 'users'), fsLimit(limitCount * 5))
+      : query(collection(db, 'users'), orderBy('influences', 'desc'), fsLimit(limitCount))
     const usersSnapshot = await getDocs(usersQuery)
     
     let users = usersSnapshot.docs.map(doc => ({
@@ -1328,7 +1347,14 @@ class FirebaseDataService {
         if (handle.includes(searchLower) || name.includes(searchLower)) return 2
         return 3 // bio/tag-only match
       }
-      return matched.sort((a, b) => rank(a) - rank(b))
+      return matched
+        .sort((a, b) => {
+          const r = rank(a) - rank(b)
+          if (r !== 0) return r
+          // Tiebreak by influence so the more notable match leads within a band.
+          return ((b as any).influences || 0) - ((a as any).influences || 0)
+        })
+        .slice(0, limitCount)
     }
 
     return users
@@ -1777,7 +1803,13 @@ class FirebaseDataService {
       // end of the SaveModal flow — not here. Otherwise picking N lists would
       // bump the count by N, plus the auto-list path would add another +1.
     } catch (error) {
+      // Rethrow so callers know the save failed. Swallowing here meant the
+      // SaveModal flow ran recordUserSave (bumping savedCount + flipping the
+      // bookmark to "Saved" everywhere) and showed a success toast even when
+      // the place never actually landed in the list. The live caller
+      // (App.onSave) already wraps this in try/catch with an error toast.
       console.error('Error saving place to list:', error);
+      throw error;
     }
   }
 
@@ -2412,7 +2444,10 @@ class FirebaseDataService {
     if (opts.vibes?.length) {
       for (const v of new Set(opts.vibes)) updates[`vibes.${v}`] = increment(Math.max(0.5, opts.weight))
     }
-    if (opts.suppressPlaceId) updates[`suppressed.${opts.suppressPlaceId}`] = true
+    // Store a timestamp (not `true`) so the suppressed map can be aged-out /
+    // pruned during the decay pass — otherwise it grows forever toward the 1MB
+    // doc limit for heavy dismissers.
+    if (opts.suppressPlaceId) updates[`suppressed.${opts.suppressPlaceId}`] = Date.now()
     const ref = doc(db, 'userTaste', userId)
     try {
       try {
@@ -2547,6 +2582,15 @@ class FirebaseDataService {
         }
         stored.interests = applyDecay(stored.interests, 'interests')
         stored.vibes = applyDecay(stored.vibes, 'vibes')
+        // Prune the suppressed map in the same pass so it can't grow unbounded.
+        // Entries now hold a timestamp: drop ones past the TTL (the place may
+        // resurface — arguably better UX), and migrate legacy boolean entries to
+        // a timestamp so they start aging instead of living forever.
+        const SUPPRESS_TTL = 90 * 24 * 60 * 60 * 1000
+        for (const [id, ts] of Object.entries(stored.suppressed || {})) {
+          if (typeof ts !== 'number') { updates[`suppressed.${id}`] = now; continue }
+          if (now - ts > SUPPRESS_TTL) updates[`suppressed.${id}`] = deleteField()
+        }
         stored.lastDecayedAt = now
         // Force a fresh read next time so we never re-decay stale data.
         this.storedTasteCache.delete(userId)
@@ -2731,7 +2775,12 @@ class FirebaseDataService {
         let bestW = -1
         for (const k of keys) {
           const w = profileWeight.get(k) || 0
-          score += w * 4
+          // Sublinear (sqrt) so the favourite interest still leads but doesn't
+          // run away and fill the whole grid — a 40-coffee-save user has a
+          // coffee weight ~180 vs ~5 for a newer interest; linearly that's a
+          // 36× ranking gap that buries everything else. sqrt keeps coffee on
+          // top while letting #2–#4 interests' places surface.
+          score += Math.sqrt(Math.max(0, w)) * 4
           if (w > bestW) { bestW = w; bestKey = k }
         }
         // Credit the interest it was fetched under (so a "beach" query result
@@ -2744,9 +2793,17 @@ class FirebaseDataService {
         // Proximity (0–12 pts, decaying over ~12km).
         const c = readCoords(p)
         if (c && location) score += Math.max(0, 12 - Math.min(12, this.distanceKm(c, location)))
-        // Popularity prior: Google rating count (external) or savedCount (internal).
-        const pop = (p.userRatingCount || 0) + ((p as Place).savedCount || 0)
-        score += Math.min(5, Math.log10(pop + 1) * 2.2)
+        // Popularity prior, scored on the right scale per pool. Our lean Places
+        // field mask doesn't fetch userRatingCount, so external Google results
+        // carry no rating volume — they'd all sum to 0 and rank identically on
+        // popularity. Drive it from internal savedCount (a first-party trust
+        // signal, higher ceiling) and only fall back to Google rating volume
+        // when it's actually present.
+        const savedCount = (p as Place).savedCount || 0
+        const ratingCount = p.userRatingCount || 0
+        score += savedCount > 0
+          ? Math.min(5, savedCount * 0.6)
+          : Math.min(3, Math.log10(ratingCount + 1) * 1.3)
         // Friend-saved boost — trusted-taste social proof is a strong signal.
         const friendNames = friendMap.get(p.id)
         if (friendNames && friendNames.length) score += 11
@@ -2755,8 +2812,11 @@ class FirebaseDataService {
       .sort((a, b) => b.score - a.score)
 
     // Refresh variety: shuffle within the top window so repeated taps rotate.
+    // Guard on >1 (not >limit) so Refresh still reshuffles in low-density areas
+    // where the candidate count is at or below `limit` — otherwise every tap
+    // returned the identical order.
     let ranked = scored
-    if (opts.seed !== undefined && scored.length > limit) {
+    if (opts.seed !== undefined && scored.length > 1) {
       const window = scored.slice(0, Math.min(scored.length, limit * 3))
       const rng = seededRandom(String(opts.seed))
       for (let i = window.length - 1; i > 0; i--) {
@@ -2780,11 +2840,15 @@ class FirebaseDataService {
   }
 
   /**
-   * Themed recommendation LANES built from the user's top interests — e.g.
+   * Themed recommendation LANES built from the user's taste — e.g.
    * "More coffee you'll love", "Beaches for your next trip". Each lane is one
-   * interest. Reuses the SAME per-interest searchText cache that
-   * getTasteRecommendations populates, so when the feed has already loaded
-   * these are essentially free. Returns [] for users with no taste signal.
+   * interest. Crucially these are sourced from interests BEYOND the top few the
+   * For-You grid already queries, so a lane is a *different facet* of your taste
+   * ("here's a non-coffee corner of you") instead of the coffee places that
+   * didn't fit the coffee-heavy grid. Those deeper interests usually aren't
+   * cache-warmed by the grid, so this can add up to `maxLanes` cached searchText
+   * calls per load (still bounded by the 24h per-interest cache). Returns [] for
+   * users with no taste signal or fewer than `GRID_INTEREST_COUNT` interests.
    */
   async getTasteLanes(
     userId: string,
@@ -2797,7 +2861,11 @@ class FirebaseDataService {
     const profile = await this.buildTasteProfile(userId)
     if (!profile.hasSignal) return []
 
-    const keys = profile.interests.slice(0, maxLanes).map(i => i.key)
+    // The grid queries the top GRID_INTEREST_COUNT interests; lanes pick up
+    // where it leaves off so they add breadth rather than echo the grid.
+    const GRID_INTEREST_COUNT = 4
+    const keys = profile.interests.slice(GRID_INTEREST_COUNT, GRID_INTEREST_COUNT + maxLanes).map(i => i.key)
+    if (!keys.length) return []
     const savedIds = await this.getSavedPlaceIds(userId).catch(() => new Set<string>())
     const suppressed = profile.suppressed
     const vibe = profile.vibes[0]

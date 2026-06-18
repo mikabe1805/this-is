@@ -8,6 +8,7 @@ import { useNavigation } from '../contexts/NavigationContext'
 import { useModal } from '../contexts/ModalContext'
 import { firebaseDataService } from '../services/firebaseDataService'
 import { readCoords } from '../utils/coords'
+import { haptics } from '../utils/haptics'
 import type { Place, List, User } from '../types/index.js'
 
 type FeedItem = DiscoveryCardItem & {
@@ -169,6 +170,7 @@ const Explore = () => {
   const filtered = useMemo(() => items, [items])
 
   const handleOpen = (it: FeedItem) => {
+    haptics.select()
     if (it.itemKind === 'place') openHubModal(it.raw as Place, 'explore')
     else if (it.itemKind === 'list') openListModal(it.raw as List, 'explore')
     else openProfileModal((it.raw as User).id, 'explore')
@@ -176,6 +178,7 @@ const Explore = () => {
 
   const handleSave = (it: FeedItem) => {
     if (it.itemKind === 'place') {
+      haptics.select()
       const p = it.raw as Place & {
         address?: string
         location?: { address?: string; lat?: number; lng?: number }
@@ -221,8 +224,8 @@ const Explore = () => {
               <button
                 key={k}
                 type="button"
-                onClick={() => setFilter(k)}
-                className={`shrink-0 h-8 px-3.5 rounded-full label-eyebrow transition-colors ${
+                onClick={() => { if (k !== filter) haptics.tap(); setFilter(k) }}
+                className={`shrink-0 inline-flex items-center min-h-[44px] h-11 px-3.5 rounded-full label-eyebrow transition-colors press ${
                   active
                     ? 'bg-ink text-paper'
                     : 'bg-transparent text-ink-soft hover:text-ink border border-edge'
@@ -245,16 +248,36 @@ const Explore = () => {
         ) : filtered.length === 0 ? (
           <div className="text-center py-20">
             <p className="font-display text-[28px] text-ink leading-tight">Nothing here.</p>
-            <p className="text-[13px] text-ink-soft mt-2">Try a different filter, or set your location in your profile.</p>
+            <p className="text-[13px] text-ink-soft mt-2">
+              {/* When the full feed has items but this filter is empty, the
+                  problem is the filter — not a missing location. */}
+              {filter === 'nearby' && items.length > 0
+                ? "Nothing close by right now. Try “All”, or check your location is set."
+                : filter !== 'all' && items.length > 0
+                  ? 'Nothing under this filter yet. Try “All”.'
+                  : 'Try a different filter, or set your location in your profile.'}
+            </p>
+            {filter !== 'all' && items.length > 0 && (
+              <button
+                type="button"
+                onClick={() => { haptics.tap(); setFilter('all') }}
+                className="btn-secondary h-10 px-4 mt-4 label-eyebrow inline-flex items-center"
+              >
+                Show all
+              </button>
+            )}
           </div>
         ) : (
           <div className="grid grid-cols-2 gap-3">
-            {filtered.map(it => (
+            {filtered.map((it, idx) => (
               <DiscoveryCard
                 key={it.id}
                 item={{ ...it, saved: savedIds.has(it.id) }}
                 onOpen={() => handleOpen(it)}
                 onSave={it.itemKind === 'place' ? () => handleSave(it) : undefined}
+                /* Real photos for the above-the-fold cards only — bounds the
+                   Photo-SKU cost; the rest stay posters until opened. */
+                loadImage={idx < 6}
                 variant="compact"
               />
             ))}
