@@ -11,6 +11,8 @@ import {
 } from '@heroicons/react/24/outline'
 import type { Hub, Place, Post } from '../types'
 import { firebaseDataService } from '../services/firebaseDataService'
+import { rankingService } from '../services/rankingService'
+import { haptics } from '../utils/haptics'
 import { useAuth } from '../contexts/AuthContext'
 import { useModalDismiss } from '../hooks/useModalDismiss'
 import { useSwipeToDismiss } from '../hooks/useSwipeToDismiss'
@@ -58,6 +60,23 @@ const HubModal = ({
   const { currentUser } = useAuth()
   const [place, setPlace] = useState<LoosePlace | null>(hub as LoosePlace)
   const [loading, setLoading] = useState(false)
+  const [myScore, setMyScore] = useState<number | null>(null)
+  const [friendSavers, setFriendSavers] = useState<string[]>([])
+
+  // Personal score (Beli loop) + trusted-taste social proof for the header.
+  useEffect(() => {
+    if (!currentUser || !place?.id) { setMyScore(null); setFriendSavers([]); return }
+    let cancelled = false
+    const pid = place.id
+    rankingService.getScores(currentUser.id).then(s => { if (!cancelled) setMyScore(typeof s[pid] === 'number' ? s[pid] : null) }).catch(() => {})
+    firebaseDataService.getFriendSavedPlaceMap(currentUser.id).then(m => { if (!cancelled) setFriendSavers(m.get(pid) || []) }).catch(() => {})
+    const onRanked = (e: Event) => {
+      const d = (e as CustomEvent).detail as { placeId?: string; score?: number } | undefined
+      if (d?.placeId === pid && typeof d.score === 'number') setMyScore(d.score)
+    }
+    window.addEventListener('this-is:ranked', onRanked as EventListener)
+    return () => { cancelled = true; window.removeEventListener('this-is:ranked', onRanked as EventListener) }
+  }, [currentUser?.id, place?.id])
 
   const sheetRef = useRef<HTMLDivElement>(null)
   useModalDismiss(isOpen, onClose)
@@ -169,6 +188,27 @@ const HubModal = ({
         {/* Body — light scroll. Real surface for full editing/posting is the
             /place/:id route; the modal is intentionally compact. */}
         <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4 relative z-10">
+          {(myScore !== null || friendSavers.length > 0) && (
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+              {myScore !== null && (
+                <span className="inline-flex items-center gap-1.5">
+                  <span
+                    className="inline-flex items-center justify-center h-8 min-w-8 px-2 rounded-full bg-accent-soft border border-accent/30 font-display text-[15px]"
+                    style={{ color: 'var(--accent-deep)' }}
+                  >
+                    {myScore.toFixed(1)}
+                  </span>
+                  <span className="label-eyebrow text-ink-mute">Your score</span>
+                </span>
+              )}
+              {friendSavers.length > 0 && (
+                <span className="text-[12px] text-ink-soft inline-flex items-center gap-1.5">
+                  <span className="accent-bead accent-bead-sm shrink-0" aria-hidden />
+                  Saved by <span className="text-ink font-medium">{friendSavers[0]}</span>{friendSavers.length > 1 && ` +${friendSavers.length - 1} you follow`}
+                </span>
+              )}
+            </div>
+          )}
           {place?.description && (
             <p className="text-[14px] text-ink-soft leading-relaxed whitespace-pre-wrap">
               {place.description}
@@ -232,7 +272,7 @@ const HubModal = ({
           <div className="px-5 py-3 border-t border-edge flex gap-2 relative z-10">
             <button
               type="button"
-              onClick={onSave}
+              onClick={() => { haptics.tap(); onSave?.() }}
               className="btn-cta flex-1 h-11 inline-flex items-center justify-center gap-2 text-[14px] font-semibold"
             >
               <BookmarkIcon className="w-4 h-4" />
@@ -240,7 +280,7 @@ const HubModal = ({
             </button>
             <button
               type="button"
-              onClick={onOpenFullScreen}
+              onClick={() => { haptics.tap(); onOpenFullScreen?.() }}
               className="btn-secondary flex-1 h-11 inline-flex items-center justify-center gap-2 text-[14px] font-medium"
             >
               <MapPinIcon className="w-4 h-4" />
