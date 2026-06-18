@@ -438,11 +438,23 @@ function AppContent() {
   const { currentUser } = useAuth()
 
   // Live unread-DM count → drives the dot on the bottom-nav profile tab so
-  // missed messages are visible from anywhere in the app.
+  // missed messages are visible from anywhere in the app. Also mirrors to the
+  // App Badge (the count on the installed-PWA home-screen icon) — a no-op where
+  // the Badging API is unsupported, so it just works on iOS/Android installs.
   useEffect(() => {
-    if (!currentUser) { setUnreadDMs(0); return }
-    const unsub = firebaseMessagingService.subscribeUnreadCount(currentUser.id, setUnreadDMs)
-    return () => unsub()
+    const setBadge = (n: number) => {
+      try {
+        const nav = navigator as Navigator & { setAppBadge?: (n?: number) => Promise<void>; clearAppBadge?: () => Promise<void> }
+        if (n > 0) nav.setAppBadge?.(n)
+        else nav.clearAppBadge?.()
+      } catch { /* Badging API unavailable — ignore */ }
+    }
+    if (!currentUser) { setUnreadDMs(0); setBadge(0); return }
+    const unsub = firebaseMessagingService.subscribeUnreadCount(currentUser.id, n => {
+      setUnreadDMs(n)
+      setBadge(n)
+    })
+    return () => { unsub(); setBadge(0) }
   }, [currentUser?.id])
   // Create-post is owned by ModalContext (rendered once in GlobalModals). The
   // navbar routes through here so there's a SINGLE CreatePost instance — there

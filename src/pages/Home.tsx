@@ -52,6 +52,8 @@ const Home = () => {
 
   const [forYou, setForYou] = useState<DiscoveryCardItem[]>([])
   const [lanes, setLanes] = useState<{ key: string; title: string; items: DiscoveryCardItem[] }[]>([])
+  // Resurfaced "want to try" saves — keeps the wishlist from being a graveyard.
+  const [wantPlaces, setWantPlaces] = useState<DiscoveryCardItem[]>([])
   const [friendEvents, setFriendEvents] = useState<FriendEvent[]>([])
   const [savedPlaceCount, setSavedPlaceCount] = useState<number | null>(null)
   const [savedListCount, setSavedListCount] = useState<number | null>(null)
@@ -354,6 +356,36 @@ const Home = () => {
     }
   }, [currentUser?.id])
 
+  // Resurface the "want to try" wishlist so saves don't rot in a list. Loads
+  // once + on any save; no Places cost (internal list read).
+  useEffect(() => {
+    if (!currentUser) { setWantPlaces([]); return }
+    let cancelled = false
+    const load = async () => {
+      const places = await firebaseDataService.getStatusListPlaces(currentUser.id, 'want', 10).catch(() => [] as Place[])
+      if (cancelled) return
+      const items = places.map(rawP => {
+        const p = rawP as Place & { primaryType?: string; types?: string[]; photos?: { name: string }[]; mainImage?: string; hubImage?: string; coverImage?: string; address?: string; location?: { address?: string } }
+        placeRefs.current[p.id] = p
+        return {
+          id: p.id,
+          kind: 'place' as const,
+          title: p.name,
+          subtitle: p.address || (p.location && p.location.address) || '',
+          primaryType: p.primaryType,
+          types: p.types,
+          photos: p.photos,
+          imageUrl: p.mainImage || p.hubImage || p.coverImage || undefined,
+        } as DiscoveryCardItem
+      })
+      setWantPlaces(items)
+    }
+    void load()
+    const onSaved = () => { void load() }
+    window.addEventListener('this-is:saved', onSaved)
+    return () => { cancelled = true; window.removeEventListener('this-is:saved', onSaved) }
+  }, [currentUser?.id])
+
   const greeting = useMemo(() => HomeGreeting({ name: currentUser?.name }), [currentUser?.name])
 
   // The "we know you" line that makes the feed feel built for this person and
@@ -615,6 +647,29 @@ const Home = () => {
           </div>
         </section>
       ))}
+
+      {/* "Still want to try?" — resurfaced wishlist so saves don't rot. */}
+      {!loadingForYou && wantPlaces.length >= 3 && (
+        <section className="pt-9">
+          <h2 className="px-5 font-display text-[22px] leading-none text-ink mb-1">
+            Still want to try<span style={{ color: 'var(--bloom)' }}>?</span>
+          </h2>
+          <p className="px-5 font-display-italic text-[13px] text-ink-soft mb-4">From your want list.</p>
+          <div className="flex gap-3 overflow-x-auto px-5 pb-2" style={{ scrollbarWidth: 'none' }}>
+            {wantPlaces.map((it, idx) => (
+              <div key={it.id} className="w-[150px] shrink-0">
+                <DiscoveryCard
+                  item={{ ...it, saved: savedIds.has(it.id) }}
+                  onOpen={() => { haptics.select(); const p = placeRefs.current[it.id]; if (p) openHubModal(p as unknown as Hub, 'home') }}
+                  onSave={() => handleSavePlace(it)}
+                  loadImage={idx < 4}
+                  variant="compact"
+                />
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
 
       <section className="px-5 pt-10 pb-12">
         <div className="flex items-baseline justify-between mb-4">

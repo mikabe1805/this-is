@@ -2003,6 +2003,27 @@ class FirebaseDataService {
   }
 
   /**
+   * The places in a user's status collection (loved/tried/want), WITHOUT
+   * creating the list if it doesn't exist (unlike getOrCreateStatusList). Used
+   * to resurface saves — e.g. a "still want to try?" rail from the Want list —
+   * so saves don't become a graveyard. Returns [] when there's no such list.
+   */
+  async getStatusListPlaces(userId: string, status: 'loved' | 'tried' | 'want', cap = 8): Promise<Place[]> {
+    if (!userId) return []
+    try {
+      const lists = await this.getUserLists(userId)
+      const wantedLc = `all ${status}`
+      const target = lists.find(l => (l as { autoStatus?: string }).autoStatus === status || (l.name || '').trim().toLowerCase() === wantedLc)
+      if (!target) return []
+      const rows = await firebaseListService.getPlacesForList(target.id)
+      return rows.slice(0, cap).map(r => (r as { place?: Place }).place).filter((p): p is Place => !!p)
+    } catch (e) {
+      console.warn('[getStatusListPlaces] failed', e)
+      return []
+    }
+  }
+
+  /**
    * Add a place to the user's auto status collection — call alongside the
    * normal custom-list save so every save is tracked by sentiment without the
    * user having to pick/create a list.
