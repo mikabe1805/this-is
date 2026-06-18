@@ -1,5 +1,5 @@
 import type { List } from '../types/index.js'
-import { ArrowLeftIcon, BookmarkIcon, HeartIcon, MapPinIcon, PlusIcon } from '@heroicons/react/24/outline'
+import { ArrowLeftIcon, BookmarkIcon, HeartIcon, MapPinIcon, PlusIcon, CalendarIcon } from '@heroicons/react/24/outline'
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useNavigation } from '../contexts/NavigationContext.tsx'
@@ -10,6 +10,7 @@ import CreateListModal from '../components/CreateListModal'
 import EditListModal from '../components/EditListModal'
 import ConfirmModal from '../components/ConfirmModal'
 import { formatTimestamp } from '../utils/dateUtils'
+import { tripBadge } from '../utils/listHelpers'
 
 const SORT_OPTIONS = [
   { key: 'recent', label: 'Recent' },
@@ -262,6 +263,12 @@ const ViewAllLists = () => {
                         {creators[list.userId] && !isOwner ? `By ${creators[list.userId]} · ` : ''}{formatTimestamp(list.updatedAt as any)}
                       </p>
                       <div className="flex items-center gap-2 text-ink-mute shrink-0">
+                        {tripBadge(list) && (
+                          <span className="inline-flex items-center gap-1 text-[11px]" style={{ color: 'var(--accent-deep)' }}>
+                            <CalendarIcon className="w-3.5 h-3.5" />
+                            {tripBadge(list)}
+                          </span>
+                        )}
                         {typeof list.likes === 'number' && list.likes > 0 && (
                           <span className="inline-flex items-center gap-1 text-[11px]">
                             <HeartIcon className="w-3.5 h-3.5" />
@@ -326,8 +333,6 @@ const ViewAllLists = () => {
             setAllLists(prev => prev.map(l => l.id === editList.id ? { ...l, ...listData } as List : l))
           }
         }}
-        onDelete={(list) => handleDeleteList(list)}
-        onPrivacyChange={(listId, newPrivacy) => firebaseListService.updateList(listId, { privacy: newPrivacy })}
       />
 
       <ConfirmModal

@@ -15,6 +15,7 @@ import PrivacyModal from '../components/PrivacyModal'
 import ConfirmModal from '../components/ConfirmModal'
 import { firebaseListService } from '../services/firebaseListService.js'
 import { sentimentBucket } from '../services/rankingService'
+import { tripBadge } from '../utils/listHelpers'
 import { haptics } from '../utils/haptics'
 import GoogleMapsImportModal from '../components/GoogleMapsImportModal'
 import { useNavigate } from 'react-router-dom'
@@ -849,6 +850,11 @@ const Profile = () => {
                                         <span className="font-mono text-[10px] tracking-[0.10em] uppercase text-ink-mute">
                                             {(list as any).hubs?.length || 0} places
                                         </span>
+                                        {tripBadge(list) && (
+                                            <span className="font-mono text-[10px] tracking-[0.10em] uppercase inline-flex items-center gap-1" style={{ color: 'var(--accent-deep)' }}>
+                                                <CalendarIcon className="w-3 h-3" /> {tripBadge(list)}
+                                            </span>
+                                        )}
                                         {list.tags.includes('auto-generated') && (
                                             <span className="glass-honey label-eyebrow px-2 h-5 rounded-full inline-flex items-center">Auto</span>
                                         )}
@@ -1146,16 +1152,22 @@ const Profile = () => {
             <EditListModal
                 isOpen={showEditListModal}
                 onClose={() => setShowEditListModal(false)}
-                list={selectedListId ? (userLists.find(l => l.id === selectedListId)
-                  ? {
-                      id: (userLists.find(l => l.id === selectedListId) as any)!.id,
-                      name: (userLists.find(l => l.id === selectedListId) as any)!.name,
-                      description: (userLists.find(l => l.id === selectedListId) as any)!.description || '',
-                      privacy: (((userLists.find(l => l.id === selectedListId) as any)!.privacy) || 'public') as 'public' | 'private' | 'friends',
-                      tags: (userLists.find(l => l.id === selectedListId) as any)!.tags || [],
-                      coverImage: (userLists.find(l => l.id === selectedListId) as any)!.coverImage || ''
+                list={(() => {
+                    const l = selectedListId ? userLists.find(x => x.id === selectedListId) : null
+                    if (!l) return null
+                    return {
+                      id: l.id,
+                      name: l.name,
+                      description: l.description || '',
+                      privacy: (l.privacy || 'public') as 'public' | 'private' | 'friends',
+                      tags: l.tags || [],
+                      coverImage: l.coverImage || '',
+                      autoStatus: l.autoStatus,
+                      isTrip: l.isTrip,
+                      tripStart: l.tripStart,
+                      tripEnd: l.tripEnd,
                     }
-                  : null) : null}
+                  })()}
                 onSave={async (listData) => {
                     if (selectedListId) {
                         try {

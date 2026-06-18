@@ -11,6 +11,7 @@ import { useNavigation } from '../contexts/NavigationContext.tsx'
 import { firebaseListService } from '../services/firebaseListService';
 import { useAuth } from '../contexts/AuthContext.tsx'
 import { formatTimestamp } from '../utils/dateUtils.ts'
+import { tripBadge } from '../utils/listHelpers'
 import ImageCarousel from './ImageCarousel.tsx'
 import { firebaseDataService } from '../services/firebaseDataService.js'
 import HubImage from './HubImage'
@@ -415,6 +416,12 @@ const ListModal = ({ list, isOpen, onClose, onSave, onShare, onAddPost, onOpenFu
                   </p>
                 )}
                 <div className="flex items-center gap-4 mt-3 font-mono text-[10px] tracking-[0.10em] uppercase text-ink-mute">
+                  {tripBadge(list) && (
+                    <span className="inline-flex items-center gap-1 text-accent">
+                      <CalendarIcon className="w-3.5 h-3.5" />
+                      {tripBadge(list)}
+                    </span>
+                  )}
                   <span className="inline-flex items-center gap-1">
                     <CalendarIcon className="w-3.5 h-3.5" />
                     Created {formatTimestamp(list.createdAt)}

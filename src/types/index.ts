@@ -105,6 +105,13 @@ export interface List {
   savesFrom?: number
   isLiked?: boolean
   location?: { address: string; lat?: number; lng?: number }
+  /** Set on the auto-maintained status collections (All Loved/Tried/Want). */
+  autoStatus?: 'loved' | 'tried' | 'want'
+  /** Trip mode — a list framed as a dated trip with an ordered itinerary. */
+  isTrip?: boolean
+  /** ISO date 'YYYY-MM-DD' (inclusive). */
+  tripStart?: string
+  tripEnd?: string
 }
 
 export interface ListPlace {

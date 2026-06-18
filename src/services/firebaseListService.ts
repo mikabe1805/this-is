@@ -21,7 +21,7 @@ import { readCoords } from '../utils/coords'
 import type { List, ListPlace } from '../types'
 
 class FirebaseListService {
-  async createList(listData: { name: string; description: string; privacy: 'public' | 'private' | 'friends'; tags: string[], userId: string, coverImage?: File }): Promise<string | null> {
+  async createList(listData: { name: string; description: string; privacy: 'public' | 'private' | 'friends'; tags: string[], userId: string, coverImage?: File, isTrip?: boolean, tripStart?: string, tripEnd?: string }): Promise<string | null> {
     try {
       const newListRef = doc(collection(db, 'lists'));
       const listId = newListRef.id;
@@ -40,6 +40,9 @@ class FirebaseListService {
         tags: listData.tags,
         userId: listData.userId,
         coverImage: coverImageUrl,
+        // Trip mode (only persisted when actually a trip, so non-trip lists
+        // stay clean).
+        ...(listData.isTrip ? { isTrip: true, tripStart: listData.tripStart || '', tripEnd: listData.tripEnd || '' } : {}),
         createdAt: Timestamp.now(),
         updatedAt: Timestamp.now(),
         hubs: [],
@@ -295,7 +298,12 @@ class FirebaseListService {
 
   async updateList(listId: string, data: Partial<List>): Promise<void> {
     const listRef = doc(db, 'lists', listId);
-    const updatePayload: any = { ...data, updatedAt: Timestamp.now() };
+    // Strip undefined — updateDoc rejects undefined values (e.g. a cleared trip
+    // date sent as undefined would throw). Callers wanting to clear a field
+    // should pass '' or null, not undefined.
+    const clean: any = {};
+    for (const [k, v] of Object.entries(data)) if (v !== undefined) clean[k] = v;
+    const updatePayload: any = { ...clean, updatedAt: Timestamp.now() };
     if (typeof (data as any).privacy === 'string') {
       updatePayload.isPublic = (data as any).privacy === 'public';
     }

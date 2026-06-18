@@ -5,17 +5,24 @@ import AddressAutocomplete from './AddressAutocomplete'
 import TagAutocomplete from './TagAutocomplete'
 import { firebaseDataService } from '../services/firebaseDataService.js'
 import { firebaseStorageService } from '../services/firebaseStorageService.js'
+import { isAutoStatusList } from '../utils/listHelpers'
 
 interface EditListModalProps {
   isOpen: boolean
   onClose: () => void
+  // Loosened to align with the real `List` type (privacy + coverImage optional)
+  // so callers can pass a raw List without hand-mapping every field.
   list: {
     id: string
     name: string
     description: string
-    privacy: 'public' | 'private' | 'friends'
+    privacy?: 'public' | 'private' | 'friends'
     tags: string[]
-    coverImage: string
+    coverImage?: string
+    autoStatus?: 'loved' | 'tried' | 'want'
+    isTrip?: boolean
+    tripStart?: string
+    tripEnd?: string
   } | null
   onSave: (listData: {
     name: string
@@ -23,6 +30,9 @@ interface EditListModalProps {
     privacy: 'public' | 'private' | 'friends'
     tags: string[]
     coverImage?: string
+    isTrip?: boolean
+    tripStart?: string
+    tripEnd?: string
   }) => void
   // onDelete + onPrivacyChange used to live here as no-ops; deletion and
   // privacy edits are now handled via dedicated modals (ConfirmModal +
@@ -34,9 +44,12 @@ const EditListModal = ({ isOpen, onClose, list, onSave }: EditListModalProps) =>
   const [formData, setFormData] = useState({
     name: '',
     description: '',
-    privacy: 'public' as const,
+    privacy: 'public' as 'public' | 'private' | 'friends',
     tags: [] as string[],
-    coverImage: ''
+    coverImage: '',
+    isTrip: false,
+    tripStart: '',
+    tripEnd: '',
   })
   const [newTag, setNewTag] = useState('')
   const [isSaving, setIsSaving] = useState(false)
@@ -51,9 +64,12 @@ const EditListModal = ({ isOpen, onClose, list, onSave }: EditListModalProps) =>
       setFormData({
         name: list.name,
         description: list.description,
-        privacy: list.privacy,
+        privacy: list.privacy || 'public',
         tags: [...list.tags],
-        coverImage: list.coverImage
+        coverImage: list.coverImage || '',
+        isTrip: !!list.isTrip,
+        tripStart: list.tripStart || '',
+        tripEnd: list.tripEnd || '',
       })
       // Load existing location if present
       const anyList: any = list
@@ -220,6 +236,53 @@ const EditListModal = ({ isOpen, onClose, list, onSave }: EditListModalProps) =>
               className="w-full px-3.5 py-3 rounded-xl border border-edge bg-card text-[14px] text-ink placeholder:text-ink-mute outline-none focus:border-ink/40 resize-none"
             />
           </div>
+
+          {/* Trip mode — turns the list into a dated trip. Hidden for the
+              auto status collections (All Loved/Tried/Want). */}
+          {!isAutoStatusList(list) && (
+            <div>
+              <button
+                type="button"
+                onClick={() => setFormData(prev => ({ ...prev, isTrip: !prev.isTrip }))}
+                aria-pressed={formData.isTrip}
+                className="w-full flex items-center justify-between gap-3 p-3 rounded-xl hover:bg-paper-deep transition-colors"
+              >
+                <div className="text-left">
+                  <div className="text-[14px] font-medium text-ink">This is a trip</div>
+                  <div className="text-[12px] text-ink-soft">Add dates — share it as “my weekend in Lisbon”.</div>
+                </div>
+                <span className={`relative w-11 h-6 rounded-full transition-colors shrink-0 ${formData.isTrip ? 'bg-ink' : 'bg-edge'}`}>
+                  <span className={`absolute top-0.5 ${formData.isTrip ? 'left-[22px]' : 'left-0.5'} w-5 h-5 rounded-full bg-paper transition-all`} />
+                </span>
+              </button>
+              {formData.isTrip && (
+                <div className="grid grid-cols-2 gap-2 mt-2">
+                  <div>
+                    <label htmlFor="trip-start" className="label-eyebrow text-ink-mute mb-1.5 block">Start</label>
+                    <input
+                      id="trip-start"
+                      type="date"
+                      value={formData.tripStart}
+                      max={formData.tripEnd || undefined}
+                      onChange={(e) => setFormData(prev => ({ ...prev, tripStart: e.target.value }))}
+                      className="w-full h-11 px-3.5 rounded-xl border border-edge bg-card text-[14px] text-ink outline-none focus:border-ink/40"
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="trip-end" className="label-eyebrow text-ink-mute mb-1.5 block">End</label>
+                    <input
+                      id="trip-end"
+                      type="date"
+                      value={formData.tripEnd}
+                      min={formData.tripStart || undefined}
+                      onChange={(e) => setFormData(prev => ({ ...prev, tripEnd: e.target.value }))}
+                      className="w-full h-11 px-3.5 rounded-xl border border-edge bg-card text-[14px] text-ink outline-none focus:border-ink/40"
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Location */}
           <div className="relative overflow-visible">

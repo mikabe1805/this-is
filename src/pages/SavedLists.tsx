@@ -10,6 +10,7 @@ import { useNavigation } from '../contexts/NavigationContext.tsx'
 import { useAuth } from '../contexts/AuthContext.js'
 import { firebaseDataService } from '../services/firebaseDataService.js'
 import { formatTimestamp } from '../utils/dateUtils'
+import { tripBadge } from '../utils/listHelpers'
 
 const Favorites = () => {
   const navigate = useNavigate()
@@ -219,7 +220,11 @@ const Favorites = () => {
                             {placeCount} {placeCount === 1 ? 'place' : 'places'}
                           </span>
                           <span aria-hidden>•</span>
-                          <span>Updated {formatTimestamp(list.updatedAt)}</span>
+                          {tripBadge(list) ? (
+                            <span className="font-medium" style={{ color: 'var(--accent-deep)' }}>{tripBadge(list)}</span>
+                          ) : (
+                            <span>Updated {formatTimestamp(list.updatedAt)}</span>
+                          )}
                         </div>
                         {list.description && (
                           <p className="text-[13px] text-ink-soft mt-2 line-clamp-2">{list.description}</p>

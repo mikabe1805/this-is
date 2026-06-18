@@ -61,6 +61,36 @@ export const formatRelativeTime = (timestamp: any): string => {
 };
 
 /**
+ * Compact, human date range for trips — "Jun 14–16" (same month collapses),
+ * "Jun 30 – Jul 2" (cross-month), "Dec 30 – Jan 2, 2027" (cross-year). Accepts
+ * 'YYYY-MM-DD' strings (parsed as local dates to avoid TZ drift) or anything
+ * parseTimestamp handles. Returns '' if neither bound parses.
+ */
+export const formatDateRange = (start: any, end?: any): string => {
+  const toLocal = (v: any): Date | null => {
+    if (typeof v === 'string') {
+      const m = v.match(/^(\d{4})-(\d{2})-(\d{2})$/)
+      if (m) return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]))
+    }
+    return parseTimestamp(v)
+  }
+  const s = toLocal(start)
+  const e = end ? toLocal(end) : null
+  if (!s) return ''
+  const now = new Date()
+  const yr = (d: Date) => (d.getFullYear() === now.getFullYear() ? '' : `, ${d.getFullYear()}`)
+  const mon = (d: Date) => d.toLocaleDateString('en-US', { month: 'short' })
+  if (!e || s.getTime() === e.getTime()) {
+    return `${mon(s)} ${s.getDate()}${yr(s)}`
+  }
+  // Same month + year → "Jun 14–16".
+  if (s.getFullYear() === e.getFullYear() && s.getMonth() === e.getMonth()) {
+    return `${mon(s)} ${s.getDate()}–${e.getDate()}${yr(e)}`
+  }
+  return `${mon(s)} ${s.getDate()} – ${mon(e)} ${e.getDate()}${yr(e)}`
+}
+
+/**
  * Clock time for a chat bubble / message group header — "2:14 PM", prefixed
  * with Today / Yesterday / weekday / date when the conversation spans days.
  */

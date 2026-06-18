@@ -1923,7 +1923,7 @@ class FirebaseDataService {
     }
   }
 
-  async createList(listData: { name: string; description: string; privacy: 'public' | 'private' | 'friends'; tags: string[], userId: string }): Promise<string | null> {
+  async createList(listData: { name: string; description: string; privacy: 'public' | 'private' | 'friends'; tags: string[], userId: string, isTrip?: boolean, tripStart?: string, tripEnd?: string }): Promise<string | null> {
     try {
       const newListRef = doc(collection(db, 'lists'));
       const cleaned = this.cleanUndefined(listData)

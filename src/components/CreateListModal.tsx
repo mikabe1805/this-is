@@ -26,6 +26,9 @@ const CreateListModal = ({ isOpen, onClose, onCreate }: CreateListModalProps) =>
   const [newTag, setNewTag] = useState('')
   const [coverImage, setCoverImage] = useState<File | null>(null)
   const [coverImagePreview, setCoverImagePreview] = useState<string>('')
+  const [isTrip, setIsTrip] = useState(false)
+  const [tripStart, setTripStart] = useState('')
+  const [tripEnd, setTripEnd] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [availableTags, setAvailableTags] = useState<string[]>([])
@@ -59,7 +62,8 @@ const CreateListModal = ({ isOpen, onClose, onCreate }: CreateListModalProps) =>
         privacy,
         tags,
         userId: currentUser.id,
-        coverImage: coverImage || undefined
+        coverImage: coverImage || undefined,
+        ...(isTrip ? { isTrip: true, tripStart, tripEnd } : {}),
       })
       // Save optional location on the created list
       if (newListId && location.address.trim()) {
@@ -86,6 +90,9 @@ const CreateListModal = ({ isOpen, onClose, onCreate }: CreateListModalProps) =>
     setNewTag('')
     setCoverImage(null)
     setCoverImagePreview('')
+    setIsTrip(false)
+    setTripStart('')
+    setTripEnd('')
     setIsSubmitting(false)
     onClose()
   }
@@ -227,6 +234,36 @@ const CreateListModal = ({ isOpen, onClose, onCreate }: CreateListModalProps) =>
                 rows={3}
                 className="w-full px-3.5 py-3 rounded-xl border border-edge bg-card text-[14px] text-ink placeholder:text-ink-mute outline-none focus:border-ink/40 resize-none"
               />
+            </div>
+
+            {/* Trip mode */}
+            <div>
+              <button
+                type="button"
+                onClick={() => setIsTrip(v => !v)}
+                aria-pressed={isTrip}
+                className="w-full flex items-center justify-between gap-3 p-3 rounded-xl hover:bg-paper-deep transition-colors"
+              >
+                <div className="text-left">
+                  <div className="text-[14px] font-medium text-ink">This is a trip</div>
+                  <div className="text-[12px] text-ink-soft">Add dates — share it as “my weekend in Lisbon”.</div>
+                </div>
+                <span className={`relative w-11 h-6 rounded-full transition-colors shrink-0 ${isTrip ? 'bg-ink' : 'bg-edge'}`}>
+                  <span className={`absolute top-0.5 ${isTrip ? 'left-[22px]' : 'left-0.5'} w-5 h-5 rounded-full bg-paper transition-all`} />
+                </span>
+              </button>
+              {isTrip && (
+                <div className="grid grid-cols-2 gap-2 mt-2">
+                  <div>
+                    <label htmlFor="create-trip-start" className="label-eyebrow text-ink-mute mb-1.5 block">Start</label>
+                    <input id="create-trip-start" type="date" value={tripStart} max={tripEnd || undefined} onChange={(e) => setTripStart(e.target.value)} className="w-full h-11 px-3.5 rounded-xl border border-edge bg-card text-[14px] text-ink outline-none focus:border-ink/40" />
+                  </div>
+                  <div>
+                    <label htmlFor="create-trip-end" className="label-eyebrow text-ink-mute mb-1.5 block">End</label>
+                    <input id="create-trip-end" type="date" value={tripEnd} min={tripStart || undefined} onChange={(e) => setTripEnd(e.target.value)} className="w-full h-11 px-3.5 rounded-xl border border-edge bg-card text-[14px] text-ink outline-none focus:border-ink/40" />
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Location */}

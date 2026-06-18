@@ -27,6 +27,7 @@ import ListMap from '../components/ListMap'
 import { XMarkIcon } from '@heroicons/react/24/outline'
 import { useDocumentTitle } from '../hooks/useDocumentTitle'
 import { formatTimestamp } from '../utils/dateUtils'
+import { tripBadge } from '../utils/listHelpers'
 import { haptics } from '../utils/haptics'
 import { listShareUrl } from '../utils/share'
 import { rankingService, sentimentBucket } from '../services/rankingService'
@@ -305,21 +306,25 @@ const ListView = () => {
     return true
   })
 
-  // Sort places
-  const sortedPlaces = [...filteredPlaces].sort((a, b) => {
-    switch (sortBy) {
-      case 'popular':
-        return (b.place.savedCount || 0) - (a.place.savedCount || 0)
-      case 'recent':
-        return new Date(b.addedAt).getTime() - new Date(a.addedAt).getTime()
-      case 'nearby':
-        // For now, just sort by name since we don't have location data
-        // In a real app, this would sort by distance from user's location
-        return a.place.name.localeCompare(b.place.name)
-      default:
-        return new Date(b.addedAt).getTime() - new Date(a.addedAt).getTime()
-    }
-  })
+  // Sort places. A trip keeps its ITINERARY order (the order places were added,
+  // i.e. the list's hubs[] order that getPlacesForList preserves) rather than
+  // re-sorting by popularity/recency.
+  const sortedPlaces = list?.isTrip
+    ? filteredPlaces
+    : [...filteredPlaces].sort((a, b) => {
+        switch (sortBy) {
+          case 'popular':
+            return (b.place.savedCount || 0) - (a.place.savedCount || 0)
+          case 'recent':
+            return new Date(b.addedAt).getTime() - new Date(a.addedAt).getTime()
+          case 'nearby':
+            // For now, just sort by name since we don't have location data
+            // In a real app, this would sort by distance from user's location
+            return a.place.name.localeCompare(b.place.name)
+          default:
+            return new Date(b.addedAt).getTime() - new Date(a.addedAt).getTime()
+        }
+      })
 
   const getStatusColor = (status: string, feeling?: string) => {
     switch (status) {
@@ -459,7 +464,7 @@ const ListView = () => {
 
   const handleCreateList = async (listData: { name: string; description: string; privacy: 'public' | 'private' | 'friends'; tags?: string[]; coverImage?: File }) => {
     if (currentUser) {
-      const newListId = await firebaseListService.createList({ ...listData, userId: currentUser.id })
+      const newListId = await firebaseListService.createList({ ...listData, tags: listData.tags || [], userId: currentUser.id })
       if (newListId && hubToSave) {
         await firebaseListService.savePlaceToList(hubToSave.id, newListId, currentUser.id, undefined, 'loved') // Default to loved status
       }
@@ -578,13 +583,16 @@ const ListView = () => {
     )
   }
 
+  // Trip framing: a date-range badge + the places tab reads as an "Itinerary".
+  const trip = tripBadge(list)
+
   return (
     <div className="relative min-h-full overflow-x-hidden">
       {/* PageHeader now uses glass internally, no extra background needed */}
       <PageHeader
         coverUrl={list.coverImage}
         title={list.name}
-        subtitle={`by ${creatorName}`}
+        subtitle={trip ? `${trip}${creatorName ? ` · by ${creatorName}` : ''}` : `by ${creatorName}`}
         rightActions={
           <button 
             onClick={() => { if (window.history.length > 1) navigate(-1); else handleBack() }}
@@ -612,7 +620,7 @@ const ListView = () => {
                 }`}
                 aria-pressed={active}
               >
-                {t === 'overview' ? 'Overview' : t === 'places' ? `Places${count !== null ? ` · ${count}` : ''}` : t === 'posts' ? 'Posts' : 'Map'}
+                {t === 'overview' ? 'Overview' : t === 'places' ? `${trip ? 'Itinerary' : 'Places'}${count !== null ? ` · ${count}` : ''}` : t === 'posts' ? 'Posts' : 'Map'}
               </button>
             )
           })}
@@ -790,12 +798,18 @@ const ListView = () => {
       {/* Main Content: places - Only show in places tab */}
       {activeTab === 'places' && (
       <div className="relative z-10 p-4 space-y-8 max-w-2xl mx-auto">
-        {sortedPlaces.map((listPlace) => (
+        {sortedPlaces.map((listPlace, idx) => (
           <div
             key={listPlace.id}
             onClick={() => handlePlaceClick(listPlace)}
             className="glass rounded-3xl shadow-botanical overflow-hidden hover:shadow-cozy transition-all duration-300 flex flex-col relative cursor-pointer"
           >
+            {/* Itinerary stop number (trips only). */}
+            {trip && (
+              <span className="absolute top-4 left-4 z-20 w-7 h-7 rounded-full bg-ink text-paper font-display text-[14px] flex items-center justify-center shadow-cozy">
+                {idx + 1}
+              </span>
+            )}
             {/* Three-dot menu — only the list owner can edit or remove a
                 place. Hiding the entry point entirely is cleaner than letting
                 non-owners tap into a backend permission failure. */}
@@ -1114,10 +1128,20 @@ const ListView = () => {
         isOpen={showEditListModal}
         onClose={() => setShowEditListModal(false)}
         list={list}
-        onSave={(listData) => {
-          // In a real app, this would make an API call to update the list
-          console.log('Saving list:', listData)
-          setShowEditListModal(false)
+        onSave={async (listData) => {
+          // Persist + reflect locally. This was a console.log no-op, so editing
+          // a list from its own page silently discarded every change.
+          if (!list) return
+          try {
+            await firebaseListService.updateList(list.id, listData as never)
+            setList(prev => (prev ? { ...prev, ...listData } as typeof prev : prev))
+            window.dispatchEvent(new CustomEvent('this-is:toast', { detail: { message: 'List updated' } }))
+          } catch (e) {
+            console.error('[list-view] update list failed', e)
+            window.dispatchEvent(new CustomEvent('this-is:toast', { detail: { message: "Couldn't save. Try again.", tone: 'error' } }))
+          } finally {
+            setShowEditListModal(false)
+          }
         }}
       />
 

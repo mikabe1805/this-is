@@ -10,6 +10,7 @@ import { useModal } from '../contexts/ModalContext'
 import { firebaseDataService } from '../services/firebaseDataService'
 import { readCoords } from '../utils/coords'
 import { haptics } from '../utils/haptics'
+import { tripBadge } from '../utils/listHelpers'
 import { usePullToRefresh } from '../hooks/usePullToRefresh'
 import type { Place, List, User } from '../types/index.js'
 
@@ -83,6 +84,8 @@ const Explore = () => {
           itemKind: 'list',
           title: l.name,
           subtitle: `${(l as any).hubs?.length || 0} places`,
+          // Trips show their date range in the card's "reason" line.
+          reason: tripBadge(l as any) || undefined,
           imageUrl: (l as any).coverImage || (l as any).hubs?.[0]?.mainImage,
           raw: l as any,
         }))
