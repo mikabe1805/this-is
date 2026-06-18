@@ -398,6 +398,28 @@ build green.
 
 ---
 
+## ✅ Shipped in pass 12 — Trip mode for lists (June 2026)
+
+A list can be a **trip**: dates + an ordered itinerary + cover, so "share my
+weekend in Lisbon" is one tap. Wired consistently from a 3-agent surface map.
+tsc: 0 new errors AND −9 baseline (215→206, from cleaner typing); build green.
+
+- `List` gains `isTrip` / `tripStart` / `tripEnd` (+ `autoStatus` promoted to a
+  real field). `dateUtils.formatDateRange` + `listHelpers` (`isAutoStatusList`,
+  `tripBadge` — the single gate so auto "All Loved/Tried/Want" lists can never
+  become or show as trips).
+- **Edit & create**: EditListModal + CreateListModal get a "This is a trip"
+  toggle + start/end date inputs (hidden for auto lists). Trip fields thread
+  through both `createList` impls + `updateList`.
+- **Fixed a real bug** on the way: ListView's EditListModal `onSave` was a
+  `console.log` no-op — editing a list from its own page silently discarded every
+  change. Now persists.
+- **ListView trip view**: date range in the header, "Places" → "Itinerary",
+  itinerary order preserved with numbered stops. Date-range badges on ListModal,
+  Profile rows, Favorites, ViewAllLists, and Explore list cards.
+
+---
+
 ## 🎯 Next up — high impact, low/medium effort
 
 ### Sharing experiences & trips with friends
