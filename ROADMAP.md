@@ -305,6 +305,31 @@ Previously-deferred items. `tsc` baseline diff: 0 new errors; build green.
 
 ---
 
+## ✅ Shipped in pass 8 — the Beli loop (pairwise ranking on save) (June 2026)
+
+The single highest-leverage retention mechanic for a place app, per the research.
+Zero Google Places cost — pure Firestore on a new `userRankings/{uid}` doc.
+
+- **`rankingService.ts`** — maps a save's status/tried-rating to a sentiment
+  bucket (`liked` / `fine` / `disliked`; `want` = wishlist, not ranked),
+  binary-inserts the place into that bucket's ordered list, and derives a
+  **0–10 score** from its position within Beli-style score bands (liked
+  6.8–10, fine 3.4–6.7, disliked 1–3.3). Scores recompute on every insert.
+- **`RankFlowModal.tsx`** — a skippable bottom sheet that asks "which did you
+  prefer?" (new place vs the current binary-search pivot), ~log₂(n) comparisons,
+  then reveals the score ("Ranked #3 of 12 of your liked places"). Skipping still
+  places it at the best estimate, so it's never a dead end. Opened by a
+  `this-is:rank-place` event.
+- **Trigger** — the post-save toast offers **"Rank it"** for experienced saves
+  (loved / tried) across all save paths (global SaveModal, PlaceHub, ListView,
+  Profile). Non-blocking — coexists with the cover-photo picker.
+- **Display** — PlaceHub shows the viewer's personal score as a badge under the
+  title, updated live when they (re)rank.
+- **Rules** — added a `userRankings/{uid}` owner-write rule (⚠️ run
+  `npm run db:deploy-rules`; the collection is denied without it).
+
+---
+
 ## 🎯 Next up — high impact, low/medium effort
 
 ### Sharing experiences & trips with friends

@@ -29,6 +29,7 @@ import { useDocumentTitle } from '../hooks/useDocumentTitle'
 import { formatTimestamp } from '../utils/dateUtils'
 import { haptics } from '../utils/haptics'
 import { shareLink, listShareUrl } from '../utils/share'
+import { sentimentBucket } from '../services/rankingService'
 
 const ListView = () => {
   const { id } = useParams<{ id: string }>()
@@ -417,7 +418,12 @@ const ListView = () => {
       )
       window.dispatchEvent(new CustomEvent('this-is:saved', { detail: { placeId: place.id, status } }))
       haptics.success()
-      window.dispatchEvent(new CustomEvent('this-is:toast', { detail: { message: 'Saved' } }))
+      const bucket = sentimentBucket(status, rating)
+      window.dispatchEvent(new CustomEvent('this-is:toast', {
+        detail: bucket
+          ? { message: 'Saved', action: { label: 'Rank it', onClick: () => window.dispatchEvent(new CustomEvent('this-is:rank-place', { detail: { placeId: place.id, name: place.name, bucket } })) } }
+          : { message: 'Saved' },
+      }))
     } catch (e) {
       console.error('[listview] save failed', e)
       haptics.warn()

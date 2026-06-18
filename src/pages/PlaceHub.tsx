@@ -19,6 +19,7 @@ import ShareModal from '../components/ShareModal'
 import { pickTheme } from '../components/ui/categoryTheme'
 import { useAuth } from '../contexts/AuthContext.tsx'
 import { firebaseDataService } from '../services/firebaseDataService.js'
+import { rankingService, sentimentBucket } from '../services/rankingService'
 import type { List, Place, Post } from '../types/index.js'
 import { formatTimestamp } from '../utils/dateUtils'
 import { haptics } from '../utils/haptics'
@@ -63,6 +64,23 @@ const PlaceHub = () => {
   const [likedPosts, setLikedPosts] = useState<Set<string>>(new Set())
   const [savedPosts, setSavedPosts] = useState<Set<string>>(new Set())
   const [tab, setTab] = useState<'posts' | 'about'>('posts')
+  const [myScore, setMyScore] = useState<number | null>(null)
+
+  // The viewer's personal 0–10 score for this place (from the Beli-loop
+  // ranking), shown as a badge and kept live when they (re)rank it.
+  useEffect(() => {
+    if (!authUser || !place?.id) { setMyScore(null); return }
+    let cancelled = false
+    rankingService.getScores(authUser.id)
+      .then(s => { if (!cancelled) setMyScore(typeof s[place.id] === 'number' ? s[place.id] : null) })
+      .catch(() => {})
+    const onRanked = (e: Event) => {
+      const d = (e as CustomEvent).detail as { placeId?: string; score?: number } | undefined
+      if (d?.placeId === place.id && typeof d.score === 'number') setMyScore(d.score)
+    }
+    window.addEventListener('this-is:ranked', onRanked as EventListener)
+    return () => { cancelled = true; window.removeEventListener('this-is:ranked', onRanked as EventListener) }
+  }, [authUser?.id, place?.id])
 
   // Privacy filter for embedded `place.posts` — public always, friends only
   // to author + mutual-follow friends, private only to author. Without this,
@@ -190,6 +208,14 @@ const PlaceHub = () => {
       try {
         window.dispatchEvent(new CustomEvent('this-is:saved', {
           detail: { placeId: place.id, status }
+        }))
+        // Experienced save → offer the pairwise ranking ("Beli loop"); the
+        // toast is non-blocking and coexists with the cover picker below.
+        const bucket = sentimentBucket(status, rating)
+        window.dispatchEvent(new CustomEvent('this-is:toast', {
+          detail: bucket
+            ? { message: 'Saved', action: { label: 'Rank it', onClick: () => window.dispatchEvent(new CustomEvent('this-is:rank-place', { detail: { placeId: place.id, name: place.name, bucket } })) } }
+            : { message: 'Saved' },
         }))
       } catch (e) { console.warn('[place-hub] saved-event dispatch failed', e) }
       // Offer to pick a cover photo if this place doesn't have one yet.
@@ -328,6 +354,17 @@ const PlaceHub = () => {
           <h1 className="font-display text-[44px] leading-[0.95] text-ink">
             {place.name}
           </h1>
+          {myScore !== null && (
+            <div className="mt-3 inline-flex items-center gap-2">
+              <span
+                className="inline-flex items-center justify-center h-9 min-w-9 px-2.5 rounded-full bg-accent-soft border border-accent/30 font-display text-[18px]"
+                style={{ color: 'var(--accent-deep)' }}
+              >
+                {myScore.toFixed(1)}
+              </span>
+              <span className="label-eyebrow text-ink-mute">Your score</span>
+            </div>
+          )}
           {meta && (
             <p className="font-mono text-[11px] tracking-[0.14em] uppercase text-ink-mute mt-3 flex items-center gap-1.5">
               <MapPinIcon className="w-3.5 h-3.5 shrink-0" />

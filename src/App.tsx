@@ -39,8 +39,10 @@ import SaveModal from './components/SaveModal.tsx'
 import CoverPhotoPicker from './components/CoverPhotoPicker.tsx'
 import SaveListToFolderModal from './components/SaveListToFolderModal.tsx'
 import SendToFriendModal from './components/SendToFriendModal.tsx'
+import RankFlowModal from './components/RankFlowModal.tsx'
 import { firebaseDataService } from './services/firebaseDataService.js'
 import { firebaseMessagingService } from './services/firebaseMessagingService'
+import { sentimentBucket } from './services/rankingService'
 
 // Page-shaped skeleton for code-split routes. Every page except Home is
 // React.lazy, so the first navigation to each used to flash plain mono
@@ -245,7 +247,13 @@ const GlobalModals = () => {
                 : ids.length > 1
                   ? `${verb} in ${ids.length} lists`
                   : verb
-              const action = ids.length === 1 && ids[0] ? { label: 'View', href: `/list/${ids[0]}` } : undefined
+              // For an experienced save (loved / tried), the toast offers to
+              // RANK it — the pairwise "Beli loop" — instead of the generic
+              // "View"; want/wishlist saves keep the View-the-list action.
+              const bucket = seedHub ? sentimentBucket(status, rating) : null
+              const action = bucket
+                ? { label: 'Rank it', onClick: () => window.dispatchEvent(new CustomEvent('this-is:rank-place', { detail: { placeId, name: seedHub?.name || 'this place', bucket } })) }
+                : (ids.length === 1 && ids[0] ? { label: 'View', href: `/list/${ids[0]}` } : undefined)
               window.dispatchEvent(new CustomEvent('this-is:toast', { detail: { message, action } }))
             } catch (e) {
               // Surface failures so the user knows the save didn't take. Without
@@ -388,6 +396,9 @@ const GlobalModals = () => {
         shareTitle={sendTo?.title || ''}
         shareUrl={sendTo?.url || ''}
       />
+
+      {/* Pairwise place-ranking ("Beli loop") — opened by the post-save toast. */}
+      <RankFlowModal />
 
 
       {/* Create Post Modal */}

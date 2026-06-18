@@ -14,6 +14,7 @@ import EditListModal from '../components/EditListModal'
 import PrivacyModal from '../components/PrivacyModal'
 import ConfirmModal from '../components/ConfirmModal'
 import { firebaseListService } from '../services/firebaseListService.js'
+import { sentimentBucket } from '../services/rankingService'
 import { haptics } from '../utils/haptics'
 import GoogleMapsImportModal from '../components/GoogleMapsImportModal'
 import { useNavigate } from 'react-router-dom'
@@ -503,6 +504,13 @@ const Profile = () => {
             firebaseDataService.recordTasteFromPlace(authUser.id, selectedPlace, status === 'loved' ? 3 : status === 'tried' ? 2 : 1.5)
             window.dispatchEvent(new CustomEvent('this-is:saved', { detail: { placeId: selectedPlace.id, status } }))
             haptics.success()
+            // Experienced save → offer the pairwise ranking ("Beli loop").
+            const rankBucket = sentimentBucket(status, rating)
+            if (rankBucket) {
+                const rid = selectedPlace.id
+                const rname = selectedPlace.name
+                window.dispatchEvent(new CustomEvent('this-is:toast', { detail: { message: 'Saved', action: { label: 'Rank it', onClick: () => window.dispatchEvent(new CustomEvent('this-is:rank-place', { detail: { placeId: rid, name: rname, bucket: rankBucket } })) } } }))
+            }
             // Offer the cover picker after every save. The listener skips
             // silently when the place already has a mainImage.
             try {

@@ -170,6 +170,14 @@ service cloud.firestore {
       allow write: if isDevMode() || (isAuthenticated() && request.auth.uid == userId);
     }
 
+    // Per-user pairwise place ranking (the "Beli loop" — ordered lists per
+    // sentiment bucket + denormalized 0–10 scores). Owner-writable only; reads
+    // open so a place's score can be shown anywhere it appears.
+    match /userRankings/{userId} {
+      allow read: if true;
+      allow write: if isDevMode() || (isAuthenticated() && request.auth.uid == userId);
+    }
+
     // Analytics collection - Allow writes for demo purposes
     match /analytics/{document=**} {
       allow create: if true; // Allow all writes for demo
