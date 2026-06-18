@@ -31,6 +31,10 @@ export interface MessageThread {
   lastMessage?: string
   lastMessageAt?: string
   lastSenderId?: string
+  /** Per-participant last-read time (uid → ISO). Drives unread state. */
+  reads?: Record<string, string>
+  /** Computed on hydrate from the viewer's POV — a new inbound message exists. */
+  unread?: boolean
   /** Hydrated on read — the *other* participant from the viewer's POV. */
   otherUser?: User | null
 }
@@ -127,13 +131,29 @@ class FirebaseMessagingService {
     const lastMessageAt = lastMessageAtRaw && typeof (lastMessageAtRaw as { toDate?: () => Date }).toDate === 'function'
       ? (lastMessageAtRaw as { toDate: () => Date }).toDate().toISOString()
       : (typeof lastMessageAtRaw === 'string' ? lastMessageAtRaw : undefined)
+    // Per-participant read receipts (uid → Timestamp) → ISO strings.
+    const readsRaw = (data.reads || {}) as Record<string, { toDate?: () => Date } | string>
+    const reads: Record<string, string> = {}
+    for (const [uid, v] of Object.entries(readsRaw)) {
+      reads[uid] = v && typeof (v as { toDate?: () => Date }).toDate === 'function'
+        ? (v as { toDate: () => Date }).toDate().toISOString()
+        : (typeof v === 'string' ? v : '')
+    }
     return {
       id: d.id,
       participants,
       lastMessage: data.lastMessage as string | undefined,
       lastMessageAt,
       lastSenderId: data.lastSenderId as string | undefined,
+      reads,
     } as MessageThread
+  }
+
+  /** Is there an unread inbound message for `uid` in this thread? */
+  private isUnreadFor(t: MessageThread, uid: string): boolean {
+    if (!t.lastMessageAt || t.lastSenderId === uid) return false
+    const myRead = t.reads?.[uid]
+    return !myRead || myRead < t.lastMessageAt // ISO strings compare lexically
   }
 
   // Hydrate the "other user" for each thread so the UI can render it without a
@@ -149,7 +169,49 @@ class FirebaseMessagingService {
     otherIds.forEach((uid, i) => userById.set(uid, users[i]))
     return rows.map(t => {
       const otherId = t.participants.find(uid => uid !== currentUserId)
-      return { ...t, otherUser: otherId ? userById.get(otherId) || null : null }
+      return {
+        ...t,
+        otherUser: otherId ? userById.get(otherId) || null : null,
+        unread: this.isUnreadFor(t, currentUserId),
+      }
+    })
+  }
+
+  /**
+   * Mark a thread read for `userId` (stamps reads.<uid> = now). The threads
+   * rule already lets any participant update the doc, so no rules change is
+   * needed. Fire-and-forget from the thread view on open / new message.
+   */
+  async markThreadRead(threadId: string, userId: string): Promise<void> {
+    if (!threadId || !userId) return
+    try {
+      await updateDoc(doc(db, 'threads', threadId), { [`reads.${userId}`]: Timestamp.now() })
+    } catch (e) {
+      console.warn('[messaging] markThreadRead failed', (e as { code?: string })?.code || e)
+    }
+  }
+
+  /**
+   * Lightweight live unread-thread COUNT for a badge — counts threads with a
+   * fresh inbound message without hydrating each other-user (unlike the inbox
+   * subscription). Returns an unsubscribe fn.
+   */
+  subscribeUnreadCount(currentUserId: string, onCount: (n: number) => void): () => void {
+    if (!currentUserId) return () => {}
+    const q = query(
+      collection(db, 'threads'),
+      where('participants', 'array-contains', currentUserId),
+      orderBy('lastMessageAt', 'desc'),
+      fsLimit(50),
+    )
+    return onSnapshot(q, snap => {
+      let n = 0
+      for (const d of snap.docs) {
+        if (this.isUnreadFor(this.mapThreadDoc(d), currentUserId)) n++
+      }
+      onCount(n)
+    }, e => {
+      console.warn('[messaging] subscribeUnreadCount failed', (e as { code?: string })?.code || e)
     })
   }
 

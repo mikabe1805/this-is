@@ -13,6 +13,8 @@ interface NavbarProps {
   setActiveTab: (tab: string) => void
   onCreatePost: () => void
   onEmbedFrom?: () => void
+  /** Unread DM count — shows a dot on the profile tab when > 0. */
+  unreadCount?: number
 }
 
 const TABS = [
@@ -22,7 +24,7 @@ const TABS = [
   { id: 'profile', label: 'You', icon: UserIcon, activeIcon: UserIconSolid },
 ] as const
 
-const Navbar = ({ activeTab, setActiveTab, onCreatePost, onEmbedFrom }: NavbarProps) => {
+const Navbar = ({ activeTab, setActiveTab, onCreatePost, onEmbedFrom, unreadCount = 0 }: NavbarProps) => {
   // Light tick on a real tab change — re-tapping the current tab stays silent
   // so it doesn't feel like a misfire.
   const selectTab = (id: string) => {
@@ -54,7 +56,13 @@ const Navbar = ({ activeTab, setActiveTab, onCreatePost, onEmbedFrom }: NavbarPr
           </div>
 
           {TABS.slice(2).map(tab => (
-            <NavTab key={tab.id} tab={tab} active={activeTab === tab.id} onClick={() => selectTab(tab.id)} />
+            <NavTab
+              key={tab.id}
+              tab={tab}
+              active={activeTab === tab.id}
+              onClick={() => selectTab(tab.id)}
+              badge={tab.id === 'profile' && unreadCount > 0}
+            />
           ))}
         </div>
       </div>
@@ -66,23 +74,33 @@ const NavTab = ({
   tab,
   active,
   onClick,
+  badge = false,
 }: {
   tab: (typeof TABS)[number]
   active: boolean
   onClick: () => void
+  badge?: boolean
 }) => {
   const Icon = active ? tab.activeIcon : tab.icon
   return (
     <button
       type="button"
       onClick={onClick}
-      aria-label={tab.label}
+      aria-label={badge ? `${tab.label} (unread messages)` : tab.label}
       aria-current={active ? 'page' : undefined}
       className={`relative flex flex-col items-center justify-center gap-0.5 py-2 min-h-[44px] rounded-2xl transition-colors press focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/60 ${
         active ? 'text-ink' : 'text-ink-mute hover:text-ink-soft'
       }`}
     >
-      <Icon className="w-[22px] h-[22px]" />
+      <span className="relative">
+        <Icon className="w-[22px] h-[22px]" />
+        {badge && (
+          <span
+            className="absolute -top-0.5 -right-1 w-2 h-2 rounded-full bg-[var(--bloom)] ring-2 ring-[var(--paper)]"
+            aria-hidden="true"
+          />
+        )}
+      </span>
       <span className="font-mono text-[9px] tracking-[0.14em] uppercase mt-0.5">{tab.label}</span>
       {active && (
         <span

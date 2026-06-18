@@ -40,6 +40,7 @@ import CoverPhotoPicker from './components/CoverPhotoPicker.tsx'
 import SaveListToFolderModal from './components/SaveListToFolderModal.tsx'
 import SendToFriendModal from './components/SendToFriendModal.tsx'
 import { firebaseDataService } from './services/firebaseDataService.js'
+import { firebaseMessagingService } from './services/firebaseMessagingService'
 
 // Page-shaped skeleton for code-split routes. Every page except Home is
 // React.lazy, so the first navigation to each used to flash plain mono
@@ -413,9 +414,18 @@ function AppContent() {
   const [activeTab, setActiveTab] = useState('home')
   const [showEmbedFromModal, setShowEmbedFromModal] = useState(false)
   const [showCreateList, setShowCreateList] = useState(false)
+  const [unreadDMs, setUnreadDMs] = useState(0)
   const navigate = useNavigate()
   const location = useLocation()
   const { currentUser } = useAuth()
+
+  // Live unread-DM count → drives the dot on the bottom-nav profile tab so
+  // missed messages are visible from anywhere in the app.
+  useEffect(() => {
+    if (!currentUser) { setUnreadDMs(0); return }
+    const unsub = firebaseMessagingService.subscribeUnreadCount(currentUser.id, setUnreadDMs)
+    return () => unsub()
+  }, [currentUser?.id])
   // Create-post is owned by ModalContext (rendered once in GlobalModals). The
   // navbar routes through here so there's a SINGLE CreatePost instance — there
   // used to be two (this local one + the context one), which split state and
@@ -575,6 +585,7 @@ function AppContent() {
                   setActiveTab={handleTabChange}
                   onCreatePost={() => openCreatePostModal()}
                   onEmbedFrom={() => setShowEmbedFromModal(true)}
+                  unreadCount={unreadDMs}
                 />
               )}
             </div>

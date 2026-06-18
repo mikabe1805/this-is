@@ -64,6 +64,7 @@ const Messages = () => {
           <ul className="divide-y divide-edge border-y border-edge">
             {threads.map(t => {
               const other = t.otherUser
+              const unread = !!t.unread
               return (
                 <li key={t.id}>
                   <button
@@ -78,23 +79,24 @@ const Messages = () => {
                     />
                     <div className="flex-1 min-w-0">
                       <div className="flex items-baseline gap-2">
-                        <p className="font-display text-[18px] leading-tight text-ink truncate">
+                        <p className={`font-display text-[18px] leading-tight truncate ${unread ? 'text-ink font-semibold' : 'text-ink'}`}>
                           {other?.name || other?.username || 'Unknown'}
                         </p>
                         {t.lastMessageAt && (
-                          <span className="font-mono text-[10px] tracking-[0.10em] uppercase text-ink-mute shrink-0">
+                          <span className={`font-mono text-[10px] tracking-[0.10em] uppercase shrink-0 ${unread ? 'text-accent' : 'text-ink-mute'}`}>
                             {formatRelativeTime(t.lastMessageAt)}
                           </span>
                         )}
                       </div>
                       {t.lastMessage ? (
-                        <p className="text-[13px] text-ink-soft truncate mt-0.5">
+                        <p className={`text-[13px] truncate mt-0.5 ${unread ? 'text-ink font-medium' : 'text-ink-soft'}`}>
                           {t.lastSenderId === currentUser?.id ? 'You: ' : ''}{t.lastMessage}
                         </p>
                       ) : (
                         <p className="text-[12px] text-ink-mute italic mt-0.5">Conversation started · no messages yet</p>
                       )}
                     </div>
+                    {unread && <span className="accent-bead accent-bead-sm shrink-0" aria-label="Unread" />}
                   </button>
                 </li>
               )

@@ -278,6 +278,33 @@ is green.
 
 ---
 
+## ✅ Shipped in pass 7 — unread DMs, chat keyboard, map callout, cold-start (June 2026)
+
+Previously-deferred items. `tsc` baseline diff: 0 new errors; build green.
+
+- **Unread message state + badge.** Threads now carry a per-participant `reads`
+  map; the inbox bolds unread rows + shows an accent dot, and a live dot appears
+  on the bottom-nav profile tab (`subscribeUnreadCount`, no user-hydration).
+  Opening a thread (or receiving while open) stamps `reads.<uid>` and clears it in
+  real time. No rules change needed — the existing participant `update` permission
+  covers it. (Pure Firestore; the foundation for the App Badge API later.)
+- **Chat keyboard-inset.** The composer now lifts above the iOS soft keyboard via
+  a `visualViewport` listener (dvh doesn't shrink for the keyboard; visualViewport
+  does) — a no-op on desktop / when closed. ⚠️ Verify on a real device.
+- **In-place map pin callout.** Tapping a pin on `/maps` now shows a
+  `MapCalloutCard` (name/address/thumbnail + Open/Close) that keeps the map's
+  pan/zoom, instead of hard-navigating away. Added an optional `onOpen` to the
+  card (backward-compatible with ListView's usage).
+- **Cold-start: Following.** Replaced the bare `Loading...` (which wiped the whole
+  page) with in-page skeleton rows; swapped the CTA-less empty states for the
+  `EmptyState` component (with "Find people" → Search); 44px filter pills + tab
+  haptics; avatar broken-image fallback; follow/unfollow haptics; safe-area header.
+- **Glass fallback.** Added an `@supports not (backdrop-filter)` block so glass
+  surfaces (dock, CTAs, chips, cards, badges) become near-opaque solids where blur
+  is unsupported — content can no longer bleed through and kill legibility.
+
+---
+
 ## 🎯 Next up — high impact, low/medium effort
 
 ### Sharing experiences & trips with friends

@@ -3,6 +3,8 @@ import { ArrowLeftIcon, MagnifyingGlassIcon } from '@heroicons/react/24/outline'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext.js'
 import { firebaseDataService } from '../services/firebaseDataService.js'
+import { haptics } from '../utils/haptics'
+import EmptyState from '../components/ui/EmptyState'
 import type { User } from '../types/index.js'
 
 const Following = () => {
@@ -57,6 +59,7 @@ const Following = () => {
     const target = followingUsers.find(u => u.id === userId)
     const name = target?.name || target?.username || 'this person'
     if (!window.confirm(`Unfollow ${name}? You can follow them back at any time.`)) return
+    haptics.tap()
     const prev = followingUsers
     setFollowingUsers(curr => curr.filter(u => u.id !== userId))
     try {
@@ -71,6 +74,7 @@ const Following = () => {
 
   const handleFollow = async (userId: string) => {
     if (!authUser) return
+    haptics.success()
     // We don't have the full User object yet — fetch on success rather than
     // synthesizing one. Optimism here is just "the button changes state".
     try {
@@ -98,10 +102,6 @@ const Following = () => {
 
   const isFollowing = (userId: string) => followingIdSet.has(userId)
 
-  if (loading) {
-    return <div>Loading...</div>; // Or a proper loading spinner
-  }
-
   const currentUsers =
     activeTab === 'following'
       ? followingOnlyUsers
@@ -120,7 +120,7 @@ const Following = () => {
   return (
     <div className="relative min-h-full overflow-x-hidden">
       <header className="sticky top-0 z-30 bg-paper/90 backdrop-blur-md">
-        <div className="px-5 pt-5 pb-3 flex items-center justify-between gap-3">
+        <div className="px-5 safe-top pb-3 flex items-center justify-between gap-3">
           <button
             onClick={() => { if (window.history.length > 1) navigate(-1); else navigate('/profile') }}
             className="h-10 w-10 rounded-full hover:bg-paper-deep flex items-center justify-center"
@@ -155,8 +155,8 @@ const Following = () => {
             return (
               <button
                 key={key}
-                onClick={() => setActiveTab(key)}
-                className={`shrink-0 h-8 px-3.5 rounded-full label-eyebrow transition-colors ${
+                onClick={() => { if (key !== activeTab) haptics.tap(); setActiveTab(key) }}
+                className={`shrink-0 inline-flex items-center min-h-[44px] h-11 px-3.5 rounded-full label-eyebrow transition-colors press ${
                   active ? 'bg-ink text-paper' : 'bg-transparent text-ink-soft hover:text-ink border border-edge'
                 }`}
               >
@@ -169,30 +169,53 @@ const Following = () => {
       </header>
 
       <div className="relative z-10 px-5 py-5 max-w-2xl mx-auto">
-        {filteredUsers.length === 0 ? (
-          <div className="border border-edge rounded-[14px] px-5 py-12 text-center bg-card">
-            <p className="font-display text-[24px] text-ink leading-tight">
-              {searchQuery ? 'No matches.' : `No ${activeTab} yet.`}
-            </p>
-            <p className="text-[13px] text-ink-soft mt-2">
-              {searchQuery
-                ? 'Try a different name.'
-                : activeTab === 'following'
-                  ? 'Follow someone whose taste you trust.'
-                  : activeTab === 'friends'
-                    ? 'When you follow each other, you\'ll appear here.'
-                    : 'When people follow you, they\'ll appear here.'}
-            </p>
-          </div>
+        {loading ? (
+          <ul className="divide-y divide-edge border-y border-edge">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <li key={i} className="py-4 flex items-start gap-3.5">
+                <span className="skeleton w-12 h-12 rounded-full shrink-0" />
+                <span className="flex-1">
+                  <span className="skeleton block h-[16px] w-2/5 rounded-md" />
+                  <span className="skeleton block h-[11px] w-1/4 rounded-md mt-2" />
+                  <span className="skeleton block h-[12px] w-3/4 rounded-md mt-3" />
+                </span>
+              </li>
+            ))}
+          </ul>
+        ) : filteredUsers.length === 0 ? (
+          searchQuery ? (
+            <EmptyState title="No matches." body="Try a different name." botanical="fern" />
+          ) : activeTab === 'following' ? (
+            <EmptyState
+              title="No one yet."
+              body="Follow people whose taste you trust — their saves shape your feed."
+              action={{ label: 'Find people', href: '/search' }}
+              botanical="cluster"
+            />
+          ) : activeTab === 'friends' ? (
+            <EmptyState
+              title="No friends yet."
+              body="When you and someone follow each other, you'll both show up here."
+              action={{ label: 'Find people', href: '/search' }}
+              botanical="rose-stem"
+            />
+          ) : (
+            <EmptyState
+              title="No followers yet."
+              body="As you save and share places, people who follow you will appear here."
+              botanical="lavender"
+            />
+          )
         ) : (
           <ul className="divide-y divide-edge border-y border-edge">
             {filteredUsers.map((user) => (
               <li key={user.id} className="py-4">
                 <div className="flex items-start gap-3.5">
                   <img
-                    src={user.avatar}
+                    src={user.avatar || '/assets/default-avatar.svg'}
                     alt={user.name}
                     className="shrink-0 w-12 h-12 rounded-full object-cover bg-paper-deep ring-1 ring-edge"
+                    onError={(e) => { e.currentTarget.src = '/assets/default-avatar.svg' }}
                   />
                   <div className="flex-1 min-w-0">
                     <div className="flex items-start justify-between gap-3">

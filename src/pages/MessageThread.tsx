@@ -21,6 +21,10 @@ const MessageThread = () => {
   const [otherUser, setOtherUser] = useState<User | null>(null)
   const [draft, setDraft] = useState('')
   const [sending, setSending] = useState(false)
+  // How much the iOS soft keyboard overlaps the layout viewport — used to lift
+  // the composer above it (dvh doesn't shrink for the keyboard; visualViewport
+  // does). 0 on desktop / when closed, so this is a no-op there.
+  const [kbInset, setKbInset] = useState(0)
   const scrollRef = useRef<HTMLDivElement>(null)
 
   // Merge server + pending, de-duped by id (so a confirmed optimistic message
@@ -66,6 +70,29 @@ const MessageThread = () => {
     })
     return () => unsub()
   }, [threadId, currentUser])
+
+  // Mark the thread read on open and whenever a new message lands while it's
+  // open — clears the unread dot/badge in the inbox in real time.
+  useEffect(() => {
+    if (!threadId || !currentUser) return
+    void firebaseMessagingService.markThreadRead(threadId, currentUser.id)
+  }, [threadId, currentUser?.id, serverMessages.length])
+
+  // Track the iOS keyboard via visualViewport so the composer lifts above it
+  // instead of being buried at the bottom of the (keyboard-agnostic) dvh shell.
+  useEffect(() => {
+    const vv = window.visualViewport
+    if (!vv) return
+    const update = () => {
+      const overlap = Math.max(0, window.innerHeight - vv.height - vv.offsetTop)
+      setKbInset(overlap)
+      if (overlap > 0 && scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight
+    }
+    vv.addEventListener('resize', update)
+    vv.addEventListener('scroll', update)
+    update()
+    return () => { vv.removeEventListener('resize', update); vv.removeEventListener('scroll', update) }
+  }, [])
 
   // Auto-scroll to bottom when new messages arrive.
   useEffect(() => {
@@ -144,7 +171,11 @@ const MessageThread = () => {
         <div className="border-b border-edge mx-5" />
       </header>
 
-      <div ref={scrollRef} className="flex-1 overflow-y-auto px-5 py-4 max-w-2xl mx-auto w-full">
+      <div
+        ref={scrollRef}
+        className="flex-1 overflow-y-auto px-5 py-4 max-w-2xl mx-auto w-full"
+        style={kbInset > 0 ? { paddingBottom: kbInset } : undefined}
+      >
         {messages.length === 0 ? (
           <div className="border border-edge rounded-[14px] px-5 py-10 text-center bg-card mt-4">
             <p className="font-display text-[20px] text-ink leading-tight">Say hi.</p>
@@ -184,7 +215,10 @@ const MessageThread = () => {
       <form
         onSubmit={handleSend}
         className="sticky bottom-0 z-20 bg-paper/95 backdrop-blur-md border-t border-edge px-5 pt-3"
-        style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 0.75rem)' }}
+        style={{
+          paddingBottom: 'max(env(safe-area-inset-bottom), 0.75rem)',
+          transform: kbInset > 0 ? `translateY(-${kbInset}px)` : undefined,
+        }}
       >
         <div className="flex items-center gap-2 max-w-2xl mx-auto">
           <input

@@ -7,7 +7,10 @@ import { firebaseListService } from '../services/firebaseListService'
 import { loadGoogleMapsAPI, didMapsAuthFail } from '../services/google/places'
 import { readCoords } from '../utils/coords'
 import { haptics } from '../utils/haptics'
+import { MapCalloutCard } from '../components/primitives/MapCalloutCard'
 import type { Place, List } from '../types/index.js'
+
+type PinnedPlace = Place & { coords: { lat: number; lng: number } }
 
 /**
  * Global "all my places" map. Pulls every place the user has saved (via the
@@ -36,6 +39,7 @@ const Maps = () => {
   const [mapsLoaded, setMapsLoaded] = useState(false)
   const [mapsError, setMapsError] = useState(false)
   const [userPos, setUserPos] = useState<{ lat: number; lng: number } | null>(null)
+  const [selected, setSelected] = useState<PinnedPlace | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<google.maps.Map | null>(null)
   const markersRef = useRef<google.maps.Marker[]>([])
@@ -188,7 +192,9 @@ const Maps = () => {
           anchor: new window.google.maps.Point(16, 40),
         },
       })
-      marker.addListener('click', () => { haptics.select(); navigate(`/place/${p.id}`) })
+      // Tap a pin → show an in-place callout (keeps map pan/zoom) instead of
+      // hard-navigating away. The callout's Open button does the navigation.
+      marker.addListener('click', () => { haptics.select(); setSelected(p) })
       markersRef.current.push(marker)
       bounds.extend(p.coords)
     }
@@ -290,6 +296,21 @@ const Maps = () => {
                 <p className="font-mono text-[10px] tracking-[0.10em] uppercase text-ink-mute">Map</p>
                 <p className="text-[13px] text-ink mt-0.5">No saved places yet — save a few and they'll pin here.</p>
               </div>
+            )}
+            {selected && (
+              <MapCalloutCard
+                anchoredToMap
+                place={{
+                  id: selected.id,
+                  name: selected.name,
+                  address: selected.address || '',
+                  types: (selected as { types?: string[] }).types,
+                  photoResourceName: (selected as { photos?: { name: string }[] }).photos?.[0]?.name,
+                  userPhotos: (selected as { mainImage?: string }).mainImage ? [(selected as { mainImage?: string }).mainImage!] : undefined,
+                }}
+                onOpen={() => { haptics.select(); navigate(`/place/${selected.id}`) }}
+                onClose={() => setSelected(null)}
+              />
             )}
           </div>
         )}
