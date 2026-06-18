@@ -550,6 +550,50 @@ class FirebaseDataService {
   }
 
   /**
+   * Lightweight saved-place taste signals for buildTasteProfile — reads the
+   * fields denormalized onto the savedPlaces mirror by recordUserSave, avoiding
+   * the getSavedPlaces N+1 getPlace on the (Home-hot-path) profile build. Legacy
+   * mirror docs that predate the denormalization fall back to a BOUNDED getPlace
+   * fetch, so coverage is preserved and the fallback shrinks toward 0 as saves
+   * re-denormalize.
+   */
+  async getSavedPlaceSignals(
+    userId: string,
+    max = 60,
+    fallbackCap = 24,
+  ): Promise<Array<{ id: string; primaryType?: string; types?: string[]; category?: string; tags?: string[]; name?: string }>> {
+    if (!userId) return []
+    try {
+      const snap = await getDocs(query(
+        collection(db, 'users', userId, 'savedPlaces'),
+        orderBy('savedAt', 'desc'),
+        fsLimit(Math.max(max, 1)),
+      ))
+      const out: Array<{ id: string; primaryType?: string; types?: string[]; category?: string; tags?: string[]; name?: string }> = []
+      const legacy: string[] = []
+      snap.forEach(d => {
+        const data = d.data() as { placeId?: string; primaryType?: string; types?: string[]; category?: string; placeTags?: string[]; name?: string }
+        const id = data.placeId || d.id
+        if (!id) return
+        const hasDenorm = !!data.primaryType || (Array.isArray(data.types) && data.types.length > 0) || !!data.category || (Array.isArray(data.placeTags) && data.placeTags.length > 0)
+        if (hasDenorm) out.push({ id, primaryType: data.primaryType, types: data.types, category: data.category, tags: data.placeTags, name: data.name })
+        else legacy.push(id)
+      })
+      if (legacy.length) {
+        const fetched = await Promise.all(legacy.slice(0, fallbackCap).map(id => this.getPlace(id).catch(() => null)))
+        for (const p of fetched) {
+          const lp = p as { id?: string; primaryType?: string; types?: string[]; category?: string; tags?: string[]; name?: string } | null
+          if (lp?.id) out.push({ id: lp.id, primaryType: lp.primaryType, types: lp.types, category: lp.category, tags: lp.tags, name: lp.name })
+        }
+      }
+      return out
+    } catch (e) {
+      console.warn('[getSavedPlaceSignals] failed', e)
+      return []
+    }
+  }
+
+  /**
    * Self-heal saved places that were persisted without coordinates (the old
    * save path dropped Google's top-level lat/lng). For each such place that
    * still carries a googlePlaceId, fetch its location once via Place Details,
@@ -2613,7 +2657,8 @@ class FirebaseDataService {
 
     const [user, saved, stored] = await Promise.all([
       this.getCurrentUser(userId).catch(() => null),
-      this.getSavedPlaces(userId, 60).catch(() => [] as Place[]),
+      // Denormalized signals off the mirror (no N+1 getPlace) — see getSavedPlaceSignals.
+      this.getSavedPlaceSignals(userId, 60).catch(() => [] as Array<{ id: string; primaryType?: string; types?: string[]; category?: string; tags?: string[]; name?: string }>),
       this.getStoredTaste(userId).catch(() => ({ interests: {}, vibes: {}, signalCount: 0, suppressed: {} } as StoredTaste)),
     ])
 
@@ -2685,7 +2730,7 @@ class FirebaseDataService {
     //     where a legacy user's first new save would drop all their older
     //     saves from the profile. Weight ×1.5 per save.
     for (const p of saved) {
-      for (const k of placeInterestKeys(p as Place)) bump(k, 1.5)
+      for (const k of placeInterestKeys(p)) bump(k, 1.5)
     }
     // (2) Signup vibes / categories (user.tags). Weight ×2 per hit.
     for (const [k, n] of detectInterests((user?.tags as string[]) || [])) bump(k, 2 * n)
@@ -3685,17 +3730,40 @@ class FirebaseDataService {
    *     on the profile). Without this write the counter is permanently 0
    *     because nothing else populated that collection.
    */
-  async recordUserSave(placeId: string, userId: string): Promise<boolean> {
+  /** Extract the denormalizable taste signals from a place-like object, for
+   *  passing to recordUserSave (so the savedPlaces mirror carries them). */
+  placeSignals(place: { primaryType?: string | null; types?: string[]; category?: string; tags?: string[]; name?: string } | null | undefined) {
+    if (!place) return undefined
+    return { primaryType: place.primaryType, types: place.types, category: place.category, tags: place.tags, name: place.name }
+  }
+
+  async recordUserSave(
+    placeId: string,
+    userId: string,
+    signals?: { primaryType?: string | null; types?: string[]; category?: string; tags?: string[]; name?: string },
+  ): Promise<boolean> {
     try {
       if (!placeId || !userId) return false
       const markerRef = doc(db, 'places', placeId, 'saves', userId)
       const userSavedRef = doc(db, 'users', userId, 'savedPlaces', placeId)
       const existing = await getDoc(markerRef)
       const ts = Timestamp.now()
+      // Denormalize the place's taste signals onto the mirror at save time so
+      // buildTasteProfile can fold saved-place categories WITHOUT an N+1 getPlace
+      // per saved place on every (Home-hot-path) profile build.
+      const mirror = this.cleanUndefined({
+        placeId,
+        savedAt: ts,
+        primaryType: signals?.primaryType || undefined,
+        types: Array.isArray(signals?.types) && signals!.types!.length ? signals!.types : undefined,
+        category: signals?.category || undefined,
+        placeTags: Array.isArray(signals?.tags) && signals!.tags!.length ? signals!.tags : undefined,
+        name: signals?.name || undefined,
+      })
       // Always backfill the user-side marker even if the global one already
       // exists — that's the path that recovers PLACES counts for accounts
       // who saved before this mirror was added.
-      await setDoc(userSavedRef, { placeId, savedAt: ts }, { merge: true })
+      await setDoc(userSavedRef, mirror, { merge: true })
       // A new save changes the user's taste — drop the cached profile so the
       // next recommendation load reflects it (cheap; just clears the 5-min cache).
       this.invalidateTasteProfile(userId)

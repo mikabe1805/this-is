@@ -512,7 +512,7 @@ const Profile = () => {
                 await firebaseDataService.savePlaceToList(selectedPlace.id, lid, authUser.id, note, undefined, status, rating)
             }
             await firebaseDataService.recordStatusSave(authUser.id, selectedPlace.id, status, rating, note)
-            await firebaseDataService.recordUserSave(selectedPlace.id, authUser.id)
+            await firebaseDataService.recordUserSave(selectedPlace.id, authUser.id, firebaseDataService.placeSignals(selectedPlace))
             // Teach the taste model + announce the save, matching the global
             // SaveModal path (App.tsx). Without these, own-profile saves taught
             // the model nothing and the "Your taste" card never refreshed.
@@ -559,7 +559,7 @@ const Profile = () => {
                 const status = saveContext?.status || 'loved'
                 await firebaseDataService.savePlaceToList(selectedPlace.id, newId, authUser.id, saveContext?.note, undefined, status, saveContext?.rating)
                 await firebaseDataService.recordStatusSave(authUser.id, selectedPlace.id, status, saveContext?.rating, saveContext?.note)
-                await firebaseDataService.recordUserSave(selectedPlace.id, authUser.id)
+                await firebaseDataService.recordUserSave(selectedPlace.id, authUser.id, firebaseDataService.placeSignals(selectedPlace))
                 firebaseDataService.recordTasteFromPlace(authUser.id, selectedPlace, status === 'loved' ? 3 : status === 'tried' ? 2 : 1.5)
                 window.dispatchEvent(new CustomEvent('this-is:saved', { detail: { placeId: selectedPlace.id, status } }))
                 haptics.success()

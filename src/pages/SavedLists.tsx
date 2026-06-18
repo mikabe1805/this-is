@@ -76,7 +76,7 @@ const Favorites = () => {
       for (const lid of ids) {
         await firebaseDataService.savePlaceToList(selectedPlace.id, lid, authUser.id, note, undefined, status, rating)
       }
-      await firebaseDataService.recordUserSave(selectedPlace.id, authUser.id)
+      await firebaseDataService.recordUserSave(selectedPlace.id, authUser.id, firebaseDataService.placeSignals(selectedPlace))
       // Cover-picker prompt — listener skips silently if cover already exists.
       try {
         window.dispatchEvent(new CustomEvent('openCoverPicker', {
@@ -106,7 +106,7 @@ const Favorites = () => {
       if (newId) {
         const status = saveContext?.status || 'loved'
         await firebaseDataService.savePlaceToList(selectedPlace.id, newId, authUser.id, saveContext?.note, undefined, status, saveContext?.rating)
-        await firebaseDataService.recordUserSave(selectedPlace.id, authUser.id)
+        await firebaseDataService.recordUserSave(selectedPlace.id, authUser.id, firebaseDataService.placeSignals(selectedPlace))
       }
     } catch (e) {
       console.error('[favorites] create list + save failed', e)

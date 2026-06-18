@@ -224,7 +224,9 @@ const GlobalModals = () => {
               // so a sentiment is tracked without needing a custom list.
               await firebaseDataService.recordStatusSave(currentUser.id, placeId, status, rating, note)
               // Idempotent save-count bump — once per user-place pair, not once per list.
-              await firebaseDataService.recordUserSave(placeId, currentUser.id)
+              // Pass the place's signals so the savedPlaces mirror is denormalized
+              // (lets buildTasteProfile skip the N+1 getPlace).
+              await firebaseDataService.recordUserSave(placeId, currentUser.id, seedHub ? { primaryType: seedHub.primaryType, types: seedHub.types, category: seedHub.category, tags: seedHub.tags, name: seedHub.name } : undefined)
 
               if (seedHub) {
                 await firebaseDataService.trackUserInteraction(currentUser.id, 'save', {
@@ -319,7 +321,7 @@ const GlobalModals = () => {
               const noteToSave = saveContext?.note
               await firebaseDataService.savePlaceToList(placeId, newListId, currentUser.id, noteToSave, undefined, status, rating);
               await firebaseDataService.recordStatusSave(currentUser.id, placeId, status, rating, noteToSave)
-              await firebaseDataService.recordUserSave(placeId, currentUser.id)
+              await firebaseDataService.recordUserSave(placeId, currentUser.id, seedHub ? { primaryType: seedHub.primaryType, types: seedHub.types, category: seedHub.category, tags: seedHub.tags, name: seedHub.name } : undefined)
               if (seedHub) {
                 const w = status === 'loved' ? 3 : status === 'tried' ? 2 : 1.5
                 firebaseDataService.recordTasteFromPlace(currentUser.id, seedHub, w)

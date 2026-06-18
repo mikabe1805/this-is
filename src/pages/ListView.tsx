@@ -423,7 +423,7 @@ const ListView = () => {
         await firebaseListService.savePlaceToList(place.id, lid, currentUser.id, note, status, rating)
       }
       await firebaseDataService.recordStatusSave(currentUser.id, place.id, status, rating, note)
-      await firebaseDataService.recordUserSave(place.id, currentUser.id)
+      await firebaseDataService.recordUserSave(place.id, currentUser.id, firebaseDataService.placeSignals(place))
       firebaseDataService.recordTasteFromPlace(
         currentUser.id,
         place as { id?: string; primaryType?: string | null; types?: string[]; category?: string; tags?: string[]; name?: string },
