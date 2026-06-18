@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import AppHeader from '../components/ui/AppHeader'
+import PullSpinner from '../components/ui/PullSpinner'
 import SearchOverlay from '../components/ui/SearchOverlay'
 import DiscoveryCard, { type DiscoveryCardItem } from '../components/ui/DiscoveryCard'
 import PageWatermark from '../components/ui/PageWatermark'
@@ -9,6 +10,7 @@ import { useModal } from '../contexts/ModalContext'
 import { firebaseDataService } from '../services/firebaseDataService'
 import { readCoords } from '../utils/coords'
 import { haptics } from '../utils/haptics'
+import { usePullToRefresh } from '../hooks/usePullToRefresh'
 import type { Place, List, User } from '../types/index.js'
 
 type FeedItem = DiscoveryCardItem & {
@@ -55,11 +57,14 @@ const Explore = () => {
     } catch {}
   }, [currentUser, filter])
 
-  const load = async (key: FilterKey) => {
+  const load = async (key: FilterKey, forceFresh = false) => {
     if (!currentUser) return
     const cacheKey = `feed:${key}`
     const cached = cacheRef.current[cacheKey]
-    if (cached && Date.now() - cached.t < 2 * 60 * 1000) {
+    // forceFresh (pull-to-refresh) skips the 2-min in-memory cache. It still
+    // hits the 24h Google searchText cache underneath, so it re-ranks + re-pulls
+    // the cheap internal pool without re-billing Places.
+    if (!forceFresh && cached && Date.now() - cached.t < 2 * 60 * 1000) {
       setItems(cached.items)
       setIsLoading(false)
       return
@@ -173,6 +178,9 @@ const Explore = () => {
 
   const filtered = useMemo(() => items, [items])
 
+  // Pull down at the top of the feed to refresh (bypasses the 2-min cache).
+  const { pull, refreshing } = usePullToRefresh(() => load(filter, true))
+
   const handleOpen = (it: FeedItem) => {
     haptics.select()
     if (it.itemKind === 'place') openHubModal(it.raw as Place, 'explore')
@@ -212,6 +220,7 @@ const Explore = () => {
 
   return (
     <div className="min-h-full relative overflow-x-hidden">
+      <PullSpinner pull={pull} refreshing={refreshing} />
       <PageWatermark variant="bouquet" anchor="bottom-left" size={320} opacity={0.18} flip />
       <AppHeader
         title="Where to next."
