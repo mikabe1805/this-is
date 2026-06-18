@@ -1,5 +1,5 @@
 import type { User, List, Activity, Place } from '../types/index.js'
-import { BookmarkIcon, HeartIcon, PlusIcon, MapPinIcon, CalendarIcon, EllipsisHorizontalIcon, TrophyIcon } from '@heroicons/react/24/outline'
+import { BookmarkIcon, HeartIcon, PlusIcon, MapPinIcon, CalendarIcon, EllipsisHorizontalIcon, TrophyIcon, EyeIcon } from '@heroicons/react/24/outline'
 import { HeartIcon as HeartIconSolid } from '@heroicons/react/24/solid'
 import { useState, useRef, useEffect, useMemo, useDeferredValue } from 'react'
 // SearchAndFilter removed in UX refresh — replaced by inline header search
@@ -397,6 +397,20 @@ const Profile = () => {
     const [visibleCount, setVisibleCount] = useState(6)
     const visibleLists = useMemo(() => sortedLists.slice(0, visibleCount), [sortedLists, visibleCount])
 
+    // The auto-maintained status collections (All Loved / All Tried / All Want).
+    // They're filtered out of "Your Lists" above, so surface them here as the
+    // canonical "your places by sentiment" — no list-making required to save.
+    const statusCollections = useMemo(() => {
+        const find = (status: 'loved' | 'tried' | 'want') => userLists.find(l => {
+            const n = (l.name || '').trim().toLowerCase()
+            return (l as { autoStatus?: string }).autoStatus === status || n === `all ${status}`
+        })
+        return { loved: find('loved'), tried: find('tried'), want: find('want') }
+    }, [userLists])
+    const statusTotal = (['loved', 'tried', 'want'] as const).reduce(
+        (n, s) => n + (((statusCollections[s] as { hubs?: unknown[] } | undefined)?.hubs?.length) || 0), 0,
+    )
+
     const filteredActivityItems = useMemo(() => activityItems.filter(activity => {
         const q = deferredSearch.trim().toLowerCase()
         if (!q) return true
@@ -756,6 +770,35 @@ const Profile = () => {
             </div>
             )}
             <div className="relative z-10 p-4 max-w-2xl mx-auto space-y-8 pb-20">
+                {statusTotal > 0 && (
+                    <div>
+                        <Section title="Your places">
+                            <div className="grid grid-cols-3 gap-2.5">
+                                {([
+                                    { key: 'loved', label: 'Loved', Icon: HeartIcon },
+                                    { key: 'tried', label: 'Been', Icon: BookmarkIcon },
+                                    { key: 'want', label: 'Want', Icon: EyeIcon },
+                                ] as const).map(({ key, label, Icon }) => {
+                                    const list = statusCollections[key]
+                                    const count = ((list as { hubs?: unknown[] } | undefined)?.hubs?.length) || 0
+                                    return (
+                                        <button
+                                            key={key}
+                                            type="button"
+                                            disabled={!list || count === 0}
+                                            onClick={() => { if (list && count > 0) { haptics.tap(); openListModal(list, 'profile-places') } }}
+                                            className="rounded-2xl px-3 py-4 bg-card border border-edge flex flex-col items-start gap-2 hover:border-ink/30 transition-colors press disabled:opacity-45"
+                                        >
+                                            <Icon className="w-5 h-5 text-ink" />
+                                            <span className="label-eyebrow text-ink-mute">{label}</span>
+                                            <span className="font-display text-[24px] leading-none text-ink">{count}</span>
+                                        </button>
+                                    )
+                                })}
+                            </div>
+                        </Section>
+                    </div>
+                )}
                 <div>
                     <Section title="Your Lists" action={
                       <button onClick={() => { const params = new URLSearchParams(); if (selectedTags.length > 0) params.set('tags', selectedTags.join(',')); if (sortBy) params.set('sort', sortBy); params.set('onlyMine', 'true'); navigate(`/lists?${params.toString()}`) }} className="text-sm font-medium text-body hover:underline">View All</button>
