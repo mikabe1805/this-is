@@ -330,6 +330,23 @@ Zero Google Places cost — pure Firestore on a new `userRankings/{uid}` doc.
 
 ---
 
+## ✅ Shipped in pass 9 — ranked-places view, friend social proof, scores, transitions (June 2026)
+
+- **"Your rankings" view** (`/rankings`, linked from Profile) — the payoff for the
+  Beli loop: your ranked places per bucket (Loved / Fine / Not-for-me) with each
+  one's 0–10 score, tap-through to the place. Live-updates as you rank.
+- **Friend-scoped social proof** — reusing the cached `getFriendSavedPlaceMap`
+  (no schema change, no extra cost): PlaceHub shows "Saved by Maya + 2 more you
+  follow", and Explore/Search cards carry the friend chip.
+- **Personal scores on list rows** — ListView shows your 0–10 score beside each
+  place, live on (re)rank.
+- **Route View Transitions** — react-router v7 `viewTransition` on the genuine
+  screen-change navigations (inbox ↔ thread, rankings → place) + a subtle,
+  reduced-motion-safe cross-fade in CSS. (Most in-app place opens are modals, so
+  this is deliberately scoped to real route changes.)
+
+---
+
 ## 🎯 Next up — high impact, low/medium effort
 
 ### Sharing experiences & trips with friends

@@ -206,6 +206,23 @@
   text-decoration-thickness: 2px;
 }
 
+/* === Route cross-fade (View Transitions API) ===
+   Only active when a navigation opts in via react-router's `viewTransition`;
+   engines without the API ignore it entirely, and reduced-motion users get an
+   instant cut. Kept to a quick, subtle cross-fade so screen changes feel less
+   like a hard cut. */
+@media (prefers-reduced-motion: no-preference) {
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation-duration: 240ms;
+    animation-timing-function: cubic-bezier(0.2, 0, 0, 1);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(root),
+  ::view-transition-new(root) { animation: none; }
+}
+
 /* Top safe-area inset for sticky page headers. On a notched iPhone (the app
    ships viewport-fit=cover + status-bar-style default) content draws under the
    status bar / Dynamic Island; this pushes the header title row clear of it

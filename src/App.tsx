@@ -29,6 +29,7 @@ const ViewAllLists = lazy(() => import('./pages/ViewAllLists.tsx'))
 const Favorites = lazy(() => import('./pages/SavedLists.tsx'))
 const PlaceHub = lazy(() => import('./pages/PlaceHub.tsx'))
 const Maps = lazy(() => import('./pages/Maps.tsx'))
+const Rankings = lazy(() => import('./pages/Rankings.tsx'))
 const Messages = lazy(() => import('./pages/Messages.tsx'))
 const MessageThread = lazy(() => import('./pages/MessageThread.tsx'))
 const UserProfile = lazy(() => import('./pages/UserProfile.tsx'))
@@ -567,6 +568,7 @@ function AppContent() {
                     <Route path="/place/:id" element={<PlaceHub />} />
                     <Route path="/user/:userId" element={<UserProfile />} />
                     <Route path="/maps" element={<Maps />} />
+                    <Route path="/rankings" element={<Rankings />} />
                     <Route path="/messages" element={<Messages />} />
                     <Route path="/messages/:threadId" element={<MessageThread />} />
                     {/* Catch-all 404. Without this, an unknown URL silently

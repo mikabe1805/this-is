@@ -95,6 +95,18 @@ const Search = () => {
     navigate(`/search?q=${encodeURIComponent(trimmed)}`, { replace: true })
   }
 
+  // Trusted-taste social proof — placeId → names of people you follow who saved
+  // it. Loaded once (cached 10 min) so result cards can show a friend chip.
+  const [friendMap, setFriendMap] = useState<Map<string, string[]>>(new Map())
+  useEffect(() => {
+    if (!currentUser) return
+    let cancelled = false
+    firebaseDataService.getFriendSavedPlaceMap(currentUser.id)
+      .then(m => { if (!cancelled) setFriendMap(m) })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [currentUser?.id])
+
   const internalPlaces = useMemo(() => {
     const arr = (displayResults as { places?: unknown[] }).places || []
     return arr.map((entry) => {
@@ -118,10 +130,11 @@ const Search = () => {
         types: p.types,
         photos: p.photos,
         imageUrl: p.mainImage || p.hubImage || p.coverImage || undefined,
+        friendCount: friendMap.get(p.id)?.length,
       }
       return { item, raw: p }
     })
-  }, [displayResults])
+  }, [displayResults, friendMap])
 
   const internalIdSet = useMemo(() => new Set(internalPlaces.map(p => p.item.id)), [internalPlaces])
   const fingerprintOf = (name?: string, address?: string) => {
@@ -209,10 +222,11 @@ const Search = () => {
         types: p.types,
         photos: p.photos,
         imageUrl: (p as Place & { mainImage?: string }).mainImage || undefined,
+        friendCount: friendMap.get(p.id)?.length,
       }
       return { item, raw: tagged }
     })
-  }, [googleResults])
+  }, [googleResults, friendMap])
 
   const places = useMemo(() => [...internalPlaces, ...googlePlaces], [internalPlaces, googlePlaces])
 

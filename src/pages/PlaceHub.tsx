@@ -65,6 +65,18 @@ const PlaceHub = () => {
   const [savedPosts, setSavedPosts] = useState<Set<string>>(new Set())
   const [tab, setTab] = useState<'posts' | 'about'>('posts')
   const [myScore, setMyScore] = useState<number | null>(null)
+  const [friendSavers, setFriendSavers] = useState<string[]>([])
+
+  // People the viewer FOLLOWS who've saved this place — trusted-taste social
+  // proof. Reuses the cached friend-saved map (no per-place query).
+  useEffect(() => {
+    if (!authUser || !place?.id) { setFriendSavers([]); return }
+    let cancelled = false
+    firebaseDataService.getFriendSavedPlaceMap(authUser.id)
+      .then(m => { if (!cancelled) setFriendSavers(m.get(place.id) || []) })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [authUser?.id, place?.id])
 
   // The viewer's personal 0–10 score for this place (from the Beli-loop
   // ranking), shown as a badge and kept live when they (re)rank it.
@@ -388,6 +400,17 @@ const PlaceHub = () => {
               ) : null}
             </div>
           ) : null}
+
+          {/* Trusted-taste social proof — people you follow who saved this. */}
+          {friendSavers.length > 0 && (
+            <p className="mt-3 text-[13px] text-ink-soft flex items-center gap-1.5">
+              <span className="accent-bead accent-bead-sm shrink-0" aria-hidden />
+              <span>
+                Saved by <span className="text-ink font-medium">{friendSavers[0]}</span>
+                {friendSavers.length > 1 && ` + ${friendSavers.length - 1} more you follow`}
+              </span>
+            </p>
+          )}
 
           <div className="mt-6 flex gap-2">
             <div className="relative flex-1">

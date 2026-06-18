@@ -29,7 +29,7 @@ import { useDocumentTitle } from '../hooks/useDocumentTitle'
 import { formatTimestamp } from '../utils/dateUtils'
 import { haptics } from '../utils/haptics'
 import { shareLink, listShareUrl } from '../utils/share'
-import { sentimentBucket } from '../services/rankingService'
+import { rankingService, sentimentBucket } from '../services/rankingService'
 
 const ListView = () => {
   const { id } = useParams<{ id: string }>()
@@ -78,6 +78,18 @@ const ListView = () => {
   const { filters, setFilters } = useFilters()
 
   const [loadState, setLoadState] = useState<'loading' | 'ready' | 'not-found' | 'error'>('loading')
+  const [myScores, setMyScores] = useState<Record<string, number>>({})
+
+  // The viewer's personal place scores (Beli loop) → a badge on each row.
+  useEffect(() => {
+    if (!currentUser) return
+    let cancelled = false
+    const load = () => rankingService.getScores(currentUser.id).then(s => { if (!cancelled) setMyScores(s) }).catch(() => {})
+    void load()
+    const onRanked = () => { rankingService.invalidate(currentUser.id); void load() }
+    window.addEventListener('this-is:ranked', onRanked)
+    return () => { cancelled = true; window.removeEventListener('this-is:ranked', onRanked) }
+  }, [currentUser?.id])
 
   useDocumentTitle(
     list?.name,
@@ -837,7 +849,18 @@ const ListView = () => {
             <div className="flex-1 p-6 flex flex-col gap-2">
               <div className="flex items-start justify-between mb-2">
                 <div className="flex-1">
-                  <h4 className="font-serif font-semibold text-title mb-1 text-lg">{listPlace.place.name}</h4>
+                  <h4 className="font-serif font-semibold text-title mb-1 text-lg flex items-center gap-2">
+                    <span className="truncate">{listPlace.place.name}</span>
+                    {typeof myScores[listPlace.place.id] === 'number' && (
+                      <span
+                        className="shrink-0 inline-flex items-center justify-center h-6 min-w-6 px-1.5 rounded-full bg-accent-soft border border-accent/30 font-display text-[13px]"
+                        style={{ color: 'var(--accent-deep)' }}
+                        title="Your score"
+                      >
+                        {myScores[listPlace.place.id].toFixed(1)}
+                      </span>
+                    )}
+                  </h4>
                   <div className="flex items-center text-body text-sm mb-2">
                     <MapPinIcon className="w-4 h-4 mr-1" />
                     {listPlace.place.address}

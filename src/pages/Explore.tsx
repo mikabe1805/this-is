@@ -124,6 +124,9 @@ const Explore = () => {
           if (fp) seenFingerprints.add(fp)
           return true
         })
+        // Trusted-taste social proof: people you follow who saved each place.
+        // Cached 10 min, so this is ~free after the first feed load.
+        const friendMap = await firebaseDataService.getFriendSavedPlaceMap(currentUser.id).catch(() => new Map<string, string[]>())
         feed = unique.map((p: any) => {
           const coords = readCoords(p)
           const distanceKm = eff && coords
@@ -141,6 +144,7 @@ const Explore = () => {
             imageUrl: p.mainImage || p.hubImage || p.coverImage || undefined,
             distanceKm,
             savedCount: p.savedCount,
+            friendCount: friendMap.get(p.id)?.length,
             postCount: Array.isArray(p.posts) ? p.posts.length : undefined,
             isExternal: p.source === 'google',
             raw: p as Place,

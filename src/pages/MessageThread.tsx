@@ -138,7 +138,7 @@ const MessageThread = () => {
       <header className="sticky top-0 z-30 bg-paper/90 backdrop-blur-md">
         <div className="px-5 safe-top pb-3 flex items-center gap-3">
           <button
-            onClick={() => { if (window.history.length > 1) navigate(-1); else navigate('/messages') }}
+            onClick={() => { if (window.history.length > 1) navigate(-1); else navigate('/messages', { viewTransition: true }) }}
             aria-label="Back"
             className="h-10 w-10 rounded-full hover:bg-paper-deep flex items-center justify-center"
           >

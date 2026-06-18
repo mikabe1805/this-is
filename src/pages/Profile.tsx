@@ -1,5 +1,5 @@
 import type { User, List, Activity, Place } from '../types/index.js'
-import { BookmarkIcon, HeartIcon, PlusIcon, MapPinIcon, CalendarIcon, EllipsisHorizontalIcon } from '@heroicons/react/24/outline'
+import { BookmarkIcon, HeartIcon, PlusIcon, MapPinIcon, CalendarIcon, EllipsisHorizontalIcon, TrophyIcon } from '@heroicons/react/24/outline'
 import { HeartIcon as HeartIconSolid } from '@heroicons/react/24/solid'
 import { useState, useRef, useEffect, useMemo, useDeferredValue } from 'react'
 // SearchAndFilter removed in UX refresh — replaced by inline header search
@@ -737,8 +737,15 @@ const Profile = () => {
                         <span className="label-eyebrow">Map</span>
                     </button>
                     <button
+                        onClick={() => navigate('/rankings')}
+                        className="rounded-2xl px-4 py-4 bg-card border border-edge text-ink flex flex-col items-start gap-3 hover:border-ink/30 transition-colors press"
+                    >
+                        <TrophyIcon className="w-5 h-5 text-ink" />
+                        <span className="label-eyebrow">Rankings</span>
+                    </button>
+                    <button
                         onClick={() => navigate('/messages')}
-                        className="rounded-2xl px-4 py-4 bg-card border border-edge text-ink flex flex-col items-start gap-3 hover:border-ink/30 transition-colors press col-span-2"
+                        className="rounded-2xl px-4 py-4 bg-card border border-edge text-ink flex flex-col items-start gap-3 hover:border-ink/30 transition-colors press"
                     >
                         <PlusIcon className="w-5 h-5 text-ink" />
                         <span className="label-eyebrow">Messages</span>
