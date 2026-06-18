@@ -38,6 +38,8 @@ interface HubModalProps {
   onOpenFullScreen?: () => void
   onSave?: () => void
   onShare?: () => void
+  /** Start a post about this place. */
+  onAddPost?: () => void
 }
 
 /**
@@ -56,12 +58,27 @@ const HubModal = ({
   onOpenFullScreen,
   onSave,
   onShare,
+  onAddPost,
 }: HubModalProps) => {
   const { currentUser } = useAuth()
   const [place, setPlace] = useState<LoosePlace | null>(hub as LoosePlace)
   const [loading, setLoading] = useState(false)
   const [myScore, setMyScore] = useState<number | null>(null)
   const [friendSavers, setFriendSavers] = useState<string[]>([])
+
+  // "Opening a place teaches your taste" (×0.6) — restored for the modal flow
+  // (taps open this modal now, not the /place route that used to record it),
+  // and dwell-gated to ~1.5s so a quick peek / mis-tap doesn't write a signal.
+  const placeForTasteRef = useRef<LoosePlace | null>(place)
+  placeForTasteRef.current = place
+  useEffect(() => {
+    if (!isOpen || !currentUser) return
+    const t = setTimeout(() => {
+      const p = placeForTasteRef.current
+      if (p) firebaseDataService.recordTasteFromPlace(currentUser.id, p as { primaryType?: string | null; types?: string[]; category?: string; tags?: string[]; name?: string; id?: string }, 0.6)
+    }, 1500)
+    return () => clearTimeout(t)
+  }, [isOpen, currentUser?.id])
 
   // Personal score (Beli loop) + trusted-taste social proof for the header.
   useEffect(() => {
@@ -217,11 +234,25 @@ const HubModal = ({
 
           {(place?.posts?.length || 0) > 0 && (
             <section>
-              <p className="label-eyebrow text-ink-mute mb-2">Recent posts</p>
+              <div className="flex items-center justify-between mb-2">
+                <p className="label-eyebrow text-ink-mute">Recent posts</p>
+                {onAddPost && (
+                  <button type="button" onClick={() => { haptics.tap(); onAddPost() }} className="label-eyebrow text-accent hover:underline press">
+                    + Add
+                  </button>
+                )}
+              </div>
               <ul className="divide-y divide-edge border-y border-edge">
                 {(place?.posts || []).slice(0, 4).map((p) => (
-                  <li key={p.id} className="py-3">
-                    <p className="text-[14px] text-ink leading-snug line-clamp-3">{p.description}</p>
+                  <li key={p.id}>
+                    <button
+                      type="button"
+                      onClick={() => { if (onOpenFullScreen) { haptics.select(); onOpenFullScreen() } }}
+                      disabled={!onOpenFullScreen}
+                      className="w-full text-left py-3 -mx-1 px-1 rounded-lg hover:bg-paper-deep transition-colors press"
+                    >
+                      <p className="text-[14px] text-ink leading-snug line-clamp-3">{p.description}</p>
+                    </button>
                   </li>
                 ))}
               </ul>
@@ -231,7 +262,12 @@ const HubModal = ({
           {!place?.description && !(place?.posts?.length || 0) && !loading && (
             <div className="py-8 text-center">
               <p className="font-display text-[20px] text-ink leading-tight">Quiet here.</p>
-              <p className="text-[12px] text-ink-soft mt-1">No notes yet — open the full page to add one.</p>
+              <p className="text-[12px] text-ink-soft mt-1">Be the first to post about this place.</p>
+              {onAddPost && (
+                <button type="button" onClick={() => { haptics.tap(); onAddPost() }} className="btn-secondary press h-9 px-4 mt-4 label-eyebrow inline-flex items-center">
+                  Write a post
+                </button>
+              )}
             </div>
           )}
 

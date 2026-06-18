@@ -152,6 +152,27 @@ const NavigationModals = () => {
             exitModalFlow()
             navigate(`/place/${selectedHub.id}`)
           }}
+          onAddPost={() => {
+            // CreatePost (z-9999) sits below HubModal (z-10003), so close the
+            // hub modal first then open it — same pattern as ListModal's add-post.
+            const h = selectedHub as unknown as {
+              id: string; name: string; address?: string; description?: string
+              location?: { address?: string; lat?: number; lng?: number }
+              coordinates?: { lat?: number; lng?: number }
+            }
+            const hubForPost = {
+              id: h.id,
+              name: h.name,
+              location: {
+                address: h.address || h.location?.address || '',
+                lat: h.coordinates?.lat ?? h.location?.lat,
+                lng: h.coordinates?.lng ?? h.location?.lng,
+              },
+              description: h.description,
+            }
+            exitModalFlow()
+            openCreatePostModal(hubForPost as never)
+          }}
           onSave={() => {
             // Forward the full hub metadata so ensureHubFromPlace can write
             // a complete place doc (photos / primaryType / types / coords).

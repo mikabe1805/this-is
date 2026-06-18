@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { XMarkIcon, MagnifyingGlassIcon, PaperAirplaneIcon } from '@heroicons/react/24/outline'
+import { XMarkIcon, MagnifyingGlassIcon, PaperAirplaneIcon, LinkIcon } from '@heroicons/react/24/outline'
 import { useAuth } from '../contexts/AuthContext'
 import { firebaseDataService } from '../services/firebaseDataService'
 import { firebaseMessagingService } from '../services/firebaseMessagingService'
@@ -82,6 +82,22 @@ export default function SendToFriendModal({ isOpen, onClose, shareTitle, shareUr
     }
   }
 
+  const resolvedLink = useMemo(() => {
+    const origin = typeof window !== 'undefined' ? window.location.origin : ''
+    return /^https?:\/\//i.test(shareUrl) ? shareUrl : `${origin}${shareUrl}`
+  }, [shareUrl])
+
+  const copyLink = async () => {
+    haptics.tap()
+    try {
+      await navigator.clipboard.writeText(resolvedLink)
+      onClose()
+      window.dispatchEvent(new CustomEvent('this-is:toast', { detail: { message: 'Link copied' } }))
+    } catch {
+      window.dispatchEvent(new CustomEvent('this-is:toast', { detail: { message: "Couldn't copy. Try again.", tone: 'error' } }))
+    }
+  }
+
   if (!isOpen) return null
 
   return createPortal(
@@ -115,6 +131,22 @@ export default function SendToFriendModal({ isOpen, onClose, shareTitle, shareUr
             />
           </div>
         </div>
+
+        {/* Copy link — the non-DM share option, so this doubles as the app's
+            share sheet (pick a friend, or grab a link). */}
+        <button
+          type="button"
+          onClick={copyLink}
+          className="mx-3 mt-3 mb-1 flex items-center gap-3 px-3 py-2.5 rounded-xl border border-edge hover:bg-paper-deep transition-colors text-left press"
+        >
+          <span className="w-10 h-10 rounded-full bg-accent-soft flex items-center justify-center shrink-0">
+            <LinkIcon className="w-5 h-5" style={{ color: 'var(--accent-deep)' }} />
+          </span>
+          <span className="flex-1 min-w-0">
+            <span className="block text-[15px] text-ink font-medium">Copy link</span>
+            <span className="block text-[12px] text-ink-mute truncate">Share anywhere</span>
+          </span>
+        </button>
 
         <div className="flex-1 overflow-y-auto px-2 py-2">
           {loading ? (

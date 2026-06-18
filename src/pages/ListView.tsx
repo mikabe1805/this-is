@@ -28,7 +28,7 @@ import { XMarkIcon } from '@heroicons/react/24/outline'
 import { useDocumentTitle } from '../hooks/useDocumentTitle'
 import { formatTimestamp } from '../utils/dateUtils'
 import { haptics } from '../utils/haptics'
-import { shareLink, listShareUrl } from '../utils/share'
+import { listShareUrl } from '../utils/share'
 import { rankingService, sentimentBucket } from '../services/rankingService'
 
 const ListView = () => {
@@ -447,16 +447,14 @@ const ListView = () => {
     }
   }
 
-  const handleShareList = async () => {
+  const handleShareList = () => {
     if (!list) return
     haptics.tap()
-    const status = await shareLink({
-      title: list.name,
-      text: list.description || `Check out "${list.name}" on this.is`,
-      url: listShareUrl(list.id),
-    })
-    if (status === 'copied') window.dispatchEvent(new CustomEvent('this-is:toast', { detail: { message: 'Link copied' } }))
-    else if (status === 'error') window.dispatchEvent(new CustomEvent('this-is:toast', { detail: { message: "Couldn't share. Try again.", tone: 'error' } }))
+    // Open the in-app share sheet (send to a friend as a DM, or copy link) so a
+    // trip is one tap to share with the people you actually travel with.
+    window.dispatchEvent(new CustomEvent('this-is:send-to-friend', {
+      detail: { title: list.name, url: listShareUrl(list.id) },
+    }))
   }
 
   const handleCreateList = async (listData: { name: string; description: string; privacy: 'public' | 'private' | 'friends'; tags?: string[]; coverImage?: File }) => {
