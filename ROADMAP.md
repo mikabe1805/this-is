@@ -380,6 +380,24 @@ build green.
 
 ---
 
+## ✅ Shipped in pass 11 — self-sufficient place module, share sheet, taste perf (June 2026)
+
+- **The place module pulls its weight.** HubModal restores the "opening a place
+  teaches your taste" signal (×0.6) that the modal switch had dropped — dwell-
+  gated to ~1.5s so a quick peek doesn't write (also satisfies the audit's
+  "debounce taste writes"). Posts are tappable (→ full page) and there's an
+  "Add post" action.
+- **Unified share sheet.** SendToFriendModal now has a "Copy link" row beside the
+  friend DM picker, so it's the one share surface. ListView's Share opens it
+  (`this-is:send-to-friend`) → a trip is one tap to send to a friend (or copy).
+- **Killed the buildTasteProfile N+1.** Saves now denormalize the place's taste
+  signals onto the `savedPlaces` mirror (`recordUserSave` + `placeSignals()`),
+  and `getSavedPlaceSignals` reads them with one query (bounded getPlace fallback
+  for legacy docs). The Home-hot-path profile build no longer fans out a getPlace
+  per saved place.
+
+---
+
 ## 🎯 Next up — high impact, low/medium effort
 
 ### Sharing experiences & trips with friends
