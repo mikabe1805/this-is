@@ -370,6 +370,13 @@ build green.
   created lazily, private, `#auto-generated`). New `getOrCreateStatusList` +
   `recordStatusSave`; wired into all four save paths. The status save skips the
   activity log so it doesn't double-post to the feed.
+- **The collections are now viewable.** They're filtered out of the regular list
+  views (so they don't clutter custom lists), so Profile now shows them as
+  first-class **"Your places"** cards (Loved / Been / Want + counts) that open
+  the collection.
+- **The place module carries its weight.** Since taps open the `HubModal` again,
+  it now shows your 0–10 score + "Saved by X + N you follow" proof (was
+  PlaceHub-route-only) and has tap haptics on Save / Full-page.
 
 ---
 
