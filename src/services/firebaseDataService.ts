@@ -1752,7 +1752,7 @@ class FirebaseDataService {
     }
   }
 
-  async savePlaceToList(placeId: string, listId: string, userId: string, note?: string, savedFromListId?: string, status?: 'loved' | 'tried' | 'want', triedRating?: 'liked' | 'neutral' | 'disliked'): Promise<void> {
+  async savePlaceToList(placeId: string, listId: string, userId: string, note?: string, savedFromListId?: string, status?: 'loved' | 'tried' | 'want', triedRating?: 'liked' | 'neutral' | 'disliked', skipActivity = false): Promise<void> {
     const listRef = doc(db, 'lists', listId);
 
     try {
@@ -1792,11 +1792,14 @@ class FirebaseDataService {
         }
       }
 
-      // Log activity for user feed
-      try {
-        await this.logActivity(userId, { type: 'save', userId, placeId, listId })
-      } catch (e) {
-        console.warn('Failed to log save place activity:', e)
+      // Log activity for user feed (skipped for auto status-collection saves so
+      // they don't double-log alongside the user's custom-list save).
+      if (!skipActivity) {
+        try {
+          await this.logActivity(userId, { type: 'save', userId, placeId, listId })
+        } catch (e) {
+          console.warn('Failed to log save place activity:', e)
+        }
       }
 
       // savedCount is now incremented idempotently via recordUserSave() at the
@@ -1907,6 +1910,73 @@ class FirebaseDataService {
     } catch (error) {
       console.error('Error creating list:', error);
       return null;
+    }
+  }
+
+  // Per-user auto "status collection" list ids, cached so we don't re-query.
+  private statusListCache = new Map<string, string>()
+
+  /**
+   * Resolve the user's auto-maintained collection list for a save status
+   * ("All Loved" / "All Tried" / "All Want"), creating it lazily. These let a
+   * user track a sentiment without making (and bloating) custom lists. Created
+   * directly (no create_list activity) so they don't spam the friends feed.
+   */
+  async getOrCreateStatusList(userId: string, status: 'loved' | 'tried' | 'want'): Promise<string | null> {
+    if (!userId) return null
+    const key = `${userId}:${status}`
+    const cached = this.statusListCache.get(key)
+    if (cached) return cached
+    const NAME = { loved: 'All Loved', tried: 'All Tried', want: 'All Want' } as const
+    const DESC = { loved: 'Everywhere you loved', tried: "Everywhere you've been", want: 'Places you want to try' } as const
+    const wantedLc = NAME[status].toLowerCase()
+    try {
+      const lists = await this.getUserLists(userId)
+      const existing = lists.find(l => (l.name || '').toLowerCase() === wantedLc)
+      if (existing) { this.statusListCache.set(key, existing.id); return existing.id }
+      const ref = doc(collection(db, 'lists'))
+      await setDoc(ref, this.cleanUndefined({
+        id: ref.id,
+        name: NAME[status],
+        description: DESC[status],
+        privacy: 'private',
+        isPublic: false,
+        tags: ['#auto-generated'],
+        autoStatus: status,
+        userId,
+        createdAt: Timestamp.now(),
+        updatedAt: Timestamp.now(),
+        hubs: [],
+        likes: 0,
+        isLiked: false,
+      }))
+      this.statusListCache.set(key, ref.id)
+      return ref.id
+    } catch (e) {
+      console.warn('[getOrCreateStatusList] failed', e)
+      return null
+    }
+  }
+
+  /**
+   * Add a place to the user's auto status collection — call alongside the
+   * normal custom-list save so every save is tracked by sentiment without the
+   * user having to pick/create a list.
+   */
+  async recordStatusSave(
+    userId: string,
+    placeId: string,
+    status: 'loved' | 'tried' | 'want',
+    rating?: 'liked' | 'neutral' | 'disliked',
+    note?: string,
+  ): Promise<void> {
+    if (!userId || !placeId) return
+    try {
+      const listId = await this.getOrCreateStatusList(userId, status)
+      if (!listId) return
+      await this.savePlaceToList(placeId, listId, userId, note, undefined, status, rating, true)
+    } catch (e) {
+      console.warn('[recordStatusSave] failed', e)
     }
   }
 

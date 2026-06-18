@@ -249,7 +249,7 @@ const SaveModal: React.FC<SaveModalProps> = ({
 
               <div className="mb-5">
                 <div className="flex items-center justify-between mb-2.5">
-                  <p className="text-[12px] font-semibold uppercase tracking-wider text-stone-500">Add to lists</p>
+                  <p className="text-[12px] font-semibold uppercase tracking-wider text-stone-500">Add to lists <span className="font-normal normal-case tracking-normal text-stone-400">· optional</span></p>
                   <button
                     type="button"
                     onClick={() => setShowCreateList(true)}
@@ -268,8 +268,10 @@ const SaveModal: React.FC<SaveModalProps> = ({
                     className="w-full h-10 pl-10 pr-3 rounded-xl border border-stone-200 bg-white text-[14px] text-stone-900 placeholder:text-stone-400 outline-none focus:border-stone-400"
                   />
                 </div>
-                {selectedStatus && selectedListIds.size === 0 && filteredLists.length > 0 && (
-                  <p className="text-[12px] text-stone-500 mt-2">Pick a list to save into, or tap New list above.</p>
+                {selectedStatus && selectedListIds.size === 0 && (
+                  <p className="text-[12px] text-stone-500 mt-2">
+                    No list needed — this goes to your <span className="font-medium text-stone-700">{selectedStatus === 'loved' ? 'All Loved' : selectedStatus === 'tried' ? 'All Tried' : 'All Want'}</span> collection. Add lists only if you want.
+                  </p>
                 )}
                 <div className="mt-2 max-h-40 overflow-y-auto -mx-2">
                   {filteredLists.length === 0 ? (
@@ -376,13 +378,11 @@ const SaveModal: React.FC<SaveModalProps> = ({
           {!showCreateList ? (
             <button
               onClick={async () => {
-                // Require at least one list. Without this guard, the user could
-                // tap Save with status set but no list selected → savedCount got
-                // bumped via recordUserSave, but the place never appeared on
-                // any list. The status (loved/tried/want) lives on the
-                // ListPlace row, not on the place itself, so a "list-less"
-                // save dropped the relationship on the floor.
-                if (!selectedStatus || isCommitting || selectedListIds.size === 0) return
+                // A list is OPTIONAL now: every save also lands in the auto
+                // status collection (All Loved/Tried/Want) via the save
+                // handler, so the sentiment is tracked even with no custom list
+                // picked — you no longer have to make a list to save a place.
+                if (!selectedStatus || isCommitting) return
                 setIsCommitting(true)
                 try {
                   await Promise.resolve(onSave(
@@ -405,10 +405,8 @@ const SaveModal: React.FC<SaveModalProps> = ({
               disabled={
                 isCommitting ||
                 !selectedStatus ||
-                (selectedStatus === 'tried' && !triedRating) ||
-                selectedListIds.size === 0
+                (selectedStatus === 'tried' && !triedRating)
               }
-              title={selectedListIds.size === 0 ? 'Pick a list, or create a new one above' : undefined}
               className="btn-cta flex-1 h-12 font-semibold text-[15px]"
             >
               {isCommitting ? 'Saving…' : 'Save'}

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { MapPinIcon } from '@heroicons/react/24/outline'
+import { MapPinIcon, ArrowPathIcon } from '@heroicons/react/24/outline'
 import AppHeader from '../components/ui/AppHeader'
 import SearchOverlay from '../components/ui/SearchOverlay'
 import DiscoveryCard, { type DiscoveryCardItem } from '../components/ui/DiscoveryCard'
@@ -11,6 +11,7 @@ import { firebaseDataService, type TasteProfile } from '../services/firebaseData
 import { formatTimestamp } from '../utils/dateUtils'
 import { readCoords } from '../utils/coords'
 import { haptics } from '../utils/haptics'
+import { usePullToRefresh } from '../hooks/usePullToRefresh'
 import type { Hub, Place, User, Activity, List } from '../types/index.js'
 
 interface FriendEvent {
@@ -421,8 +422,25 @@ const Home = () => {
     window.dispatchEvent(new CustomEvent('this-is:toast', { detail: { message: "Got it — we'll show less like this." } }))
   }
 
+  // Pull down at the top of the feed to refresh (forceFresh).
+  const { pull, refreshing } = usePullToRefresh(() => loadForYou(true))
+
   return (
     <div className="min-h-full relative overflow-x-hidden">
+      {/* Pull-to-refresh spinner — floats in from the top as you pull. */}
+      {(pull > 0 || refreshing) && (
+        <div
+          className="fixed left-1/2 -translate-x-1/2 z-[60] pointer-events-none"
+          style={{ top: `calc(env(safe-area-inset-top, 0px) + ${Math.min(pull, 70) * 0.5}px)`, opacity: refreshing ? 1 : Math.min(1, pull / 50) }}
+        >
+          <div className="w-9 h-9 rounded-full bg-card border border-edge shadow-cozy flex items-center justify-center">
+            <ArrowPathIcon
+              className={`w-[18px] h-[18px] text-ink-soft ${refreshing ? 'animate-spin' : ''}`}
+              style={refreshing ? undefined : { transform: `rotate(${pull * 2.6}deg)` }}
+            />
+          </div>
+        </div>
+      )}
       <PageWatermark variant="corners" anchor="top" size={420} opacity={0.28} />
       {/* Editorial masthead. Botanical lives in the page watermark, not in
           the title row — the page should feel atmospheric, not branded. */}

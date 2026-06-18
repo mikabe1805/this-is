@@ -212,6 +212,7 @@ const PlaceHub = () => {
       for (const lid of ids) {
         await firebaseDataService.savePlaceToList(place.id, lid, authUser.id, note, undefined, status, rating)
       }
+      await firebaseDataService.recordStatusSave(authUser.id, place.id, status, rating, note)
       // Idempotent — bumps savedCount once per user-place pair regardless of list count.
       const incremented = await firebaseDataService.recordUserSave(place.id, authUser.id)
       if (incremented) {
@@ -259,6 +260,7 @@ const PlaceHub = () => {
     if (newId) {
       const status = saveContext?.status || 'loved'
       await firebaseDataService.savePlaceToList(place.id, newId, authUser.id, saveContext?.note, undefined, status, saveContext?.rating)
+      await firebaseDataService.recordStatusSave(authUser.id, place.id, status, saveContext?.rating, saveContext?.note)
       const lists = await firebaseDataService.getUserLists(authUser.id)
       setUserLists(lists)
     }

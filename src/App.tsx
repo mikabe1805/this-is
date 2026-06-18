@@ -220,6 +220,9 @@ const GlobalModals = () => {
               for (const listId of ids) {
                 await firebaseDataService.savePlaceToList(placeId, listId, currentUser.id, note, undefined, status, rating);
               }
+              // Always file it in the auto status collection (All Loved/Tried/Want)
+              // so a sentiment is tracked without needing a custom list.
+              await firebaseDataService.recordStatusSave(currentUser.id, placeId, status, rating, note)
               // Idempotent save-count bump — once per user-place pair, not once per list.
               await firebaseDataService.recordUserSave(placeId, currentUser.id)
 
@@ -315,6 +318,7 @@ const GlobalModals = () => {
               const rating = saveContext?.rating
               const noteToSave = saveContext?.note
               await firebaseDataService.savePlaceToList(placeId, newListId, currentUser.id, noteToSave, undefined, status, rating);
+              await firebaseDataService.recordStatusSave(currentUser.id, placeId, status, rating, noteToSave)
               await firebaseDataService.recordUserSave(placeId, currentUser.id)
               if (seedHub) {
                 const w = status === 'loved' ? 3 : status === 'tried' ? 2 : 1.5

@@ -2,9 +2,11 @@ import { useEffect, useMemo, useState } from 'react'
 import { ArrowLeftIcon } from '@heroicons/react/24/outline'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
+import { useNavigation } from '../contexts/NavigationContext'
 import { rankingService, BUCKET_LABEL, type Bucket, type RankingDoc } from '../services/rankingService'
 import { haptics } from '../utils/haptics'
 import EmptyState from '../components/ui/EmptyState'
+import type { Hub } from '../types/index.js'
 
 /**
  * "Your ranked places" — the payoff for the Beli loop. Shows the user's ranked
@@ -21,6 +23,7 @@ const TABS: { key: Bucket; label: string }[] = [
 export default function Rankings() {
   const navigate = useNavigate()
   const { currentUser } = useAuth()
+  const { openHubModal } = useNavigation()
   const [doc, setDoc] = useState<RankingDoc | null>(null)
   const [loading, setLoading] = useState(true)
   const [tab, setTab] = useState<Bucket>('liked')
@@ -119,7 +122,7 @@ export default function Rankings() {
                 <li key={it.id}>
                   <button
                     type="button"
-                    onClick={() => { haptics.select(); navigate(`/place/${it.id}`, { viewTransition: true }) }}
+                    onClick={() => { haptics.select(); openHubModal({ id: it.id, name: it.name } as Hub, 'rankings') }}
                     className="w-full flex items-center gap-3.5 py-3.5 text-left hover:bg-paper-deep -mx-1 px-1 transition-colors press"
                   >
                     <span className="shrink-0 font-mono text-[12px] tracking-[0.08em] text-ink-mute w-6 text-right">{i + 1}</span>

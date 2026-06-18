@@ -347,6 +347,32 @@ Zero Google Places cost — pure Firestore on a new `userRankings/{uid}` doc.
 
 ---
 
+## ✅ Shipped in pass 10 — "feels nice to use" (iPhone traversal fixes) (June 2026)
+
+Driven by hands-on iPhone testing feedback. tsc baseline diff: 0 new errors;
+build green.
+
+- **Tapping a place opens the in-place module again, instantly.** `openHubModal`
+  had been changed to `await ensureHubFromPlace` and then navigate to the full
+  `/place/:id` route — which made the tap feel dead (nothing happened until the
+  network call resolved, so you'd tap again) and reloaded a whole page instead
+  of the modal. It now opens the `HubModal` immediately from the card's data and
+  materializes the real hub doc in the background. This fixes both the
+  "new page instead of module" and the "takes multiple taps" complaints (places
+  no longer round-trip a lazy route + back). Rankings rows open the module too.
+- **Pull-to-refresh on Home.** `usePullToRefresh` hook on the locked-layout
+  scroll root (`[data-scroll-root]`) — pull down at the top → spinner →
+  `loadForYou(forceFresh)`. Non-passive only while genuinely pulling at the top,
+  so normal scrolling is untouched.
+- **Save to Loved / Tried / Want without bloating your lists.** A custom list is
+  now optional in the SaveModal: every save also files the place into an
+  auto-maintained status collection ("All Loved" / "All Tried" / "All Want",
+  created lazily, private, `#auto-generated`). New `getOrCreateStatusList` +
+  `recordStatusSave`; wired into all four save paths. The status save skips the
+  activity log so it doesn't double-post to the feed.
+
+---
+
 ## 🎯 Next up — high impact, low/medium effort
 
 ### Sharing experiences & trips with friends

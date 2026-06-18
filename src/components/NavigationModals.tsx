@@ -6,9 +6,10 @@ import { useAuth } from '../contexts/AuthContext.tsx'
 import { firebaseDataService } from '../services/firebaseDataService'
 import { firebaseListService } from '../services/firebaseListService'
 import { navigationHistory } from '../utils/navigationHistory.js'
-// HubModal restored: only used for the in-modal stack flow (e.g. user clicks
-// a place from inside ListModal). Direct /place/:id navigation still goes
-// to the full PlaceHub route.
+// HubModal is the in-place "module" shown when you tap a place anywhere (feeds,
+// inside ListModal, etc.) — no route change, so traversing options doesn't
+// reload. The full /place/:id PlaceHub route still exists for direct links and
+// the modal's expand button.
 import HubModal from './HubModal'
 import ListModal from './ListModal'
 import ProfileModal from './ProfileModal'
@@ -138,8 +139,7 @@ const NavigationModals = () => {
         />
       )}
 
-      {/* Hub Modal — only renders during in-modal-stack flow. Standalone
-          /place/:id navigation still uses the full PlaceHub route. */}
+      {/* Hub Modal — the in-place place "module" for every place tap. */}
       {selectedHub && showHubModal && (
         <HubModal
           isOpen={showHubModal}

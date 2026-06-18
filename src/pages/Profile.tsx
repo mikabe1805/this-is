@@ -497,6 +497,7 @@ const Profile = () => {
             for (const lid of ids) {
                 await firebaseDataService.savePlaceToList(selectedPlace.id, lid, authUser.id, note, undefined, status, rating)
             }
+            await firebaseDataService.recordStatusSave(authUser.id, selectedPlace.id, status, rating, note)
             await firebaseDataService.recordUserSave(selectedPlace.id, authUser.id)
             // Teach the taste model + announce the save, matching the global
             // SaveModal path (App.tsx). Without these, own-profile saves taught
@@ -543,6 +544,7 @@ const Profile = () => {
             if (newId) {
                 const status = saveContext?.status || 'loved'
                 await firebaseDataService.savePlaceToList(selectedPlace.id, newId, authUser.id, saveContext?.note, undefined, status, saveContext?.rating)
+                await firebaseDataService.recordStatusSave(authUser.id, selectedPlace.id, status, saveContext?.rating, saveContext?.note)
                 await firebaseDataService.recordUserSave(selectedPlace.id, authUser.id)
                 firebaseDataService.recordTasteFromPlace(authUser.id, selectedPlace, status === 'loved' ? 3 : status === 'tried' ? 2 : 1.5)
                 window.dispatchEvent(new CustomEvent('this-is:saved', { detail: { placeId: selectedPlace.id, status } }))

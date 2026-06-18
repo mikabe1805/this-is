@@ -422,6 +422,7 @@ const ListView = () => {
       for (const lid of ids) {
         await firebaseListService.savePlaceToList(place.id, lid, currentUser.id, note, status, rating)
       }
+      await firebaseDataService.recordStatusSave(currentUser.id, place.id, status, rating, note)
       await firebaseDataService.recordUserSave(place.id, currentUser.id)
       firebaseDataService.recordTasteFromPlace(
         currentUser.id,
