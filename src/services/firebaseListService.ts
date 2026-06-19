@@ -14,7 +14,8 @@ import {
   orderBy,
   arrayUnion,
   arrayRemove,
-  increment
+  increment,
+  deleteField
 } from 'firebase/firestore'
 import { firebaseStorageService } from './firebaseStorageService'
 import { readCoords } from '../utils/coords'
@@ -158,7 +159,8 @@ class FirebaseListService {
               triedRating: subcollectionData.triedRating || null, // Include rating from subcollection
               addedBy: subcollectionData.addedBy || '',
               note: subcollectionData.note || '',
-              addedAt: subcollectionData.addedAt || Timestamp.now()
+              addedAt: subcollectionData.addedAt || Timestamp.now(),
+              tripDay: typeof subcollectionData.tripDay === 'number' ? subcollectionData.tripDay : undefined,
             });
           } else {
             // If not found in places collection, try hubs collection
@@ -194,7 +196,8 @@ class FirebaseListService {
                   triedRating: subcollectionData.triedRating || null, // Include rating from subcollection
                   addedBy: subcollectionData.addedBy || '',
                   note: subcollectionData.note || '',
-                  addedAt: subcollectionData.addedAt || Timestamp.now()
+                  addedAt: subcollectionData.addedAt || Timestamp.now(),
+                  tripDay: typeof subcollectionData.tripDay === 'number' ? subcollectionData.tripDay : undefined,
                 });
               }
             } catch (hubError) {
@@ -266,10 +269,12 @@ class FirebaseListService {
   async updateListPlace(
     listId: string,
     placeId: string,
-    updates: { note?: string; status?: 'loved' | 'tried' | 'want'; triedRating?: 'amazing' | 'good' | 'okay' | 'disappointing' | 'liked' | 'neutral' | 'disliked' | null }
+    updates: { note?: string; status?: 'loved' | 'tried' | 'want'; triedRating?: 'amazing' | 'good' | 'okay' | 'disappointing' | 'liked' | 'neutral' | 'disliked' | null; tripDay?: number | null }
   ): Promise<void> {
     const ref = doc(db, `lists/${listId}/places`, placeId);
-    const patch: Record<string, unknown> = {};
+    // `any` matches updateList's convention here — updateDoc's UpdateData type
+    // rejects a plain Record once FieldValue (deleteField) is in the mix.
+    const patch: any = {};
     if (typeof updates.note === 'string') patch.note = updates.note;
     if (updates.status) patch.status = updates.status;
     // Clear rating when status leaves 'tried'.
@@ -277,6 +282,10 @@ class FirebaseListService {
       patch.triedRating = null;
     } else if (updates.triedRating !== undefined) {
       patch.triedRating = updates.triedRating;
+    }
+    // Trip itinerary day assignment (null = unschedule → deleteField).
+    if (updates.tripDay !== undefined) {
+      patch.tripDay = updates.tripDay === null ? deleteField() : updates.tripDay;
     }
     if (Object.keys(patch).length === 0) return;
     await updateDoc(ref, patch);

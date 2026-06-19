@@ -125,6 +125,8 @@ export interface ListPlace {
   addedBy: string
   addedFromList?: string
   addedAt: string
+  /** Trip itinerary: 1-based day index this stop belongs to (undefined = unscheduled). */
+  tripDay?: number
 }
 
 export interface Tag {

@@ -1,6 +1,6 @@
 ﻿import type { List, ListPlace, Hub, Place } from '../types/index.js'
 import { MapPinIcon, HeartIcon, BookmarkIcon, ShareIcon, EllipsisHorizontalIcon, ArrowLeftIcon, StarIcon, MapIcon, MagnifyingGlassIcon, CameraIcon } from '@heroicons/react/24/outline'
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, Fragment } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useNavigation } from '../contexts/NavigationContext.tsx'
 import PlusDropdown from '../components/PlusDropdown'
@@ -452,6 +452,18 @@ const ListView = () => {
     }
   }
 
+  // Assign a trip stop to an itinerary day (null = unschedule). Optimistic.
+  const handleSetTripDay = async (placeId: string, day: number | null) => {
+    if (!list) return
+    setListPlaces(prev => prev.map(lp => lp.placeId === placeId ? { ...lp, tripDay: day ?? undefined } : lp))
+    setCardMenuOpen(null)
+    try {
+      await firebaseListService.updateListPlace(list.id, placeId, { tripDay: day })
+    } catch (e) {
+      console.error('[list-view] set trip day failed', e)
+    }
+  }
+
   const handleShareList = () => {
     if (!list) return
     haptics.tap()
@@ -585,6 +597,28 @@ const ListView = () => {
 
   // Trip framing: a date-range badge + the places tab reads as an "Itinerary".
   const trip = tripBadge(list)
+  // Multi-day trips group their itinerary by day.
+  const tripStartDate = (() => {
+    const m = (list.tripStart || '').match(/^(\d{4})-(\d{2})-(\d{2})$/)
+    return m ? new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])) : null
+  })()
+  const tripDayCount = (() => {
+    if (!trip || !tripStartDate) return 1
+    const me = (list.tripEnd || '').match(/^(\d{4})-(\d{2})-(\d{2})$/)
+    const end = me ? new Date(Number(me[1]), Number(me[2]) - 1, Number(me[3])) : tripStartDate
+    return Math.max(1, Math.round((end.getTime() - tripStartDate.getTime()) / 86400000) + 1)
+  })()
+  const multiDay = !!trip && tripDayCount > 1
+  const dayHeaderLabel = (day: number | 'none') => {
+    if (day === 'none') return 'Unscheduled'
+    const d = new Date(tripStartDate!)
+    d.setDate(d.getDate() + (day - 1))
+    return `Day ${day} · ${d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}`
+  }
+  // Order by day (stable → keeps itinerary order within a day); unscheduled last.
+  const itinerary = multiDay
+    ? [...sortedPlaces].sort((a, b) => ((a.tripDay ?? 9999) - (b.tripDay ?? 9999)))
+    : sortedPlaces
 
   return (
     <div className="relative min-h-full overflow-x-hidden">
@@ -798,18 +832,48 @@ const ListView = () => {
       {/* Main Content: places - Only show in places tab */}
       {activeTab === 'places' && (
       <div className="relative z-10 p-4 space-y-8 max-w-2xl mx-auto">
-        {sortedPlaces.map((listPlace, idx) => (
+        {(() => {
+          let lastDay: number | 'none' | null = null
+          let dayStop = 0
+          return itinerary.map((listPlace, idx) => {
+          const dk: number | 'none' = typeof listPlace.tripDay === 'number' ? listPlace.tripDay : 'none'
+          const showHeader = multiDay && dk !== lastDay
+          if (dk !== lastDay) dayStop = 0
+          lastDay = dk
+          dayStop += 1
+          const stopNum = multiDay ? dayStop : idx + 1
+          return (
+          <Fragment key={listPlace.id}>
+          {showHeader && (
+            <div className="flex items-center gap-3 pt-2">
+              <span className="label-eyebrow text-ink whitespace-nowrap">{dayHeaderLabel(dk)}</span>
+              <span className="flex-1 h-px bg-edge" />
+            </div>
+          )}
           <div
-            key={listPlace.id}
             onClick={() => handlePlaceClick(listPlace)}
             className="glass rounded-3xl shadow-botanical overflow-hidden hover:shadow-cozy transition-all duration-300 flex flex-col relative cursor-pointer"
           >
-            {/* Itinerary stop number (trips only). */}
-            {trip && (
-              <span className="absolute top-4 left-4 z-20 w-7 h-7 rounded-full bg-ink text-paper font-display text-[14px] flex items-center justify-center shadow-cozy">
-                {idx + 1}
+            {/* Itinerary stop indicator (trips only): a day selector for the
+                owner on multi-day trips, else a stop number. */}
+            {trip && (multiDay && isOwner ? (
+              <select
+                value={typeof listPlace.tripDay === 'number' ? String(listPlace.tripDay) : ''}
+                onClick={(e) => e.stopPropagation()}
+                onChange={(e) => handleSetTripDay(listPlace.placeId, e.target.value === '' ? null : Number(e.target.value))}
+                aria-label="Assign itinerary day"
+                className="absolute top-4 left-4 z-20 h-7 rounded-full bg-ink text-paper font-mono text-[10px] tracking-wide pl-2.5 pr-1 border-0 cursor-pointer"
+              >
+                <option value="">— Day</option>
+                {Array.from({ length: tripDayCount }).map((_, i) => (
+                  <option key={i + 1} value={i + 1}>Day {i + 1}</option>
+                ))}
+              </select>
+            ) : (
+              <span className="absolute top-4 left-4 z-20 h-7 min-w-7 px-2 rounded-full bg-ink text-paper font-display text-[14px] flex items-center justify-center shadow-cozy">
+                {multiDay && typeof listPlace.tripDay !== 'number' ? '–' : stopNum}
               </span>
-            )}
+            ))}
             {/* Three-dot menu — only the list owner can edit or remove a
                 place. Hiding the entry point entirely is cleaner than letting
                 non-owners tap into a backend permission failure. */}
@@ -913,7 +977,10 @@ const ListView = () => {
               </div>
             </div>
           </div>
-        ))}
+          </Fragment>
+          )
+          })
+        })()}
         {/* Empty State */}
         {sortedPlaces.length === 0 && (
           <div className="glass rounded-2xl p-8 text-center shadow-botanical">
