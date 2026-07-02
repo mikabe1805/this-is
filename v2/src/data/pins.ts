@@ -52,7 +52,7 @@ export async function savePin(opts: SaveOptions): Promise<SaveReceipt> {
 
   const vibeTags = vibesFor(opts.place.primaryType)
   const hex = hexFor(opts.place.primaryType)
-  const neighborhood = neighborhoodFrom(opts.place.address)
+  const neighborhood = opts.place.neighborhood ?? neighborhoodFrom(opts.place.address)
   const now = Date.now()
   const batch = writeBatch(db)
 

@@ -803,6 +803,20 @@
   max-width: 40ch;
 }
 
+.hero-compact {
+  padding-top: 6vh;
+  padding-bottom: 28px;
+}
+
+.attribution-line {
+  margin: 4px 2px 22px;
+  opacity: 0.75;
+}
+
+.pin-bookmark.is-unsaved {
+  background: rgba(20, 13, 16, 0.55);
+}
+
 /* ── Onboarding ── */
 .onboarding-q {
   margin: 6px 0 8px;

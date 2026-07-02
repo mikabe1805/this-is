@@ -81,3 +81,23 @@ Hard constraint first: **there is no cache-based solve.** Google photo bytes and
 - **OpenFreeMap reliability wobbles** → Protomaps on R2, ~$15/mo ceiling.
 
 The one-sentence version: **Google stays the brain, but our users become the eyes — and the mask split plus the fsq_place_id shadow key mean Google can never surprise us with a bill or a terms change we can't walk away from in a month.**
+
+---
+
+## Addendum (same day) — the empty-app correction
+
+The ruling above optimized costs for an app with content; the owner's actual complaint was that
+**the app had no content**: "it needs a database of pictures and information about places that
+already exists in Google Maps but is expensive to constantly request." Adopted and implemented:
+
+9. **The seeded candidate pool IS the catalog posture.** `scripts/seed-candidates.mjs` sweeps
+   Text Search around configured anchors (~36 Pro-tier calls/run — inside the 5K free allowance)
+   and writes `cities/{cell}/candidates` via REST. Re-running it monthly is the ≤30-day
+   refreshable-cache posture. First run: 287 real places across the Piscataway area. This makes
+   Home/Search alive on first open, signed-out included.
+10. **Discovery photos are live, budget-gated, never cached**: the DISCOVER rail fetches photo
+    refs free-tier per render and media under a hard 8-per-session cap (~250 media/mo at heavy
+    dogfood use, inside the 1K free) with attribution. The grid therefore shows REAL imagery at
+    $0 today; user photos take over per decision 4 as saves accumulate.
+11. At >25 weekly actives (the tripwire above), the per-session cap and pool-refresh cadence are
+    the two dials that keep this free-tier; both are one-line constants.

@@ -12,7 +12,7 @@ import type { Board, Pin, PinStatus } from './types'
 import { listBoards } from './boards'
 import { savePin, undoSave, refilePin, setPinStatus, type SaveOptions, type SaveReceipt } from './pins'
 import type { UserDoc } from './user'
-import { cityKeyFrom, fetchCandidates } from './candidates'
+import { cityKeyFrom, cityKeysAround, fetchCandidates } from './candidates'
 import type { Coords } from '../lib/geo'
 
 export function usePins() {
@@ -56,15 +56,15 @@ export function useUserDoc() {
   })
 }
 
-/** The city candidate pool for discovery + search. Empty until a composer or
- *  the owner-import seeds it — then search/discovery light up automatically. */
+/** The city candidate pool for discovery + search — the user's cell plus its
+ *  8 neighbors, so pools don't die at cell boundaries. */
 export function useCandidates(coords: Coords | null) {
   const cityKey = cityKeyFrom(coords)
   return useQuery({
     queryKey: ['candidates', cityKey],
     enabled: Boolean(cityKey),
     staleTime: 5 * 60_000,
-    queryFn: () => fetchCandidates(cityKey!),
+    queryFn: () => fetchCandidates(cityKeysAround(coords)),
   })
 }
 

@@ -221,10 +221,13 @@ service cloud.firestore {
       allow read, write: if isAuthenticated() && isOwner(userId);
     }
 
-    // City candidate pools — client reads; composer/import write via admin SDK.
+    // City candidate pools — the seeded place catalog that makes discovery
+    // non-empty. Client reads; writes use the same dev-mode posture as the
+    // rest of this prototype (the owner's seed script writes via REST).
+    // MUST tighten to admin-only at cutover.
     match /cities/{cityKey}/candidates/{placeId} {
       allow read: if true;
-      allow write: if false;
+      allow write: if isDevMode();
     }
 
     // Baked share snapshots — public read, function-only write.

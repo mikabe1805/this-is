@@ -24,8 +24,28 @@ export function cityKeyFrom(coords: Coords | null): string | null {
   return `${lat.toFixed(1)}_${lng.toFixed(1)}`
 }
 
-export async function fetchCandidates(cityKey: string, max = 60): Promise<PlaceDoc[]> {
-  const q = query(collection(db, 'cities', cityKey, 'candidates'), limit(max))
-  const snap = await getDocs(q)
-  return snap.docs.map(d => ({ id: d.id, ...(d.data() as Omit<PlaceDoc, 'id'>) }))
+/** The user's cell plus its 8 neighbors — pool reads must not die at a cell
+ *  boundary (Piscataway sits right on one). */
+export function cityKeysAround(coords: Coords | null): string[] {
+  if (!coords) return []
+  const keys: string[] = []
+  for (let dLat = -1; dLat <= 1; dLat++) {
+    for (let dLng = -1; dLng <= 1; dLng++) {
+      const lat = Math.round((coords.lat + dLat * 0.1) * 10) / 10
+      const lng = Math.round((coords.lng + dLng * 0.1) * 10) / 10
+      keys.push(`${lat.toFixed(1)}_${lng.toFixed(1)}`)
+    }
+  }
+  return keys
+}
+
+export async function fetchCandidates(cityKeys: string[], maxPerCell = 60): Promise<PlaceDoc[]> {
+  const cells = await Promise.all(
+    cityKeys.map(async key => {
+      const q = query(collection(db, 'cities', key, 'candidates'), limit(maxPerCell))
+      const snap = await getDocs(q)
+      return snap.docs.map(d => ({ id: d.id, ...(d.data() as Omit<PlaceDoc, 'id'>) }))
+    })
+  )
+  return cells.flat()
 }

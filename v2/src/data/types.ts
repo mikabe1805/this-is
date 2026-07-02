@@ -74,7 +74,8 @@ export interface PlaceDoc {
   fsqId?: string
 }
 
-/** What savePin needs to know about a place — shaped by lib/places.getDetails. */
+/** What savePin needs to know about a place — shaped by lib/places.getDetails
+ *  or a candidate-pool doc. */
 export interface SaveablePlace {
   /** Raw Google place_id or already-prefixed `g:` ID. */
   id: string
@@ -83,6 +84,8 @@ export interface SaveablePlace {
   primaryType?: string
   lat?: number
   lng?: number
+  /** Known neighborhood (candidates carry this instead of an address). */
+  neighborhood?: string
 }
 
 export const gid = (placeId: string): string =>

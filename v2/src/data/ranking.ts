@@ -42,7 +42,7 @@ export interface ScoredPin {
 }
 
 /** "wine_bar" → "wine bars" for the taste reason line. */
-function categoryPlural(primaryType?: string): string {
+export function categoryPlural(primaryType?: string): string {
   const label = typeLabel(primaryType)
   if (!label) return 'places like this'
   const lower = label.toLowerCase()
