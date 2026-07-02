@@ -19,7 +19,7 @@ import { signIn } from '../lib/authWatch'
 import { haptics } from '../lib/haptics'
 import { PinVisual } from './PinVisual'
 
-export function DiscoverCard({ place, reason }: { place: PlaceDoc; reason?: string }) {
+export function DiscoverCard({ place }: { place: PlaceDoc }) {
   const navigate = useNavigate()
   const session = useSession()
   const { save } = useSaveFlow()
@@ -42,16 +42,10 @@ export function DiscoverCard({ place, reason }: { place: PlaceDoc; reason?: stri
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [place.id])
 
-  // Don't say the distance twice — when the reason line is proximity, the
-  // chip carries only type + neighborhood.
-  const proximityReason = reason ? /min away|around the corner/i.test(reason) : false
-  const chip = [
-    proximityReason ? null : walkChip(place.lat, place.lng, place.coordsFetchedAt),
-    typeLabel(place.primaryType),
-    place.neighborhood,
-  ]
-    .filter(Boolean)
-    .join(' · ')
+  // Discovery cards stay quiet: one line, walk time if we have it, else the
+  // place type. No per-card "reason" (the section header already says why),
+  // no repeated county. The photo and the name do the work.
+  const chip = walkChip(place.lat, place.lng, place.coordsFetchedAt) ?? typeLabel(place.primaryType)
 
   const onSave = (e: React.MouseEvent) => {
     e.stopPropagation()
@@ -97,7 +91,6 @@ export function DiscoverCard({ place, reason }: { place: PlaceDoc; reason?: stri
         <BookmarkOutline />
       </button>
       <div className="pin-caption">
-        {reason && <p className="pin-reason">{reason}</p>}
         <h3 className="pin-title">{place.name}</h3>
         {chip && <p className="pin-chip eyebrow">{chip}</p>}
       </div>

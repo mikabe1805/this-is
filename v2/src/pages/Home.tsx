@@ -14,7 +14,7 @@ import { Link } from 'react-router-dom'
 import { useSession } from '../state/session'
 import { useCandidates, usePins, useUserDoc } from '../data/queries'
 import { tasteFromPins, type Taste } from '../data/taste'
-import { categoryPlural, rankPins } from '../data/ranking'
+import { rankPins } from '../data/ranking'
 import { cachedCoords, walkMinutesBetween, type Coords } from '../lib/geo'
 import { Masonry } from '../components/Masonry'
 import { PinCard } from '../components/PinCard'
@@ -45,7 +45,7 @@ function rankCandidates(
   pins: Pin[],
   taste: Taste,
   coords: Coords | null
-): { place: PlaceDoc; reason: string }[] {
+): PlaceDoc[] {
   const mine = new Set(pins.map(p => p.id))
   return candidates
     .filter(c => !mine.has(c.id))
@@ -56,18 +56,11 @@ function rankCandidates(
         ? walkMinutesBetween(coords, c.lat, c.lng, c.coordsFetchedAt)
         : null
       const prox = walk === null ? 0 : 1 - Math.min(walk, 60) / 60
-      const reason =
-        tasteScore * 3 >= prox * 4 && tasteScore > 0
-          ? `because you save ${categoryPlural(c.primaryType)}`
-          : walk !== null
-            ? walk < 1
-              ? 'right around the corner'
-              : `${walk} min away`
-            : 'in your city'
-      return { place: c, reason, score: tasteScore * 3 + prox * 4 }
+      return { place: c, score: tasteScore * 3 + prox * 4 }
     })
     .sort((a, b) => b.score - a.score)
     .slice(0, 8)
+    .map(x => x.place)
 }
 
 export default function Home() {
@@ -100,8 +93,8 @@ export default function Home() {
     <>
       <p className="eyebrow section-label">DISCOVER NEARBY</p>
       <Masonry>
-        {discover.map(({ place, reason }) => (
-          <DiscoverCard key={place.id} place={place} reason={reason} />
+        {discover.map(place => (
+          <DiscoverCard key={place.id} place={place} />
         ))}
       </Masonry>
       <p className="t-small attribution-line">

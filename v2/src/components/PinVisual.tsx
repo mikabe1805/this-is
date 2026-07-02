@@ -45,7 +45,7 @@ export function PinVisual({ hex, photoSrc, attribution, alt, className = '' }: P
         />
       )}
       {showPhoto && loaded && attribution && (
-        <span className="photo-credit eyebrow">PHOTO: {attribution}</span>
+        <span className="photo-credit">{attribution}</span>
       )}
     </div>
   )

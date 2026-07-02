@@ -44,7 +44,7 @@
     rgba(20, 13, 16, 0.24) 55%,
     transparent
   );
-  --photo-grade: contrast(1.05) saturate(1.02) sepia(0.05) hue-rotate(-6deg);
+  --photo-grade: contrast(1.04) saturate(0.88) brightness(0.9) sepia(0.07) hue-rotate(-6deg);
   --on-photo-1: #f2eceb;
   --on-photo-2: #cbbcc0;
   --reason-on-photo: #ebd9dd;

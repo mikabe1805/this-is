@@ -148,12 +148,12 @@ p {
 /* ── Masonry ── */
 .masonry {
   columns: 2;
-  column-gap: 12px;
+  column-gap: 14px;
 }
 
 .masonry > * {
   break-inside: avoid;
-  margin-bottom: 12px;
+  margin-bottom: 14px;
 }
 
 /* Cards arrive like prints being hung — a quick staggered rise. */
