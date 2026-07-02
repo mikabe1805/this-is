@@ -731,10 +731,41 @@
 }
 
 .closeup-head {
-  margin-bottom: 16px;
+  margin-bottom: 18px;
   display: flex;
   flex-direction: column;
   gap: 6px;
+}
+
+.closeup-onlist {
+  color: var(--action);
+  letter-spacing: 0.16em;
+}
+
+[data-theme='day'] .closeup-onlist {
+  color: var(--action-press);
+}
+
+/* The curator's take — the editorial lead of the spot page. */
+.closeup-pov {
+  margin-top: 6px;
+  font-family: var(--font-display);
+  font-style: italic;
+  font-size: var(--fs-4);
+  line-height: 1.4;
+  color: var(--text-1);
+}
+
+.closeup-vibes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.closeup-vibe {
+  padding: 5px 11px;
+  font-size: 9.5px;
 }
 
 .closeup-address {

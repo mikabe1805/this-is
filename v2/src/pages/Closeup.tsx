@@ -11,7 +11,7 @@ import { getDetails, getPhotoRef, mapsDeepLink, photoUrl } from '../lib/places'
 import { rawPid } from '../data/types'
 import { typeLabel, vibesFor } from '../data/vibes'
 import { walkChip } from '../lib/geo'
-import { usePin, usePins, useSaveFlow } from '../data/queries'
+import { usePin, usePins, useCurated, useSaveFlow } from '../data/queries'
 import { refreshPinSnapshot, setPinNote } from '../data/pins'
 import type { PlaceDetails } from '../lib/places'
 import { uploadPinPhoto } from '../data/photos'
@@ -20,6 +20,7 @@ import { showToast } from '../state/toast'
 import { signIn } from '../lib/authWatch'
 import { haptics } from '../lib/haptics'
 import { PinVisual } from '../components/PinVisual'
+import { DiscoverCard } from '../components/DiscoverCard'
 import { Masonry } from '../components/Masonry'
 import { PinCard } from '../components/PinCard'
 
@@ -31,7 +32,11 @@ export default function Closeup() {
   const session = useSession()
   const pin = usePin(id)
   const { data: pins } = usePins()
+  const { data: curated } = useCurated()
   const { save, setStatus, invalidate } = useSaveFlow()
+
+  // The curated record carries the whole reason this room is on the list.
+  const curatedThis = curated?.find(c => c.id === id)
 
   // THE MASK SPLIT (docs/GOOGLE.md #2): a saved pin already carries
   // name/type/coords in its snapshot, so enrich with the FREE photo-ref mask;
@@ -57,12 +62,13 @@ export default function Closeup() {
     enabled: Boolean(id) && pinsReady,
   })
 
-  const name = pin?.snapshot.name ?? details?.name ?? '…'
-  const hex = pin?.snapshot.hex ?? '#3A2B31'
-  const primaryType = pin?.snapshot.primaryType ?? details?.primaryType
-  const neighborhood = pin?.snapshot.neighborhood
-  const lat = pin?.snapshot.lat ?? details?.lat
-  const lng = pin?.snapshot.lng ?? details?.lng
+  const name = pin?.snapshot.name ?? curatedThis?.name ?? details?.name ?? '…'
+  const hex = pin?.snapshot.hex ?? curatedThis?.photoHex ?? '#3A2B31'
+  const primaryType = pin?.snapshot.primaryType ?? curatedThis?.primaryType ?? details?.primaryType
+  const neighborhood = pin?.snapshot.neighborhood ?? curatedThis?.neighborhood
+  const lat = pin?.snapshot.lat ?? curatedThis?.lat ?? details?.lat
+  const lng = pin?.snapshot.lng ?? curatedThis?.lng ?? details?.lng
+  const vibeTags = curatedThis?.vibeTags ?? []
   const chip = [
     walkChip(lat, lng, pin?.snapshot.coordsAt),
     typeLabel(primaryType),
@@ -125,18 +131,18 @@ export default function Closeup() {
     []
   )
 
-  // ── related: shared vibe or same neighborhood, from your own pins ──
-  const vibes = vibesFor(primaryType)
-  const related = (pins ?? [])
+  // ── MORE ON THE LIST: other curated rooms sharing a vibe or neighborhood.
+  // Curated-first (so a browsing stranger always has somewhere to go next),
+  // then the user's own saved pins as a secondary fill. ──
+  const vibes = curatedThis?.vibeTags?.length ? curatedThis.vibeTags : vibesFor(primaryType)
+  const relatedCurated = (curated ?? [])
+    .filter(c => c.id !== id)
+    .filter(c => (c.vibeTags ?? []).some(t => vibes.includes(t)) || (neighborhood && c.neighborhood === neighborhood))
+    .slice(0, 6)
+  const relatedPins = (pins ?? [])
     .filter(p => p.id !== id && p.status !== 'released')
-    .filter(p => {
-      const pv = vibesFor(p.snapshot.primaryType)
-      return (
-        pv.some(t => vibes.includes(t)) ||
-        (neighborhood && p.snapshot.neighborhood === neighborhood)
-      )
-    })
-    .slice(0, 8)
+    .filter(p => vibesFor(p.snapshot.primaryType).some(t => vibes.includes(t)))
+    .slice(0, 6)
 
   const toggleStatus = (status: 'want' | 'been') => {
     if (!pin || pin.status === status) return
@@ -156,8 +162,17 @@ export default function Closeup() {
       />
 
       <header className="closeup-head">
+        {curatedThis && <p className="eyebrow closeup-onlist">ON THE LOW-LIT LIST</p>}
         <h1 className="t-display">{name}</h1>
         {chip && <p className="eyebrow">{chip}</p>}
+        {curatedThis?.curatorPOV && <p className="closeup-pov">{curatedThis.curatorPOV}</p>}
+        {vibeTags.length > 0 && (
+          <div className="closeup-vibes">
+            {vibeTags.map(t => (
+              <span key={t} className="chip closeup-vibe">{t.replace('-', ' ').toUpperCase()}</span>
+            ))}
+          </div>
+        )}
         {details?.address && <p className="t-small closeup-address">{details.address}</p>}
       </header>
 
@@ -237,26 +252,35 @@ export default function Closeup() {
         </div>
       ) : (
         session.status === 'signed-in' &&
-        details?.id &&
-        details.name && (
+        (curatedThis || (details?.id && details.name)) && (
           <div className="closeup-actions">
+            <a
+              className="pill pill-ghost press"
+              href={mapsDeepLink(name, rawPid(id))}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={() => haptics.tap()}
+            >
+              Directions ↗
+            </a>
             <button
               className="pill pill-primary press"
               disabled={save.isPending}
               onClick={() =>
                 save.mutate({
                   place: {
-                    id: details.id!,
-                    name: details.name!,
-                    address: details.address,
-                    primaryType: details.primaryType,
-                    lat: details.lat,
-                    lng: details.lng,
+                    id,
+                    name,
+                    address: details?.address,
+                    primaryType,
+                    lat,
+                    lng,
+                    neighborhood,
                   },
                 })
               }
             >
-              Save this place
+              Want to go
             </button>
           </div>
         )
@@ -266,13 +290,25 @@ export default function Closeup() {
           (docs/GOOGLE.md, decision 3). */}
       <p className="t-small closeup-attcol">
         Place data: <span className="google-mark">Google Maps</span>
+        {details?.photoAttribution && photo === googlePhoto ? ` · photo ${details.photoAttribution}` : ''}
       </p>
 
-      {related.length > 0 && (
+      {relatedCurated.length > 0 && (
         <section className="closeup-related">
-          <p className="eyebrow section-label">MORE LIKE THIS, FROM YOUR BOARDS</p>
+          <p className="eyebrow section-label">MORE ON THE LIST</p>
           <Masonry>
-            {related.map(p => (
+            {relatedCurated.map(c => (
+              <DiscoverCard key={c.id} place={c} />
+            ))}
+          </Masonry>
+        </section>
+      )}
+
+      {relatedPins.length > 0 && (
+        <section className="closeup-related">
+          <p className="eyebrow section-label">FROM YOUR LIST</p>
+          <Masonry>
+            {relatedPins.map(p => (
               <PinCard key={p.id} pin={p} />
             ))}
           </Masonry>
