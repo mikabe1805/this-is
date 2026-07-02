@@ -15,7 +15,13 @@ import type { Pin } from './types'
 // scorer; the weights live canonically with the Home feed.
 export { FEED_WEIGHTS } from './ranking'
 
+/* Two proximity tiers: walkable city blocks, or the short suburban drive.
+   Piscataway is car country — a walk-only gate would leave TONIGHT
+   permanently empty there. Drive time is estimated from straight-line
+   distance at ~36 km/h and always labeled with ≈. */
 const MAX_WALK_MIN = 25
+const MAX_DRIVE_MIN = 18
+const DRIVE_FACTOR = 7.5 // walking minutes per driving minute (80 vs 600 m/min)
 
 export type Mood = 'cozy-dinner' | 'drinks' | 'quick-bite' | 'something-new'
 
@@ -28,7 +34,14 @@ export const MOODS: { key: Mood; label: string; tags: string[] | null }[] = [
 
 export type TonightCard = {
   pin: Pin
-  walkMin: number
+  /** Minutes in the given mode. */
+  minutes: number
+  mode: 'walk' | 'drive'
+}
+
+/** The vitals fragment: "8 MIN WALK" or "≈6 MIN DRIVE". */
+export function proximityLabel(card: TonightCard): string {
+  return card.mode === 'walk' ? `${card.minutes} MIN WALK` : `≈${card.minutes} MIN DRIVE`
 }
 
 /**
@@ -42,14 +55,21 @@ export function tonightCandidates(pins: Pin[], coords: Coords | null): TonightCa
   for (const pin of pins) {
     if (pin.status !== 'want') continue
     const { lat, lng, coordsAt } = pin.snapshot
-    const mins = walkMinutesBetween(coords, lat, lng, coordsAt)
-    if (mins === null || mins > MAX_WALK_MIN) continue
-    cards.push({ pin, walkMin: mins })
+    const walkMin = walkMinutesBetween(coords, lat, lng, coordsAt)
+    if (walkMin === null) continue
+    if (walkMin <= MAX_WALK_MIN) {
+      cards.push({ pin, minutes: walkMin, mode: 'walk' })
+    } else {
+      const driveMin = Math.max(1, Math.round(walkMin / DRIVE_FACTOR))
+      if (driveMin <= MAX_DRIVE_MIN) cards.push({ pin, minutes: driveMin, mode: 'drive' })
+    }
   }
-  // Proximity-cranked, freshness as the tie-break: closest first, then the
-  // pin you touched most recently.
+  // Walkable first, then closest within each tier; recency breaks ties.
   cards.sort(
-    (a, b) => a.walkMin - b.walkMin || b.pin.lastTouchedAt - a.pin.lastTouchedAt
+    (a, b) =>
+      (a.mode === 'walk' ? 0 : 1) - (b.mode === 'walk' ? 0 : 1) ||
+      a.minutes - b.minutes ||
+      b.pin.lastTouchedAt - a.pin.lastTouchedAt
   )
   return cards.slice(0, 10)
 }

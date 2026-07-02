@@ -8,6 +8,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useBoards, usePin, useSaveFlow } from '../data/queries'
 import { createBoard } from '../data/boards'
+import { armToast } from '../state/toast'
 import { haptics } from '../lib/haptics'
 
 export default function BoardPickerSheet() {
@@ -24,7 +25,11 @@ export default function BoardPickerSheet() {
   const open = Boolean(pinId)
 
   useEffect(() => {
-    if (open) sheetRef.current?.focus()
+    if (!open) return
+    sheetRef.current?.focus()
+    // A held save-toast resumes its countdown once the picker goes away
+    // (whether by picking, backdrop, or hardware back).
+    return () => armToast(3500)
   }, [open])
 
   if (!pinId) return null

@@ -4,7 +4,7 @@
  * note link. 1 tap to save, 2 to re-file, 3 to save+file+mark-Been.
  */
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { dismissToast, useToast } from '../state/toast'
+import { dismissToast, holdToast, useToast } from '../state/toast'
 import { useSaveFlow } from '../data/queries'
 import { haptics } from '../lib/haptics'
 
@@ -26,6 +26,7 @@ export default function SaveToastHost() {
 
   const openPicker = () => {
     haptics.tap()
+    holdToast() // the toast waits while the picker is up
     const next = new URLSearchParams(params)
     next.set('pick', toast.pinId)
     setParams(next)

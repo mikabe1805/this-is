@@ -18,6 +18,7 @@ import { uploadPinPhoto } from '../data/photos'
 import { useSession } from '../state/session'
 import { showToast } from '../state/toast'
 import { recordGo } from '../lib/goEvents'
+import { signIn } from '../lib/authWatch'
 import { haptics } from '../lib/haptics'
 import { PinVisual } from '../components/PinVisual'
 import { Masonry } from '../components/Masonry'
@@ -226,6 +227,15 @@ export default function Closeup() {
             rows={2}
           />
         </>
+      ) : session.status === 'signed-out' ? (
+        <div className="closeup-actions">
+          <button
+            className="pill pill-primary press"
+            onClick={() => { haptics.tap(); void signIn() }}
+          >
+            Continue with Google to keep it
+          </button>
+        </div>
       ) : (
         session.status === 'signed-in' &&
         details?.id &&

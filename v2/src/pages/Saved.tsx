@@ -9,6 +9,7 @@ import { useBoards, usePins } from '../data/queries'
 import { Masonry } from '../components/Masonry'
 import { PinCard } from '../components/PinCard'
 import { EmptyScene } from '../components/EmptyScene'
+import { signIn } from '../lib/authWatch'
 import type { Board, Pin } from '../data/types'
 
 type Filter = 'boards' | 'want' | 'been'
@@ -21,6 +22,24 @@ export default function Saved() {
 
   const active = (pins ?? []).filter(p => p.status !== 'released')
   const been = active.filter(p => p.status === 'been').length
+
+  if (session.status === 'signed-out') {
+    return (
+      <div className="page">
+        <header className="page-header">
+          <p className="eyebrow">SAVED</p>
+        </header>
+        <section className="empty-state">
+          <EmptyScene />
+          <h2 className="t-display">Your walls live behind your name.</h2>
+          <p className="t-body">Sign in and everything you keep is here, on every device.</p>
+          <button className="pill pill-primary press" onClick={() => void signIn()}>
+            Continue with Google
+          </button>
+        </section>
+      </div>
+    )
+  }
 
   return (
     <div className="page">

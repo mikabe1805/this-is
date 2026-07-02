@@ -16,6 +16,7 @@ import { rawPid } from '../data/types'
 import {
   filterByMood,
   MOODS,
+  proximityLabel,
   tonightCandidates,
   type Mood,
   type TonightCard,
@@ -84,8 +85,8 @@ export function TonightRail({ pins }: { pins: Pin[] }) {
 
 function TonightCardView({ card, hoursLabel }: { card: TonightCard; hoursLabel: string | null }) {
   const navigate = useNavigate()
-  const { pin, walkMin } = card
-  const vitals = [hoursLabel, `${walkMin} MIN WALK`].filter(Boolean).join(' · ')
+  const { pin } = card
+  const vitals = [hoursLabel, proximityLabel(card)].filter(Boolean).join(' · ')
 
   const go = (e: React.MouseEvent) => {
     e.stopPropagation()

@@ -34,7 +34,7 @@ function emit() {
   listeners.forEach(l => l())
 }
 
-export function showToast(data: SaveToastData | NoticeToastData, ms = 5000): void {
+export function showToast(data: SaveToastData | NoticeToastData, ms = 7000): void {
   if (timer) clearTimeout(timer)
   current = { ...data, id: nextId++ }
   emit()
@@ -61,6 +61,22 @@ export function dismissToast(): void {
   timer = null
   current = null
   emit()
+}
+
+/** Suspend auto-dismiss — the user is interacting (e.g. the picker is open). */
+export function holdToast(): void {
+  if (timer) clearTimeout(timer)
+  timer = null
+}
+
+/** Re-arm auto-dismiss after an interaction settles. */
+export function armToast(ms = 4000): void {
+  if (!current) return
+  if (timer) clearTimeout(timer)
+  timer = setTimeout(() => {
+    current = null
+    emit()
+  }, ms)
 }
 
 function subscribe(l: () => void): () => void {
