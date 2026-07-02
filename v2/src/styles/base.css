@@ -156,6 +156,31 @@ p {
   margin-bottom: 12px;
 }
 
+/* Cards arrive like prints being hung — a quick staggered rise. */
+@media (prefers-reduced-motion: no-preference) {
+  .masonry > * {
+    animation: card-in var(--dur-screen) var(--ease-out) both;
+  }
+  .masonry > *:nth-child(1) { animation-delay: 0ms; }
+  .masonry > *:nth-child(2) { animation-delay: 45ms; }
+  .masonry > *:nth-child(3) { animation-delay: 90ms; }
+  .masonry > *:nth-child(4) { animation-delay: 135ms; }
+  .masonry > *:nth-child(5) { animation-delay: 180ms; }
+  .masonry > *:nth-child(6) { animation-delay: 225ms; }
+  .masonry > *:nth-child(n + 7) { animation-delay: 270ms; }
+}
+
+@keyframes card-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 /* ── Press feedback (v1 keeper) ── */
 .press {
   transition:

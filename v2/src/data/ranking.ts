@@ -41,12 +41,15 @@ export interface ScoredPin {
   reason: string
 }
 
-/** "wine_bar" → "wine bars" for the taste reason line. */
+/** "wine_bar" → "wine bars", "bakery" → "bakeries" for the taste reason line. */
 export function categoryPlural(primaryType?: string): string {
   const label = typeLabel(primaryType)
   if (!label) return 'places like this'
   const lower = label.toLowerCase()
-  return lower.endsWith('s') ? lower : `${lower}s`
+  if (lower.endsWith('s')) return lower
+  if (lower.endsWith('y')) return lower.slice(0, -1) + 'ies'
+  if (/(sh|ch|x|z)$/.test(lower)) return lower + 'es'
+  return lower + 's'
 }
 
 export function rankPins(

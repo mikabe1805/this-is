@@ -39,8 +39,9 @@ export function PinCard({ pin, reason }: PinCardProps) {
   const [params, setParams] = useSearchParams()
 
   const line = reason ?? reasonFor(pin)
+  const proximityLine = line ? /min away|around the corner/i.test(line) : false
   const chip = [
-    walkChip(pin.snapshot.lat, pin.snapshot.lng, pin.snapshot.coordsAt),
+    proximityLine ? null : walkChip(pin.snapshot.lat, pin.snapshot.lng, pin.snapshot.coordsAt),
     typeLabel(pin.snapshot.primaryType),
   ]
     .filter(Boolean)

@@ -42,8 +42,11 @@ export function DiscoverCard({ place, reason }: { place: PlaceDoc; reason?: stri
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [place.id])
 
+  // Don't say the distance twice — when the reason line is proximity, the
+  // chip carries only type + neighborhood.
+  const proximityReason = reason ? /min away|around the corner/i.test(reason) : false
   const chip = [
-    walkChip(place.lat, place.lng, place.coordsFetchedAt),
+    proximityReason ? null : walkChip(place.lat, place.lng, place.coordsFetchedAt),
     typeLabel(place.primaryType),
     place.neighborhood,
   ]

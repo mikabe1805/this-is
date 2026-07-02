@@ -65,6 +65,16 @@ const SWEEPS = [
 const cellKey = (lat, lng) =>
   `${(Math.round(lat * 10) / 10).toFixed(1)}_${(Math.round(lng * 10) / 10).toFixed(1)}`
 
+/* Deterministic per-place tint around the category hue — a wall of pizza
+   places should read as siblings, not clones. */
+function jitterHex(hex, id) {
+  let h = 0
+  for (const ch of id) h = (h * 31 + ch.charCodeAt(0)) >>> 0
+  const j = ch => Math.max(24, Math.min(96, ch + ((h = (h * 1103515245 + 12345) >>> 0) % 29) - 14))
+  const [r, g, b] = [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16))
+  return '#' + [j(r), j(g), j(b)].map(v => v.toString(16).padStart(2, '0')).join('')
+}
+
 function neighborhoodFrom(address) {
   if (!address) return undefined
   const parts = address.split(',').map(s => s.trim()).filter(Boolean)
@@ -133,7 +143,7 @@ for (const anchor of ANCHORS) {
         neighborhood: neighborhoodFrom(p.formattedAddress),
         lat: p.location.latitude,
         lng: p.location.longitude,
-        hex: sweep.hex,
+        hex: jitterHex(sweep.hex, p.id),
       })
       fresh++
     }

@@ -45,12 +45,18 @@
 @supports (background: color-mix(in oklab, red 50%, blue)) {
   .pin-visual {
     background-color: transparent;
-    background-image: linear-gradient(
-      150deg,
-      color-mix(in oklab, var(--dominant, var(--card)) 78%, #e8d5d9) 0%,
-      color-mix(in oklab, var(--dominant, var(--card)) 88%, var(--canvas)) 42%,
-      color-mix(in oklab, var(--dominant, var(--card)) 60%, var(--canvas)) 100%
-    );
+    background-image:
+      radial-gradient(
+        120% 90% at 18% 0%,
+        color-mix(in oklab, var(--dominant, var(--card)) 62%, #f0dde1) 0%,
+        transparent 55%
+      ),
+      linear-gradient(
+        150deg,
+        color-mix(in oklab, var(--dominant, var(--card)) 80%, #e8d5d9) 0%,
+        color-mix(in oklab, var(--dominant, var(--card)) 90%, var(--canvas)) 45%,
+        color-mix(in oklab, var(--dominant, var(--card)) 58%, var(--canvas)) 100%
+      );
   }
 }
 
@@ -60,17 +66,21 @@
   position: absolute;
   inset: 0;
   pointer-events: none;
-  opacity: 0.16;
+  opacity: 0.09;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 }
 
+/* a quiet plate mark, not a poster letter */
 .plate-monogram {
-  position: relative;
+  position: absolute;
+  top: 14px;
+  left: 16px;
   font-family: var(--font-display);
   font-weight: 600;
-  font-size: clamp(44px, 22cqw, 72px);
+  font-style: italic;
+  font-size: 30px;
   line-height: 1;
-  color: color-mix(in srgb, #f2eceb 20%, transparent);
+  color: color-mix(in srgb, #f2eceb 24%, transparent);
   user-select: none;
 }
 
@@ -95,12 +105,16 @@
 
 .photo-credit {
   position: absolute;
-  right: 8px;
-  bottom: 8px;
+  top: 52px;
+  right: 10px;
+  max-width: 62%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   padding: 2px 8px;
   border-radius: var(--r-pill);
   background: rgba(20, 13, 16, 0.55);
-  color: rgba(242, 236, 235, 0.75);
+  color: rgba(242, 236, 235, 0.72);
   font-size: 9px;
 }
 
