@@ -13,7 +13,9 @@ import { typeLabel, vibesFor } from '../data/vibes'
 import { walkChip } from '../lib/geo'
 import { usePin, usePins, useSaveFlow } from '../data/queries'
 import { setPinNote } from '../data/pins'
+import { uploadPinPhoto } from '../data/photos'
 import { useSession } from '../state/session'
+import { showToast } from '../state/toast'
 import { recordGo } from '../lib/goEvents'
 import { haptics } from '../lib/haptics'
 import { PinVisual } from '../components/PinVisual'
@@ -50,7 +52,30 @@ export default function Closeup() {
   ]
     .filter(Boolean)
     .join(' · ')
-  const photo = details?.photoResourceName ? photoUrl(details.photoResourceName, 800) : undefined
+  // Your own photo is the cover; Google's (fresh, attributed) fills in behind it.
+  const googlePhoto = details?.photoResourceName
+    ? photoUrl(details.photoResourceName, 800)
+    : undefined
+  const photo = pin?.userPhotoPath ?? googlePhoto
+
+  // ── your photo becomes the cover ──
+  const fileRef = useRef<HTMLInputElement>(null)
+  const [uploading, setUploading] = useState(false)
+  const onPhotoPicked = async (file: File | undefined) => {
+    if (!file || !pin || uploading) return
+    setUploading(true)
+    try {
+      await uploadPinPhoto(pin.id, file)
+      haptics.success()
+      invalidate()
+      showToast({ kind: 'notice', text: 'Your photo is the cover now' })
+    } catch {
+      haptics.warn()
+      showToast({ kind: 'notice', text: "Couldn't upload that — try again" })
+    } finally {
+      setUploading(false)
+    }
+  }
 
   // ── note editing ──
   // Dirty-guarded: background refetches never clobber in-progress typing, and
@@ -107,7 +132,7 @@ export default function Closeup() {
       <PinVisual
         hex={hex}
         photoSrc={photo}
-        attribution={details?.photoAttribution}
+        attribution={photo === googlePhoto ? details?.photoAttribution : undefined}
         alt={name}
         className="closeup-visual"
       />
@@ -144,6 +169,30 @@ export default function Closeup() {
             >
               Open in Google Maps ↗
             </a>
+          </div>
+
+          <div className="closeup-photo-row">
+            <input
+              ref={fileRef}
+              type="file"
+              accept="image/*"
+              hidden
+              onChange={e => {
+                void onPhotoPicked(e.target.files?.[0])
+                e.target.value = ''
+              }}
+            />
+            <button
+              className="toast-ghost press"
+              disabled={uploading}
+              onClick={() => fileRef.current?.click()}
+            >
+              {uploading
+                ? 'uploading…'
+                : pin.userPhotoPath
+                  ? 'change your photo'
+                  : 'add your photo — it becomes the cover'}
+            </button>
           </div>
 
           <textarea

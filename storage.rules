@@ -48,5 +48,15 @@ service firebase.storage {
     match /temp/{allPaths=**} {
       allow read, write: if request.auth != null;
     }
+
+    // v2: a user's own pin photos (the "your photo becomes the pin cover"
+    // loop). Owner-writable, capped at 8MB, images only.
+    match /pin-photos/{userId}/{allPaths=**} {
+      allow read: if true;
+      allow write: if request.auth != null
+        && request.auth.uid == userId
+        && request.resource.size < 8 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+    }
   }
 }

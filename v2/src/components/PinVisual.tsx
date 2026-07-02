@@ -1,8 +1,12 @@
 /**
- * The card/closeup visual: the dominant-hex block is the base layer and the
- * loading state; a photo (Google — fresh + attributed — or the user's own)
- * fades in over it under the one photographic grade. The grid never shows a
- * spinner or a white box.
+ * The card/closeup visual. Layer order, bottom-up:
+ *   1. The PLATE — an art-directed block built from the stored dominant hex:
+ *      lit-from-upper-left gradient (the picture-light), film grain, and a
+ *      quiet Fraunces monogram of the place's initial. This is the loading
+ *      state AND the no-photo state — never a spinner, never a flat box.
+ *   2. A photo, when one is allowed: the user's own (pin cover) or a fresh
+ *      attributed Google photo (closeup only). Fades in over the plate under
+ *      the one photographic grade.
  */
 import { useState } from 'react'
 
@@ -18,12 +22,18 @@ export function PinVisual({ hex, photoSrc, attribution, alt, className = '' }: P
   const [loaded, setLoaded] = useState(false)
   const [failed, setFailed] = useState(false)
   const showPhoto = photoSrc && !failed
+  const initial = (alt.trim()[0] ?? '·').toUpperCase()
 
   return (
     <div
       className={`pin-visual ${className}`}
       style={{ '--dominant': hex } as React.CSSProperties}
     >
+      {!(showPhoto && loaded) && (
+        <span className="plate-monogram" aria-hidden>
+          {initial}
+        </span>
+      )}
       {showPhoto && (
         <img
           src={photoSrc}

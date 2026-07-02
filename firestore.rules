@@ -205,5 +205,32 @@ service cloud.firestore {
     match /seed-data/{document=**} {
       allow read, write: if isDevMode(); // Only allow in dev mode
     }
+
+    // ══════════════════════════════════════════════════════════════════
+    // v2 (the rebuild in v2/) — new subcollections + collections, grafted
+    // alongside v1's blocks per the cutover plan (v2/firestore.rules is the
+    // eventual replacement). Firestore match blocks do NOT cascade, so
+    // users/{uid}/pins|boards were implicitly denied until these existed.
+    // Private by default — no isDevMode bypass on v2 data.
+    // ══════════════════════════════════════════════════════════════════
+    match /users/{userId}/boards/{boardId} {
+      allow read, write: if isAuthenticated() && isOwner(userId);
+    }
+
+    match /users/{userId}/pins/{pinId} {
+      allow read, write: if isAuthenticated() && isOwner(userId);
+    }
+
+    // City candidate pools — client reads; composer/import write via admin SDK.
+    match /cities/{cityKey}/candidates/{placeId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // Baked share snapshots — public read, function-only write.
+    match /shares/{token} {
+      allow read: if true;
+      allow write: if false;
+    }
   }
 }

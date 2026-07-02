@@ -9,9 +9,12 @@
    ============================================================ */
 
 :root {
-  /* Surfaces — the room */
+  /* Surfaces — the room. The glow is architectural depth (a lit wall fading
+     to the corners), not a candle: neutral rose-dark, no warm accent. */
   --canvas: #140d10;
-  --canvas-glow: radial-gradient(120% 90% at 50% 0%, #1a1114 0%, #140d10 60%);
+  --canvas-glow:
+    radial-gradient(90% 55% at 50% -10%, rgba(233, 213, 217, 0.055) 0%, transparent 60%),
+    radial-gradient(140% 110% at 50% 20%, #1c1216 0%, #140d10 55%, #0e090b 100%);
   --card: #1e1418;
   --sheet: #251a1f;
   --hairline: rgba(242, 236, 235, 0.1);
@@ -81,7 +84,9 @@
 
 [data-theme='day'] {
   --canvas: #ede4e6;
-  --canvas-glow: radial-gradient(120% 90% at 50% 0%, #f3ebed 0%, #ede4e6 60%);
+  --canvas-glow:
+    radial-gradient(90% 55% at 50% -10%, rgba(255, 255, 255, 0.5) 0%, transparent 60%),
+    radial-gradient(140% 110% at 50% 20%, #f4edee 0%, #ede4e6 55%, #e4d8db 100%);
   --card: #f6f1f2;
   --sheet: #fbf8f9;
   --hairline: rgba(34, 24, 32, 0.12);

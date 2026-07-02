@@ -103,7 +103,7 @@ function TonightCardView({ card, hoursLabel }: { card: TonightCard; hoursLabel: 
       onClick={() => navigate(`/p/${pin.id}`)}
       onKeyDown={e => { if (e.key === 'Enter') navigate(`/p/${pin.id}`) }}
     >
-      <PinVisual hex={pin.snapshot.hex} alt={pin.snapshot.name} />
+      <PinVisual hex={pin.snapshot.hex} photoSrc={pin.userPhotoPath} alt={pin.snapshot.name} />
       <div className="pin-scrim" aria-hidden />
       <div className="tonight-card-body">
         <h3 className="tonight-card-name">{pin.snapshot.name}</h3>

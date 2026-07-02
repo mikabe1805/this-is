@@ -19,6 +19,7 @@ import { Masonry } from '../components/Masonry'
 import { PinCard } from '../components/PinCard'
 import { MorningAfterCard } from '../components/MorningAfterCard'
 import { TonightRail } from '../components/TonightRail'
+import { EmptyScene } from '../components/EmptyScene'
 import { signIn } from '../lib/authWatch'
 import { haptics } from '../lib/haptics'
 
@@ -83,6 +84,7 @@ export default function Home() {
           {isLoading && <MasonrySkeleton />}
           {!isLoading && active.length === 0 && (
             <section className="empty-state">
+              <EmptyScene />
               <h2 className="t-display">The lights are on. The walls are bare.</h2>
               <p className="t-body">
                 {firstRun

@@ -8,6 +8,7 @@ import { useSession } from '../state/session'
 import { useBoards, usePins } from '../data/queries'
 import { Masonry } from '../components/Masonry'
 import { PinCard } from '../components/PinCard'
+import { EmptyScene } from '../components/EmptyScene'
 import type { Board, Pin } from '../data/types'
 
 type Filter = 'boards' | 'want' | 'been'
@@ -64,6 +65,7 @@ export default function Saved() {
 
       {filter === 'boards' && (boards ?? []).length === 0 && (
         <section className="empty-state">
+          <EmptyScene />
           <h2 className="t-display">The lights are on. The walls are bare.</h2>
           <p className="t-body">Your first save starts your first board.</p>
           <Link to="/add" className="pill pill-primary press">Find your first</Link>
@@ -90,7 +92,7 @@ function BoardCover({ board, pins }: { board: Board; pins: Pin[] }) {
     <Link to={`/board/${board.id}`} className="board-cover press">
       <div className="board-mosaic" aria-hidden>
         {hexes.map((h, i) => (
-          <span key={i} style={{ backgroundColor: h }} />
+          <span key={i} style={{ '--dominant': h } as React.CSSProperties} />
         ))}
       </div>
       <div className="board-meta">

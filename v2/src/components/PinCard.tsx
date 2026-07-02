@@ -73,7 +73,11 @@ export function PinCard({ pin, reason }: PinCardProps) {
         }
       }}
     >
-      <PinVisual hex={pin.snapshot.hex} alt={pin.snapshot.name} />
+      <PinVisual
+        hex={pin.snapshot.hex}
+        photoSrc={pin.userPhotoPath}
+        alt={pin.snapshot.name}
+      />
       <div className="pin-scrim" aria-hidden />
       <button
         className="pin-bookmark press"
