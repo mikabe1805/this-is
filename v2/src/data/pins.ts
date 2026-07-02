@@ -254,6 +254,38 @@ export async function setPinStatus(pinId: string, status: PinStatus): Promise<vo
     .commit()
 }
 
+/**
+ * Refresh a pin's snapshot from a fresh full-mask Details response — the
+ * snapshot is a refreshable cache of Google data, not an archive
+ * (docs/GOOGLE.md, decision 5). Called by the closeup when the snapshot has
+ * aged past the refresh window.
+ */
+export async function refreshPinSnapshot(
+  pinId: string,
+  place: SaveablePlace
+): Promise<void> {
+  const uid = requireUid()
+  const pinRef = doc(db, 'users', uid, 'pins', pinId)
+  const snap = await getDoc(pinRef)
+  if (!snap.exists()) return
+  const pin = snap.data() as Omit<Pin, 'id'>
+  const now = Date.now()
+  const neighborhood = neighborhoodFrom(place.address)
+  const hasCoords = typeof place.lat === 'number' && typeof place.lng === 'number'
+  await writeBatch(db)
+    .set(pinRef, {
+      ...pin,
+      snapshot: {
+        ...pin.snapshot,
+        name: place.name || pin.snapshot.name,
+        ...(place.primaryType ? { primaryType: place.primaryType } : {}),
+        ...(neighborhood ? { neighborhood } : {}),
+        ...(hasCoords ? { lat: place.lat, lng: place.lng, coordsAt: now } : {}),
+      },
+    })
+    .commit()
+}
+
 /** Update the free-text note from the closeup. */
 export async function setPinNote(pinId: string, note: string): Promise<void> {
   const uid = requireUid()

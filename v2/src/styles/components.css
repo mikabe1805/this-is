@@ -732,6 +732,16 @@
   margin-top: 8px;
 }
 
+/* Google attribution (policy: legible text near Google-sourced content) */
+.closeup-attcol {
+  margin: 2px 0 20px;
+}
+
+.google-mark {
+  font-weight: 500;
+  color: var(--text-2);
+}
+
 /* ── Search shell ── */
 .vibe-grid {
   display: grid;

@@ -27,9 +27,13 @@ threat; do not implement these even as stubs.
   Zero modal-manager state, zero `window.CustomEvent` buses.
 - **Caching** = Firestore `persistentLocalCache` + TanStack Query. No ad-hoc localStorage
   document mirrors (localStorage is allowed for tiny preferences: theme, haptics, coords).
-- **Cost discipline**: autocomplete only inside session tokens; `getDetails` only on explicit
-  user action; photo resource names never cached; photos always attributed; browsing never
-  writes Firestore.
+- **Cost discipline** (the full ruling: `docs/GOOGLE.md`): autocomplete only inside session
+  tokens; `getDetails` only on explicit user action; photo resource names never cached; photos
+  always attributed; browsing never writes Firestore. **The mask split**: the Pro-tier full
+  mask runs only at save time and for unsaved deep-links; saved-pin closeups use the free
+  photo-ref mask (`getPhotoRef`) and render from the snapshot, with a 90-day full-mask
+  snapshot refresh. **Google photos never appear on the grid** — grid imagery is user photos →
+  plates → hex. "Google Maps" text attribution renders near Google-sourced content.
 - **Honesty**: no placebo UI. A control that doesn't work yet doesn't render. Stale data is
   hidden, not shown ("honest absence beats a placebo"). Own-save resurfacing is labeled, never
   disguised as discovery.

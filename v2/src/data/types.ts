@@ -68,6 +68,10 @@ export interface PlaceDoc {
   coordsFetchedAt?: number
   photoHex: string
   savedCount: number
+  /** The FSQ OS Places shadow key (docs/GOOGLE.md, decision 6) — written by
+   *  an offline conflation job; keeps the open-catalog escape hatch a
+   *  weeks-not-months migration. */
+  fsqId?: string
 }
 
 /** What savePin needs to know about a place — shaped by lib/places.getDetails. */

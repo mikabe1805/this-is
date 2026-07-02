@@ -30,8 +30,14 @@ const PHOTOS_ON = import.meta.env.VITE_PLACES_PHOTOS_ENABLED === 'true'
    coords, so the same query does the right thing in Piscataway or Tokyo. */
 const LANG = (typeof navigator !== 'undefined' && navigator.language) || 'en'
 
+/* THE MASK SPLIT (docs/GOOGLE.md, decision 2): displayName/primaryType are
+   Pro-tier fields ($17/1K); id + photos.* are the FREE IDs-Only tier. So the
+   full mask runs only where it must — saving (terminates the autocomplete
+   session, refreshes the snapshot) and deep-links to unsaved places. Saved-pin
+   closeups render name/type from the snapshot and fetch only photo refs. */
 const DETAIL_FIELD_MASK =
   'id,displayName,formattedAddress,location,primaryType,photos.name,photos.authorAttributions'
+const PHOTO_REF_FIELD_MASK = 'id,photos.name,photos.authorAttributions'
 
 /** Honest absence: surfaces hide Google lanes entirely when the flag is off. */
 export const placesEnabled = PLACES_ON
@@ -103,6 +109,24 @@ export async function getDetails(
     lat: p.location?.latitude,
     lng: p.location?.longitude,
     primaryType: p.primaryType,
+    photoResourceName: photo?.name,
+    photoAttribution: photo?.authorAttributions?.[0]?.displayName,
+  }
+}
+
+/** Photo refs only — bills in the FREE IDs-Only tier. For saved pins, whose
+ *  name/type/coords already live in the snapshot. */
+export async function getPhotoRef(
+  placeId: string
+): Promise<Pick<PlaceDetails, 'photoResourceName' | 'photoAttribution'> | null> {
+  if (!PLACES_ON) return null
+  const url = new URL(`${API}/places/${placeId}`)
+  url.searchParams.set('languageCode', LANG)
+  const res = await fetch(url, { headers: headers(PHOTO_REF_FIELD_MASK) })
+  if (!res.ok) return null
+  const p = await res.json()
+  const photo = p.photos?.[0]
+  return {
     photoResourceName: photo?.name,
     photoAttribution: photo?.authorAttributions?.[0]?.displayName,
   }

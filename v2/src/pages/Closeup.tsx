@@ -7,12 +7,13 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { getDetails, mapsDeepLink, photoUrl } from '../lib/places'
+import { getDetails, getPhotoRef, mapsDeepLink, photoUrl } from '../lib/places'
 import { rawPid } from '../data/types'
 import { typeLabel, vibesFor } from '../data/vibes'
 import { walkChip } from '../lib/geo'
 import { usePin, usePins, useSaveFlow } from '../data/queries'
-import { setPinNote } from '../data/pins'
+import { refreshPinSnapshot, setPinNote } from '../data/pins'
+import type { PlaceDetails } from '../lib/places'
 import { uploadPinPhoto } from '../data/photos'
 import { useSession } from '../state/session'
 import { showToast } from '../state/toast'
@@ -32,11 +33,28 @@ export default function Closeup() {
   const { data: pins } = usePins()
   const { save, setStatus, invalidate } = useSaveFlow()
 
+  // THE MASK SPLIT (docs/GOOGLE.md #2): a saved pin already carries
+  // name/type/coords in its snapshot, so enrich with the FREE photo-ref mask;
+  // full (Pro-tier) details run only for unsaved deep-links, or as the 90-day
+  // snapshot refresh that keeps the cache honest.
+  const SNAPSHOT_FRESH_MS = 90 * 24 * 60 * 60 * 1000
+  const snapshotFresh = Boolean(
+    pin?.snapshot.coordsAt && Date.now() - pin.snapshot.coordsAt < SNAPSHOT_FRESH_MS
+  )
+  const pinsReady = pins !== undefined || session.status !== 'signed-in'
   const { data: details } = useQuery({
-    queryKey: ['placeDetails', id],
-    queryFn: () => getDetails(rawPid(id)),
+    queryKey: ['placeDetails', id, pin && snapshotFresh ? 'photoRef' : 'full'],
+    queryFn: async (): Promise<Partial<PlaceDetails> | null> => {
+      if (pin && snapshotFresh) return getPhotoRef(rawPid(id))
+      const full = await getDetails(rawPid(id))
+      if (pin && full) {
+        // Refreshable-cache law: fold the fresh data back into the snapshot.
+        void refreshPinSnapshot(pin.id, full).then(invalidate)
+      }
+      return full
+    },
     staleTime: Infinity,
-    enabled: Boolean(id),
+    enabled: Boolean(id) && pinsReady,
   })
 
   const name = pin?.snapshot.name ?? details?.name ?? '…'
@@ -210,18 +228,36 @@ export default function Closeup() {
         </>
       ) : (
         session.status === 'signed-in' &&
-        details && (
+        details?.id &&
+        details.name && (
           <div className="closeup-actions">
             <button
               className="pill pill-primary press"
               disabled={save.isPending}
-              onClick={() => save.mutate({ place: details })}
+              onClick={() =>
+                save.mutate({
+                  place: {
+                    id: details.id!,
+                    name: details.name!,
+                    address: details.address,
+                    primaryType: details.primaryType,
+                    lat: details.lat,
+                    lng: details.lng,
+                  },
+                })
+              }
             >
               Save this place
             </button>
           </div>
         )
       )}
+
+      {/* Required attribution: Google-sourced place data, shown mapless
+          (docs/GOOGLE.md, decision 3). */}
+      <p className="t-small closeup-attcol">
+        Place data: <span className="google-mark">Google Maps</span>
+      </p>
 
       {related.length > 0 && (
         <section className="closeup-related">
