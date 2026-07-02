@@ -1,0 +1,57 @@
+rules_version = '2';
+
+// this.is v2 — default-deny, real from day one. No isDevMode, no 2030 backdoor.
+//
+// NOT YET DEPLOYED: v1's rules are still serving this Firebase project. At
+// cutover, graft these match blocks into the deployed ruleset (v1's blocks
+// stay untouched until then), then delete v1's blocks when the old hosting
+// target is retired.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(uid) {
+      return signedIn() && request.auth.uid == uid;
+    }
+
+    // A user's own tree: profile, boards, pins. Private by default.
+    match /users/{uid} {
+      allow read, write: if isOwner(uid);
+
+      match /boards/{boardId} {
+        allow read, write: if isOwner(uid);
+      }
+
+      match /pins/{pinId} {
+        allow read, write: if isOwner(uid);
+      }
+    }
+
+    // The shared place catalog: g:{place_id} docs. Readable by anyone;
+    // written only by signed-in users (and only inside the save batch —
+    // enforced by code; browsing never writes).
+    match /places/{placeId} {
+      allow read: if true;
+      allow create, update: if signedIn();
+    }
+
+    // City candidate pools — composer-maintained card snapshots (W3).
+    // Client reads; only the Cloud Function writes.
+    match /cities/{cityKey}/candidates/{placeId} {
+      allow read: if true;
+    }
+
+    // Baked share snapshots (W4): public read, function-only write.
+    match /shares/{token} {
+      allow read: if true;
+    }
+
+    // Everything else: denied.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

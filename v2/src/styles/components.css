@@ -1,0 +1,948 @@
+/* ============================================================
+   this.is v2 — PRIVATE VIEW component recipes (see ../DESIGN.md)
+   The print never changes; only the light moves: one grade,
+   state = lighting layered on top (glows, veils, mats).
+   ============================================================ */
+
+/* ── The pin card — a picture on the wall ── */
+.pin-card {
+  position: relative;
+  display: block;
+  width: 100%;
+  aspect-ratio: 5 / 6;
+  border-radius: var(--r-card);
+  overflow: hidden;
+  background: var(--card);
+  cursor: pointer;
+  transition:
+    transform var(--dur-fast) var(--ease-standard),
+    opacity var(--dur-base) var(--ease-standard),
+    box-shadow var(--dur-base) var(--ease-standard);
+}
+
+.pin-visual {
+  position: absolute;
+  inset: 0;
+  /* Placeholders sit inside the room: dominant hex pulled 15% toward the wall. */
+  background-color: var(--dominant, var(--card));
+}
+
+@supports (background: color-mix(in oklab, red 50%, blue)) {
+  .pin-visual {
+    background-color: color-mix(in oklab, var(--dominant, var(--card)) 85%, var(--canvas));
+  }
+}
+
+.pin-photo {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0;
+  transition: opacity var(--dur-screen) var(--ease-out);
+}
+
+.pin-photo.is-loaded {
+  opacity: 1;
+}
+
+/* Anti-murk law: a breath of rose, no dimming. Identical in both themes. */
+.photo-grade {
+  filter: var(--photo-grade);
+}
+
+.photo-credit {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  padding: 2px 8px;
+  border-radius: var(--r-pill);
+  background: rgba(20, 13, 16, 0.55);
+  color: rgba(242, 236, 235, 0.75);
+  font-size: 9px;
+}
+
+.pin-scrim {
+  position: absolute;
+  inset-inline: 0;
+  bottom: 0;
+  height: 55%;
+  background: var(--scrim);
+  pointer-events: none;
+}
+
+/* On-photo text never flips with the theme. */
+.pin-caption {
+  position: absolute;
+  inset-inline: 12px;
+  bottom: 12px;
+  color: var(--on-photo-1);
+}
+
+.pin-reason {
+  font-family: var(--font-display);
+  font-style: italic;
+  font-size: var(--fs-2);
+  line-height: 1.25;
+  color: var(--reason-on-photo);
+  margin-bottom: 4px;
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.pin-title {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: var(--fs-5);
+  line-height: 1.08;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.pin-chip {
+  margin-top: 5px;
+  color: var(--on-photo-2);
+}
+
+.pin-bookmark {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--r-pill);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(20, 13, 16, 0.5);
+  color: var(--on-photo-1);
+  z-index: 2;
+}
+
+.pin-bookmark svg {
+  width: 17px;
+  height: 17px;
+}
+
+/* ── THE HANG — a Been place has its picture-light switched on ──
+   Three layers, all lighting: the lamp glow at the top edge, a hairline
+   ring, and the plaque. Must read at masonry squint distance. */
+.pin-card.is-been {
+  box-shadow: inset 0 0 0 1px rgba(251, 239, 233, 0.35);
+}
+
+.pin-card.is-been::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background: radial-gradient(120% 60% at 50% -20%, var(--celebrate-glow), transparent 70%);
+}
+
+.pin-card.is-been .pin-reason {
+  color: #fbefe9; /* the light itself — warm-white in any theme */
+}
+
+.been-mark {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  z-index: 2;
+  padding: 3px 9px;
+  border-radius: var(--r-pill);
+  background: var(--celebrate);
+  color: var(--canvas);
+}
+
+/* Daylight inverts glow to gravity: shadow + madder mat. */
+[data-theme='day'] .pin-card.is-been {
+  box-shadow:
+    inset 0 0 0 1px var(--celebrate),
+    0 8px 24px rgba(34, 24, 32, 0.18);
+}
+
+[data-theme='day'] .pin-card.is-been::before {
+  background: none;
+}
+
+/* ── INTO STORAGE — 90 days untouched, the light leaves it ──
+   Static veil over the image only; the caption dims a ramp step. */
+.pin-card.is-stale .pin-visual::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--veil-recede);
+}
+
+.pin-card.is-stale .pin-photo {
+  opacity: 0.85;
+}
+
+.pin-card.is-stale .pin-title {
+  color: var(--on-photo-2);
+}
+
+/* ── THE ACQUISITION — the picture-light sweep on save (wired to feed
+   cards in W3; the class is the contract) ── */
+.save-sweep::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  background: linear-gradient(
+    100deg,
+    transparent 20%,
+    var(--celebrate-glow) 50%,
+    transparent 80%
+  );
+  background-size: 250% 100%;
+  animation: sweep var(--dur-screen) var(--ease-standard) both;
+}
+
+@keyframes sweep {
+  from {
+    background-position: 120% 0;
+  }
+  to {
+    background-position: -60% 0;
+  }
+}
+
+/* ── Board covers ── */
+.board-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.board-cover {
+  display: block;
+  border-radius: var(--r-card);
+  overflow: hidden;
+  background: var(--card);
+  border: 1px solid var(--hairline);
+}
+
+.board-mosaic {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  aspect-ratio: 5 / 4;
+}
+
+.board-mosaic span {
+  display: block;
+}
+
+.board-meta {
+  padding: 10px 12px 12px;
+}
+
+.board-meta .eyebrow {
+  margin-top: 2px;
+}
+
+/* ── THE VITRINE — the one glass, chrome only ── */
+.glass-chrome {
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
+}
+
+@supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
+  .glass-chrome {
+    backdrop-filter: blur(var(--glass-blur)) saturate(1.25);
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(1.25);
+  }
+}
+
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .glass-chrome {
+    background: var(--glass-solid);
+  }
+}
+
+/* ── Dock ── */
+.dock {
+  position: fixed;
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 14px);
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 4px;
+  padding: 6px;
+  border-radius: var(--r-pill);
+  z-index: 40;
+}
+
+.dock-tab {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 8px 18px 7px;
+  border-radius: var(--r-pill);
+  color: var(--text-3);
+}
+
+.dock-tab.is-active {
+  color: var(--text-1);
+  background: color-mix(in srgb, var(--action) 16%, transparent);
+}
+
+.dock-icon {
+  width: 20px;
+  height: 20px;
+}
+
+.dock-label {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.14em;
+}
+
+/* ── Pills ── */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px 20px;
+  border-radius: var(--r-pill);
+  font-size: var(--fs-3);
+  font-weight: 500;
+  line-height: 1;
+}
+
+.pill-primary {
+  background: var(--action);
+  color: var(--action-ink);
+}
+
+.pill-primary:active {
+  background: var(--action-press);
+}
+
+.pill-primary:disabled {
+  opacity: 0.55;
+}
+
+.pill-ghost {
+  border: 1px solid var(--hairline);
+  color: var(--text-2);
+}
+
+/* ── Segmented tabs ── */
+.seg {
+  display: inline-flex;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-pill);
+  margin-bottom: 18px;
+}
+
+.seg-tab {
+  padding: 7px 16px;
+  border-radius: var(--r-pill);
+  font-family: var(--font-mono);
+  font-size: var(--fs-1);
+  letter-spacing: 0.12em;
+  color: var(--text-3);
+}
+
+.seg-tab.is-active {
+  background: var(--card);
+  color: var(--text-1);
+}
+
+/* ── Toast — the vitrine rises ── */
+.toast {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 84px);
+  width: min(92vw, 420px);
+  border-radius: var(--r-card);
+  padding: 12px 14px;
+  z-index: 50;
+  animation: toast-in var(--dur-base) var(--ease-out) both;
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+.toast-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.toast-row-secondary {
+  margin-top: 8px;
+  justify-content: space-between;
+}
+
+.toast-text {
+  flex: 1;
+  font-size: var(--fs-3);
+  color: var(--text-1);
+}
+
+.toast-text strong {
+  font-family: var(--font-display);
+  font-weight: 600;
+}
+
+.toast-action {
+  font-size: var(--fs-2);
+  font-weight: 600;
+  color: var(--action);
+}
+
+[data-theme='day'] .toast-action {
+  color: var(--action-press);
+}
+
+.toast-status {
+  display: inline-flex;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-pill);
+}
+
+.toast-status-opt {
+  padding: 4px 12px;
+  border-radius: var(--r-pill);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  color: var(--text-3);
+}
+
+.toast-status-opt.is-on {
+  background: color-mix(in srgb, var(--action) 20%, transparent);
+  color: var(--text-1);
+}
+
+.toast-ghost {
+  font-size: var(--fs-2);
+  color: var(--text-3);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* ── Sheet (board picker) ── */
+.sheet-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+}
+
+.sheet-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(8, 4, 6, 0.55);
+}
+
+.sheet {
+  position: relative;
+  border-radius: var(--r-card) var(--r-card) 0 0;
+  padding: 10px 16px calc(env(safe-area-inset-bottom, 0px) + 20px);
+  max-height: 70dvh;
+  overflow-y: auto;
+  animation: sheet-in var(--dur-screen) var(--ease-out) both;
+}
+
+@keyframes sheet-in {
+  from {
+    transform: translateY(24px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.sheet-handle {
+  width: 36px;
+  height: 4px;
+  border-radius: var(--r-pill);
+  background: var(--hairline);
+  margin: 0 auto 12px;
+}
+
+.sheet-eyebrow {
+  display: block;
+  margin-bottom: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sheet-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 12px 4px;
+  border-bottom: 1px solid var(--hairline);
+  text-align: left;
+}
+
+.sheet-item.is-current {
+  opacity: 0.6;
+}
+
+/* The most-recent board arrives pre-lit (graft: judge 3). */
+.sheet-item.is-likely {
+  background: color-mix(in srgb, var(--action) 7%, transparent);
+  border-radius: 12px;
+}
+
+.sheet-swatch {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  flex: none;
+}
+
+.sheet-item-name {
+  flex: 1;
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: var(--fs-4);
+}
+
+.sheet-new {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  padding-top: 12px;
+}
+
+.sheet-input {
+  flex: 1;
+  background: none;
+  border: none;
+  outline: none;
+  padding: 10px 4px;
+  font-family: var(--font-display);
+  font-size: var(--fs-4);
+  color: var(--text-1);
+}
+
+.sheet-input::placeholder {
+  color: var(--text-3);
+}
+
+/* ── Add page ── */
+.add-input {
+  width: 100%;
+  background: var(--card);
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-card);
+  padding: 16px;
+  font-size: var(--fs-4);
+  outline: none;
+}
+
+.add-input:focus {
+  border-color: var(--action);
+}
+
+.add-suggestions {
+  margin-top: 12px;
+}
+
+.add-suggestion {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 14px 4px;
+  border-bottom: 1px solid var(--hairline);
+  text-align: left;
+}
+
+.add-suggestion-text {
+  flex: 1;
+  font-size: var(--fs-3);
+  color: var(--text-1);
+}
+
+.add-suggestion .eyebrow {
+  color: var(--action);
+}
+
+[data-theme='day'] .add-suggestion .eyebrow {
+  color: var(--action-press);
+}
+
+.add-suggestion.is-busy {
+  opacity: 0.6;
+}
+
+.add-hint {
+  margin-top: 14px;
+}
+
+.attribution {
+  margin-top: 4px;
+  opacity: 0.7;
+}
+
+/* ── Closeup ── */
+.closeup-visual {
+  position: relative;
+  aspect-ratio: 5 / 6;
+  border-radius: var(--r-card);
+  overflow: hidden;
+  margin-bottom: 16px;
+}
+
+.closeup-head {
+  margin-bottom: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.closeup-address {
+  margin-top: 2px;
+}
+
+.closeup-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
+/* The closeup of a Been place is lit from above. */
+.closeup.is-been .closeup-visual {
+  box-shadow: inset 0 0 0 1px rgba(251, 239, 233, 0.35);
+}
+
+.closeup-note {
+  width: 100%;
+  background: var(--card);
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-card);
+  padding: 14px;
+  font-family: var(--font-display);
+  font-style: italic;
+  font-size: var(--fs-3);
+  color: var(--text-1);
+  resize: none;
+  outline: none;
+  margin-bottom: 24px;
+}
+
+.closeup-related {
+  margin-top: 8px;
+}
+
+/* ── Search shell ── */
+.vibe-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.vibe-tile {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 22px 8px;
+  border-radius: var(--r-card);
+  background: var(--card);
+  border: 1px solid var(--hairline);
+  color: var(--text-2);
+}
+
+.search-note {
+  margin-bottom: 18px;
+}
+
+.add-lane {
+  margin-bottom: 26px;
+}
+
+.search-input {
+  margin-bottom: 18px;
+}
+
+.vibe-tile.is-on {
+  border-color: var(--action);
+  background: color-mix(in srgb, var(--action) 16%, var(--card));
+  color: var(--text-1);
+}
+
+.search-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 8vh 2px 0;
+}
+
+.add-lane-block {
+  margin-top: 26px;
+  padding-top: 18px;
+  border-top: 1px solid var(--hairline);
+}
+
+.add-lane-block .section-label {
+  margin-bottom: 10px;
+}
+
+.thin-feed {
+  margin-top: 18px;
+  padding: 12px 2px 0;
+  max-width: 40ch;
+}
+
+/* ── Onboarding ── */
+.onboarding-q {
+  margin: 6px 0 8px;
+}
+
+.onboarding-sub {
+  margin-bottom: 20px;
+  max-width: 34ch;
+}
+
+.onboarding-vibes {
+  margin-bottom: 20px;
+}
+
+.onboarding-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  position: sticky;
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 90px);
+  padding-top: 10px;
+}
+
+.onboarding-foot .t-small {
+  color: var(--text-3);
+}
+
+/* ── Settings ── */
+.settings-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.settings-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 2px;
+  border-bottom: 1px solid var(--hairline);
+}
+
+.settings-foot {
+  display: block;
+  margin-top: 28px;
+}
+
+/* ── Avatar ── */
+.avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--r-pill);
+  object-fit: cover;
+}
+
+.avatar-empty {
+  display: block;
+  background: var(--card);
+  border: 1px solid var(--hairline);
+}
+
+/* ── Chips (mood filters) ── */
+.chip {
+  flex: none;
+  padding: 7px 14px;
+  border-radius: var(--r-pill);
+  border: 1px solid var(--hairline);
+  font-family: var(--font-mono);
+  font-size: var(--fs-1);
+  letter-spacing: 0.1em;
+  color: var(--text-2);
+  background: transparent;
+}
+
+.chip.is-on {
+  background: color-mix(in srgb, var(--action) 18%, transparent);
+  border-color: color-mix(in srgb, var(--action) 40%, transparent);
+  color: var(--text-1);
+}
+
+/* ── Morning-after (THE HANG) ── */
+.morning-after {
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-card);
+  background: var(--card);
+  padding: 16px;
+  margin-bottom: 18px;
+  /* the picture-light comes on above the card that closes the loop */
+  background-image: radial-gradient(120% 70% at 50% -30%, var(--celebrate-glow), transparent 70%);
+}
+
+.morning-after-q {
+  margin: 6px 0 14px;
+}
+
+.morning-after-actions {
+  display: flex;
+  gap: 10px;
+}
+
+/* ── TONIGHT rail (THE EVENING HANG) ── */
+.tonight {
+  margin-bottom: 22px;
+}
+
+.tonight-eyebrow {
+  display: block;
+  color: var(--action);
+}
+
+[data-theme='day'] .tonight-eyebrow {
+  color: var(--action-press);
+}
+
+.tonight-head {
+  margin: 4px 0 12px;
+  font-size: var(--fs-5);
+}
+
+.tonight-moods {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  margin-bottom: 12px;
+  padding-bottom: 2px;
+  scrollbar-width: none;
+}
+
+.tonight-moods::-webkit-scrollbar {
+  display: none;
+}
+
+.tonight-empty {
+  padding: 8px 2px 4px;
+}
+
+.tonight-scroller {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  margin: 0 -16px;
+  padding: 0 16px 4px;
+  scrollbar-width: none;
+}
+
+.tonight-scroller::-webkit-scrollbar {
+  display: none;
+}
+
+.tonight-card {
+  position: relative;
+  flex: none;
+  width: 64%;
+  max-width: 260px;
+  aspect-ratio: 4 / 5;
+  border-radius: var(--r-card);
+  overflow: hidden;
+  background: var(--card);
+  scroll-snap-align: start;
+  cursor: pointer;
+}
+
+.tonight-card-body {
+  position: absolute;
+  inset-inline: 12px;
+  bottom: 12px;
+  color: var(--on-photo-1);
+}
+
+.tonight-card-name {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: var(--fs-4);
+  line-height: 1.1;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.tonight-vitals {
+  margin-top: 5px;
+  color: var(--on-photo-2);
+}
+
+.tonight-go {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  padding: 8px 18px;
+  z-index: 2;
+}
+
+/* ── Skeleton — the wall before the pictures, never a spinner ── */
+.skeleton {
+  position: relative;
+  overflow: hidden;
+  background: var(--card);
+}
+
+.skeleton::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in srgb, var(--text-1) 5%, transparent),
+    transparent
+  );
+  animation: shimmer 1.6s var(--ease-standard) infinite;
+}
+
+@keyframes shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}

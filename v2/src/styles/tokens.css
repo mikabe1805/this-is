@@ -1,0 +1,109 @@
+/* ============================================================
+   this.is v2 — PRIVATE VIEW tokens (see ../DESIGN.md)
+   Salon-madder oxblood: places hang like pictures in a dark
+   room; the app is the lighting rig. Night is the identity
+   default; [data-theme="day"] is the same room with the house
+   lights up (rose-cast plaster — never parchment, never white).
+   Contrast pairs verified: text-2 8.3:1 on card, text-3 4.6:1,
+   action-ink on action 4.6:1 (night) / 6.0:1 (day).
+   ============================================================ */
+
+:root {
+  /* Surfaces — the room */
+  --canvas: #140d10;
+  --canvas-glow: radial-gradient(120% 90% at 50% 0%, #1a1114 0%, #140d10 60%);
+  --card: #1e1418;
+  --sheet: #251a1f;
+  --hairline: rgba(242, 236, 235, 0.1);
+
+  /* Text ramp */
+  --text-1: #f2eceb;
+  --text-2: #bcacb0;
+  --text-3: #8e7e83;
+
+  /* Madder — the one accent. Earned-color law: celebrate is Been-only. */
+  --action: #c13b4c;
+  --action-press: #a62c3e;
+  --action-ink: #fbefe9;
+  --celebrate: #fbefe9;
+  --celebrate-glow: rgba(251, 239, 233, 0.16);
+  --danger: #d2696f;
+
+  /* Vitals only — never identity hues */
+  --status-open: #4ca678;
+  --status-closing: #c9694f;
+  --status-closed: #8a7a7e;
+
+  /* Photo system. On-photo text never flips with the theme. */
+  --scrim: linear-gradient(
+    to top,
+    rgba(20, 13, 16, 0.78),
+    rgba(20, 13, 16, 0.24) 55%,
+    transparent
+  );
+  --photo-grade: contrast(1.05) saturate(1.02) sepia(0.05) hue-rotate(-6deg);
+  --on-photo-1: #f2eceb;
+  --on-photo-2: #cbbcc0;
+  --reason-on-photo: #ebd9dd;
+  --veil-recede: rgba(20, 13, 16, 0.45);
+
+  /* The vitrine — smoked museum glass, chrome only */
+  --glass-bg: rgba(20, 13, 16, 0.68);
+  --glass-border: rgba(242, 236, 235, 0.08);
+  --glass-blur: 20px;
+  --glass-shadow: 0 16px 40px rgba(8, 4, 6, 0.55);
+  --glass-solid: #1b1216;
+
+  /* Radii — exactly two */
+  --r-card: 20px;
+  --r-pill: 999px;
+
+  /* Type — one stack, seven sizes */
+  --font-display: 'Fraunces', Georgia, serif;
+  --font-body: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+  --fs-1: 11px;  /* the plaque: mono micro-language */
+  --fs-2: 13px;  /* small */
+  --fs-3: 15px;  /* body */
+  --fs-4: 17px;  /* row titles */
+  --fs-5: 22px;  /* card titles */
+  --fs-6: 28px;  /* page display */
+  --fs-7: 36px;  /* hero */
+
+  /* Motion — ported verbatim from v1 */
+  --dur-fast: 120ms;
+  --dur-base: 220ms;
+  --dur-screen: 320ms;
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --ease-out: cubic-bezier(0.22, 0.61, 0.36, 1);
+  --ease-in: cubic-bezier(0.4, 0, 1, 1);
+}
+
+[data-theme='day'] {
+  --canvas: #ede4e6;
+  --canvas-glow: radial-gradient(120% 90% at 50% 0%, #f3ebed 0%, #ede4e6 60%);
+  --card: #f6f1f2;
+  --sheet: #fbf8f9;
+  --hairline: rgba(34, 24, 32, 0.12);
+
+  --text-1: #221820;
+  --text-2: #554449;
+  --text-3: #7a676d;
+
+  --action: #a62c3e;
+  --action-press: #8e2434;
+  --action-ink: #fbefe9;
+  /* Daylight Been: the glow inverts to gravity (shadow + madder mat). */
+  --celebrate: #8f2436;
+  --celebrate-glow: rgba(193, 59, 76, 0.2);
+  --danger: #a83a44;
+
+  --status-open: #2e7d57;
+  --status-closing: #a65238;
+  --status-closed: #7a676d;
+
+  --glass-bg: rgba(246, 241, 242, 0.72);
+  --glass-border: rgba(34, 24, 32, 0.1);
+  --glass-shadow: 0 12px 32px rgba(34, 24, 32, 0.14);
+  --glass-solid: #f3edee;
+}
