@@ -4,11 +4,10 @@
  * reason line, mono chip, floating bookmark. Been pins are celebrated
  * (`is-been`); pins untouched 90 days recede (`is-stale`).
  */
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import type { Pin } from '../data/types'
 import { typeLabel } from '../data/vibes'
 import { walkChip } from '../lib/geo'
-import { haptics } from '../lib/haptics'
 import { PinVisual } from './PinVisual'
 
 const STALE_MS = 90 * 24 * 60 * 60 * 1000
@@ -36,7 +35,6 @@ interface PinCardProps {
 
 export function PinCard({ pin, reason }: PinCardProps) {
   const navigate = useNavigate()
-  const [params, setParams] = useSearchParams()
 
   const line = reason ?? reasonFor(pin)
   const proximityLine = line ? /min away|around the corner/i.test(line) : false
@@ -48,15 +46,6 @@ export function PinCard({ pin, reason }: PinCardProps) {
     .join(' · ')
   const isStale = pin.status === 'want' && Date.now() - pin.lastTouchedAt > STALE_MS
   const stateClass = `${pin.status === 'been' ? ' is-been' : ''}${isStale ? ' is-stale' : ''}`
-
-  const openPicker = (e: React.MouseEvent) => {
-    e.stopPropagation()
-    if (params.get('pick') === pin.id) return // already open — no duplicate history entry
-    haptics.tap()
-    const next = new URLSearchParams(params)
-    next.set('pick', pin.id)
-    setParams(next)
-  }
 
   const open = () => navigate(`/p/${pin.id}`)
 
@@ -80,13 +69,9 @@ export function PinCard({ pin, reason }: PinCardProps) {
         alt={pin.snapshot.name}
       />
       <div className="pin-scrim" aria-hidden />
-      <button
-        className="pin-bookmark press"
-        onClick={openPicker}
-        aria-label={`Filed — change board for ${pin.snapshot.name}`}
-      >
+      <span className="pin-bookmark is-saved" aria-hidden>
         <BookmarkSolid />
-      </button>
+      </span>
       {pin.status === 'been' && <span className="been-mark eyebrow">BEEN</span>}
       <div className="pin-caption">
         {line && <p className="pin-reason">{line}</p>}

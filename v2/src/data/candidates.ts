@@ -49,3 +49,14 @@ export async function fetchCandidates(cityKeys: string[], maxPerCell = 60): Prom
   )
   return cells.flat()
 }
+
+/**
+ * The curated catalog — the hand-picked low-lit rooms that ARE the discovery
+ * product (DIRECTION.md). Not cell-gated: a curated city guide shows the whole
+ * scene, ranked by proximity, so it's alive whether you're in the city or an
+ * hour out. One launch city for now (new-york-metro); more get their own docs.
+ */
+export async function fetchCurated(max = 250): Promise<PlaceDoc[]> {
+  const snap = await getDocs(query(collection(db, 'curated'), limit(max)))
+  return snap.docs.map(d => ({ id: d.id, curated: true, ...(d.data() as Omit<PlaceDoc, 'id'>) }))
+}

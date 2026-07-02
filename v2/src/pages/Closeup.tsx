@@ -17,7 +17,6 @@ import type { PlaceDetails } from '../lib/places'
 import { uploadPinPhoto } from '../data/photos'
 import { useSession } from '../state/session'
 import { showToast } from '../state/toast'
-import { recordGo } from '../lib/goEvents'
 import { signIn } from '../lib/authWatch'
 import { haptics } from '../lib/haptics'
 import { PinVisual } from '../components/PinVisual'
@@ -184,7 +183,7 @@ export default function Closeup() {
               href={mapsDeepLink(name, rawPid(id))}
               target="_blank"
               rel="noopener noreferrer"
-              onClick={() => { haptics.tap(); recordGo(id, name) }}
+              onClick={() => haptics.tap()}
             >
               Open in Google Maps ↗
             </a>

@@ -1,11 +1,17 @@
 # CLAUDE.md — this.is v2
 
+> **⚠️ CURRENT DIRECTION: `DIRECTION.md` (adopted 2026-07-02) is the source of truth and
+> SUPERSEDES the save-first product framing below.** this.is is now a **public, hand-curated,
+> taste-ranked DISCOVERY feed of low-lit going-out rooms** ("the candlelit end of going out").
+> The discovery feed (curated catalog) IS the product. CUT/dead: the TONIGHT rail, the
+> morning-after card, boards (→ one flat "want to go" list), trip mode, the Been-per-Want metric.
+> Read `DIRECTION.md` before any product work. The visual language (`DESIGN.md`), the Google
+> ruling (`docs/GOOGLE.md`), and the engine still stand.
+
 Governance for the v2 rebuild. Written before week 1, per MAKEOVER.md (repo root, one level
 up). **One design note overrides that document: the owner rejected the EMBERBOARD/Candlewax
 candlelit-ember styling.** v2's visual language is its own (see `DESIGN.md` here); the ember /
-match / candle motif family, walnut/honey palette, and parchment lights are all banned. The
-product architecture in MAKEOVER.md (no map, one-tap save, place_id identity, three tabs)
-stands.
+match / candle motif family, walnut/honey palette, and parchment lights are all banned.
 
 ## The NEVER list (dead, not deferred — enforced at review)
 

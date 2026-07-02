@@ -1,10 +1,10 @@
 /**
- * The save toast — the entire trust surface of the core action.
- * "Saved to Date Night — Change · Undo", a WANT/BEEN toggle, and a ghost
- * note link. 1 tap to save, 2 to re-file, 3 to save+file+mark-Been.
+ * The save toast — the trust surface of the one action that isn't discovery.
+ * "Saved to your list — Undo", a WANT/BEEN toggle, a ghost note link. One flat
+ * list now (DIRECTION.md: boards gone), so there's no "Change board".
  */
-import { useNavigate, useSearchParams } from 'react-router-dom'
-import { dismissToast, holdToast, useToast } from '../state/toast'
+import { useNavigate } from 'react-router-dom'
+import { dismissToast, useToast } from '../state/toast'
 import { useSaveFlow } from '../data/queries'
 import { haptics } from '../lib/haptics'
 
@@ -12,7 +12,6 @@ export default function SaveToastHost() {
   const toast = useToast()
   const { undo, setStatus } = useSaveFlow()
   const navigate = useNavigate()
-  const [params, setParams] = useSearchParams()
 
   if (!toast) return null
 
@@ -22,14 +21,6 @@ export default function SaveToastHost() {
         <p className="toast-text">{toast.text}</p>
       </div>
     )
-  }
-
-  const openPicker = () => {
-    haptics.tap()
-    holdToast() // the toast waits while the picker is up
-    const next = new URLSearchParams(params)
-    next.set('pick', toast.pinId)
-    setParams(next)
   }
 
   const onUndo = () => {
@@ -51,10 +42,7 @@ export default function SaveToastHost() {
   return (
     <div className="toast glass-chrome" role="status">
       <div className="toast-row">
-        <p className="toast-text">
-          Saved to <strong>{toast.boardName}</strong>
-        </p>
-        <button className="toast-action press" onClick={openPicker}>Change</button>
+        <p className="toast-text">Saved to your list</p>
         <button className="toast-action press" onClick={onUndo}>Undo</button>
       </div>
       <div className="toast-row toast-row-secondary">

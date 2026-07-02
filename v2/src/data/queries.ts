@@ -12,7 +12,7 @@ import type { Board, Pin, PinStatus } from './types'
 import { listBoards } from './boards'
 import { savePin, undoSave, refilePin, setPinStatus, type SaveOptions, type SaveReceipt } from './pins'
 import type { UserDoc } from './user'
-import { cityKeyFrom, cityKeysAround, fetchCandidates } from './candidates'
+import { cityKeyFrom, cityKeysAround, fetchCandidates, fetchCurated } from './candidates'
 import type { Coords } from '../lib/geo'
 
 export function usePins() {
@@ -56,8 +56,17 @@ export function useUserDoc() {
   })
 }
 
-/** The city candidate pool for discovery + search — the user's cell plus its
- *  8 neighbors, so pools don't die at cell boundaries. */
+/** The curated catalog — the discovery product. City-wide, not cell-gated. */
+export function useCurated() {
+  return useQuery({
+    queryKey: ['curated'],
+    staleTime: 10 * 60_000,
+    queryFn: () => fetchCurated(),
+  })
+}
+
+/** The city candidate pool for search + long-tail fallback — the user's cell
+ *  plus its 8 neighbors, so pools don't die at cell boundaries. */
 export function useCandidates(coords: Coords | null) {
   const cityKey = cityKeyFrom(coords)
   return useQuery({

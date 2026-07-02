@@ -230,6 +230,14 @@ service cloud.firestore {
       allow write: if isDevMode();
     }
 
+    // The CURATED catalog — the hand-picked low-lit venues that ARE the
+    // discovery product (DIRECTION.md). Public read; curator writes via the
+    // seed script (dev-mode posture; tighten to admin-only at cutover).
+    match /curated/{placeId} {
+      allow read: if true;
+      allow write: if isDevMode();
+    }
+
     // Baked share snapshots — public read, function-only write.
     match /shares/{token} {
       allow read: if true;

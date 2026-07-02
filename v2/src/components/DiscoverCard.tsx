@@ -42,9 +42,8 @@ export function DiscoverCard({ place }: { place: PlaceDoc }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [place.id])
 
-  // Discovery cards stay quiet: one line, walk time if we have it, else the
-  // place type. No per-card "reason" (the section header already says why),
-  // no repeated county. The photo and the name do the work.
+  // The curator POV is the hero — the whole product is the opinion. Below the
+  // name, one quiet line: walk time if we have it, else the type.
   const chip = walkChip(place.lat, place.lng, place.coordsFetchedAt) ?? typeLabel(place.primaryType)
 
   const onSave = (e: React.MouseEvent) => {
@@ -92,6 +91,7 @@ export function DiscoverCard({ place }: { place: PlaceDoc }) {
       </button>
       <div className="pin-caption">
         <h3 className="pin-title">{place.name}</h3>
+        {place.curatorPOV && <p className="pin-pov">{place.curatorPOV}</p>}
         {chip && <p className="pin-chip eyebrow">{chip}</p>}
       </div>
     </article>

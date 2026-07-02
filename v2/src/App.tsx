@@ -16,14 +16,12 @@ import { refreshCoords } from './lib/geo'
 const Home = lazy(() => import('./pages/Home'))
 const Search = lazy(() => import('./pages/Search'))
 const Saved = lazy(() => import('./pages/Saved'))
-const BoardPage = lazy(() => import('./pages/Board'))
 const Closeup = lazy(() => import('./pages/Closeup'))
 const Add = lazy(() => import('./pages/Add'))
 const Onboarding = lazy(() => import('./pages/Onboarding'))
 const Settings = lazy(() => import('./pages/Settings'))
 const Share = lazy(() => import('./pages/Share'))
 const SaveToastHost = lazy(() => import('./components/SaveToastHost'))
-const BoardPickerSheet = lazy(() => import('./components/BoardPickerSheet'))
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -67,7 +65,6 @@ function Chrome() {
               <Route path="/home" element={<Home />} />
               <Route path="/search" element={<Search />} />
               <Route path="/saved" element={<Saved />} />
-              <Route path="/board/:id" element={<BoardPage />} />
               <Route path="/p/:placeId" element={<Closeup />} />
               <Route path="/add" element={<Add />} />
               <Route path="/onboarding" element={<Onboarding />} />
@@ -80,7 +77,6 @@ function Chrome() {
       </main>
       <Suspense fallback={null}>
         <SaveToastHost />
-        <BoardPickerSheet />
       </Suspense>
       <Dock />
     </div>

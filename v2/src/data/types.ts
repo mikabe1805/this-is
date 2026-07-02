@@ -72,6 +72,17 @@ export interface PlaceDoc {
    *  an offline conflation job; keeps the open-catalog escape hatch a
    *  weeks-not-months migration. */
   fsqId?: string
+
+  // ── Curation (DIRECTION.md — the whole product) ──
+  /** Hand-curated venue in the launch scene. Curated docs live in `curated/`
+   *  and are the discovery feed; non-curated candidates are the long tail. */
+  curated?: boolean
+  /** The curator's one-line take — the card hero. Includes the exclusion
+   *  ("skipped the famous one two doors down") when it earns it. */
+  curatorPOV?: string
+  /** Owner-owned ambiance photo paths (Firebase Storage). When present these
+   *  are the grid image; absent → live Google fallback → hex plate. */
+  ownedPhotoPath?: string[]
 }
 
 /** What savePin needs to know about a place — shaped by lib/places.getDetails
