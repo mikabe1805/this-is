@@ -710,6 +710,157 @@
   opacity: 0.7;
 }
 
+/* ── Friend feed (Layer 1) ── */
+.friend-feed {
+  margin-bottom: 24px;
+}
+
+.feedcard {
+  display: block;
+  width: 100%;
+  margin-bottom: 18px;
+  cursor: pointer;
+}
+
+.feedcard-visual {
+  position: relative;
+  aspect-ratio: 3 / 2;
+  border-radius: var(--r-card);
+  overflow: hidden;
+  background: var(--card);
+  box-shadow:
+    inset 0 0 0 1px rgba(242, 236, 235, 0.06),
+    0 12px 30px -14px rgba(8, 4, 6, 0.6);
+}
+
+.feedcard-attr {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 10px 4px 4px;
+  border-radius: var(--r-pill);
+  background: rgba(9, 6, 8, 0.5);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+.feedcard-who {
+  font-size: var(--fs-2);
+  color: var(--on-photo-1);
+}
+
+.feedcard-who strong {
+  font-family: var(--font-display);
+  font-weight: 600;
+}
+
+.feedcard-body {
+  position: absolute;
+  inset-inline: 14px;
+  bottom: 12px;
+  z-index: 2;
+  color: var(--on-photo-1);
+}
+
+.feedcard-name {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: var(--fs-6);
+  line-height: 1.05;
+  text-shadow: 0 1px 14px rgba(9, 6, 8, 0.55);
+}
+
+.feedcard-note {
+  margin: 12px 4px 0;
+  font-family: var(--font-display);
+  font-style: italic;
+  font-size: var(--fs-4);
+  line-height: 1.4;
+  color: var(--text-1);
+}
+
+.scaffold-label {
+  margin-top: 4px;
+}
+
+/* ── Avatar (friend initial disc) ── */
+.avatar-initial {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--r-pill);
+  color: #fff;
+  font-family: var(--font-display);
+  font-weight: 600;
+  line-height: 1;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12);
+}
+
+/* ── Friend graph (the shared memory on the spot page) ── */
+.friendgraph {
+  margin: 4px 0 22px;
+  padding: 14px 14px 6px;
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-card);
+  background: color-mix(in srgb, var(--action) 5%, transparent);
+}
+
+.fg-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-top: 4px;
+}
+
+.fg-row {
+  display: flex;
+  gap: 11px;
+  align-items: flex-start;
+}
+
+.fg-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.fg-head {
+  font-size: var(--fs-2);
+}
+
+.fg-name {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: var(--fs-3);
+  color: var(--text-1);
+}
+
+.fg-tag {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  margin-left: 4px;
+}
+
+.fg-loved { color: var(--action); }
+[data-theme='day'] .fg-loved { color: var(--action-press); }
+.fg-tried { color: var(--text-2); }
+.fg-want { color: var(--text-3); }
+
+.fg-note {
+  margin-top: 3px;
+  font-family: var(--font-display);
+  font-style: italic;
+  font-size: var(--fs-3);
+  line-height: 1.4;
+  color: var(--text-1);
+}
+
 /* ── Empty scene (the bare wall) ── */
 .empty-scene {
   width: min(64vw, 240px);

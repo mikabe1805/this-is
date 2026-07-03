@@ -5,14 +5,11 @@
  * true one-tap save; tapping the card opens the closeup (which handles
  * unsaved places).
  */
-import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import type { PlaceDoc } from '../data/types'
-import { rawPid } from '../data/types'
 import { typeLabel } from '../data/vibes'
 import { walkChip } from '../lib/geo'
-import { getPhotoRef, photoUrl, placesEnabled } from '../lib/places'
-import { takePhotoSlot } from '../lib/photoBudget'
+import { usePlacePhoto } from '../lib/usePlacePhoto'
 import { useSaveFlow } from '../data/queries'
 import { useSession } from '../state/session'
 import { signIn } from '../lib/authWatch'
@@ -23,24 +20,7 @@ export function DiscoverCard({ place }: { place: PlaceDoc }) {
   const navigate = useNavigate()
   const session = useSession()
   const { save } = useSaveFlow()
-  const [photo, setPhoto] = useState<{ src: string; credit?: string } | null>(null)
-
-  // Live photo within the session budget: ref lookup is free-tier; only the
-  // media bytes count against the budget (slot grants are idempotent per
-  // place, so StrictMode re-mounts don't drain it).
-  useEffect(() => {
-    let live = true
-    if (!placesEnabled || !takePhotoSlot(place.id)) return
-    void getPhotoRef(rawPid(place.id)).then(ref => {
-      if (!live || !ref?.photoResourceName) return
-      const src = photoUrl(ref.photoResourceName, 480)
-      if (src) setPhoto({ src, credit: ref.photoAttribution })
-    })
-    return () => {
-      live = false
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [place.id])
+  const photo = usePlacePhoto(place.id)
 
   // The curator POV is the hero — the whole product is the opinion. Below the
   // name, one quiet line: walk time if we have it, else the type.

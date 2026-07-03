@@ -1,12 +1,13 @@
 # CLAUDE.md — this.is v2
 
-> **⚠️ CURRENT DIRECTION: `DIRECTION.md` (adopted 2026-07-02) is the source of truth and
-> SUPERSEDES the save-first product framing below.** this.is is now a **public, hand-curated,
-> taste-ranked DISCOVERY feed of low-lit going-out rooms** ("the candlelit end of going out").
-> The discovery feed (curated catalog) IS the product. CUT/dead: the TONIGHT rail, the
-> morning-after card, boards (→ one flat "want to go" list), trip mode, the Been-per-Want metric.
-> Read `DIRECTION.md` before any product work. The visual language (`DESIGN.md`), the Google
-> ruling (`docs/GOOGLE.md`), and the engine still stand.
+> **⚠️ CURRENT DIRECTION: `FRIENDS.md` (adopted 2026-07-02) — "discovery of friends' tastes."**
+> this.is is now a **friend-graph** app: Want/Tried/Loved + notes, a friend feed, and the spot
+> page as a *shared memory* ("Vivian loved this — 'get the orange wine'"), over a two-layer
+> cold-start net (friend graph + auto-seeded "Nearby & Unexplored" scaffold). Read `FRIENDS.md`
+> first. It supersedes the editorial-curator framing in `DIRECTION.md` (kept for its competitive
+> research + architecture). Still-dead: TONIGHT rail, morning-after, boards, trip mode,
+> leaderboards/influence/DMs/public-feeds. The visual language (`DESIGN.md`), the Google ruling
+> (`docs/GOOGLE.md`), and the engine still stand.
 
 Governance for the v2 rebuild. Written before week 1, per MAKEOVER.md (repo root, one level
 up). **One design note overrides that document: the owner rejected the EMBERBOARD/Candlewax

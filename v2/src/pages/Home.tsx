@@ -1,35 +1,29 @@
 /**
- * HOME — the discovery feed, and the whole product (DIRECTION.md).
- *
- * A hand-curated, taste-ranked feed of the low-lit going-out rooms worth
- * leaving the house for. Cards lead with the curator's POV; ranking re-orders
- * an already-great editorial set by your chosen vibes + proximity. No boards,
- * no TONIGHT rail, no morning-after — discovery is the entire surface.
+ * HOME — "discovery of friends' tastes" (v2/FRIENDS.md). Two layers that never
+ * pretend to be the same thing:
+ *   Layer 1 — THE FRIEND FEED: the timeline of your circle's nights out, each
+ *     card a room with who tagged it and their note. The premium layer.
+ *   Layer 2 — NEARBY & UNEXPLORED: the seeded scaffold so the app is never
+ *     empty on day one; you tap Want/Tried/Loved to pull one onto your Wall.
+ * A single-player user with no friends yet still lands on a full, beautiful
+ * Layer 2 — the cold-start net.
  */
 import { useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { useSession } from '../state/session'
-import { useCurated, usePins, useUserDoc } from '../data/queries'
+import { useCurated, useFriendFeed, usePins, useUserDoc } from '../data/queries'
 import { tasteFromPins, type Taste } from '../data/taste'
-import { walkMinutesBetween, type Coords } from '../lib/geo'
-import { cachedCoords } from '../lib/geo'
+import { walkMinutesBetween, cachedCoords, type Coords } from '../lib/geo'
 import { Masonry } from '../components/Masonry'
 import { DiscoverCard } from '../components/DiscoverCard'
+import { FriendFeedCard } from '../components/FriendFeedCard'
 import { EmptyScene } from '../components/EmptyScene'
 import { signIn } from '../lib/authWatch'
 import { haptics } from '../lib/haptics'
 import type { Pin, PlaceDoc } from '../data/types'
 
-const LAUNCH_CITY_LABEL = 'NEW YORK'
-
-/** Taste + proximity over the curated set, minus what you already keep. Every
- *  curated card is already good; this just orders it toward you. */
-function rankCurated(
-  catalog: PlaceDoc[],
-  pins: Pin[],
-  taste: Taste,
-  coords: Coords | null
-): PlaceDoc[] {
+/** Taste + proximity over the scaffold, minus what you already keep. */
+function rankScaffold(catalog: PlaceDoc[], pins: Pin[], taste: Taste, coords: Coords | null): PlaceDoc[] {
   const mine = new Set(pins.map(p => p.id))
   return catalog
     .filter(c => !mine.has(c.id))
@@ -46,66 +40,86 @@ function rankCurated(
 
 export default function Home() {
   const session = useSession()
-  const { data: curated, isLoading } = useCurated()
+  const { data: feed, isLoading: feedLoading } = useFriendFeed()
+  const { data: curated } = useCurated()
   const { data: pins } = usePins()
   const { data: userDoc } = useUserDoc()
   const coords = cachedCoords()
 
   const active = useMemo(() => (pins ?? []).filter(p => p.status !== 'released'), [pins])
-  const taste = useMemo(
-    () => tasteFromPins(active, userDoc?.tasteSeed ?? []),
-    [active, userDoc?.tasteSeed]
-  )
-  const feed = useMemo(
-    () => rankCurated(curated ?? [], active, taste, coords),
-    [curated, active, taste, coords]
-  )
+  const taste = useMemo(() => tasteFromPins(active, userDoc?.tasteSeed ?? []), [active, userDoc?.tasteSeed])
 
-  const firstRun = session.status === 'signed-in' && Boolean(userDoc && !userDoc.onboardedAt)
+  const placeById = useMemo(() => {
+    const m = new Map<string, PlaceDoc>()
+    for (const p of curated ?? []) m.set(p.id, p)
+    return m
+  }, [curated])
+
+  // Layer 1: friend saves that resolve to a place we can render.
+  const friendItems = useMemo(
+    () => (feed ?? []).map(s => ({ save: s, place: placeById.get(s.placeId) })).filter(x => x.place),
+    [feed, placeById]
+  )
+  const feedPlaceIds = useMemo(() => new Set(friendItems.map(i => i.save.placeId)), [friendItems])
+
+  // Layer 2: the scaffold, minus what's already surfaced in the friend feed.
+  const scaffold = useMemo(
+    () => rankScaffold((curated ?? []).filter(c => !feedPlaceIds.has(c.id)), active, taste, coords),
+    [curated, feedPlaceIds, active, taste, coords]
+  )
 
   return (
     <div className="page">
       <header className="masthead">
         <h1 className="wordmark">this.is</h1>
-        <p className="eyebrow masthead-scene">{LAUNCH_CITY_LABEL} · THE LOW-LIT LIST</p>
-        <p className="masthead-sub">
-          The intimate rooms worth leaving the house for — not the 2,000-review default.
-        </p>
+        <p className="masthead-sub">Where your people actually go.</p>
       </header>
 
-      {firstRun && (
-        <Link to="/onboarding" className="taste-nudge press">
-          <span className="eyebrow">30 SECONDS</span>
-          <span className="taste-nudge-line">Tell us what you’d hang around for →</span>
-        </Link>
-      )}
+      {feedLoading && <MasonrySkeleton />}
 
-      {isLoading && <MasonrySkeleton />}
-
-      {!isLoading && feed.length === 0 && (
-        <section className="empty-state">
-          <EmptyScene />
-          <h2 className="t-display">The list isn’t lit here yet.</h2>
-          <p className="t-body">We’re curating {LAUNCH_CITY_LABEL} first. More cities soon.</p>
+      {/* Layer 1 — the friend feed */}
+      {friendItems.length > 0 && (
+        <section className="friend-feed">
+          <p className="eyebrow section-label">FROM YOUR PEOPLE</p>
+          {friendItems.map(({ save, place }) => (
+            <FriendFeedCard key={save.id} save={save} place={place!} />
+          ))}
         </section>
       )}
 
-      {!isLoading && feed.length > 0 && (
+      {friendItems.length === 0 && !feedLoading && (
+        <Link to="/settings" className="taste-nudge press">
+          <span className="eyebrow">YOUR CIRCLE IS QUIET</span>
+          <span className="taste-nudge-line">Invite a few friends to see where they go →</span>
+        </Link>
+      )}
+
+      {/* Layer 2 — nearby & unexplored (the cold-start net) */}
+      {scaffold.length > 0 && (
         <>
+          <p className="eyebrow section-label scaffold-label">NEARBY &amp; UNEXPLORED</p>
           <Masonry>
-            {feed.map(place => (
+            {scaffold.map(place => (
               <DiscoverCard key={place.id} place={place} />
             ))}
           </Masonry>
           <p className="t-small attribution-line">
-            Curated in {LAUNCH_CITY_LABEL} · place data <span className="google-mark">Google Maps</span>
+            place data <span className="google-mark">Google Maps</span>
           </p>
         </>
       )}
 
+      {!feedLoading && friendItems.length === 0 && scaffold.length === 0 && (
+        <section className="empty-state">
+          <EmptyScene />
+          <h2 className="t-display">Quiet in here.</h2>
+          <p className="t-body">Nearby places will fill in as we reach your city.</p>
+        </section>
+      )}
+
       {session.status === 'signed-out' && (
         <div className="signin-foot glass-chrome">
-          <p className="t-small">Save the ones you want, and the list learns your taste.</p>
+          <p className="t-small">Save the rooms you want — and see your friends' too.</p>
           <button className="pill pill-primary press" onClick={() => { haptics.tap(); void signIn() }}>
             Continue with Google
           </button>

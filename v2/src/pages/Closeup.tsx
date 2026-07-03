@@ -11,7 +11,8 @@ import { getDetails, getPhotoRef, mapsDeepLink, photoUrl } from '../lib/places'
 import { rawPid } from '../data/types'
 import { typeLabel, vibesFor } from '../data/vibes'
 import { walkChip } from '../lib/geo'
-import { usePin, usePins, useCurated, useSaveFlow } from '../data/queries'
+import { usePin, usePins, useCurated, usePlaceSaves, useSaveFlow } from '../data/queries'
+import { FriendGraph } from '../components/FriendGraph'
 import { refreshPinSnapshot, setPinNote } from '../data/pins'
 import type { PlaceDetails } from '../lib/places'
 import { uploadPinPhoto } from '../data/photos'
@@ -33,6 +34,7 @@ export default function Closeup() {
   const pin = usePin(id)
   const { data: pins } = usePins()
   const { data: curated } = useCurated()
+  const { data: friendSaves } = usePlaceSaves(id)
   const { save, setStatus, invalidate } = useSaveFlow()
 
   // The curated record carries the whole reason this room is on the list.
@@ -175,6 +177,9 @@ export default function Closeup() {
         )}
         {details?.address && <p className="t-small closeup-address">{details.address}</p>}
       </header>
+
+      {/* The shared memory: who of your people has been here. The heart of it. */}
+      {friendSaves && <FriendGraph saves={friendSaves} />}
 
       {pin ? (
         <>

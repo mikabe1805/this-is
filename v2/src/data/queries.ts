@@ -13,6 +13,7 @@ import { listBoards } from './boards'
 import { savePin, undoSave, refilePin, setPinStatus, type SaveOptions, type SaveReceipt } from './pins'
 import type { UserDoc } from './user'
 import { cityKeyFrom, cityKeysAround, fetchCandidates, fetchCurated } from './candidates'
+import { fetchPlaceSaves, fetchFriendFeed } from './social'
 import type { Coords } from '../lib/geo'
 
 export function usePins() {
@@ -53,6 +54,25 @@ export function useUserDoc() {
       const snap = await getDoc(doc(db, 'users', uid!))
       return snap.exists() ? (snap.data() as UserDoc) : {}
     },
+  })
+}
+
+/** The friend graph on a place — who saved it, what they thought. */
+export function usePlaceSaves(placeId: string | undefined) {
+  return useQuery({
+    queryKey: ['placeSaves', placeId],
+    enabled: Boolean(placeId),
+    staleTime: 60_000,
+    queryFn: () => fetchPlaceSaves(placeId!),
+  })
+}
+
+/** The friend feed — the timeline of your circle's nights out. */
+export function useFriendFeed() {
+  return useQuery({
+    queryKey: ['friendFeed'],
+    staleTime: 60_000,
+    queryFn: () => fetchFriendFeed(),
   })
 }
 

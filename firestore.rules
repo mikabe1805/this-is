@@ -238,6 +238,16 @@ service cloud.firestore {
       allow write: if isDevMode();
     }
 
+    // FRIEND-GRAPH saves — the connective tissue of "discovery of friends'
+    // tastes" (v2/FRIENDS.md). Flat top-level collection so the friend feed is
+    // one query. Public read for the intimate-circle demo; each user writes
+    // only their own. Tighten reads to the follow-graph at real launch.
+    match /saves/{saveId} {
+      allow read: if true;
+      allow create, update, delete: if isDevMode()
+        || (isAuthenticated() && request.resource.data.uid == request.auth.uid);
+    }
+
     // Baked share snapshots — public read, function-only write.
     match /shares/{token} {
       allow read: if true;
