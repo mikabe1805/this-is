@@ -1,21 +1,18 @@
 /**
- * Toast store — the save toast is the entire trust surface of the core
- * action, so it gets a real (tiny) store instead of a window event bus.
- * App-wide law: no confirm dialogs anywhere; undo toasts only.
+ * Toast store — the save toast is the trust surface of the one action that
+ * isn't discovery. App-wide law: no confirm dialogs anywhere; undo toasts only.
  */
 import { useSyncExternalStore } from 'react'
-// Type-only import — erased at compile time, so this store stays out of the
-// Firebase chunk graph.
-import type { SaveReceipt } from '../data/pins'
+import type { Tag } from '../data/social'
+import type { SaveablePlace } from '../data/saves'
 
 export type SaveToastData = {
   kind: 'save'
-  pinId: string
-  boardId: string
-  boardName: string
-  status: 'want' | 'been'
-  /** Carried so Undo can restore-or-delete without a lookup. */
-  receipt: SaveReceipt
+  placeId: string
+  tag: Tag
+  /** The tag before this action (null if it wasn't saved) — so Undo restores. */
+  prev: Tag | null
+  place: SaveablePlace
 }
 
 export type NoticeToastData = {
@@ -34,7 +31,7 @@ function emit() {
   listeners.forEach(l => l())
 }
 
-export function showToast(data: SaveToastData | NoticeToastData, ms = 7000): void {
+export function showToast(data: SaveToastData | NoticeToastData, ms = 6000): void {
   if (timer) clearTimeout(timer)
   current = { ...data, id: nextId++ }
   emit()
@@ -44,39 +41,11 @@ export function showToast(data: SaveToastData | NoticeToastData, ms = 7000): voi
   }, ms)
 }
 
-/**
- * Patch the visible toast in place (e.g. after a re-file or a Been toggle).
- * Returns false when no save toast is showing, so callers can fall back to a
- * fresh notice instead of confirming into the void.
- */
-export function updateToast(patch: Partial<SaveToastData>): boolean {
-  if (!current || current.kind !== 'save') return false
-  current = { ...current, ...patch }
-  emit()
-  return true
-}
-
 export function dismissToast(): void {
   if (timer) clearTimeout(timer)
   timer = null
   current = null
   emit()
-}
-
-/** Suspend auto-dismiss — the user is interacting (e.g. the picker is open). */
-export function holdToast(): void {
-  if (timer) clearTimeout(timer)
-  timer = null
-}
-
-/** Re-arm auto-dismiss after an interaction settles. */
-export function armToast(ms = 4000): void {
-  if (!current) return
-  if (timer) clearTimeout(timer)
-  timer = setTimeout(() => {
-    current = null
-    emit()
-  }, ms)
 }
 
 function subscribe(l: () => void): () => void {

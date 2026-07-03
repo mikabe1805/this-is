@@ -1,18 +1,16 @@
 /**
  * HOME — "discovery of friends' tastes" (v2/FRIENDS.md). Two layers that never
  * pretend to be the same thing:
- *   Layer 1 — THE FRIEND FEED: the timeline of your circle's nights out, each
- *     card a room with who tagged it and their note. The premium layer.
+ *   Layer 1 — THE FRIEND FEED: your circle's nights out, each card a room with
+ *     who tagged it and their note. The premium layer.
  *   Layer 2 — NEARBY & UNEXPLORED: the seeded scaffold so the app is never
- *     empty on day one; you tap Want/Tried/Loved to pull one onto your Wall.
- * A single-player user with no friends yet still lands on a full, beautiful
- * Layer 2 — the cold-start net.
+ *     empty on day one; tap a bookmark to Want it onto your Wall.
  */
 import { useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { useSession } from '../state/session'
-import { useCurated, useFriendFeed, usePins, useUserDoc } from '../data/queries'
-import { tasteFromPins, type Taste } from '../data/taste'
+import { useCurated, useFriendFeed, useMySaves, useUserDoc } from '../data/queries'
+import { tasteFromSaves, type Taste } from '../data/taste'
 import { walkMinutesBetween, cachedCoords, type Coords } from '../lib/geo'
 import { Masonry } from '../components/Masonry'
 import { DiscoverCard } from '../components/DiscoverCard'
@@ -20,11 +18,10 @@ import { FriendFeedCard } from '../components/FriendFeedCard'
 import { EmptyScene } from '../components/EmptyScene'
 import { signIn } from '../lib/authWatch'
 import { haptics } from '../lib/haptics'
-import type { Pin, PlaceDoc } from '../data/types'
+import type { PlaceDoc } from '../data/types'
 
 /** Taste + proximity over the scaffold, minus what you already keep. */
-function rankScaffold(catalog: PlaceDoc[], pins: Pin[], taste: Taste, coords: Coords | null): PlaceDoc[] {
-  const mine = new Set(pins.map(p => p.id))
+function rankScaffold(catalog: PlaceDoc[], mine: Set<string>, taste: Taste, coords: Coords | null): PlaceDoc[] {
   return catalog
     .filter(c => !mine.has(c.id))
     .map(c => {
@@ -42,30 +39,24 @@ export default function Home() {
   const session = useSession()
   const { data: feed, isLoading: feedLoading } = useFriendFeed()
   const { data: curated } = useCurated()
-  const { data: pins } = usePins()
+  const { data: mySaves } = useMySaves()
   const { data: userDoc } = useUserDoc()
   const coords = cachedCoords()
 
-  const active = useMemo(() => (pins ?? []).filter(p => p.status !== 'released'), [pins])
-  const taste = useMemo(() => tasteFromPins(active, userDoc?.tasteSeed ?? []), [active, userDoc?.tasteSeed])
-
-  const placeById = useMemo(() => {
-    const m = new Map<string, PlaceDoc>()
-    for (const p of curated ?? []) m.set(p.id, p)
-    return m
-  }, [curated])
-
-  // Layer 1: friend saves that resolve to a place we can render.
-  const friendItems = useMemo(
-    () => (feed ?? []).map(s => ({ save: s, place: placeById.get(s.placeId) })).filter(x => x.place),
-    [feed, placeById]
+  const taste = useMemo(
+    () => tasteFromSaves(mySaves ?? [], userDoc?.tasteSeed ?? []),
+    [mySaves, userDoc?.tasteSeed]
   )
-  const feedPlaceIds = useMemo(() => new Set(friendItems.map(i => i.save.placeId)), [friendItems])
+  const mine = useMemo(() => new Set((mySaves ?? []).map(s => s.placeId)), [mySaves])
 
-  // Layer 2: the scaffold, minus what's already surfaced in the friend feed.
+  // Layer 1: friend saves that carry a renderable place snapshot.
+  const friendItems = useMemo(() => (feed ?? []).filter(s => s.place), [feed])
+  const feedPlaceIds = useMemo(() => new Set(friendItems.map(s => s.placeId)), [friendItems])
+
+  // Layer 2: the scaffold, minus what's already on your Wall or in the feed.
   const scaffold = useMemo(
-    () => rankScaffold((curated ?? []).filter(c => !feedPlaceIds.has(c.id)), active, taste, coords),
-    [curated, feedPlaceIds, active, taste, coords]
+    () => rankScaffold((curated ?? []).filter(c => !feedPlaceIds.has(c.id)), mine, taste, coords),
+    [curated, feedPlaceIds, mine, taste, coords]
   )
 
   return (
@@ -77,12 +68,11 @@ export default function Home() {
 
       {feedLoading && <MasonrySkeleton />}
 
-      {/* Layer 1 — the friend feed */}
       {friendItems.length > 0 && (
         <section className="friend-feed">
           <p className="eyebrow section-label">FROM YOUR PEOPLE</p>
-          {friendItems.map(({ save, place }) => (
-            <FriendFeedCard key={save.id} save={save} place={place!} />
+          {friendItems.map(save => (
+            <FriendFeedCard key={save.id} save={save} />
           ))}
         </section>
       )}
@@ -94,7 +84,6 @@ export default function Home() {
         </Link>
       )}
 
-      {/* Layer 2 — nearby & unexplored (the cold-start net) */}
       {scaffold.length > 0 && (
         <>
           <p className="eyebrow section-label scaffold-label">NEARBY &amp; UNEXPLORED</p>

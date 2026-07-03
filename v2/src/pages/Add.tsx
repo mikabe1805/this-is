@@ -19,6 +19,8 @@ import {
   type Suggestion,
 } from '../lib/places'
 import { useSaveFlow } from '../data/queries'
+import { gid } from '../data/types'
+import { hexFor, neighborhoodFrom } from '../data/vibes'
 import { useSession } from '../state/session'
 import { showToast } from '../state/toast'
 import { signIn } from '../lib/authWatch'
@@ -26,7 +28,7 @@ import { haptics } from '../lib/haptics'
 
 export default function Add() {
   const session = useSession()
-  const { save } = useSaveFlow()
+  const { setTag } = useSaveFlow()
   const [text, setText] = useState('')
   const [suggestions, setSuggestions] = useState<Suggestion[]>([])
   const [busyId, setBusyId] = useState<string | null>(null)
@@ -60,7 +62,18 @@ export default function Add() {
       const details = await getDetails(s.placeId, token.current ?? undefined)
       if (details) {
         token.current = null // details succeeded — session closed at Google
-        save.mutate({ place: details })
+        setTag.mutate({
+          tag: 'want',
+          place: {
+            id: gid(details.id),
+            name: details.name,
+            primaryType: details.primaryType,
+            neighborhood: neighborhoodFrom(details.address),
+            hex: hexFor(details.primaryType),
+            lat: details.lat,
+            lng: details.lng,
+          },
+        })
         setText('')
         setSuggestions([])
       } else {

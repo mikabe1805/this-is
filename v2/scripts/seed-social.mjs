@@ -21,6 +21,8 @@ if (!FB_KEY || !PROJECT) { console.error('Missing Firebase keys'); process.exit(
 const BASE = `https://firestore.googleapis.com/v1/projects/${PROJECT}/databases/(default)/documents`
 const S = s => ({ stringValue: s })
 const I = n => ({ integerValue: String(n) })
+const N = n => ({ doubleValue: n })
+const MAP = fields => ({ mapValue: { fields } })
 
 async function patch(path, fields) {
   const res = await fetch(`${BASE}/${path}?key=${FB_KEY}`, {
@@ -35,12 +37,17 @@ async function del(path) {
 // Read the curated rooms to hang saves on real place_ids.
 const curatedRes = await fetch(`${BASE}/curated?pageSize=100&key=${FB_KEY}`)
 const curated = (await curatedRes.json()).documents ?? []
-const byName = {}
+const info = {} // id -> denormalized place snapshot (mapValue fields)
 for (const d of curated) {
   const id = d.name.split('/').pop()
-  byName[d.fields?.name?.stringValue ?? id] = id
+  const f = d.fields ?? {}
+  const snap = { name: f.name ?? S(id), hex: f.photoHex ?? S('#3A2B31') }
+  if (f.primaryType) snap.primaryType = f.primaryType
+  if (f.neighborhood) snap.neighborhood = f.neighborhood
+  if (f.lat && f.lng) { snap.lat = f.lat; snap.lng = f.lng }
+  info[id] = snap
 }
-const ids = Object.values(byName)
+const ids = Object.keys(info)
 if (!ids.length) { console.error('No curated venues — run seed-curated first.'); process.exit(1) }
 const pick = i => ids[i % ids.length]
 
@@ -84,10 +91,13 @@ const now = Date.now()
 let n = 0
 for (const [fi, pi, tag, note] of SAVES) {
   const f = FRIENDS[fi]
-  await patch(`saves/${f.uid}__${pick(pi)}`, {
-    uid: S(f.uid), placeId: S(pick(pi)), tag: S(tag), note: S(note),
+  const id = pick(pi)
+  await patch(`saves/${f.uid}__${id}`, {
+    uid: S(f.uid), placeId: S(id), tag: S(tag), note: S(note),
     ts: I(now - n * 3_600_000), // stagger for a believable feed order
+    place: MAP(info[id]),
   })
   n++
 }
+void N // (kept for schema symmetry with other seeders)
 console.log(`✓ Seeded ${FRIENDS.length} demo friends + ${n} Want/Tried/Loved saves with notes.`)

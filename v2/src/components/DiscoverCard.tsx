@@ -19,7 +19,7 @@ import { PinVisual } from './PinVisual'
 export function DiscoverCard({ place }: { place: PlaceDoc }) {
   const navigate = useNavigate()
   const session = useSession()
-  const { save } = useSaveFlow()
+  const { setTag } = useSaveFlow()
   const photo = usePlacePhoto(place.id)
 
   // The curator POV is the hero — the whole product is the opinion. Below the
@@ -28,19 +28,21 @@ export function DiscoverCard({ place }: { place: PlaceDoc }) {
 
   const onSave = (e: React.MouseEvent) => {
     e.stopPropagation()
-    haptics.tap()
     if (session.status !== 'signed-in') {
+      haptics.tap()
       void signIn()
       return
     }
-    save.mutate({
+    setTag.mutate({
+      tag: 'want',
       place: {
         id: place.id,
         name: place.name,
         primaryType: place.primaryType,
+        neighborhood: place.neighborhood,
+        hex: place.photoHex,
         lat: place.lat,
         lng: place.lng,
-        neighborhood: place.neighborhood,
       },
     })
   }

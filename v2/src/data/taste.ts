@@ -10,17 +10,18 @@
  * stronger signal than wanting.
  */
 import { vibesFor } from './vibes'
-import type { Pin } from './types'
+import type { FriendSave } from './social'
 
 export type Taste = Record<string, number>
 
-export function tasteFromPins(pins: Pin[], seed: string[] = []): Taste {
+/** Your taste from your Want/Tried/Loved — Loved counts most, Want least,
+ *  plus your onboarding-picked vibes so the scaffold is personalized early. */
+export function tasteFromSaves(saves: FriendSave[], seed: string[] = []): Taste {
   const raw: Record<string, number> = {}
   for (const tag of seed) raw[tag] = (raw[tag] ?? 0) + 2 // explicit onboarding signal
-  for (const pin of pins) {
-    if (pin.status === 'released') continue
-    const weight = pin.status === 'been' ? 2 : 1
-    for (const tag of vibesFor(pin.snapshot.primaryType)) {
+  for (const s of saves) {
+    const weight = s.tag === 'loved' ? 3 : s.tag === 'tried' ? 2 : 1
+    for (const tag of vibesFor(s.place?.primaryType)) {
       raw[tag] = (raw[tag] ?? 0) + weight
     }
   }

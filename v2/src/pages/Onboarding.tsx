@@ -11,8 +11,9 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
-import { BROWSE_VIBES } from '../data/vibes'
+import { BROWSE_VIBES, hexFor, neighborhoodFrom } from '../data/vibes'
 import { completeOnboarding } from '../data/user'
+import { gid } from '../data/types'
 import { useSaveFlow } from '../data/queries'
 import { useSession } from '../state/session'
 import { cachedCoords } from '../lib/geo'
@@ -33,7 +34,7 @@ export default function Onboarding() {
   const session = useSession()
   const navigate = useNavigate()
   const qc = useQueryClient()
-  const { save } = useSaveFlow()
+  const { setTag } = useSaveFlow()
 
   const [step, setStep] = useState<1 | 2>(1)
   const [chosen, setChosen] = useState<Set<string>>(new Set())
@@ -100,7 +101,18 @@ export default function Onboarding() {
       const details = await getDetails(s.placeId, token.current ?? undefined)
       if (details) {
         token.current = null
-        save.mutate({ place: details })
+        setTag.mutate({
+          tag: 'want',
+          place: {
+            id: gid(details.id),
+            name: details.name,
+            primaryType: details.primaryType,
+            neighborhood: neighborhoodFrom(details.address),
+            hex: hexFor(details.primaryType),
+            lat: details.lat,
+            lng: details.lng,
+          },
+        })
         setSaved(n => n + 1)
         setText('')
         setSuggestions([])

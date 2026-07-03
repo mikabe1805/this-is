@@ -932,9 +932,19 @@
   margin-bottom: 16px;
 }
 
-/* The closeup of a Been place is lit from above. */
-.closeup.is-been .closeup-visual {
+/* A room you Loved gets its picture-light switched on — a warm glow along the
+   top edge of the hero + a hairline frame. The "quiet, certain pleasure". */
+.closeup.is-been .closeup-visual,
+.closeup.is-loved .closeup-visual {
   box-shadow: inset 0 0 0 1px rgba(251, 239, 233, 0.35);
+}
+
+.closeup.is-loved .closeup-visual::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(120% 55% at 50% -18%, var(--celebrate-glow), transparent 68%);
 }
 
 .closeup-note {
@@ -949,7 +959,13 @@
   color: var(--text-1);
   resize: none;
   outline: none;
-  margin-bottom: 24px;
+  margin-bottom: 10px;
+}
+
+.closeup-remove {
+  display: block;
+  margin: 0 2px 22px;
+  color: var(--text-3);
 }
 
 .closeup-related {

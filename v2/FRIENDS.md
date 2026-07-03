@@ -79,18 +79,23 @@ friends both Loved a place.
 
 ## Built vs. next
 
-**Built this pass:** `saves` collection + rules (deployed); demo friend graph seeded
-(`scripts/seed-social.mjs` — Vivian/Uri/Sam + 13 Want/Tried/Loved notes); `data/social.ts` +
-`usePlaceSaves`/`useFriendFeed`; the Spot-Page friend graph (`FriendGraph`, `Avatar`); the two-layer
-Home (`FriendFeedCard` + Nearby & Unexplored); shared `usePlacePhoto`.
+**Built:** `saves` collection + rules (deployed); demo friend graph (`scripts/seed-social.mjs` —
+Vivian/Uri/Sam, 13 Want/Tried/Loved notes with denormalized place snapshots); `data/social.ts` +
+`usePlaceSaves`/`useFriendFeed`/`useMySaves`; the Spot-Page friend graph (`FriendGraph`, `Avatar`);
+the two-layer Home (`FriendFeedCard` + Nearby & Unexplored); shared `usePlacePhoto`. **✅ THE OWN
+SAVE FLOW is real:** `data/saves.ts` (`setSave`/`clearSave`/`setSaveNote`) + the rewired
+`useSaveFlow` write Want/Tried/Loved to the flat `saves` collection (so your saves enter the friend
+graph); the spot page has a Want/Tried/Loved control + per-save note + a picture-light on Loved; the
+**Wall** (`pages/Saved.tsx`) reads your own saves filtered by tag; Add/Onboarding/Search rewired;
+the legacy pins/boards system (pins.ts, boards.ts, PinCard) is DELETED. Verified end-to-end with an
+anonymous session (save Loved → picture-light → lands on the Wall; test data auto-cleaned).
 
 **Next core tasks (in order):**
-1. **Migrate the user's own save flow to `saves` + Want/Tried/Loved** (currently writes legacy
-   `users/{uid}/pins` with want/been) so saving actually enters the friend graph, and rebuild the
-   **Wall** to read it.
-2. **Real people:** handles, an invite link that auto-follows, the `following` array wired into the
-   feed query.
-3. **The tactile reveal** (card-pull + picture-light + haptics) for the Loved moment.
+1. **Real people:** handles + avatar at sign-up, an invite link that auto-follows, the `following`
+   array wired into the feed query (`fetchFriendFeed` currently shows all-but-self for the demo).
+2. **The tactile reveal** (card-pull into the spot page + a picture-light *sweep* animation + a
+   heavy haptic) for the Loved moment.
+3. **User photos** attached to a save/place (the "snap it when you save it" that owns the pixels).
 4. Auto-seed the scaffold on first open in an un-seeded cell (Cloud Function; see `docs/GOOGLE.md`).
 
 Related: `DIRECTION.md` (prior editorial direction + competitive research), `DESIGN.md`,

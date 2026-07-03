@@ -1,16 +1,18 @@
 /**
- * The save toast — the trust surface of the one action that isn't discovery.
- * "Saved to your list — Undo", a WANT/BEEN toggle, a ghost note link. One flat
- * list now (DIRECTION.md: boards gone), so there's no "Change board".
+ * The save toast — confirms your Want/Tried/Loved and lets you change it or
+ * undo, without a confirm dialog. Re-tagging is one tap right here.
  */
 import { useNavigate } from 'react-router-dom'
 import { dismissToast, useToast } from '../state/toast'
 import { useSaveFlow } from '../data/queries'
+import type { Tag } from '../data/social'
 import { haptics } from '../lib/haptics'
+
+const TAGS: Tag[] = ['want', 'tried', 'loved']
 
 export default function SaveToastHost() {
   const toast = useToast()
-  const { undo, setStatus } = useSaveFlow()
+  const { setTag, unsave } = useSaveFlow()
   const navigate = useNavigate()
 
   if (!toast) return null
@@ -25,42 +27,42 @@ export default function SaveToastHost() {
 
   const onUndo = () => {
     haptics.select()
-    undo.mutate(toast.receipt)
+    if (toast.prev) setTag.mutate({ place: toast.place, tag: toast.prev, prev: toast.tag })
+    else unsave.mutate(toast.placeId)
     dismissToast()
   }
 
-  const toggleBeen = () => {
-    const next = toast.status === 'been' ? 'want' : 'been'
-    setStatus.mutate({ pinId: toast.pinId, status: next })
-  }
-
-  const addNote = () => {
-    dismissToast()
-    navigate(`/p/${toast.pinId}?note=1`)
+  const retag = (tag: Tag) => {
+    if (tag === toast.tag) return
+    setTag.mutate({ place: toast.place, tag, prev: toast.tag })
   }
 
   return (
     <div className="toast glass-chrome" role="status">
       <div className="toast-row">
-        <p className="toast-text">Saved to your list</p>
+        <p className="toast-text">
+          <span className={`fg-tag fg-${toast.tag}`}>{toast.tag}</span> · on your wall
+        </p>
         <button className="toast-action press" onClick={onUndo}>Undo</button>
       </div>
       <div className="toast-row toast-row-secondary">
-        <div className="toast-status" role="group" aria-label="Save as">
-          <button
-            className={`toast-status-opt press${toast.status === 'want' ? ' is-on' : ''}`}
-            onClick={toast.status === 'want' ? undefined : toggleBeen}
-          >
-            WANT
-          </button>
-          <button
-            className={`toast-status-opt press${toast.status === 'been' ? ' is-on' : ''}`}
-            onClick={toast.status === 'been' ? undefined : toggleBeen}
-          >
-            BEEN
-          </button>
+        <div className="toast-status" role="group" aria-label="Change tag">
+          {TAGS.map(t => (
+            <button
+              key={t}
+              className={`toast-status-opt press${toast.tag === t ? ' is-on' : ''}`}
+              onClick={() => retag(t)}
+            >
+              {t}
+            </button>
+          ))}
         </div>
-        <button className="toast-ghost press" onClick={addNote}>add a note</button>
+        <button
+          className="toast-ghost press"
+          onClick={() => { dismissToast(); navigate(`/p/${toast.placeId}?note=1`) }}
+        >
+          add a note
+        </button>
       </div>
     </div>
   )

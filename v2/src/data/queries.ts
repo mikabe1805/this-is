@@ -1,47 +1,19 @@
 /**
  * TanStack Query hooks over the data core. Query + Firestore's persistent
- * local cache are the ONLY caching layers in v2.
+ * local cache are the ONLY caching layers in v2. Saves live in the flat
+ * `saves` collection (v2/FRIENDS.md) — one Want/Tried/Loved per person+place.
  */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { collection, doc, getDoc, getDocs } from 'firebase/firestore'
+import { doc, getDoc } from 'firebase/firestore'
 import { db } from '../lib/firebaseImpl'
 import { useSession } from '../state/session'
-import { showToast, updateToast } from '../state/toast'
+import { showToast } from '../state/toast'
 import { haptics } from '../lib/haptics'
-import type { Board, Pin, PinStatus } from './types'
-import { listBoards } from './boards'
-import { savePin, undoSave, refilePin, setPinStatus, type SaveOptions, type SaveReceipt } from './pins'
 import type { UserDoc } from './user'
 import { cityKeyFrom, cityKeysAround, fetchCandidates, fetchCurated } from './candidates'
-import { fetchPlaceSaves, fetchFriendFeed } from './social'
+import { fetchPlaceSaves, fetchFriendFeed, fetchMySaves, type Tag } from './social'
+import { setSave, clearSave, type SaveablePlace } from './saves'
 import type { Coords } from '../lib/geo'
-
-export function usePins() {
-  const session = useSession()
-  const uid = session.status === 'signed-in' ? session.user.uid : null
-  return useQuery({
-    queryKey: ['pins', uid],
-    enabled: Boolean(uid),
-    staleTime: 30_000,
-    queryFn: async (): Promise<Pin[]> => {
-      const snap = await getDocs(collection(db, 'users', uid!, 'pins'))
-      return snap.docs
-        .map(d => ({ id: d.id, ...(d.data() as Omit<Pin, 'id'>) }))
-        .sort((a, b) => b.lastTouchedAt - a.lastTouchedAt)
-    },
-  })
-}
-
-export function useBoards() {
-  const session = useSession()
-  const uid = session.status === 'signed-in' ? session.user.uid : null
-  return useQuery({
-    queryKey: ['boards', uid],
-    enabled: Boolean(uid),
-    staleTime: 30_000,
-    queryFn: () => listBoards(uid!),
-  })
-}
 
 export function useUserDoc() {
   const session = useSession()
@@ -57,22 +29,36 @@ export function useUserDoc() {
   })
 }
 
-/** The friend graph on a place — who saved it, what they thought. */
+/** Your Wall — everywhere you Want/Tried/Loved. */
+export function useMySaves() {
+  const session = useSession()
+  const uid = session.status === 'signed-in' ? session.user.uid : null
+  return useQuery({
+    queryKey: ['mySaves', uid],
+    enabled: Boolean(uid),
+    staleTime: 30_000,
+    queryFn: () => fetchMySaves(uid!),
+  })
+}
+
+/** The friend graph on a place — who saved it (you included), what they thought. */
 export function usePlaceSaves(placeId: string | undefined) {
   return useQuery({
     queryKey: ['placeSaves', placeId],
     enabled: Boolean(placeId),
-    staleTime: 60_000,
+    staleTime: 30_000,
     queryFn: () => fetchPlaceSaves(placeId!),
   })
 }
 
-/** The friend feed — the timeline of your circle's nights out. */
+/** The friend feed — your circle's nights out, minus your own. */
 export function useFriendFeed() {
+  const session = useSession()
+  const uid = session.status === 'signed-in' ? session.user.uid : undefined
   return useQuery({
-    queryKey: ['friendFeed'],
+    queryKey: ['friendFeed', uid],
     staleTime: 60_000,
-    queryFn: () => fetchFriendFeed(),
+    queryFn: () => fetchFriendFeed(uid),
   })
 }
 
@@ -97,40 +83,32 @@ export function useCandidates(coords: Coords | null) {
   })
 }
 
-export function usePin(pinId: string | undefined): Pin | undefined {
-  const { data } = usePins()
-  return pinId ? data?.find(p => p.id === pinId) : undefined
-}
-
-export function useBoard(boardId: string | undefined): Board | undefined {
-  const { data } = useBoards()
-  return boardId ? data?.find(b => b.id === boardId) : undefined
-}
-
 /**
- * The full save gesture: one tap → committed pin + haptic + undo toast.
- * Returns mutations for save / undo / re-file / status so every surface
- * shares the identical flow.
+ * The save gesture: set your Want / Tried / Loved on a place, which writes one
+ * doc to the friend graph, fires a haptic (a warm success on Loved), and rises
+ * an undo toast. `unsave` removes it from your Wall.
  */
 export function useSaveFlow() {
   const qc = useQueryClient()
   const invalidate = () => {
-    void qc.invalidateQueries({ queryKey: ['pins'] })
-    void qc.invalidateQueries({ queryKey: ['boards'] })
+    void qc.invalidateQueries({ queryKey: ['mySaves'] })
+    void qc.invalidateQueries({ queryKey: ['placeSaves'] })
+    void qc.invalidateQueries({ queryKey: ['friendFeed'] })
   }
 
-  const save = useMutation({
-    mutationFn: (opts: SaveOptions) => savePin(opts),
-    onSuccess: receipt => {
-      haptics.success()
+  const setTag = useMutation({
+    mutationFn: (args: { place: SaveablePlace; tag: Tag; prev?: Tag | null }) =>
+      setSave(args.place, args.tag),
+    onSuccess: (_d, args) => {
+      if (args.tag === 'loved') haptics.success()
+      else haptics.tap()
       invalidate()
       showToast({
         kind: 'save',
-        pinId: receipt.pinId,
-        boardId: receipt.boardId,
-        boardName: receipt.boardName,
-        status: receipt.status,
-        receipt,
+        placeId: args.place.id,
+        tag: args.tag,
+        prev: args.prev ?? null,
+        place: args.place,
       })
     },
     onError: () => {
@@ -139,41 +117,14 @@ export function useSaveFlow() {
     },
   })
 
-  const undo = useMutation({
-    mutationFn: (receipt: SaveReceipt) => undoSave(receipt),
+  const unsave = useMutation({
+    mutationFn: (placeId: string) => clearSave(placeId),
     onSuccess: invalidate,
     onError: () => {
       haptics.warn()
-      showToast({ kind: 'notice', text: "Couldn't undo — still saved" })
+      showToast({ kind: 'notice', text: "Couldn't remove it — try again" })
     },
   })
 
-  const refile = useMutation({
-    mutationFn: (args: { pinId: string; boardId: string; boardName: string }) =>
-      refilePin(args.pinId, args.boardId),
-    onSuccess: (_data, args) => {
-      haptics.select()
-      invalidate()
-      // If the save toast already expired, confirm with a fresh notice.
-      if (!updateToast({ boardId: args.boardId, boardName: args.boardName })) {
-        showToast({ kind: 'notice', text: `Moved to ${args.boardName}` })
-      }
-    },
-    onError: () => {
-      haptics.warn()
-      showToast({ kind: 'notice', text: "Couldn't move it — try again" })
-    },
-  })
-
-  const setStatus = useMutation({
-    mutationFn: (args: { pinId: string; status: PinStatus }) =>
-      setPinStatus(args.pinId, args.status),
-    onSuccess: (_data, args) => {
-      if (args.status === 'been') haptics.success()
-      invalidate()
-      updateToast({ status: args.status === 'released' ? 'want' : args.status })
-    },
-  })
-
-  return { save, undo, refile, setStatus, invalidate }
+  return { setTag, unsave, invalidate }
 }
