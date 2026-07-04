@@ -8,10 +8,11 @@
  */
 import { lazy, Suspense, useEffect } from 'react'
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom'
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { QueryClientProvider } from '@tanstack/react-query'
 import { Dock } from './components/Dock'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { refreshCoords } from './lib/geo'
+import { queryClient } from './lib/queryClient'
 
 const Home = lazy(() => import('./pages/Home'))
 const Search = lazy(() => import('./pages/Search'))
@@ -21,18 +22,10 @@ const Add = lazy(() => import('./pages/Add'))
 const Onboarding = lazy(() => import('./pages/Onboarding'))
 const Settings = lazy(() => import('./pages/Settings'))
 const Share = lazy(() => import('./pages/Share'))
+const Invite = lazy(() => import('./pages/Invite'))
+const Overlap = lazy(() => import('./pages/Overlap'))
 const SaveToastHost = lazy(() => import('./components/SaveToastHost'))
-
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      staleTime: 60_000,
-      gcTime: 24 * 60 * 60 * 1000,
-      retry: 1,
-      refetchOnWindowFocus: false,
-    },
-  },
-})
+const OnboardingGate = lazy(() => import('./components/OnboardingGate'))
 
 function PageSkeleton() {
   return (
@@ -57,6 +50,9 @@ function Chrome() {
 
   return (
     <div className="app">
+      <Suspense fallback={null}>
+        <OnboardingGate />
+      </Suspense>
       <main className="app-main">
         <ErrorBoundary resetKey={location.pathname}>
           <Suspense fallback={<PageSkeleton />}>
@@ -69,6 +65,8 @@ function Chrome() {
               <Route path="/add" element={<Add />} />
               <Route path="/onboarding" element={<Onboarding />} />
               <Route path="/settings" element={<Settings />} />
+              <Route path="/i/:uid" element={<Invite />} />
+              <Route path="/with/:uid" element={<Overlap />} />
               <Route path="/s/:token" element={<Share />} />
               <Route path="*" element={<Navigate to="/home" replace />} />
             </Routes>
