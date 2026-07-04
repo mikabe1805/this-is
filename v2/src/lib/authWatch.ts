@@ -10,9 +10,10 @@ import {
   signInWithRedirect,
   signOut,
 } from 'firebase/auth'
-import { doc, setDoc } from 'firebase/firestore'
-import { auth, db } from './firebaseImpl'
+import { auth } from './firebaseImpl'
 import { setSession } from '../state/session'
+import { ensureProfile } from '../data/user'
+import { queryClient } from './queryClient'
 
 let started = false
 
@@ -28,12 +29,14 @@ export function start(): void {
       status: 'signed-in',
       user: { uid: user.uid, displayName: user.displayName, photoURL: user.photoURL },
     })
-    // Lazily ensure the user doc exists; merge never clobbers.
-    void setDoc(
-      doc(db, 'users', user.uid),
-      { handle: user.displayName ?? 'me', v2At: Date.now() },
-      { merge: true }
-    ).catch(() => { /* offline is fine; persistence will flush */ })
+    // Fill in profile + seed tastemaker follows so the feed is never empty. If
+    // it wrote (new user / new follows), refresh the user doc + feed so the
+    // seeded follows actually reach the friend feed this session.
+    void ensureProfile(user.uid, user.displayName).then(seeded => {
+      if (!seeded) return
+      void queryClient.invalidateQueries({ queryKey: ['userDoc'] })
+      void queryClient.invalidateQueries({ queryKey: ['friendFeed'] })
+    })
   })
 }
 

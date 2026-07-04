@@ -6,16 +6,7 @@
  * here", and your own Wall are each a single query. Each save DENORMALIZES a
  * minimal place snapshot so every surface renders with zero joins.
  */
-import {
-  collection,
-  doc,
-  getDoc,
-  getDocs,
-  limit as fbLimit,
-  orderBy,
-  query,
-  where,
-} from 'firebase/firestore'
+import { collection, doc, getDoc, getDocs, query, where } from 'firebase/firestore'
 import { db } from '../lib/firebaseImpl'
 
 export type Tag = 'want' | 'tried' | 'loved'
@@ -94,12 +85,18 @@ export async function fetchPlaceSaves(placeId: string): Promise<FriendSave[]> {
     .sort((a, b) => TAG_RANK[a.tag] - TAG_RANK[b.tag] || b.ts - a.ts)
 }
 
-/** The friend feed — your circle's nights out, newest first, minus your own. */
-export async function fetchFriendFeed(excludeUid?: string, max = 40): Promise<FriendSave[]> {
-  const snap = await getDocs(
-    query(collection(db, 'saves'), orderBy('ts', 'desc'), fbLimit(max + 10))
-  )
-  const saves = shape(snap.docs).filter(s => s.uid !== excludeUid).slice(0, max)
+/** The friend feed — your circle's nights out, newest first, minus your own.
+ *  `following` is your circle (Firestore `in` takes up to 30). */
+export async function fetchFriendFeed(
+  following: string[],
+  excludeUid?: string,
+  max = 40
+): Promise<FriendSave[]> {
+  const circle = following.filter(u => u !== excludeUid).slice(0, 30)
+  if (!circle.length) return []
+  // Single `in` filter, no orderBy → no composite index; sort client-side.
+  const snap = await getDocs(query(collection(db, 'saves'), where('uid', 'in', circle)))
+  const saves = shape(snap.docs).sort((a, b) => b.ts - a.ts).slice(0, max)
   const users = await resolveUsers(saves.map(s => s.uid))
   return saves.map(s => ({ ...s, user: users.get(s.uid) }))
 }

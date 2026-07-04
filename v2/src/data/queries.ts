@@ -51,14 +51,19 @@ export function usePlaceSaves(placeId: string | undefined) {
   })
 }
 
-/** The friend feed — your circle's nights out, minus your own. */
+/** The friend feed — the nights out of the people you follow, minus your own.
+ *  Depends on your `following` list so it refetches the moment your circle
+ *  changes (accept an invite → your feed fills in). */
 export function useFriendFeed() {
   const session = useSession()
   const uid = session.status === 'signed-in' ? session.user.uid : undefined
+  const { data: userDoc } = useUserDoc()
+  const following = userDoc?.following ?? []
   return useQuery({
-    queryKey: ['friendFeed', uid],
+    queryKey: ['friendFeed', uid, following],
+    enabled: Boolean(uid),
     staleTime: 60_000,
-    queryFn: () => fetchFriendFeed(uid),
+    queryFn: () => fetchFriendFeed(following, uid),
   })
 }
 
@@ -100,7 +105,7 @@ export function useSaveFlow() {
     mutationFn: (args: { place: SaveablePlace; tag: Tag; prev?: Tag | null }) =>
       setSave(args.place, args.tag),
     onSuccess: (_d, args) => {
-      if (args.tag === 'loved') haptics.success()
+      if (args.tag === 'loved') haptics.celebrate()
       else haptics.tap()
       invalidate()
       showToast({

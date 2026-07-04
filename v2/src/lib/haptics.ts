@@ -75,8 +75,10 @@ export const haptics = {
   tap: () => fire('light', 8),
   /** A slightly firmer tick — selecting an option. */
   select: () => fire('medium', 12),
-  /** A two-beat confirm — save, Been, board created. */
+  /** A two-beat confirm — a plain save. */
   success: () => fire('success', [10, 30, 16]),
+  /** The Loved acquisition — a fuller, heavier swell under the picture-light. */
+  celebrate: () => fire('success', [14, 40, 22, 40, 28]),
   /** A heavier triple — destructive / error feedback. */
   warn: () => fire('warning', [22, 40, 22]),
   /** Keep the localStorage mirror in sync with the saved preference. */
