@@ -17,18 +17,19 @@ match / candle motif family, walnut/honey palette, and parchment lights are all 
 ## The NEVER list (dead, not deferred — enforced at review)
 
 Posts · comments · DMs · activity feeds · hubs · public profiles · influence scores ·
-leaderboards · streaks · a map page. Mid-pass feature creep is the single biggest schedule
-threat; do not implement these even as stubs.
+leaderboards · streaks · a map page · boards/folders · trip planning · a "where tonight"
+decision engine · reservations/ticketing. Mid-pass feature creep is the single biggest
+schedule threat; do not implement these even as stubs.
 
 ## Hard laws
 
 - **New-repo posture**: `v2/` imports nothing from the v1 tree. Ported code is copied, not
   imported. (It lives inside this repo for reviewability; it must stay extractable by copying
   the folder.)
-- **One save path**: every save goes through `src/data/pins.ts#savePin`. No surface may write
-  pin/place/board docs directly.
-- **Identity**: every place is `g:{google_place_id}` — place docs, pin doc IDs, routes. No
-  second namespace, ever.
+- **One save path**: every Want/Tried/Loved goes through `src/data/saves.ts`
+  (`setSave` / `clearSave` / `setSaveNote`). No surface writes `saves`/`places` docs directly.
+- **Identity**: every place is `g:{google_place_id}` — place docs, save doc IDs
+  (`{uid}__g:{pid}`), routes. No second namespace, ever.
 - **No confirm dialogs anywhere; undo toasts only.**
 - **Every surface is a route** (sheets via search params). Hardware back must always work.
   Zero modal-manager state, zero `window.CustomEvent` buses.
@@ -39,8 +40,11 @@ threat; do not implement these even as stubs.
   always attributed; browsing never writes Firestore. **The mask split**: the Pro-tier full
   mask runs only at save time and for unsaved deep-links; saved-pin closeups use the free
   photo-ref mask (`getPhotoRef`) and render from the snapshot, with a 90-day full-mask
-  snapshot refresh. **Google photos never appear on the grid** — grid imagery is user photos →
-  plates → hex. "Google Maps" text attribution renders near Google-sourced content.
+  snapshot refresh. **Grid photos are budget-gated and never cached** — the interim posture
+  (`docs/GOOGLE.md` decision 10) allows live Google grid photos under a hard per-day media
+  budget (`lib/photoBudget.ts`); user/owned photos take over as they accumulate, and the
+  fallback is always plate → hex, never a spinner. "Google Maps" text attribution renders near
+  Google-sourced content.
 - **Honesty**: no placebo UI. A control that doesn't work yet doesn't render. Stale data is
   hidden, not shown ("honest absence beats a placebo"). Own-save resurfacing is labeled, never
   disguised as discovery.
@@ -52,10 +56,10 @@ threat; do not implement these even as stubs.
 
 ## The cut order (first → last)
 
-paste-a-link → conversion stat → stale-pin receding → generated-asset breadth → the
-candidate-composer function (feed falls back to a direct query).
-**Never cut**: 1-tap save, TONIGHT with honest-hours-or-honest-absence, morning-after card,
-boards.
+If scope must be cut, drop in this order: paste-a-link → generated-asset breadth → the geo-cell
+auto-seed Cloud Function (Home falls back to curated + a direct candidates query).
+**Never cut**: 1-tap Want/Tried/Loved, the friend feed, the spot-page shared memory
+("FROM YOUR PEOPLE"), honest-hours-or-honest-absence.
 
 ## Hard ship gates (if any fails, cut scope, not the budget)
 
@@ -75,7 +79,9 @@ npm run import:owner # owner-import script (see scripts/)
 ## Firebase
 
 Same project as v1 (`this-is-76332`); env keys come from the repo-root `.env.local` via Vite
-`envDir`. v2 data lives in `users/{uid}/boards|pins` subcollections and `g:`-prefixed
-`places/*` docs, coexisting with v1 until cutover. `firestore.rules` in this folder is the v2
-default-deny draft — at cutover it merges with (then replaces) the v1 rules. **Do not deploy
-rules from here casually**: deploying replaces the whole ruleset and v1 is still serving.
+`envDir`. v2 data lives in the flat top-level `saves/{uid}__g:{pid}` collection, `users/{uid}`
+(with a `following` array), and `g:`-prefixed `places/*` / `curated/*` /
+`cities/{cell}/candidates/*` docs, coexisting with v1 until cutover. The DEPLOYED rules are the
+repo-root `firestore.rules`; the `firestore.rules` in this folder is a stale default-deny draft
+(still models boards/pins, no `saves` block) — update or delete it before any cutover. **Do not
+deploy rules casually**: deploying replaces the whole ruleset and v1 is still serving.

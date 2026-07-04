@@ -13,5 +13,34 @@ export default defineConfig({
   envDir: resolve(here, '..'),
   build: {
     target: 'es2022',
+    rollupOptions: {
+      output: {
+        // Pin the firebase SDK (+ its grpc/protobuf transport) to one chunk so
+        // the split is DETERMINISTIC. Firebase is dynamic-only here (the auth
+        // listener + lazy pages), so this chunk loads on demand and never rides
+        // in the entry chunk. Without this, Rollup's default async-chunk
+        // partitioning occasionally folded firebase into a shared chunk,
+        // swinging the entry from ~85kB to ~100kB gzip between identical builds.
+        manualChunks(id) {
+          if (!id.includes('node_modules')) return undefined
+          if (
+            id.includes('/firebase/') ||
+            id.includes('/@firebase/') ||
+            id.includes('/@grpc/') ||
+            id.includes('protobufjs') ||
+            id.includes('/@protobufjs/')
+          ) {
+            return 'firebase'
+          }
+          // Statically-imported vendors: own cacheable chunks so app edits don't
+          // bust them (react-dom stays in entry — it's the unavoidable first
+          // paint core). This also keeps the entry chunk size deterministic.
+          if (id.includes('/react-router') || id.includes('/@remix-run/')) return 'react-router'
+          if (id.includes('/@tanstack/')) return 'tanstack'
+          if (id.includes('/minisearch/')) return 'minisearch'
+          return undefined
+        },
+      },
+    },
   },
 })

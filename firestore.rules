@@ -12,6 +12,14 @@ service cloud.firestore {
     }
 
     // Development mode helper - allows unrestricted access for development and seeding
+    //
+    // ⚠️ LAUNCH BLOCKER (v2 roadmap, Next-#1): this has NO auth check, so it
+    // short-circuits every write rule true for ANY caller (signed-out included)
+    // until 2030 — the whole DB is world-writable/deletable, including the flat
+    // `saves` friend graph and the `curated` catalog that IS the product. Before
+    // any non-local deploy: gate this behind an emulator/env check or delete it,
+    // and move seed writes (curated/candidates/demo saves) to the Admin SDK. The
+    // auth arms below are already correct and will take over once this is gone.
     function isDevMode() {
       return request.time < timestamp.date(2030, 1, 1); // Enable until 2030 for dev
     }
@@ -243,9 +251,13 @@ service cloud.firestore {
     // one query. Public read for the intimate-circle demo; each user writes
     // only their own. Tighten reads to the follow-graph at real launch.
     match /saves/{saveId} {
-      allow read: if true;
-      allow create, update, delete: if isDevMode()
+      allow read: if true; // TODO(launch): scope reads to the follow-graph (roadmap Next-#3)
+      allow create, update: if isDevMode()
         || (isAuthenticated() && request.resource.data.uid == request.auth.uid);
+      // On delete request.resource is null, so ownership must be checked against
+      // the EXISTING doc — otherwise every unsave breaks once isDevMode is gone.
+      allow delete: if isDevMode()
+        || (isAuthenticated() && resource.data.uid == request.auth.uid);
     }
 
     // Baked share snapshots — public read, function-only write.

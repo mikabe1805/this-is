@@ -33,8 +33,8 @@ signal (madder-red), `tried` neutral, `want` faint.
    Below the room's hero + vitals, **FROM YOUR PEOPLE**: each friend's avatar, their Want/Tried/
    Loved, and their 1 AM-text note. This is the most-rewarding moment — uncovering a piece of a
    friend's life, not reading a critique. Then one door out: Open in Google Maps.
-3. **Your Wall (Profile)** — a flat masonry of everywhere *you* Want/Tried/Loved. *(Still shows the
-   legacy want/been pins — migrating to Want/Tried/Loved is the next core task, see below.)*
+3. **Your Wall (Profile)** — a flat masonry of everywhere *you* Want/Tried/Loved
+   (`pages/Saved.tsx`), reading your own rows from the flat `saves` collection, filtered by tag.
 
 ## The two-layer architecture (the cold-start net — never blended)
 

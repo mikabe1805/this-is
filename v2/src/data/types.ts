@@ -1,58 +1,16 @@
 /**
- * The v2 data model — small enough to hold in one head.
+ * The v2 place model — small enough to hold in one head.
  *
  * Identity law: every place is keyed by its Google place_id as `g:{pid}`,
- * everywhere (place docs, pin doc IDs, routes). There is no second namespace,
- * no fingerprint matching, no regex bridging. The FSQ/MapLibre escape hatch
+ * everywhere (place docs, save doc IDs `{uid}__g:{pid}`, routes). There is no
+ * second namespace, no fingerprint matching. The FSQ/MapLibre escape hatch
  * stays a one-script migration against this key.
  *
- * Snapshot law: a pin carries a minimal render snapshot (name + hex + type +
- * neighborhood + coords) so boards and the library render with ZERO joins.
- * Snapshots never contain photos, ratings, or hours (ToS posture).
+ * The friend-graph shapes live next to their queries: a save's `PlaceSnapshot`
+ * and `FriendSave` in `data/social.ts`, the write-side `SaveablePlace` in
+ * `data/saves.ts`. This file holds only the shared place-catalog doc + the id
+ * helpers.
  */
-
-export type PinStatus = 'want' | 'been' | 'released'
-
-export interface PlaceSnapshot {
-  name: string
-  primaryType?: string
-  /** Dominant hex — the card's loading/placeholder block. */
-  hex: string
-  neighborhood?: string
-  lat?: number
-  lng?: number
-  /** When lat/lng came from Google — walk chips hide past the 30-day window. */
-  coordsAt?: number
-}
-
-export interface Pin {
-  /** `g:{placeId}` — same ID as the place doc; saves are idempotent. */
-  id: string
-  /** Boards this pin lives on (≤3). */
-  boardIds: string[]
-  status: PinStatus
-  note?: string
-  /** The six-word line shown on a Been pin, set from the morning-after card. */
-  sixWordNote?: string
-  savedAt: number
-  lastTouchedAt: number
-  visitedAt?: number
-  userPhotoPath?: string
-  snapshot: PlaceSnapshot
-}
-
-export interface Board {
-  id: string
-  name: string
-  /** Fallback cover color when the board has no pins yet. */
-  coverHex: string
-  /** Accumulated vibe tags of saved pins — drives the likely-board guess. */
-  vibeTags: string[]
-  pinCount: number
-  createdAt: number
-  lastUsedAt: number
-  shareToken?: string
-}
 
 export interface PlaceDoc {
   /** `g:{placeId}` */
@@ -73,30 +31,16 @@ export interface PlaceDoc {
    *  weeks-not-months migration. */
   fsqId?: string
 
-  // ── Curation (DIRECTION.md — the whole product) ──
-  /** Hand-curated venue in the launch scene. Curated docs live in `curated/`
-   *  and are the discovery feed; non-curated candidates are the long tail. */
+  // ── Curation (the premium layer; FRIENDS.md Layer 1 alongside the friend
+  //    graph). Curated docs live in `curated/`; uncurated geo-cell candidates
+  //    in `cities/{cell}/candidates/` are the honestly-labeled Layer-2 scaffold. ──
+  /** Hand-curated venue in a launch scene. */
   curated?: boolean
-  /** The curator's one-line take — the card hero. Includes the exclusion
-   *  ("skipped the famous one two doors down") when it earns it. */
+  /** The curator's one-line take — the card hero on a curated room. */
   curatorPOV?: string
   /** Owner-owned ambiance photo paths (Firebase Storage). When present these
    *  are the grid image; absent → live Google fallback → hex plate. */
   ownedPhotoPath?: string[]
-}
-
-/** What savePin needs to know about a place — shaped by lib/places.getDetails
- *  or a candidate-pool doc. */
-export interface SaveablePlace {
-  /** Raw Google place_id or already-prefixed `g:` ID. */
-  id: string
-  name: string
-  address?: string
-  primaryType?: string
-  lat?: number
-  lng?: number
-  /** Known neighborhood (candidates carry this instead of an address). */
-  neighborhood?: string
 }
 
 export const gid = (placeId: string): string =>

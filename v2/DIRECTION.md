@@ -1,5 +1,12 @@
 # DIRECTION — this.is v2 (adopted 2026-07-02)
 
+> ⚠️ **HISTORICAL — SUPERSEDED BY `FRIENDS.md` (2026-07-02).** This document is the earlier
+> editorial-curator direction ("the candlelit end of going out"). It is kept for its competitive
+> research and data/photo architecture, which still hold. But the product direction has since
+> pivoted to the **friend graph** (discovery of friends' tastes); read `FRIENDS.md` first. Do
+> NOT act on this doc's marching orders below (e.g. "repoint `ranking.ts`", "curator tooling",
+> the cut list) — several name files/features that were deleted or reframed in the pivot.
+
 > this.is the candlelit end of going out — a hand-curated, taste-ranked feed of the intimate, low-lit rooms near you that are worth leaving the house for, not the 2,000-review tourist default.
 
 **The bet:** Win discovery by SUBTRACTION inside one self-selecting scene: hand-curate the low-lit going-out places (wine bars, listening bars, cozy cocktail dens) one city at a time, so a stranger's very first feed is ~150 genuinely great rooms with owned, on-brand photos — the one thing Google's review-count consensus and Corner's empty cold map structurally cannot hand a stranger on day one.
