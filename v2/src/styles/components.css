@@ -245,6 +245,23 @@
   color: var(--canvas);
 }
 
+/* Want / Tried — a quiet chip, never the earned picture-light. Text color
+   comes from the fg-{tag} class (want = faint, tried = neutral). */
+.wall-tag {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  z-index: 2;
+  padding: 3px 9px;
+  border-radius: var(--r-pill);
+  background: rgba(20, 13, 16, 0.55);
+  box-shadow: inset 0 0 0 1px var(--hairline);
+}
+
+[data-theme='day'] .wall-tag {
+  background: rgba(246, 241, 242, 0.72);
+}
+
 /* Daylight inverts glow to gravity: shadow + madder mat. */
 [data-theme='day'] .pin-card.is-been {
   box-shadow:
@@ -254,6 +271,20 @@
 
 [data-theme='day'] .pin-card.is-been::before {
   background: none;
+}
+
+/* TWO PEOPLE BOTH LOVED IT — a Loved card of yours a friend also Loved gets a
+   warmer, madder-tinted light than a solo Loved (implies .is-been). */
+.pin-card.is-shared-love {
+  box-shadow:
+    inset 0 0 0 1px rgba(251, 239, 233, 0.5),
+    0 12px 34px -10px rgba(193, 59, 76, 0.4);
+}
+
+[data-theme='day'] .pin-card.is-shared-love {
+  box-shadow:
+    inset 0 0 0 1px rgba(166, 44, 62, 0.55),
+    0 10px 26px -10px rgba(166, 44, 62, 0.28);
 }
 
 /* ── INTO STORAGE — 90 days untouched, the light leaves it ──
@@ -819,13 +850,21 @@
 
 .fg-row {
   display: flex;
-  gap: 11px;
-  align-items: flex-start;
+  flex-direction: column;
+  gap: 4px;
 }
 
-.fg-body {
-  flex: 1;
+/* The tappable friend → /with/:uid (avatar + name inline). */
+.fg-who {
+  display: flex;
+  gap: 11px;
+  align-items: center;
   min-width: 0;
+}
+
+.fg-note-indent {
+  /* align the note under the name, past the 34px avatar + gap */
+  padding-left: 45px;
 }
 
 .fg-head {
@@ -867,6 +906,17 @@
   height: auto;
   margin-bottom: 4px;
 }
+
+/* Theme-driven so the scene reads in both themes. --celebrate is the
+   picture-light (warm-white at night, madder in day); the fixtures follow the
+   text ramp. */
+.empty-scene .es-glow-in { stop-color: var(--celebrate); stop-opacity: 0.42; }
+.empty-scene .es-glow-mid { stop-color: var(--celebrate); stop-opacity: 0.08; }
+.empty-scene .es-glow-out { stop-color: var(--celebrate); stop-opacity: 0; }
+.empty-scene .es-stem { stroke: var(--text-3); stroke-width: 2; }
+.empty-scene .es-shade { fill: var(--text-2); }
+.empty-scene .es-hook { stroke: var(--text-2); stroke-width: 2.5; }
+.empty-scene .es-floor { stroke: var(--text-1); stroke-opacity: 0.12; }
 
 .closeup-photo-row {
   margin-bottom: 14px;
@@ -945,6 +995,21 @@
   inset: 0;
   pointer-events: none;
   background: radial-gradient(120% 55% at 50% -18%, var(--celebrate-glow), transparent 68%);
+}
+
+/* THE ACQUISITION — a picture-light sweep across the hero the moment you tap
+   Loved. Shares the ::before with the film-grain (.pin-visual::before), so it
+   must restore opacity:1 (grain sets 0.09) and z-index above the photo. */
+.closeup-visual.is-sweeping::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  opacity: 1;
+  pointer-events: none;
+  background: linear-gradient(100deg, transparent 20%, var(--celebrate-glow) 50%, transparent 80%);
+  background-size: 250% 100%;
+  animation: sweep var(--dur-screen) var(--ease-standard) both;
 }
 
 .closeup-note {
@@ -1069,6 +1134,11 @@
   max-width: 32ch;
 }
 
+.section-sub {
+  margin: -4px 0 12px;
+  color: var(--text-3);
+}
+
 .taste-nudge {
   display: flex;
   flex-direction: column;
@@ -1111,8 +1181,56 @@
   opacity: 0.75;
 }
 
+/* THE WANT THAT GOT LOVED — the spark card at the top of Home. */
+.want-spark {
+  display: block;
+  margin-bottom: 20px;
+  padding: 14px 16px;
+  border-radius: var(--r-card);
+  border: 1px solid var(--hairline);
+  background:
+    radial-gradient(140% 120% at 0% 0%, rgba(193, 59, 76, 0.14), transparent 58%),
+    var(--card);
+}
+
+.want-spark .eyebrow {
+  color: var(--action);
+}
+
+[data-theme='day'] .want-spark .eyebrow {
+  color: var(--action-press);
+}
+
+.want-spark-line {
+  display: block;
+  margin-top: 6px;
+  font-family: var(--font-display);
+  font-size: var(--fs-4);
+  line-height: 1.35;
+  color: var(--text-1);
+}
+
+.want-spark-line strong {
+  font-weight: 600;
+}
+
+.want-spark-note {
+  display: block;
+  margin-top: 6px;
+  font-family: var(--font-display);
+  font-style: italic;
+  font-size: var(--fs-3);
+  color: var(--text-2);
+}
+
 .pin-bookmark.is-unsaved {
   background: rgba(20, 13, 16, 0.55);
+}
+
+/* Saved: the bookmark fills and takes the tag color (fg-{tag}); a solid disc
+   so even the faint Want/Tried tints read on any photo. */
+.pin-bookmark.is-saved {
+  background: rgba(9, 6, 8, 0.62);
 }
 
 /* ── Onboarding ── */
@@ -1163,6 +1281,131 @@
   margin-top: 28px;
 }
 
+/* ── Identity (onboarding step 1 + Settings "You") ── */
+.identity-preview {
+  display: flex;
+  justify-content: center;
+  margin: 10px 0 16px;
+}
+
+.avatar-swatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 14px 0 4px;
+}
+
+.avatar-swatch {
+  width: 34px;
+  height: 34px;
+  border-radius: var(--r-pill);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.16);
+}
+
+.avatar-swatch.is-on {
+  outline: 2px solid var(--text-1);
+  outline-offset: 2px;
+}
+
+.you-profile {
+  margin-bottom: 22px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid var(--hairline);
+}
+
+.you-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.you-name {
+  flex: 1;
+  min-width: 0;
+}
+
+/* ── The Overlap (/with/:uid) ── */
+.overlap-head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 22px;
+}
+
+.overlap-section {
+  margin-bottom: 24px;
+}
+
+.overlap-tags {
+  display: block;
+  margin-top: 6px;
+  color: var(--on-photo-2);
+}
+
+.overlap-tags b {
+  color: var(--on-photo-1);
+  font-weight: 600;
+}
+
+.overlap-tags .tag-hot {
+  color: var(--action);
+}
+
+/* ── Your people (invite + follow graph) ── */
+.your-people {
+  margin-bottom: 22px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid var(--hairline);
+}
+
+.invite-copy {
+  width: 100%;
+  margin: 10px 0 8px;
+}
+
+.invite-hint {
+  color: var(--text-3);
+  max-width: 34ch;
+}
+
+.people-list {
+  display: flex;
+  flex-direction: column;
+  margin-top: 14px;
+}
+
+.people-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 2px;
+  border-top: 1px solid var(--hairline);
+}
+
+.people-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── Invite scene (/i/:uid) ── */
+.invite-scene {
+  gap: 12px;
+}
+
+.invite-eyebrow {
+  margin-top: 4px;
+  color: var(--text-3);
+}
+
+.invite-sub {
+  max-width: 32ch;
+  color: var(--text-2);
+}
+
 /* ── Avatar ── */
 .avatar {
   width: 36px;
@@ -1175,6 +1418,21 @@
   display: block;
   background: var(--card);
   border: 1px solid var(--hairline);
+}
+
+/* The initial-in-a-disc avatar (no external image calls). Needs base layout —
+   the component only sets background/size inline. */
+.avatar-initial {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  border-radius: var(--r-pill);
+  color: #fff;
+  font-family: var(--font-display);
+  font-weight: 600;
+  line-height: 1;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.14);
 }
 
 /* ── Chips (mood filters) ── */

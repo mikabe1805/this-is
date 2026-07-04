@@ -27,7 +27,17 @@ import { Masonry } from '../components/Masonry'
 
 const TAGS: Tag[] = ['want', 'tried', 'loved']
 
+/**
+ * Remount per place: keying on placeId gives each spot page its own component
+ * instance, so the note refs below belong to exactly one room — navigating
+ * /p/A → /p/B via "MORE ON THE LIST" can never flush A's note against B.
+ */
 export default function Closeup() {
+  const { placeId } = useParams<{ placeId: string }>()
+  return <CloseupView key={placeId ?? ''} />
+}
+
+function CloseupView() {
   const { placeId } = useParams<{ placeId: string }>()
   const id = placeId ?? ''
   const navigate = useNavigate()
@@ -66,10 +76,18 @@ export default function Closeup() {
   const friends = useMemo(() => (saves ?? []).filter(s => s.uid !== myUid), [saves, myUid])
   const myTag = mySave?.tag
 
+  // The acquisition: tapping Loved sweeps the picture-light across the hero
+  // once (the celebrate haptic rides along via useSaveFlow).
+  const [sweeping, setSweeping] = useState(false)
+
   const saveable = { id, name, primaryType, neighborhood, hex, lat, lng }
   const onTag = (tag: Tag) => {
     if (session.status !== 'signed-in') { haptics.tap(); void signIn(); return }
     if (myTag === tag) return
+    if (tag === 'loved') {
+      setSweeping(true)
+      window.setTimeout(() => setSweeping(false), 380)
+    }
     setTag.mutate({ place: saveable, tag, prev: myTag ?? null })
   }
   const onRemove = () => { if (mySave) unsave.mutate(id) }
@@ -82,7 +100,10 @@ export default function Closeup() {
   useEffect(() => { if (!noteDirty.current) setNote(savedNote) }, [savedNote])
   useEffect(() => { if (params.get('note') === '1') noteRef.current?.focus() }, [params])
   const commitNote = () => {
-    if (!mySave || !noteDirty.current || note.trim() === (mySave.note ?? '')) return
+    if (!mySave || !noteDirty.current) return
+    // Nothing actually changed — clear the dirty flag so teardown doesn't write
+    // a redundant no-op (and the old text can't bleed into a reused instance).
+    if (note.trim() === (mySave.note ?? '')) { noteDirty.current = false; return }
     noteDirty.current = false
     void setSaveNote(id, note).then(invalidate)
   }
@@ -106,7 +127,7 @@ export default function Closeup() {
     <div className={`page closeup${myTag === 'loved' ? ' is-loved' : ''}`}>
       <button className="eyebrow back-link press" onClick={() => navigate(-1)}>← BACK</button>
 
-      <PinVisual hex={hex} photoSrc={photo} attribution={details?.photoAttribution} alt={name} className="closeup-visual" />
+      <PinVisual hex={hex} photoSrc={photo} attribution={details?.photoAttribution} alt={name} className={`closeup-visual${sweeping ? ' is-sweeping' : ''}`} />
 
       <header className="closeup-head">
         {curatedThis && <p className="eyebrow closeup-onlist">ON THE LOW-LIT LIST</p>}
@@ -131,6 +152,7 @@ export default function Closeup() {
             <button
               key={t}
               className={`seg-tab press${myTag === t ? ' is-active' : ''}`}
+              aria-pressed={myTag === t}
               onClick={() => onTag(t)}
             >
               {t}
@@ -153,6 +175,7 @@ export default function Closeup() {
           <textarea
             ref={noteRef}
             className="closeup-note"
+            aria-label="A note for your people"
             placeholder="a note for your people…"
             value={note}
             onChange={e => { noteDirty.current = true; setNote(e.target.value) }}

@@ -193,6 +193,15 @@ p {
   transform: scale(0.97);
 }
 
+/* ── Keyboard focus — one visible ring everywhere. --text-1 reads on both the
+   oxblood canvas and the madder pills, in either theme. Pointer users never
+   see it (:focus-visible), so it costs the visual language nothing. ── */
+:focus-visible {
+  outline: 2px solid var(--text-1);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
 /* ── Empty states ── */
 .empty-state {
   display: flex;
