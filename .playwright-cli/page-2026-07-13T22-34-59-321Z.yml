@@ -1,0 +1,28 @@
+- main [ref=f2e236]:
+  - generic [ref=f2e237]:
+    - button "← BACK" [ref=f2e238] [cursor=pointer]
+    - generic [ref=f2e239]:
+      - generic "Mika, Vivian" [ref=f2e240]:
+        - generic [ref=f2e241]: M
+        - generic [ref=f2e242]: V
+      - paragraph [ref=f2e243]: 2 PEOPLE · EMPTY TABLE
+    - region [ref=f2e244]:
+      - paragraph [ref=f2e245]: QUICK START · OPTIONAL
+      - heading "Give Empty Table one light hint." [level=2] [ref=f2e246]
+      - paragraph [ref=f2e247]: No place comes to mind? Choose Food, Coffee, or Things to do. A hint helps only when someone else shares a matching place; it is not a Want or Love.
+      - group "WHAT KIND USUALLY SOUNDS GOOD?" [ref=f2e248]:
+        - generic [ref=f2e250]:
+          - button "Food" [disabled] [ref=f2e251] [cursor=pointer]
+          - button "Coffee" [disabled] [ref=f2e252] [cursor=pointer]
+          - button "Things to do" [disabled] [ref=f2e253] [cursor=pointer]
+      - group [ref=f2e254]:
+        - button "Plan-fit hints for later" [ref=f2e255] [cursor=pointer]:
+          - generic [ref=f2e256]:
+            - generic [ref=f2e257]: PLAN-FIT HINTS · OPTIONAL FOR LATER
+            - generic [ref=f2e258]: Quiet, casual, outdoors, and more
+          - generic [ref=f2e259]: +
+      - paragraph [ref=f2e260]: Visible only to Mika, Vivian. Sharing this hint closes invitations for this group.
+      - generic [ref=f2e261]:
+        - button "Check removal" [ref=f2e262] [cursor=pointer]
+        - button "Close for now" [active] [ref=f2e263] [cursor=pointer]
+      - alert [ref=f2e264]: We couldn’t confirm whether your hints were removed. Checking again can only remove those same group hints; it cannot reopen invitations or remove anything from your personal Keep.

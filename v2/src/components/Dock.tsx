@@ -4,14 +4,18 @@
  */
 import { NavLink } from 'react-router-dom'
 import { haptics } from '../lib/haptics'
+import { useSession } from '../state/session'
 
 const TABS = [
-  { to: '/home', label: 'HOME', icon: HomeIcon },
-  { to: '/search', label: 'SEARCH', icon: SearchIcon },
-  { to: '/saved', label: 'SAVED', icon: SavedIcon },
+  { to: '/together', label: 'TOGETHER', icon: TogetherIcon },
+  { to: '/saved', label: 'KEEP', icon: SavedIcon },
+  { to: '/people', label: 'PEOPLE', icon: PeopleIcon },
 ] as const
 
 export function Dock() {
+  const session = useSession()
+  if (session.status !== 'signed-in') return null
+
   return (
     <nav className="dock glass-chrome" aria-label="Primary">
       {TABS.map(({ to, label, icon: Icon }) => (
@@ -29,19 +33,21 @@ export function Dock() {
   )
 }
 
-function HomeIcon() {
+function TogetherIcon() {
   return (
     <svg className="dock-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
-      <path d="M4 10.5 12 4l8 6.5V20a1 1 0 0 1-1 1h-5v-6h-4v6H5a1 1 0 0 1-1-1v-9.5Z" strokeLinejoin="round" />
+      <circle cx="8" cy="12" r="5" />
+      <circle cx="16" cy="12" r="5" />
     </svg>
   )
 }
 
-function SearchIcon() {
+function PeopleIcon() {
   return (
     <svg className="dock-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
-      <circle cx="11" cy="11" r="6.5" />
-      <path d="m16 16 4.5 4.5" strokeLinecap="round" />
+      <circle cx="9" cy="8" r="3" />
+      <circle cx="17" cy="9" r="2.4" />
+      <path d="M3.5 20c.4-4 2.2-6 5.5-6s5.1 2 5.5 6M14 15c3.8-.5 5.7 1.2 6.2 4.5" strokeLinecap="round" />
     </svg>
   )
 }

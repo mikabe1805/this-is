@@ -3,12 +3,21 @@
   "private": true,
   "version": "2.0.0",
   "type": "module",
+  "engines": {
+    "node": "22"
+  },
   "scripts": {
-    "dev": "vite",
-    "build": "tsc -p tsconfig.json && vite build",
+    "dev": "node ../scripts/check-node-runtime.mjs && npm --prefix ../v2-functions run build && firebase emulators:exec --only auth,firestore,functions --project demo-this-is-v2 --config ../firebase.v2.json \"vite --mode emulator\"",
+    "build": "tsc -p tsconfig.json && vite build && node scripts/write-precache-manifest.mjs",
+    "build:emulator": "tsc -p tsconfig.json && vite build --mode emulator && node scripts/write-precache-manifest.mjs",
+    "build:family-alpha": "tsc -p tsconfig.json && vite build --mode family-alpha --outDir .family-alpha-dist && node scripts/write-precache-manifest.mjs .family-alpha-dist && node ../scripts/check-family-alpha-artifact.mjs",
     "preview": "vite preview",
     "typecheck": "tsc -p tsconfig.json",
-    "import:owner": "node scripts/import-owner-saves.mjs"
+    "build:domain-tools": "tsc -p tsconfig.domain-test.json",
+    "test:domain": "tsc -p tsconfig.domain-test.json && node .domain-test/domain/recommendation.test.js && node .domain-test/domain/groupQuickStart.test.js && node .domain-test/domain/groupDraft.test.js && node .domain-test/domain/transientGroupPlan.test.js && node .domain-test/domain/groupKeepBridge.test.js && node .domain-test/domain/groupRecommendation.test.js && node .domain-test/domain/planArea.test.js && node .domain-test/domain/planAreaGazetteer.test.js && node .domain-test/domain/planAreaGazetteerIndex.test.js && node .domain-test/domain/groupLiveState.test.js && node .domain-test/domain/candidateCard.test.js && node .domain-test/domain/finalShortlist.test.js && node .domain-test/domain/groups.test.js && node .domain-test/domain/openCatalog.test.js && node .domain-test/domain/openCatalogExtraction.test.js && node .domain-test/domain/openCatalogArtifact.test.js && node .domain-test/domain/openDiscovery.test.js && node .domain-test/domain/personalDiscovery.test.js && node .domain-test/domain/googlePlaceDetails.test.js && node .domain-test/domain/placeMemory.test.js && node .domain-test/domain/placeObservations.test.js && node .domain-test/domain/personalVisibility.test.js && node .domain-test/domain/accountDeletionOperation.test.js && node .domain-test/domain/picks.test.js && node .domain-test/domain/mapsUrl.test.js && node .domain-test/domain/dataState.test.js && node .domain-test/domain/familyAlphaAccess.test.js && node tests/navigation.test.mjs && node tests/vite-safety.test.mjs && node tests/family-alpha-access-boundary.test.mjs",
+    "test:rules": "firebase emulators:exec --only firestore --project demo-this-is-v2 --config firebase.emulator.json \"node tests/firestore-rules.mjs\"",
+    "test:migration": "node scripts/migration-core.test.mjs",
+    "test": "npm run test:domain && npm run test:migration && npm run test:rules"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.62.0",
@@ -19,9 +28,11 @@
     "react-router-dom": "^7.6.3"
   },
   "devDependencies": {
+    "@firebase/rules-unit-testing": "^4.0.1",
     "@types/react": "^19.1.8",
     "@types/react-dom": "^19.1.6",
     "@vitejs/plugin-react": "^4.6.0",
+    "firebase-tools": "^15.23.0",
     "typescript": "~5.8.3",
     "vite": "^7.0.4"
   }

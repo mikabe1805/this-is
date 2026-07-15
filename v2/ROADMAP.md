@@ -1,5 +1,9 @@
 # this.is v2 — Roadmap
 
+> **HISTORICAL - SUPERSEDED JULY 10, 2026.** This roadmap describes the retired friend-feed
+> direction. The executable backlog is `../docs/product-reset/CURRENT_STATE.md`; do not implement
+> from the priorities below.
+
 *Synthesized from a six-dimension adversarially-verified audit (2026-07-03) and updated as work
 lands. Source of truth for direction: `FRIENDS.md`. Ranked by leverage toward the friend-graph
 vision ("discovery of friends' tastes").*

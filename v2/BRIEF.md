@@ -1,5 +1,8 @@
 # this.is — Product & Strategy Brief
 
+> **HISTORICAL — SUPERSEDED JULY 10, 2026.** This editorial-curation thesis is retained as
+> research only. See `../docs/product-reset/THIS_IS_RESET.md` for the canonical product reset.
+
 **The candlelit end of going out: a hand-curated, taste-ranked discovery feed for the intimate low-lit rooms worth leaving the house for.**
 
 ---

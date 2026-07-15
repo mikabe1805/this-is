@@ -4,8 +4,9 @@
  * Firebase auth listener is attached later by lib/authWatch.ts (dynamically
  * imported after first paint), which pushes into this store.
  *
- * v2 law: the app tree NEVER waits for auth. `status: 'unknown'` renders the
- * signed-in layout optimistically-neutral (skeletons, no data), then resolves.
+ * v2 law: the app tree NEVER waits for auth. `status: 'unknown'` renders an
+ * optimistically-neutral shell, then resolves. The family-alpha-only access
+ * states never carry identity, so no data hook can run before claim approval.
  */
 import { useSyncExternalStore } from 'react'
 
@@ -17,6 +18,8 @@ export type SessionUser = {
 
 export type Session =
   | { status: 'unknown'; user: null }
+  | { status: 'access-checking'; user: null }
+  | { status: 'access-pending'; user: null; reason: 'not-approved' | 'unavailable' }
   | { status: 'signed-out'; user: null }
   | { status: 'signed-in'; user: SessionUser }
 

@@ -1,3 +1,5 @@
+> **HISTORICAL V1 AUDIT - NOT CURRENT PRODUCT AUTHORITY.** This file analyzes the retired root application. Preserve it as evidence, but do not use its goals, backlog, architecture, styling, or completion claims for canonical v2 work. See the repository documentation map at `docs/README.md`.
+
 # Status Report
 
 **Last Updated:** Tuesday, October 7, 2025 at 12:13 AM  

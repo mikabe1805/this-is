@@ -19,61 +19,322 @@ service cloud.firestore {
       return signedIn() && request.auth.uid == uid;
     }
 
+    function accountActive() {
+      return signedIn()
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && !('deleting' in get(/databases/$(database)/documents/users/$(request.auth.uid)).data);
+    }
+
+    function validProfile(data) {
+      return data.keys().hasOnly([
+          'onboardedAt', 'homeCity', 'handle', 'displayName', 'avatarHex',
+          'following', 'seededFollows'
+        ])
+        && (!('onboardedAt' in data) || data.onboardedAt is int)
+        && (!('homeCity' in data) || (data.homeCity is string && data.homeCity.size() <= 120))
+        && (!('handle' in data) || (data.handle is string && data.handle.size() <= 40))
+        && (!('displayName' in data)
+          || (data.displayName is string && data.displayName.size() > 0 && data.displayName.size() <= 80))
+        && (!('avatarHex' in data) || (data.avatarHex is string && data.avatarHex.size() <= 16))
+        && (!('following' in data) || (data.following is list && data.following.size() <= 500))
+        && (!('seededFollows' in data) || data.seededFollows is bool);
+    }
+
+    function validEventProperties(properties) {
+      return properties is map
+        && properties.keys().hasOnly([
+          'signalCount', 'candidateCount', 'sharedCount', 'context', 'status', 'tag'
+        ])
+        && (!('signalCount' in properties)
+          || (properties.signalCount is int && properties.signalCount >= 0 && properties.signalCount <= 100))
+        && (!('candidateCount' in properties)
+          || (properties.candidateCount is int && properties.candidateCount >= 0 && properties.candidateCount <= 3))
+        && (!('sharedCount' in properties)
+          || (properties.sharedCount is int && properties.sharedCount >= 0 && properties.sharedCount <= 100))
+        && (!('context' in properties)
+          || properties.context in ['Anything', 'Food', 'Drinks', 'Coffee'])
+        && (!('status' in properties)
+          || properties.status in ['visited', 'dismissed'])
+        && (!('tag' in properties)
+          || properties.tag in ['want', 'tried', 'loved']);
+    }
+
+    function hasConnection(uid) {
+      return signedIn()
+        && ((exists(/databases/$(database)/documents/connections/$(request.auth.uid + '__' + uid))
+            && get(/databases/$(database)/documents/connections/$(request.auth.uid + '__' + uid)).data.status == 'active')
+          || (exists(/databases/$(database)/documents/connections/$(uid + '__' + request.auth.uid))
+            && get(/databases/$(database)/documents/connections/$(uid + '__' + request.auth.uid)).data.status == 'active'));
+    }
+
+    function hasActiveGroupMembership(groupId) {
+      return signedIn()
+        && exists(/databases/$(database)/documents/groups/$(groupId))
+        && get(/databases/$(database)/documents/groups/$(groupId)).data.status == 'active'
+        && request.auth.uid in get(/databases/$(database)/documents/groups/$(groupId)).data.memberUids;
+    }
+
+    function validUserMemory(memory, placeId) {
+      return memory is map
+        && memory.keys().hasAll(['placeId', 'label', 'category', 'hex', 'provenance'])
+        && memory.keys().hasOnly(['placeId', 'label', 'category', 'area', 'hex', 'provenance'])
+        && memory.placeId == placeId
+        && memory.label is string && memory.label.size() > 0 && memory.label.size() <= 120
+        && (!('area' in memory) || (memory.area is string && memory.area.size() > 0 && memory.area.size() <= 80))
+        && memory.category in ['food', 'drinks', 'coffee', 'activity', 'other']
+        && memory.provenance == 'user_confirmed'
+        && ((memory.category == 'food' && memory.hex == '#704739')
+          || (memory.category == 'drinks' && memory.hex == '#633C48')
+          || (memory.category == 'coffee' && memory.hex == '#5A463C')
+          || (memory.category == 'activity' && memory.hex == '#46525A')
+          || (memory.category == 'other' && memory.hex == '#4A3A43'));
+    }
+
+    function validPrivateObservation(observation) {
+      return observation is map
+        && observation.keys().hasAll(['value', 'observedAt', 'audience', 'source'])
+        && observation.keys().hasOnly(['value', 'observedAt', 'audience', 'source'])
+        && observation.value in ['yes', 'no']
+        && observation.observedAt is int && observation.observedAt > 0
+        && observation.audience == 'private'
+        && observation.source == 'user_authored';
+    }
+
+    function validPrivateObservations(observations) {
+      return observations is map
+        && observations.keys().hasOnly([
+          'family_friendly', 'quiet', 'easy_parking', 'worth_a_drive',
+          'casual', 'special_occasion', 'outdoors'
+        ])
+        && (!('family_friendly' in observations) || validPrivateObservation(observations.family_friendly))
+        && (!('quiet' in observations) || validPrivateObservation(observations.quiet))
+        && (!('easy_parking' in observations) || validPrivateObservation(observations.easy_parking))
+        && (!('worth_a_drive' in observations) || validPrivateObservation(observations.worth_a_drive))
+        && (!('casual' in observations) || validPrivateObservation(observations.casual))
+        && (!('special_occasion' in observations) || validPrivateObservation(observations.special_occasion))
+        && (!('outdoors' in observations) || validPrivateObservation(observations.outdoors));
+    }
+
+    function validSignal(data, saveId) {
+      return data.keys().hasAll(['uid', 'placeId', 'tag', 'visibility', 'ts', 'memory'])
+        && data.keys().hasOnly(['uid', 'placeId', 'tag', 'visibility', 'ts', 'memory', 'note', 'observations'])
+        && data.uid == request.auth.uid
+        && data.placeId is string
+        && data.placeId.size() > 2 && data.placeId.size() <= 260
+        && saveId == request.auth.uid + '__' + data.placeId
+        && data.tag in ['want', 'tried', 'loved']
+        && data.visibility in ['circle', 'private']
+        && data.ts is int
+        && (!('note' in data) || (data.note is string && data.note.size() <= 280))
+        && (!('observations' in data) || validPrivateObservations(data.observations))
+        && validUserMemory(data.memory, data.placeId);
+    }
+
+    // Client save writes are idempotent transactions: the owner must be able
+    // to read their deterministic document before its first create. Restrict
+    // missing-document reads to the caller's own ID prefix so another account
+    // cannot use allow/deny differences to probe whether a private save exists.
+    function callerSaveId(saveId) {
+      return signedIn() && saveId.matches('^' + request.auth.uid + '__.+$');
+    }
+
+    function callerGroupSignalId(signalId) {
+      return signedIn() && signalId.matches('^' + request.auth.uid + '__.+$');
+    }
+
     // Profiles: handle, displayName, avatarHex, and the `following` array.
     // Readable by any signed-in user so friends resolve each other's name and
     // avatar in the feed.
     match /users/{uid} {
       allow read: if signedIn();
-      // The owner writes their whole doc.
-      allow write: if isOwner(uid);
-      // An invite is a MUTUAL follow (addMutualFollow), so a signed-in user must
-      // be able to append THEMSELVES to another user's `following` — and nothing
-      // else: only the `following` field may change, and the only uid added is
-      // the caller's own. (Residual: a caller could still truncate the target's
-      // list; closing that fully needs a callable/Cloud Function — roadmap
-      // Next-#2. This constrained rule keeps the invite loop client-side and is
-      // strictly tighter than the isDevMode backdoor it replaces.)
-      allow update: if signedIn()
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['following'])
-        && request.auth.uid in request.resource.data.following;
+      // Only the owner writes their profile. Pair membership is represented by
+      // connection documents, never by mutating another person's profile.
+      allow create: if isOwner(uid) && validProfile(request.resource.data);
+      allow update: if isOwner(uid) && accountActive() && validProfile(request.resource.data);
+      allow delete: if false;
     }
 
-    // THE FRIEND GRAPH — flat top-level saves, keyed {uid}__g:{pid} (the
-    // connective tissue so the feed is one query). INTERIM read posture: any
-    // signed-in user (scoping reads to the follow-graph is roadmap Next-#3 and
-    // needs a fan-out / readableBy model, not a rules one-liner). Owner-only
-    // writes; delete must check the EXISTING doc (request.resource is null on
-    // delete).
+    // Product evidence is owner-written and client-unreadable. Its fixed
+    // aggregate schema cannot carry place ids, notes, queries, tokens, names,
+    // or relationship identifiers.
+    match /users/{uid}/events/{eventId} {
+      allow read: if false;
+      allow create: if isOwner(uid) && accountActive()
+        && request.resource.data.keys().hasOnly(['name', 'properties', 'schemaVersion', 'ts', 'expiresAt'])
+        && request.resource.data.name in [
+          'onboarding_completed',
+          'signal_saved',
+          'invite_created',
+          'connection_accepted',
+          'pair_opened',
+          'plan_viewed',
+          'pick_created',
+          'pick_closed'
+        ]
+        && validEventProperties(request.resource.data.properties)
+        && request.resource.data.schemaVersion == 1
+        && request.resource.data.ts is timestamp
+        && request.resource.data.expiresAt is timestamp
+        && request.resource.data.expiresAt > request.time + duration.value(29, 'd')
+        && request.resource.data.expiresAt <= request.time + duration.value(31, 'd');
+      allow update, delete: if false;
+    }
+
+    // Pair invitations are retired. Historical documents remain server-owned
+    // for export/deletion only; new membership always uses groupInvites.
+    match /invites/{token} {
+      allow read, write: if false;
+    }
+
+    // One durable, consented pair. The document id is deterministic in either
+    // uid order so save authorization can prove membership with direct exists().
+    match /connections/{connectionId} {
+      allow read: if signedIn() && request.auth.uid in resource.data.memberUids;
+      allow create: if false;
+      allow update: if false;
+      allow delete: if accountActive()
+        && resource.data.status == 'active'
+        && request.auth.uid in resource.data.memberUids;
+    }
+
+    // THE FRIEND GRAPH — private to the owner and people in the reader's
+    // reciprocal connection. Queries constrain uid and circle visibility;
+    // place pages use deterministic reads and omit denied private documents.
+    // Recurring groups and their consent-derived signal projections are
+    // server-authored. A client can query only groups it currently belongs to.
+    // Projection reads also require the group's current permission version, so
+    // membership/audience changes revoke stale cached evidence immediately.
+    match /groups/{groupId} {
+      allow read: if signedIn()
+        && resource.data.status in ['forming', 'active']
+        && request.auth.uid in resource.data.memberUids;
+      allow write: if false;
+
+      match /signals/{signalId} {
+        // Closeup checks one deterministic projection per active group before
+        // offering Share/Stop sharing. Permit only the caller's own absent ID;
+        // another member's absent projection must not become a probe surface.
+        allow get: if signedIn()
+          && get(/databases/$(database)/documents/groups/$(groupId)).data.status == 'active'
+          && request.auth.uid in get(/databases/$(database)/documents/groups/$(groupId)).data.memberUids
+          && ((resource == null && callerGroupSignalId(signalId))
+            || (resource != null && resource.data.permissionVersion
+              == get(/databases/$(database)/documents/groups/$(groupId)).data.permissionVersion));
+        allow list: if signedIn()
+          && get(/databases/$(database)/documents/groups/$(groupId)).data.status == 'active'
+          && request.auth.uid in get(/databases/$(database)/documents/groups/$(groupId)).data.memberUids
+          && resource.data.permissionVersion
+            == get(/databases/$(database)/documents/groups/$(groupId)).data.permissionVersion;
+        allow write: if false;
+      }
+
+      // Optional Quick start hints are server-authored weak priors, never
+      // Want/Loved signals. Saving them locks the audience; permission-version
+      // checks revoke stale hints after any member leaves.
+      match /preferences/{uid} {
+        allow read: if signedIn()
+          && get(/databases/$(database)/documents/groups/$(groupId)).data.status == 'active'
+          && request.auth.uid in get(/databases/$(database)/documents/groups/$(groupId)).data.memberUids
+          && resource.data.permissionVersion
+            == get(/databases/$(database)/documents/groups/$(groupId)).data.permissionVersion;
+        allow write: if false;
+      }
+
+      // A shared draft pass is a server-authored, attributed objection for one
+      // exact plan identity. It expires after six hours and permission-version
+      // changes revoke it immediately; it is never a durable dislike.
+      match /draftPasses/{passId} {
+        // Exact listeners must be able to observe an absent deterministic ID;
+        // otherwise every unpassed candidate would fail closed as permission-denied.
+        allow get: if signedIn()
+          && get(/databases/$(database)/documents/groups/$(groupId)).data.status == 'active'
+          && request.auth.uid in get(/databases/$(database)/documents/groups/$(groupId)).data.memberUids
+          && (!exists(/databases/$(database)/documents/groups/$(groupId)/draftPasses/$(passId))
+            || (resource.data.permissionVersion
+              == get(/databases/$(database)/documents/groups/$(groupId)).data.permissionVersion
+              && request.time < resource.data.expiresAt));
+        allow list: if false;
+        allow write: if false;
+      }
+    }
+
+    // Opening a group invite is read-only and reveals only a bounded server
+    // snapshot. All creation and acceptance mutations happen in trusted code.
+    match /groupInvites/{token} {
+      allow get: if (resource.data.status == 'active' && request.time < resource.data.expiresAt)
+        || (signedIn()
+          && resource.data.status == 'accepted'
+          && resource.data.acceptedBy == request.auth.uid
+          && exists(/databases/$(database)/documents/groups/$(resource.data.groupId))
+          && request.auth.uid in get(/databases/$(database)/documents/groups/$(resource.data.groupId)).data.memberUids);
+      allow list: if false;
+      allow write: if false;
+    }
+
+    // Public Pick links are served only through a redacting HTTPS function.
+    // Direct document access would couple an opaque token to implementation data.
+    match /pickReceipts/{token} {
+      allow read, write: if false;
+    }
+
+    // Opaque account-deletion operations are server-only. Their hashed key
+    // permits one exact completion check after Auth has already disappeared.
+    match /accountDeletionOps/{operationId} {
+      allow read, write: if false;
+    }
+
     match /saves/{saveId} {
-      allow read: if signedIn();
-      allow create, update: if signedIn() && request.resource.data.uid == request.auth.uid;
-      allow delete: if signedIn() && resource.data.uid == request.auth.uid;
+      allow get: if signedIn()
+        && ((resource == null && callerSaveId(saveId))
+          || resource.data.uid == request.auth.uid
+          || (resource.data.visibility == 'circle' && hasConnection(resource.data.uid)));
+      allow list: if signedIn()
+        && (resource.data.uid == request.auth.uid
+          || (resource.data.visibility == 'circle' && hasConnection(resource.data.uid)));
+      allow create, update: if accountActive() && validSignal(request.resource.data, saveId);
+      allow delete: if accountActive() && resource.data.uid == request.auth.uid;
     }
 
-    // The shared place catalog: g:{place_id} docs. Readable by anyone; written
-    // only by signed-in users (and only inside the save path — browsing never
-    // writes, enforced by code).
+    // A Pick is the smallest durable decision: exactly two members, one place,
+    // one reason, and a selected/visited/dismissed status. Either member can
+    // read or close it; only the creator can delete it. Updates cannot rewrite
+    // membership, place evidence, or the original explanation.
+    match /picks/{pickId} {
+      allow read: if signedIn()
+        && request.auth.uid in resource.data.memberUids
+        && (!('kind' in resource.data)
+          || resource.data.kind != 'group'
+          || hasActiveGroupMembership(resource.data.groupId));
+      // Group Picks are created by trusted code. Existing pair Picks remain
+      // readable/closable until the pair migration transaction converts them.
+      allow create: if false;
+      allow update: if accountActive()
+        && !('kind' in resource.data)
+        && request.auth.uid in resource.data.memberUids
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'updatedAt'])
+        && resource.data.status == 'selected'
+        && request.resource.data.status in ['visited', 'dismissed'];
+      allow delete: if accountActive()
+        && !('kind' in resource.data)
+        && resource.data.createdBy == request.auth.uid;
+    }
+
+    // Legacy shared place facts and all provider-alias records are closed to
+    // clients. A future catalog query returns only a bounded computed result.
+    // Identity-free provider aliases are server-owned. Clients receive only
+    // the already-deduplicated result through a future authenticated boundary.
+    match /placeAliases/{aliasId} {
+      allow read, write: if false;
+    }
+
     match /places/{placeId} {
-      allow read: if true;
-      allow create, update: if signedIn();
+      allow read, write: if false;
     }
 
-    // The CURATED catalog and the geo-cell candidate pools — the discovery
-    // scaffold. Public read; writes are Admin-SDK only (the seed scripts run
-    // privileged), never from a client.
-    match /curated/{placeId} {
-      allow read: if true;
-      allow write: if false;
-    }
+    // Retired Google-seeded candidate pools are denied. A future owned/open
+    // catalog must receive its own reviewed schema and provenance contract.
     match /cities/{cityKey}/candidates/{placeId} {
-      allow read: if true;
-      allow write: if false;
-    }
-
-    // Baked share snapshots: public read, function-only write.
-    match /shares/{token} {
-      allow read: if true;
-      allow write: if false;
+      allow read, write: if false;
     }
 
     // Everything else: denied.

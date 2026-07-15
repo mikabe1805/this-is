@@ -1,3 +1,5 @@
+> **HISTORICAL V1 AUDIT - NOT CURRENT PRODUCT AUTHORITY.** This file analyzes the retired root application. Preserve it as evidence, but do not use its goals, backlog, architecture, styling, or completion claims for canonical v2 work. See the repository documentation map at `docs/README.md`.
+
 # this.is Search Benchmark
 
 A synthetic load testing tool for the this.is search endpoint. Simulates concurrent users making search queries to generate defensible performance metrics.

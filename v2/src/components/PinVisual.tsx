@@ -14,25 +14,37 @@ interface PinVisualProps {
   hex: string
   photoSrc?: string
   attribution?: string
+  attributionUri?: string
   alt: string
   className?: string
 }
 
-export function PinVisual({ hex, photoSrc, attribution, alt, className = '' }: PinVisualProps) {
+function plateVariant(label: string): number {
+  let hash = 2166136261
+  for (const character of label.trim().toLowerCase()) {
+    hash ^= character.charCodeAt(0)
+    hash = Math.imul(hash, 16777619)
+  }
+  return (hash >>> 0) % 5
+}
+
+export function PinVisual({ hex, photoSrc, attribution, attributionUri, alt, className = '' }: PinVisualProps) {
   const [loaded, setLoaded] = useState(false)
   const [failed, setFailed] = useState(false)
   const showPhoto = photoSrc && !failed
   const initial = (alt.trim()[0] ?? '·').toUpperCase()
+  const variant = plateVariant(alt)
 
   return (
     <div
-      className={`pin-visual ${className}`}
+      className={`pin-visual plate-v${variant} ${className}`}
       style={{ '--dominant': hex } as React.CSSProperties}
     >
       {!(showPhoto && loaded) && (
-        <span className="plate-monogram" aria-hidden>
-          {initial}
-        </span>
+        <>
+          <span className="plate-geometry" aria-hidden />
+          <span className="plate-monogram" aria-hidden>{initial}</span>
+        </>
       )}
       {showPhoto && (
         <img
@@ -44,8 +56,17 @@ export function PinVisual({ hex, photoSrc, attribution, alt, className = '' }: P
           onError={() => setFailed(true)}
         />
       )}
-      {showPhoto && loaded && attribution && (
-        <span className="photo-credit">{attribution}</span>
+      {showPhoto && loaded && attributionUri && (
+        <a
+          className="photo-credit"
+          href={attributionUri}
+          target="_blank"
+          rel="noreferrer"
+          aria-label={`${attribution ? `Photo by ${attribution}` : 'Photo'}; open source in Google Maps`}
+          onClick={event => event.stopPropagation()}
+        >
+          {attribution ? `${attribution} · ` : ''}Google Maps ↗
+        </a>
       )}
     </div>
   )

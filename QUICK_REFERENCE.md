@@ -1,3 +1,5 @@
+> **FROZEN V1 REFERENCE - NOT CURRENT PRODUCT AUTHORITY.** This file documents the retired root application and may contain obsolete costs, credentials guidance, commands, or deployment claims. Do not implement or deploy from it. Start with [README.md](README.md) and [CURRENT_STATE.md](docs/product-reset/CURRENT_STATE.md).
+
 # Quick Reference: Google Places API & UI Primitives
 
 ## Google Places API Service

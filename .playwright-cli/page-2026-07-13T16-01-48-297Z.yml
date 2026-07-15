@@ -1,0 +1,24 @@
+- main [ref=f1e26]:
+  - generic [ref=f1e27]:
+    - button "← BACK" [ref=f1e28] [cursor=pointer]
+    - generic [ref=f1e29]:
+      - generic "Mika, Vivian, Ari, Dev" [ref=f1e30]:
+        - generic [ref=f1e31]: M
+        - generic [ref=f1e32]: V
+        - generic [ref=f1e33]: A
+        - generic [ref=f1e34]: D
+      - paragraph [ref=f1e35]: 4 PEOPLE · FAMILY SUNDAY
+    - region [ref=f1e36]:
+      - paragraph [ref=f1e37]: YOU’RE IN · NOTHING REQUIRED
+      - heading "Help this group learn what you like." [level=2] [ref=f1e38]
+      - paragraph [ref=f1e39]: No place comes to mind? That’s fine. Choose one broad kind, add a place you already know, or skip. Nothing from your private Keep is shared automatically.
+      - generic [ref=f1e40]:
+        - button "Quick start Can’t name a place? Choose Food, Coffee, or Things to do. Sharing a hint closes invitations." [ref=f1e41] [cursor=pointer]:
+          - strong [ref=f1e42]: Quick start
+          - generic [ref=f1e43]: Can’t name a place? Choose Food, Coffee, or Things to do. Sharing a hint closes invitations.
+        - button "Add a place Share one place you want to try or already love. Sharing it closes invitations." [ref=f1e44] [cursor=pointer]:
+          - strong [ref=f1e45]: Add a place
+          - generic [ref=f1e46]: Share one place you want to try or already love. Sharing it closes invitations.
+        - button "Not now Share nothing yet. You can add taste later, and invitations stay open." [ref=f1e47] [cursor=pointer]:
+          - strong [ref=f1e48]: Not now
+          - generic [ref=f1e49]: Share nothing yet. You can add taste later, and invitations stay open.

@@ -1,5 +1,7 @@
 # MAKEOVER.md — this.is v2: the full reimagining
 
+> **Superseded product direction.** This document preserves the July 2026 personal-board/EMBERBOARD proposal for research history. It is not implementation authority. The current thesis and canonical implementation are [`docs/product-reset/THIS_IS_RESET.md`](docs/product-reset/THIS_IS_RESET.md) and [`v2/`](v2/).
+
 *Prepared July 2026. Built from a 10-agent code audit + 3 external research sweeps, then a
 4-design panel judged by 3 adversarial judges and synthesized into one buildable spec.*
 

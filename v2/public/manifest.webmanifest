@@ -1,0 +1,29 @@
+{
+  "name": "this.is",
+  "short_name": "this.is",
+  "description": "Find the place your people already agree on.",
+  "start_url": "/together",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#140D10",
+  "theme_color": "#140D10",
+  "orientation": "portrait-primary",
+  "share_target": {
+    "action": "/add",
+    "method": "GET",
+    "enctype": "application/x-www-form-urlencoded",
+    "params": {
+      "title": "title",
+      "text": "text",
+      "url": "url"
+    }
+  },
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

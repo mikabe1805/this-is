@@ -1,0 +1,11 @@
+- main [ref=f1e18]:
+  - generic [ref=f1e19]:
+    - paragraph [ref=f1e37]: BEFORE YOU JOIN
+    - heading "Add a place if one comes to mind." [level=1] [ref=f1e38]
+    - paragraph [ref=f1e39]: Optional. Joining a group never requires place homework.
+    - textbox "Name of a place…" [ref=f1e40]
+    - list
+    - generic [ref=f1e41]:
+      - paragraph [ref=f1e42]: IF NOTHING COMES TO MIND
+      - paragraph [ref=f1e43]: Think of somewhere you repeat, recommend, or would cross town for. Still blank? Skip — later you can add a place from search, a recommendation, or your phone’s share sheet.
+    - button "Continue to invite" [ref=f1e45] [cursor=pointer]

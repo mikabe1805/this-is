@@ -1,8 +1,8 @@
 /**
  * The single TanStack Query client. Exported from its own module (not created
  * inside App) so non-React code — the auth listener — can invalidate queries
- * after it writes: e.g. seeding the tastemaker follows must refresh the user
- * doc + the friend feed, which otherwise wouldn't refetch on their own.
+ * after it writes: e.g. accepting an invitation must refresh the circle
+ * doc + circle evidence, which otherwise would not refetch on their own.
  */
 import { QueryClient } from '@tanstack/react-query'
 

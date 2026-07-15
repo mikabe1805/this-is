@@ -1,0 +1,9 @@
+- generic [ref=f2e3]:
+  - main [ref=f2e4]
+  - navigation "Primary" [ref=f2e11]:
+    - link "TOGETHER" [ref=f2e12] [cursor=pointer]:
+      - /url: /together
+    - link "KEEP" [ref=f2e17] [cursor=pointer]:
+      - /url: /saved
+    - link "PEOPLE" [ref=f2e21] [cursor=pointer]:
+      - /url: /people

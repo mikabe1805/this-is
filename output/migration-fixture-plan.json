@@ -1,0 +1,93 @@
+{
+  "schemaVersion": 1,
+  "uid": "fixture-user",
+  "summary": {
+    "legacyPlaceCount": 4,
+    "plannedSignalCreates": 2,
+    "plannedPlaceCreates": 1,
+    "preservedTargetPlaces": 1,
+    "skippedCount": 2,
+    "skippedByReason": {
+      "existing_v2_signal": 1,
+      "unknown_status": 1
+    }
+  },
+  "creates": [
+    {
+      "legacyId": "legacy-a",
+      "saveId": "fixture-user__g:ChIJa",
+      "placeId": "g:ChIJa",
+      "save": {
+        "uid": "fixture-user",
+        "placeId": "g:ChIJa",
+        "tag": "loved",
+        "ts": 20000,
+        "note": "Quiet back table.",
+        "place": {
+          "name": "Fixture A",
+          "hex": "#3A2B31",
+          "primaryType": "restaurant",
+          "neighborhood": "Brooklyn"
+        }
+      },
+      "placeAction": "create",
+      "place": {
+        "name": "Fixture A",
+        "primaryType": "restaurant",
+        "neighborhood": "Brooklyn",
+        "vibeTags": [],
+        "photoHex": "#3A2B31",
+        "savedCount": 1
+      },
+      "provenance": {
+        "source": "listPlace",
+        "legacyId": "legacy-a"
+      }
+    },
+    {
+      "legacyId": "legacy-b",
+      "saveId": "fixture-user__g:ChIJb",
+      "placeId": "g:ChIJb",
+      "save": {
+        "uid": "fixture-user",
+        "placeId": "g:ChIJb",
+        "tag": "tried",
+        "ts": 25000,
+        "place": {
+          "name": "Fixture B",
+          "hex": "#3A2B31",
+          "neighborhood": "Queens",
+          "lat": 40.7,
+          "lng": -73.8
+        }
+      },
+      "placeAction": "preserve",
+      "place": null,
+      "provenance": {
+        "source": "autoStatusList",
+        "legacyId": "legacy-b"
+      }
+    }
+  ],
+  "skipped": [
+    {
+      "legacyId": "ChIJmarker",
+      "placeId": "g:ChIJmarker",
+      "saveId": "fixture-user__g:ChIJmarker",
+      "reason": "existing_v2_signal"
+    },
+    {
+      "legacyId": "legacy-unknown",
+      "reason": "unknown_status"
+    }
+  ],
+  "rollback": {
+    "deleteSaveIds": [
+      "fixture-user__g:ChIJa",
+      "fixture-user__g:ChIJb"
+    ],
+    "deletePlaceIds": [
+      "g:ChIJa"
+    ]
+  }
+}

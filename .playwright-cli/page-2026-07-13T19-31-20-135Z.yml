@@ -1,0 +1,75 @@
+- generic [ref=f1e3]:
+  - main [ref=f1e4]:
+    - generic [ref=f1e5]:
+      - button "← BACK" [ref=f1e6] [cursor=pointer]
+      - generic [ref=f1e7]: S
+      - generic [ref=f1e9]:
+        - heading "Sunlight Coffee" [level=1] [ref=f1e10]
+        - paragraph [ref=f1e11]: CAFE
+      - generic [ref=f1e12]:
+        - group "Save as" [ref=f1e13]:
+          - button "want" [pressed] [ref=f1e14] [cursor=pointer]
+          - button "tried" [ref=f1e15] [cursor=pointer]
+          - button "loved" [ref=f1e16] [cursor=pointer]
+        - link "Directions ↗" [ref=f1e17] [cursor=pointer]:
+          - /url: https://www.google.com/maps/search/?api=1&query=Sunlight+Coffee&query_place_id=group-sunlight
+      - group [ref=f1e18]:
+        - generic [ref=f1e19]:
+          - region [ref=f1e20]:
+            - generic [ref=f1e21]:
+              - paragraph [ref=f1e22]: YOUR PLACE DETAILS
+              - paragraph [ref=f1e23]: coffee · no area added · user-confirmed
+            - button "Edit" [ref=f1e24] [cursor=pointer]
+          - region [ref=f1e25]:
+            - paragraph [ref=f1e26]: OLDER SHARING
+            - heading "Still shared outside groups" [level=2] [ref=f1e27]
+            - paragraph [ref=f1e28]: This older save may still be visible to accepted connections. Making it private keeps any exact group shares below.
+            - button "Make this place private" [ref=f1e29] [cursor=pointer]
+          - region [ref=f1e30]:
+            - paragraph [ref=f1e31]: SHARE WITH A GROUP
+            - paragraph [ref=f1e32]: Joining never exposes this place. Choose each group explicitly. These inclusion choices apply to the next share or update.
+            - generic [ref=f1e33]:
+              - generic "Friday Table sharing" [ref=f1e34]:
+                - generic [ref=f1e35]:
+                  - strong [ref=f1e36]: Friday Table
+                  - generic [ref=f1e37]: Shared · place only
+                - button "Stop sharing with Friday Table" [ref=f1e38] [cursor=pointer]: Stop sharing
+                - button "Update included details" [ref=f1e39] [cursor=pointer]
+              - generic "Brooklyn Friends sharing" [ref=f1e40]:
+                - generic [ref=f1e41]:
+                  - strong [ref=f1e42]: Brooklyn Friends
+                  - generic [ref=f1e43]: Not shared
+                - button "Share with Brooklyn Friends" [ref=f1e44] [cursor=pointer]: Share place
+              - generic "Candidate Evidence Lab sharing" [ref=f1e45]:
+                - generic [ref=f1e46]:
+                  - strong [ref=f1e47]: Candidate Evidence Lab
+                  - generic [ref=f1e48]: Not shared
+                - button "Share with Candidate Evidence Lab" [ref=f1e49] [cursor=pointer]: Share place
+              - generic "Empty Table sharing" [ref=f1e50]:
+                - generic [ref=f1e51]:
+                  - strong [ref=f1e52]: Empty Table
+                  - generic [ref=f1e53]: Not shared
+                - button "Share with Empty Table" [ref=f1e54] [cursor=pointer]: Share place
+          - region [ref=f1e55]:
+            - generic [ref=f1e56]:
+              - generic [ref=f1e57]:
+                - paragraph [ref=f1e58]: LEGACY-SHARED NOTE
+                - paragraph [ref=f1e59]: This older save may still expose its note to accepted legacy connections. Use the privacy cleanup above before treating it as private.
+              - generic "0 of 280 characters" [ref=f1e60]: 0/280
+            - textbox "A note shared with legacy connections" [ref=f1e61]:
+              - /placeholder: e.g. order the cardamom bun after practice…
+          - group [ref=f1e62]:
+            - generic "USEFUL DETAILS What would help your people choose?" [ref=f1e63] [cursor=pointer]:
+              - generic [ref=f1e64]:
+                - generic [ref=f1e65]: USEFUL DETAILS
+                - strong [ref=f1e66]: What would help your people choose?
+              - generic [ref=f1e67]: +
+          - button "Remove from Keep" [ref=f1e68] [cursor=pointer]
+      - paragraph [ref=f1e69]: "Place data: Google Maps"
+  - navigation "Primary" [ref=f1e70]:
+    - link "TOGETHER" [ref=f1e71] [cursor=pointer]:
+      - /url: /together
+    - link "KEEP" [ref=f1e76] [cursor=pointer]:
+      - /url: /saved
+    - link "PEOPLE" [ref=f1e80] [cursor=pointer]:
+      - /url: /people

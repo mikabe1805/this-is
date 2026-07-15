@@ -13,6 +13,10 @@ export type SaveToastData = {
   /** The tag before this action (null if it wasn't saved) — so Undo restores. */
   prev: Tag | null
   place: SaveablePlace
+  /** A private Add capture may offer an explicit, never-automatic group handoff. */
+  reviewSharing?: boolean
+  /** The just-completed capture had no group audience and should say so plainly. */
+  privateCapture?: boolean
 }
 
 export type NoticeToastData = {

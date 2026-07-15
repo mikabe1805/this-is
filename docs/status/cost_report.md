@@ -1,3 +1,5 @@
+> **HISTORICAL V1 AUDIT - NOT CURRENT PRODUCT AUTHORITY.** This file analyzes the retired root application. Preserve it as evidence, but do not use its goals, backlog, architecture, styling, or completion claims for canonical v2 work. See the repository documentation map at `docs/README.md`.
+
 # Google Places API Cost Report
 
 **Date:** _[FILL IN: e.g., 2025-10-07]_  

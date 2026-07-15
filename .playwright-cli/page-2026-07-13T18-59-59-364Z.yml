@@ -1,0 +1,69 @@
+- generic [ref=f2e3]:
+  - main [ref=f2e4]:
+    - generic [ref=f2e5]:
+      - generic [ref=f2e6]:
+        - generic [ref=f2e7]:
+          - paragraph [ref=f2e8]: TOGETHER
+          - heading "Who are we getting together?" [level=1] [ref=f2e9]
+          - paragraph [ref=f2e10]: Open a group to see what its explicitly shared taste can answer now.
+        - link "New group" [ref=f2e11] [cursor=pointer]:
+          - /url: /groups/new
+      - region "Your groups" [ref=f2e12]:
+        - link "Friday Table 12 shared place signals Mika, Vivian, Ari, Dev, Lena, Noa" [ref=f2e13] [cursor=pointer]:
+          - /url: /g/prototype-friday-table
+          - generic [ref=f2e14]:
+            - strong [ref=f2e15]: Friday Table
+            - generic [ref=f2e16]: 12 shared place signals
+          - generic "Mika, Vivian, Ari, Dev, Lena, Noa" [ref=f2e17]:
+            - generic [ref=f2e18]: M
+            - generic [ref=f2e19]: V
+            - generic [ref=f2e20]: A
+            - generic [ref=f2e21]: D
+            - generic [ref=f2e22]: L
+            - generic [ref=f2e23]: "N"
+          - generic [ref=f2e24]: →
+        - link "Brooklyn Friends 4 shared place signals Mika, Vivian, Ari, Dev" [ref=f2e25] [cursor=pointer]:
+          - /url: /g/prototype-brooklyn-friends
+          - generic [ref=f2e26]:
+            - strong [ref=f2e27]: Brooklyn Friends
+            - generic [ref=f2e28]: 4 shared place signals
+          - generic "Mika, Vivian, Ari, Dev" [ref=f2e29]:
+            - generic [ref=f2e30]: M
+            - generic [ref=f2e31]: V
+            - generic [ref=f2e32]: A
+            - generic [ref=f2e33]: D
+          - generic [ref=f2e34]: →
+        - link "Candidate Evidence Lab 4 shared place signals Mika, Vivian, Ari" [ref=f2e35] [cursor=pointer]:
+          - /url: /g/prototype-evidence-lab
+          - generic [ref=f2e36]:
+            - strong [ref=f2e37]: Candidate Evidence Lab
+            - generic [ref=f2e38]: 4 shared place signals
+          - generic "Mika, Vivian, Ari" [ref=f2e39]:
+            - generic [ref=f2e40]: M
+            - generic [ref=f2e41]: V
+            - generic [ref=f2e42]: A
+          - generic [ref=f2e43]: →
+        - link "Empty Table No shared place signals yet Mika, Vivian" [ref=f2e44] [cursor=pointer]:
+          - /url: /g/prototype-zero-history
+          - generic [ref=f2e45]:
+            - strong [ref=f2e46]: Empty Table
+            - generic [ref=f2e47]: No shared place signals yet
+          - generic "Mika, Vivian" [ref=f2e48]:
+            - generic [ref=f2e49]: M
+            - generic [ref=f2e50]: V
+          - generic [ref=f2e51]: →
+        - link "Family Sunday Waiting for someone to join Mika" [ref=f2e52] [cursor=pointer]:
+          - /url: /g/prototype-forming-family
+          - generic [ref=f2e53]:
+            - strong [ref=f2e54]: Family Sunday
+            - generic [ref=f2e55]: Waiting for someone to join
+          - generic "Mika" [ref=f2e56]: M
+          - generic [ref=f2e58]: →
+      - paragraph [ref=f2e59]: Group study · local fixture only
+  - navigation "Primary" [ref=f2e60]:
+    - link "TOGETHER" [ref=f2e61] [cursor=pointer]:
+      - /url: /together
+    - link "KEEP" [ref=f2e66] [cursor=pointer]:
+      - /url: /saved
+    - link "PEOPLE" [ref=f2e70] [cursor=pointer]:
+      - /url: /people

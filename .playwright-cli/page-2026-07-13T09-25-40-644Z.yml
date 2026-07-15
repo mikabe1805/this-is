@@ -1,0 +1,28 @@
+- main [ref=f2e4]:
+  - generic [ref=f2e11]:
+    - button "← BACK" [ref=f2e12] [cursor=pointer]
+    - generic [ref=f2e13]:
+      - generic "Mika, Vivian" [ref=f2e14]:
+        - generic [ref=f2e15]: M
+        - generic [ref=f2e16]: V
+      - paragraph [ref=f2e17]: 2 PEOPLE · EMPTY TABLE
+    - region [ref=f2e32]:
+      - paragraph [ref=f2e33]: QUICK START · OPTIONAL
+      - heading "Give Empty Table a light hint." [level=2] [ref=f2e34]
+      - paragraph [ref=f2e35]: These broad hints can help retrieve a place someone else shared. They never become a Want or Love.
+      - group "WHAT USUALLY SOUNDS GOOD?" [ref=f2e36]:
+        - generic [ref=f2e38]:
+          - button "Food" [ref=f2e39] [cursor=pointer]
+          - button "Coffee" [active] [pressed] [ref=f2e40] [cursor=pointer]
+          - button "Things to do" [ref=f2e41] [cursor=pointer]
+      - group "WHAT HELPS A PLAN FIT?" [ref=f2e42]:
+        - generic [ref=f2e44]:
+          - button "Quiet" [ref=f2e45] [cursor=pointer]
+          - button "Casual" [ref=f2e46] [cursor=pointer]
+          - button "Outdoors" [ref=f2e47] [cursor=pointer]
+          - button "Family-friendly" [ref=f2e48] [cursor=pointer]
+          - button "Special occasion" [ref=f2e49] [cursor=pointer]
+      - paragraph [ref=f2e50]: Shared only with Mika, Vivian. Saving fixes this membership audience. Category hints may appear in a reason; practical constraints remain future retrieval hints.
+      - generic [ref=f2e51]:
+        - button "Save quick start" [ref=f2e52] [cursor=pointer]
+        - button "Back" [ref=f2e53] [cursor=pointer]

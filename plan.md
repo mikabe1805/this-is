@@ -1,5 +1,7 @@
 # Plan: Restore Google Hub Suggestions & Search Stability
 
+> **Archived v1 incident plan.** The canonical v2 has no Home hub-suggestion feed. Keep this only as historical Places-cost and failure-analysis context. Current work is tracked in [`docs/product-reset/CURRENT_STATE.md`](docs/product-reset/CURRENT_STATE.md).
+
 ## Goals
 - Restore the Google hub suggestions so that successive refreshes surface genuinely new, high-quality places within the configured radius (up to 50 miles) without re-serving stale results.
 - Fix search fallout introduced by recent Places changes and ensure Firestore queries no longer trigger `view`-related assertion errors.

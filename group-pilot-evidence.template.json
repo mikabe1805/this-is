@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 1,
+  "circles": [
+    {
+      "code": "G01",
+      "sizeBand": "3_4",
+      "cohortType": "family",
+      "establishedGroup": true,
+      "coldComparisonOutcome": "not_observed",
+      "joinedWithoutRepair": false,
+      "multiplayerParticipation": false,
+      "acceptableTruthfulCandidate": false,
+      "resolvedGenuinePlan": false,
+      "receiptUsedAndUnderstood": false,
+      "secondPlanWithoutReminder": false,
+      "organizerActionShareBand": "over_80",
+      "falseConsensusObserved": false,
+      "privateDisclosureObserved": false,
+      "unexpectedNamedEvidenceObserved": false,
+      "fingerprintInferenceObserved": false,
+      "vetoSurpriseObserved": false,
+      "unauthorizedReadObserved": false,
+      "failedRevocationObserved": false,
+      "members": [
+        { "knownVsTasteFitDistinguished": false, "chosenPlaceAcceptable": false },
+        { "knownVsTasteFitDistinguished": false, "chosenPlaceAcceptable": false },
+        { "knownVsTasteFitDistinguished": false, "chosenPlaceAcceptable": false }
+      ]
+    }
+  ]
+}

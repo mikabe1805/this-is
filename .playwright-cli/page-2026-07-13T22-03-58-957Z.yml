@@ -1,0 +1,37 @@
+- main [ref=f1e11]:
+  - generic [ref=f1e12]:
+    - button "← BACK" [ref=f1e13] [cursor=pointer]
+    - generic [ref=f1e14]:
+      - generic "Mika, Vivian" [ref=f1e15]:
+        - generic [ref=f1e16]: M
+        - generic [ref=f1e17]: V
+      - paragraph [ref=f1e18]: 2 PEOPLE · EMPTY TABLE
+    - region "Group membership audience" [ref=f1e19]:
+      - paragraph [ref=f1e20]: INVITATIONS OPEN · 2 OF 6 PEOPLE
+      - paragraph [ref=f1e21]: Make one private link per person before anyone shares taste. After the first Quick start or shared place, invitations close so earlier evidence never reaches a later joiner.
+    - region "Invite links you created" [ref=f1e22]:
+      - generic [ref=f1e23]:
+        - paragraph [ref=f1e24]: ONE LINK · ONE PERSON
+        - paragraph [ref=f1e25]: Make a separate private link for each person. Each stops working after one person joins and expires in seven days.
+      - generic "Private invite link 1" [ref=f1e36]:
+        - generic [ref=f1e37]:
+          - paragraph [ref=f1e38]: ONE PERSON · LINK 1
+          - paragraph [ref=f1e39]: Expires Jul 20
+        - generic [ref=f1e40]:
+          - button "Copy link" [ref=f1e41] [cursor=pointer]
+          - button "Share link" [ref=f1e42] [cursor=pointer]
+          - button "Cancel link" [ref=f1e43] [cursor=pointer]
+        - group [ref=f1e44]:
+          - button "Show or hide full invite link" [ref=f1e45] [cursor=pointer]:
+            - generic [ref=f1e46]: Show full link
+            - generic [ref=f1e47]: +
+      - button "Make link for someone else" [active] [ref=f1e48] [cursor=pointer]
+    - generic [ref=f1e27]:
+      - heading "Nothing honest fits yet." [level=2] [ref=f1e28]
+      - paragraph [ref=f1e29]: No one has shared a place or Quick start hint with this group. Nothing from anyone’s private Keep appears automatically.
+      - generic [ref=f1e30]:
+        - button "Add a place" [ref=f1e31] [cursor=pointer]
+        - button "Quick start" [ref=f1e32] [cursor=pointer]
+    - region "Group membership controls" [ref=f1e33]:
+      - paragraph [ref=f1e34]: Your personal Keep stays yours if you leave.
+      - button "Leave group" [ref=f1e35] [cursor=pointer]

@@ -1,0 +1,67 @@
+- main [ref=f2e135]:
+  - generic [ref=f2e136]:
+    - button "← BACK" [ref=f2e137] [cursor=pointer]
+    - generic [ref=f2e138]: S
+    - generic [ref=f2e140]:
+      - heading "Supper Club" [level=1] [ref=f2e141]
+      - paragraph [ref=f2e142]: RESTAURANT · Cresskill, NJ
+    - region [ref=f2e143]:
+      - paragraph [ref=f2e144]: CANDIDATE EVIDENCE LAB · 3 GOING
+      - heading "2 of 3 want or love this." [level=2] [ref=f2e145]
+      - paragraph [ref=f2e146]: Close the shared Pick first. Your own Tried or Loved stays separate.
+      - generic [ref=f2e147]:
+        - button "We went" [ref=f2e148] [cursor=pointer]
+        - button "Not for us" [ref=f2e149] [cursor=pointer]
+    - generic [ref=f2e150]:
+      - paragraph [ref=f2e151]: FROM YOUR PEOPLE
+      - generic [ref=f2e154]:
+        - generic [ref=f2e155]: V
+        - paragraph [ref=f2e156]: Vivian want
+    - link "Directions ↗" [ref=f2e158] [cursor=pointer]:
+      - /url: https://www.google.com/maps/search/?api=1&query=Supper+Club&query_place_id=group-supper-club
+    - region [ref=f2e159]:
+      - generic [ref=f2e160]:
+        - paragraph [ref=f2e161]: YOUR PLACE DETAILS
+        - paragraph [ref=f2e162]: food · Cresskill, NJ · user-confirmed
+      - button "Edit" [ref=f2e163] [cursor=pointer]
+    - region [ref=f2e164]:
+      - generic [ref=f2e165]:
+        - generic [ref=f2e166]:
+          - paragraph [ref=f2e167]: LEGACY-SHARED NOTE
+          - paragraph [ref=f2e168]: What to order, when it works, or why you’d return. Private unless you include it with a group; candidate cards show at most 180 characters.
+        - generic "0 of 280 characters" [ref=f2e169]: 0/280
+      - textbox "A note shared with legacy connections" [ref=f2e170]:
+        - /placeholder: e.g. order the cardamom bun after practice…
+    - group [ref=f2e171]:
+      - generic "USEFUL DETAILS What would help your people choose?" [ref=f2e172] [cursor=pointer]:
+        - generic [ref=f2e173]:
+          - generic [ref=f2e174]: USEFUL DETAILS
+          - strong [ref=f2e175]: What would help your people choose?
+        - generic [ref=f2e176]: +
+    - region [ref=f2e177]:
+      - paragraph [ref=f2e178]: SHARE WITH A GROUP
+      - paragraph [ref=f2e179]: Joining never exposes this place. Choose each group explicitly. These inclusion choices apply to the next share or update.
+      - generic [ref=f2e180]:
+        - checkbox "Include my note when I share" [ref=f2e181]
+        - generic [ref=f2e182]: Include my note when I share
+      - generic [ref=f2e183]:
+        - checkbox "Include my useful details when I share" [ref=f2e184]
+        - generic [ref=f2e185]: Include my useful details when I share
+      - generic [ref=f2e186]:
+        - generic "Friday Table sharing" [ref=f2e187]:
+          - button "Share with Friday Table" [ref=f2e188] [cursor=pointer]
+        - generic "Brooklyn Friends sharing" [ref=f2e189]:
+          - button "Share with Brooklyn Friends" [ref=f2e190] [cursor=pointer]
+        - generic "Candidate Evidence Lab sharing" [ref=f2e191]:
+          - button "Shared with Candidate Evidence Lab" [pressed] [ref=f2e192] [cursor=pointer]
+          - generic [ref=f2e193]:
+            - generic [ref=f2e194]: useful details included
+            - button "Update included details" [ref=f2e195] [cursor=pointer]
+        - generic "Empty Table sharing" [ref=f2e196]:
+          - button "Share with Empty Table" [ref=f2e197] [cursor=pointer]
+    - region [ref=f2e198]:
+      - paragraph [ref=f2e199]: LEGACY SHARING
+      - paragraph [ref=f2e200]: This was shared with accepted connections before groups. New group access is always chosen above.
+      - button "Make private" [ref=f2e201] [cursor=pointer]
+    - button "Remove from Keep" [ref=f2e202] [cursor=pointer]
+    - paragraph [ref=f2e203]: "Place data: Google Maps"

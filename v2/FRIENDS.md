@@ -1,9 +1,12 @@
 # FRIENDS.md — this.is: discovery of friends' tastes (adopted 2026-07-02)
 
-> **This is the CURRENT product direction. It supersedes the editorial-curator framing in
-> `DIRECTION.md`** (which stays as useful competitive/architecture research). The owner's own
-> words are the spine: *"the core of this.is is discovery of friend's tastes."* Arrived at with
-> the owner + an external (Gemini) counsel session; this doc is the canonical record.
+> **HISTORICAL — SUPERSEDED JULY 10, 2026.** The friend-taste insight survives, but the
+> canonical product direction is now `../docs/product-reset/THIS_IS_RESET.md`: Together/Overlap
+> is the product, the generic feed is retired, and small-circle resolution replaces social browsing.
+
+> **Historical context:** this document superseded the editorial-curator framing in
+> `DIRECTION.md`, then was itself superseded by the July 10 product reset. Its friend-taste
+> insight remains useful evidence; its feed, public-read, and auto-follow instructions are not current.
 
 ## The one line
 

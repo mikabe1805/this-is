@@ -1,0 +1,54 @@
+- generic [ref=e3]:
+  - main [ref=e11]:
+    - generic [ref=e106]:
+      - button "← BACK" [ref=e107] [cursor=pointer]
+      - generic [ref=e108]: "N"
+      - generic [ref=e110]:
+        - heading "Nightjar Coffee" [level=1] [ref=e111]
+        - paragraph [ref=e112]: CAFE
+      - generic [ref=e113]:
+        - group "Save as" [ref=e114]:
+          - button "want" [pressed] [ref=e115] [cursor=pointer]
+          - button "tried" [ref=e116] [cursor=pointer]
+          - button "loved" [ref=e117] [cursor=pointer]
+        - link "Directions ↗" [ref=e118] [cursor=pointer]:
+          - /url: https://www.google.com/maps/search/?api=1&query=Nightjar+Coffee&query_place_id=group-nightjar
+      - group [ref=e119]:
+        - generic [ref=e120]:
+          - region [ref=e121]:
+            - generic [ref=e122]:
+              - paragraph [ref=e123]: YOUR PLACE DETAILS
+              - paragraph [ref=e124]: coffee · no area added · user-confirmed
+            - button "Edit" [ref=e125] [cursor=pointer]
+          - region [active] [ref=e126]:
+            - paragraph [ref=e127]: SHARE WITH A GROUP
+            - heading "Private for now" [level=2] [ref=e128]
+            - paragraph [ref=e129]: Only groups you choose below can see this place. Joining a group never exposes it.
+            - generic "Family Sunday sharing" [ref=e131]:
+              - generic [ref=e132]:
+                - strong [ref=e133]: Family Sunday
+                - generic [ref=e134]: Not shared with this group
+              - button "Share with Family Sunday" [ref=e135] [cursor=pointer]: Share place
+          - region [ref=e136]:
+            - generic [ref=e137]:
+              - generic [ref=e138]:
+                - paragraph [ref=e139]: PRIVATE NOTE
+                - paragraph [ref=e140]: What to order, when it works, or why you’d return. Private unless you include it with a group; candidate cards show at most 180 characters.
+              - generic "0 of 280 characters" [ref=e141]: 0/280
+            - textbox "A private note" [ref=e142]:
+              - /placeholder: e.g. order the cardamom bun after practice…
+          - group [ref=e143]:
+            - generic "USEFUL DETAILS What would help your people choose?" [ref=e144] [cursor=pointer]:
+              - generic [ref=e145]:
+                - generic [ref=e146]: USEFUL DETAILS
+                - strong [ref=e147]: What would help your people choose?
+              - generic [ref=e148]: +
+          - button "Remove from Keep" [ref=e149] [cursor=pointer]
+      - paragraph [ref=e150]: "Place data: Google Maps"
+  - navigation "Primary" [ref=e90]:
+    - link "TOGETHER" [ref=e91] [cursor=pointer]:
+      - /url: /together
+    - link "KEEP" [ref=e96] [cursor=pointer]:
+      - /url: /saved
+    - link "PEOPLE" [ref=e100] [cursor=pointer]:
+      - /url: /people

@@ -1,0 +1,34 @@
+- main [ref=e11]:
+  - generic [ref=e12]:
+    - button "← BACK" [ref=e13] [cursor=pointer]
+    - generic [ref=e14]:
+      - generic "Mika, Vivian, Ari, Dev, Lena" [ref=e15]:
+        - generic [ref=e16]: M
+        - generic [ref=e17]: V
+        - generic [ref=e18]: A
+        - generic [ref=e19]: D
+        - generic [ref=e20]: L
+      - paragraph [ref=e21]: 5 PEOPLE · FRIDAY TABLE
+      - generic [ref=e22]:
+        - heading "Three places. Real reasons." [level=1] [ref=e23]: Three places.Real reasons.
+        - paragraph [ref=e24]: Support is counted. Missing taste stays unknown.
+    - region [ref=e39]:
+      - paragraph [ref=e40]: QUICK START · OPTIONAL
+      - heading "Give Friday Table a light hint." [level=2] [ref=e41]
+      - paragraph [ref=e42]: These broad hints can help retrieve a place someone else shared. They never become a Want or Love.
+      - group "WHAT USUALLY SOUNDS GOOD?" [ref=e43]:
+        - generic [ref=e45]:
+          - button "Food" [ref=e46] [cursor=pointer]
+          - button "Coffee" [ref=e47] [cursor=pointer]
+          - button "Things to do" [ref=e48] [cursor=pointer]
+      - group "WHAT HELPS A PLAN FIT?" [ref=e49]:
+        - generic [ref=e51]:
+          - button "Quiet" [ref=e52] [cursor=pointer]
+          - button "Casual" [ref=e53] [cursor=pointer]
+          - button "Outdoors" [ref=e54] [cursor=pointer]
+          - button "Family-friendly" [ref=e55] [cursor=pointer]
+          - button "Special occasion" [ref=e56] [cursor=pointer]
+      - paragraph [ref=e57]: Shared only with Mika, Vivian, Ari, Dev, Lena. Saving fixes this membership audience. Category hints may appear in a reason; practical constraints remain future retrieval hints.
+      - generic [ref=e58]:
+        - button "Save quick start" [disabled] [ref=e59] [cursor=pointer]
+        - button "Back" [ref=e60] [cursor=pointer]

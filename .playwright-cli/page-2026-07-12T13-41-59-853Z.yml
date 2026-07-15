@@ -1,0 +1,62 @@
+- main [ref=f2e74]:
+  - generic [ref=f2e75]:
+    - button "← BACK" [ref=f2e76] [cursor=pointer]
+    - generic [ref=f2e77]:
+      - generic "Mika, Vivian, Ari" [ref=f2e78]:
+        - generic [ref=f2e79]: M
+        - generic [ref=f2e80]: V
+        - generic [ref=f2e81]: A
+      - paragraph [ref=f2e82]: 3 PEOPLE · CANDIDATE EVIDENCE LAB
+      - generic [ref=f2e83]:
+        - heading "Three places. Real reasons." [level=1] [ref=f2e84]: Three places.Real reasons.
+        - paragraph [ref=f2e85]: Support is counted. Missing taste stays unknown.
+    - region [ref=f2e86]:
+      - paragraph [ref=f2e87]: WHO’S GOING?
+      - generic [ref=f2e88]:
+        - button "You" [disabled] [pressed] [ref=f2e89]:
+          - generic [ref=f2e90]: M
+        - button "Vivian" [pressed] [ref=f2e92] [cursor=pointer]:
+          - generic [ref=f2e93]: V
+        - button "Ari" [pressed] [ref=f2e95] [cursor=pointer]:
+          - generic [ref=f2e96]: A
+    - region [ref=f2e98]:
+      - paragraph [ref=f2e99]: WHAT FITS THIS TIME?
+      - generic [ref=f2e100]:
+        - button "Anything" [pressed] [ref=f2e101] [cursor=pointer]
+        - button "Food" [ref=f2e102] [cursor=pointer]
+        - button "Drinks" [ref=f2e103] [cursor=pointer]
+        - button "Coffee" [ref=f2e104] [cursor=pointer]
+      - paragraph [ref=f2e105]: Adapting to these 3 people’s shared taste. No location profile.
+    - region "Places passed on in this draft" [ref=f2e214]:
+      - paragraph [ref=f2e215]: THIS DRAFT
+      - generic [ref=f2e216]:
+        - generic [ref=f2e217]:
+          - generic [ref=f2e218]: Mika passed
+          - text: on Supper Club.
+        - button "Undo" [ref=f2e219] [cursor=pointer]
+      - generic [ref=f2e229]:
+        - generic [ref=f2e230]:
+          - generic [ref=f2e231]: Mika passed
+          - text: on Glass House.
+        - button "Undo" [ref=f2e232] [cursor=pointer]
+      - paragraph [ref=f2e220]: Visible here only. Nobody’s Keep history changed.
+    - region "Recommended places" [ref=f2e106]:
+      - article [ref=f2e149]:
+        - generic [ref=f2e150]:
+          - generic [ref=f2e151]:
+            - generic [ref=f2e152]: "N"
+            - generic [ref=f2e154]: NO PHOTO · PLACE MARK
+          - 'button "WEAK FIT · 1 EXACT SIGNAL + 1 HINT Nightjar Coffee Coffee place A coffee place someone in this group deliberately kept. Why for us: Mika wants this; it fits Vivian''s coffee hint. Hours, price, accessibility, and group fit are not verified here." [ref=f2e155] [cursor=pointer]':
+            - generic [ref=f2e156]:
+              - generic [ref=f2e157]: WEAK FIT · 1 EXACT SIGNAL + 1 HINT
+              - strong [ref=f2e158]: Nightjar Coffee
+              - generic [ref=f2e159]: Coffee place
+              - generic [ref=f2e161]: A coffee place someone in this group deliberately kept.
+              - generic [ref=f2e162]: "Why for us: Mika wants this; it fits Vivian's coffee hint."
+              - generic [ref=f2e163]: Hours, price, accessibility, and group fit are not verified here.
+            - generic [ref=f2e164]: →
+        - generic "Card sources" [ref=f2e165]:
+          - generic [ref=f2e166]: Label · Confirmed by a group member
+          - generic [ref=f2e167]: Type · Member-chosen category
+          - generic [ref=f2e168]: Reason · Exact group signal + optional Quick start
+          - button "Not for us" [ref=f2e169] [cursor=pointer]

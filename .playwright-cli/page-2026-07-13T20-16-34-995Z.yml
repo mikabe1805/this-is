@@ -1,0 +1,26 @@
+- main [ref=e11]:
+  - generic [ref=e12]:
+    - button "← BACK" [ref=e13] [cursor=pointer]
+    - generic [ref=e14]:
+      - generic "Mika, Vivian" [ref=e15]:
+        - generic [ref=e16]: M
+        - generic [ref=e17]: V
+      - paragraph [ref=e18]: 2 PEOPLE · EMPTY TABLE
+    - region "Group membership audience" [ref=e19]:
+      - paragraph [ref=e20]: INVITATIONS OPEN · 2 OF 6 PEOPLE
+      - paragraph [ref=e21]: Make one private link per person before anyone shares taste. After the first Quick start or shared place, invitations close so earlier evidence never reaches a later joiner.
+    - region "Invite links you created" [ref=e22]:
+      - generic [ref=e23]:
+        - paragraph [ref=e24]: ONE LINK · ONE PERSON
+        - paragraph [ref=e25]: Make a separate private link for each person. Each stops working after one person joins and expires in seven days.
+      - button "Try making link again" [active] [ref=e36] [cursor=pointer]
+      - alert [ref=e37]: We couldn’t confirm whether the link was made. Trying again won’t reserve another seat.
+    - generic [ref=e27]:
+      - heading "Nothing honest fits yet." [level=2] [ref=e28]
+      - paragraph [ref=e29]: No one has shared a place or Quick start hint with this group. Nothing from anyone’s private Keep appears automatically.
+      - generic [ref=e30]:
+        - button "Add a place" [ref=e31] [cursor=pointer]
+        - button "Quick start" [ref=e32] [cursor=pointer]
+    - region "Group membership controls" [ref=e33]:
+      - paragraph [ref=e34]: Your personal Keep stays yours if you leave.
+      - button "Leave group" [ref=e35] [cursor=pointer]

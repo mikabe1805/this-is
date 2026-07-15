@@ -1,0 +1,231 @@
+rules_version = '2';
+
+// ══════════════════════════════════════════════════════════════════════════
+// HARDENED v1 rules — proposed replacement for firestore.rules (live project
+// this-is-76332). Prepared by Claude, Jul 12 2026. REVIEW BEFORE DEPLOYING.
+//
+// WHAT CHANGED (Tier 1 — closes the catastrophic hole, minimal breakage):
+//   • Deleted isDevMode() and every `isDevMode() ||` short-circuit. Writes now
+//     fall through to the auth/owner arms the original file already vetted
+//     ("The auth arms below are already correct and will take over once this
+//     is gone.").  → the DB is no longer world-writable/deletable.
+//   • userPreferences write was `if true` (world-writable regardless of
+//     isDevMode) → now owner-only.
+//   • Collections whose ONLY writer was isDevMode (places delete, curated,
+//     cities/candidates, test-collection, seed-data) are now `if false`.
+//     The Admin SDK bypasses rules, so server/seed writes via a service
+//     account still work. If a seed script writes these via a USER token,
+//     re-seed via the Admin SDK (the correct posture anyway).
+//
+// STILL OPEN AFTER THIS (Tier 2 — do next; NOT done here to avoid breaking the
+// signed-out demo/friend-feed on a fast security deploy):
+//   • Many `allow read: if true` expose all users' places/notes/taste to the
+//     public. Scope reads to the follow/circle graph (see saves/ line, roadmap
+//     Next-#3) and require auth on users/, posts/, userTaste/, userRankings/.
+//   • analytics create is `if true` (spam vector; read is already denied).
+// The real end state remains the default-deny v2 ruleset at CUTOVER; this patch
+// only stops live destruction until then.
+// ══════════════════════════════════════════════════════════════════════════
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+
+    // Users collection - reads open for demo (Tier 2: scope to graph)
+    match /users/{userId} {
+      allow read: if true;
+      allow write: if isAuthenticated() && isOwner(userId);
+
+      match /friends/{friendId} {
+        allow read: if true;
+        allow write: if isAuthenticated() && isOwner(userId);
+      }
+
+      match /following/{followingId} {
+        allow read: if true;
+        allow write: if isAuthenticated() && isOwner(userId);
+      }
+
+      match /activity/{activityId} {
+        allow read: if true;
+        allow write: if isAuthenticated() && isOwner(userId);
+      }
+
+      match /followers/{followerId} {
+        allow read: if isAuthenticated();
+        allow write: if isAuthenticated() && isOwner(userId);
+      }
+
+      match /savedPlaces/{placeId} {
+        allow read: if isAuthenticated();
+        allow write: if isAuthenticated() && isOwner(userId);
+      }
+
+      match /savedLists/{listId} {
+        allow read, write: if isAuthenticated() && isOwner(userId);
+      }
+
+      match /comments/{commentId} {
+        allow read: if true;
+        allow create: if isAuthenticated();
+        allow update, delete: if isAuthenticated() && isOwner(resource.data.userId);
+      }
+    }
+
+    // Places collection
+    match /places/{placeId} {
+      allow read: if true;
+      allow write: if isAuthenticated();
+      allow delete: if false; // was isDevMode(); Admin SDK handles cleanup
+
+      match /saves/{userId} {
+        allow read: if isAuthenticated();
+        allow write: if isAuthenticated() && isOwner(userId);
+      }
+    }
+
+    match /hubs/{hubId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+
+    match /lists/{listId} {
+      allow read: if true;
+      allow write: if isAuthenticated() && isOwner(resource.data.userId);
+      allow delete: if isAuthenticated() && isOwner(resource.data.userId);
+
+      match /places/{placeId} {
+        allow read: if isAuthenticated();
+        allow write: if isAuthenticated();
+      }
+
+      match /posts/{postId} {
+        allow read: if true;
+        allow write: if isAuthenticated();
+      }
+    }
+
+    match /posts/{postId} {
+      allow read: if true;
+      allow write: if isAuthenticated() && isOwner(resource.data.userId);
+      allow delete: if isAuthenticated() && isOwner(resource.data.userId);
+
+      match /comments/{commentId} {
+        allow read: if true;
+        allow create: if isAuthenticated();
+        allow update, delete: if isAuthenticated() && isOwner(resource.data.userId);
+      }
+    }
+
+    // 1:1 message threads — participants only (unchanged).
+    match /threads/{threadId} {
+      allow read: if isAuthenticated()
+        && resource != null
+        && request.auth.uid in resource.data.participants;
+      allow create: if isAuthenticated()
+        && request.auth.uid in request.resource.data.participants;
+      allow update: if isAuthenticated()
+        && resource != null
+        && request.auth.uid in resource.data.participants;
+      allow delete: if false;
+
+      match /messages/{messageId} {
+        allow read: if isAuthenticated()
+          && get(/databases/$(database)/documents/threads/$(threadId)).data.participants.hasAny([request.auth.uid]);
+        allow create: if isAuthenticated()
+          && request.auth.uid == request.resource.data.senderId
+          && get(/databases/$(database)/documents/threads/$(threadId)).data.participants.hasAny([request.auth.uid]);
+        allow update, delete: if false;
+      }
+    }
+
+    match /tags/{tagId} {
+      allow read: if true;
+      allow write: if isAuthenticated();
+    }
+
+    match /userTags/{tagId} {
+      allow read: if true;
+      allow write: if isAuthenticated();
+    }
+
+    // userPreferences — write was `if true` (world-writable). Now owner-only.
+    match /userPreferences/{userId} {
+      allow read: if true;
+      allow write: if isAuthenticated() && request.auth.uid == userId;
+    }
+
+    match /userTaste/{userId} {
+      allow read: if true;
+      allow write: if isAuthenticated() && request.auth.uid == userId;
+    }
+
+    match /userRankings/{userId} {
+      allow read: if true;
+      allow write: if isAuthenticated() && request.auth.uid == userId;
+    }
+
+    match /analytics/{document=**} {
+      allow create: if true; // Tier 2: require auth to reduce spam
+      allow read: if false;
+    }
+
+    match /placesCache/{key} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    match /mapsCells/{key} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    match /test-collection/{document=**} {
+      allow read, write: if false; // was isDevMode()
+    }
+
+    match /seed-data/{document=**} {
+      allow read, write: if false; // was isDevMode()
+    }
+
+    // ── v2 (rebuild) blocks — already private-by-default, unchanged ──
+    match /users/{userId}/boards/{boardId} {
+      allow read, write: if isAuthenticated() && isOwner(userId);
+    }
+
+    match /users/{userId}/pins/{pinId} {
+      allow read, write: if isAuthenticated() && isOwner(userId);
+    }
+
+    match /cities/{cityKey}/candidates/{placeId} {
+      allow read: if true;
+      allow write: if false; // was isDevMode(); seed via Admin SDK
+    }
+
+    match /curated/{placeId} {
+      allow read: if true;
+      allow write: if false; // was isDevMode(); seed via Admin SDK
+    }
+
+    // FRIEND-GRAPH saves — flat collection. Reads still open for the demo
+    // (Tier 2: scope to the follow graph). Each user writes only their own.
+    match /saves/{saveId} {
+      allow read: if true; // TODO(Tier 2): scope reads to the follow-graph
+      allow create, update: if isAuthenticated()
+        && request.resource.data.uid == request.auth.uid;
+      allow delete: if isAuthenticated()
+        && resource.data.uid == request.auth.uid;
+    }
+
+    match /shares/{token} {
+      allow read: if true;
+      allow write: if false;
+    }
+  }
+}

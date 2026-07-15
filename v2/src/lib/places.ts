@@ -8,57 +8,67 @@
  * (the feed reads Firestore, not Google).
  *
  * Cost + ToS rules encoded here:
- *  - Autocomplete always runs inside a session token; the matching getDetails
- *    call closes the session so Google bills it as one autocomplete session.
+ *  - Autocomplete capture closes with an Essentials-only Details request.
+ *    Google's current pricing bills a Pro-or-higher terminating request as
+ *    Enterprise + Atmosphere regardless of the requested Pro field.
  *  - getDetails is ONLY called on explicit user action (tapping a suggestion,
  *    opening a closeup). Never in a render loop.
  *  - Photo resource names are never cached (ToS); photos render only where an
  *    explicit user action earned them (the closeup), always with attribution.
- *    photoUrl() is additionally gated by VITE_PLACES_PHOTOS_ENABLED; the W3
- *    feed adds a per-session photo budget counter on top.
+ *  - Photo media never uses the browser key. Canonical saved/group imagery is
+ *    streamed by the authenticated server proxy under one project allowance.
  */
 
-import { cachedCoords } from './geo'
+import {
+  isGooglePlaceIdSupportedForStorage,
+  normalizeCapturePlaceDetails,
+  normalizeGoogleAutocompleteSuggestions,
+  normalizePlaceDetails,
+  type GooglePlaceSuggestion,
+  type NormalizedGooglePlaceDetails,
+} from '../domain/googlePlaceDetails'
 
-const API = 'https://places.googleapis.com/v1'
+const GOOGLE_API = 'https://places.googleapis.com/v1'
 const KEY = import.meta.env.VITE_PLACES_NEW_KEY as string
-const PLACES_ON = import.meta.env.VITE_PLACES_ENABLED === 'true'
-const PHOTOS_ON = import.meta.env.VITE_PLACES_PHOTOS_ENABLED === 'true'
+// Emulator-backed production builds must never spend Places quota or turn
+// invented verification IDs into Google network errors. The explicit stub
+// flag sends requests only to the current preview origin, where the browser
+// verifier owns the response; an absent verifier therefore fails as a local
+// 404 instead of ever reaching Google.
+const EMULATOR_BUILD = import.meta.env.VITE_USE_FIREBASE_EMULATORS === 'true'
+const EMULATOR_PLACES_STUB = EMULATOR_BUILD
+  && import.meta.env.VITE_EMULATOR_PLACES_STUB === 'true'
+const API = EMULATOR_PLACES_STUB
+  ? '/__this_is_emulator_places/v1'
+  : GOOGLE_API
+const PLACES_ON = EMULATOR_PLACES_STUB
+  || (!EMULATOR_BUILD && import.meta.env.VITE_PLACES_ENABLED === 'true')
 
 /* Global-first: the app works in any city on earth. Language follows the
-   device; results are biased toward (never restricted to) the user's cached
-   coords, so the same query does the right thing in Piscataway or Tokyo. */
+   device; geography comes only from what the person explicitly types. */
 const LANG = (typeof navigator !== 'undefined' && navigator.language) || 'en'
 
-/* THE MASK SPLIT (docs/GOOGLE.md, decision 2): displayName/primaryType are
-   Pro-tier fields ($17/1K); id + photos.* are the FREE IDs-Only tier. So the
-   full mask runs only where it must — saving (terminates the autocomplete
-   session, refreshes the snapshot) and deep-links to unsaved places. Saved-pin
-   closeups render name/type from the snapshot and fetch only photo refs. */
-const DETAIL_FIELD_MASK =
-  'id,displayName,formattedAddress,location,primaryType,photos.name,photos.authorAttributions'
-const PHOTO_REF_FIELD_MASK = 'id,photos.name,photos.authorAttributions'
+/* THE MASK SPLIT (docs/GOOGLE.md): the autocomplete-terminating request stays
+   Essentials-only. Explicit non-session Details may request Pro fields.
+   Saved-pin closeups render owned/cached context and fetch only photo refs. */
+const CAPTURE_FIELD_MASK = 'id,formattedAddress,location,types'
+const DETAIL_FIELD_MASK = 'id,displayName,formattedAddress,location,primaryType'
 
 /** Honest absence: surfaces hide Google lanes entirely when the flag is off. */
 export const placesEnabled = PLACES_ON
 
-export type Suggestion = { placeId: string; text: string }
+export type Suggestion = GooglePlaceSuggestion
 
-export type PlaceDetails = {
-  id: string
-  name: string
-  address?: string
-  lat?: number
-  lng?: number
-  primaryType?: string
-  photoResourceName?: string
-  photoAttribution?: string
-}
+export type PlaceDetails = NormalizedGooglePlaceDetails
 
 function headers(fieldMask?: string): Headers {
   const h = new Headers({ 'Content-Type': 'application/json', 'X-Goog-Api-Key': KEY })
   if (fieldMask) h.set('X-Goog-FieldMask', fieldMask)
   return h
+}
+
+function apiUrl(path: string): URL {
+  return new URL(`${API}${path}`, window.location.origin)
 }
 
 /** One token per typing session; pass the same token to getDetails to close it. */
@@ -68,76 +78,60 @@ export function newSessionToken(): string {
 
 export async function autocomplete(input: string, sessionToken: string): Promise<Suggestion[]> {
   if (!PLACES_ON || !input.trim()) return []
-  const me = cachedCoords()
   const body: Record<string, unknown> = { input, sessionToken, languageCode: LANG }
-  if (me) {
-    body.locationBias = {
-      circle: { center: { latitude: me.lat, longitude: me.lng }, radius: 20_000 },
-    }
+  try {
+    const res = await fetch(apiUrl('/places:autocomplete'), {
+      method: 'POST',
+      headers: headers(
+        'suggestions.placePrediction.placeId,suggestions.placePrediction.text,' +
+        'suggestions.placePrediction.structuredFormat.mainText'
+      ),
+      body: JSON.stringify(body),
+    })
+    if (!res.ok) return []
+    return normalizeGoogleAutocompleteSuggestions(await res.json())
+  } catch {
+    return []
   }
-  const res = await fetch(`${API}/places:autocomplete`, {
-    method: 'POST',
-    headers: headers('suggestions.placePrediction.placeId,suggestions.placePrediction.text'),
-    body: JSON.stringify(body),
-  })
-  if (!res.ok) return []
-  const json = await res.json()
-  return (json.suggestions ?? [])
-    .map((s: any) => ({
-      placeId: s.placePrediction?.placeId,
-      text: s.placePrediction?.text?.text,
-    }))
-    .filter((x: any): x is Suggestion => Boolean(x.placeId && x.text))
+}
+
+/** Close an Autocomplete session without promoting it to the E+A discovery
+ * SKU. The selected suggestion supplies the user-visible label; the response
+ * supplies only Essentials location/address/type data. Persisting Google place
+ * facts remains blocked from external use pending the owned-catalog redesign. */
+export async function getCaptureDetails(
+  placeId: string,
+  sessionToken: string,
+  selectedName: string
+): Promise<PlaceDetails | null> {
+  if (!PLACES_ON || !isGooglePlaceIdSupportedForStorage(placeId)) return null
+  const url = apiUrl(`/places/${placeId}`)
+  url.searchParams.set('languageCode', LANG)
+  url.searchParams.set('sessionToken', sessionToken)
+  try {
+    const res = await fetch(url, { headers: headers(CAPTURE_FIELD_MASK) })
+    if (!res.ok) return null
+    return normalizeCapturePlaceDetails(await res.json(), placeId, selectedName)
+  } catch {
+    return null
+  }
 }
 
 export async function getDetails(
   placeId: string,
   sessionToken?: string
 ): Promise<PlaceDetails | null> {
-  if (!PLACES_ON) return null
-  const url = new URL(`${API}/places/${placeId}`)
+  if (!PLACES_ON || !isGooglePlaceIdSupportedForStorage(placeId)) return null
+  const url = apiUrl(`/places/${placeId}`)
   url.searchParams.set('languageCode', LANG)
   if (sessionToken) url.searchParams.set('sessionToken', sessionToken)
-  const res = await fetch(url, { headers: headers(DETAIL_FIELD_MASK) })
-  if (!res.ok) return null
-  const p = await res.json()
-  const photo = p.photos?.[0]
-  return {
-    id: p.id,
-    name: p.displayName?.text ?? '',
-    address: p.formattedAddress,
-    lat: p.location?.latitude,
-    lng: p.location?.longitude,
-    primaryType: p.primaryType,
-    photoResourceName: photo?.name,
-    photoAttribution: photo?.authorAttributions?.[0]?.displayName,
+  try {
+    const res = await fetch(url, { headers: headers(DETAIL_FIELD_MASK) })
+    if (!res.ok) return null
+    return normalizePlaceDetails(await res.json(), placeId)
+  } catch {
+    return null
   }
-}
-
-/** Photo refs only — bills in the FREE IDs-Only tier. For saved pins, whose
- *  name/type/coords already live in the snapshot. */
-export async function getPhotoRef(
-  placeId: string
-): Promise<Pick<PlaceDetails, 'photoResourceName' | 'photoAttribution'> | null> {
-  if (!PLACES_ON) return null
-  const url = new URL(`${API}/places/${placeId}`)
-  url.searchParams.set('languageCode', LANG)
-  const res = await fetch(url, { headers: headers(PHOTO_REF_FIELD_MASK) })
-  if (!res.ok) return null
-  const p = await res.json()
-  const photo = p.photos?.[0]
-  return {
-    photoResourceName: photo?.name,
-    photoAttribution: photo?.authorAttributions?.[0]?.displayName,
-  }
-}
-
-export function photoUrl(resourceName: string, px = 640): string {
-  if (!PHOTOS_ON) return ''
-  const u = new URL(`https://places.googleapis.com/v1/${resourceName}/media`)
-  u.searchParams.set('maxWidthPx', String(px))
-  u.searchParams.set('key', KEY)
-  return u.toString()
 }
 
 /** The one outbound door: we curate, Google navigates. */

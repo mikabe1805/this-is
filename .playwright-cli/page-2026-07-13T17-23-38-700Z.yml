@@ -1,0 +1,53 @@
+- generic [ref=f1e3]:
+  - main [ref=f1e4]:
+    - generic [ref=f1e5]:
+      - generic [ref=f1e7]:
+        - heading "ADD FOR EMPTY TABLE" [level=1] [ref=f1e8]
+        - paragraph [ref=f1e9]: Google Maps
+      - region [ref=f1e10]:
+        - paragraph [ref=f1e11]: MAKE IT YOURS
+        - heading "What do you call this place?" [level=2] [ref=f1e12]
+        - paragraph [ref=f1e13]: "Google Maps result: Juniper Cafe"
+        - paragraph [ref=f1e14]: Your own short label stays with your taste history. Google’s place facts do not.
+        - textbox "Your label for this place" [ref=f1e15]:
+          - /placeholder: e.g. the bakery by Sam
+          - text: coffee after practice
+        - generic [ref=f1e16]:
+          - generic [ref=f1e17]: AREA · OPTIONAL
+          - textbox "Area for this place" [ref=f1e18]:
+            - /placeholder: e.g. Cresskill, NJ
+          - generic [ref=f1e19]: Type a place area yourself. It never becomes your home or a location profile.
+        - group "PLACE KIND" [ref=f1e20]:
+          - paragraph [ref=f1e22]: Choose one broad kind so it can fit a future plan.
+          - group "What kind of place is it?" [ref=f1e23]:
+            - button "Food" [ref=f1e24] [cursor=pointer]
+            - button "Drinks" [ref=f1e25] [cursor=pointer]
+            - button "Coffee" [pressed] [ref=f1e26] [cursor=pointer]
+            - button "Activity" [ref=f1e27] [cursor=pointer]
+            - button "Other" [ref=f1e28] [cursor=pointer]
+        - group "YOUR EXPERIENCE" [ref=f1e29]:
+          - group "Keep this place as" [ref=f1e31]:
+            - button "Want" [ref=f1e32] [cursor=pointer]:
+              - strong [ref=f1e33]: Want
+              - generic [ref=f1e34]: I want to go
+            - button "Tried" [active] [pressed] [ref=f1e35] [cursor=pointer]:
+              - strong [ref=f1e36]: Tried
+              - generic [ref=f1e37]: I have been
+            - button "Loved" [ref=f1e38] [cursor=pointer]:
+              - strong [ref=f1e39]: Loved
+              - generic [ref=f1e40]: I would return
+          - status [ref=f1e41]: You have been, but this alone does not support choosing it.
+        - region "Group sharing boundary" [ref=f1e42]:
+          - paragraph [ref=f1e43]: KEEP PRIVATE
+          - strong [ref=f1e44]: Not shared with Empty Table
+          - paragraph [ref=f1e45]: Tried records that you’ve been, but it is not a reason to choose this place. Choose Want or Loved to introduce it to Empty Table.
+        - generic [ref=f1e46]:
+          - button "Keep privately as Tried" [ref=f1e65] [cursor=pointer]
+          - button "Cancel" [ref=f1e48] [cursor=pointer]
+  - navigation "Primary" [ref=f1e49]:
+    - link "TOGETHER" [ref=f1e50] [cursor=pointer]:
+      - /url: /together
+    - link "KEEP" [ref=f1e55] [cursor=pointer]:
+      - /url: /saved
+    - link "PEOPLE" [ref=f1e59] [cursor=pointer]:
+      - /url: /people

@@ -1,0 +1,31 @@
+- main [ref=e138]:
+  - generic [ref=e139]:
+    - button "← BACK" [ref=e140] [cursor=pointer]
+    - generic [ref=e141]: S
+    - generic [ref=e143]:
+      - heading "Supper Club" [level=1] [ref=e144]
+      - paragraph [ref=e145]: RESTAURANT · Cresskill, NJ
+    - region [ref=e146]:
+      - paragraph [ref=e147]: CANDIDATE EVIDENCE LAB · 3 GOING
+      - heading "2 of 3 want or love this." [level=2] [ref=e148]
+      - link "Open in Google Maps ↗" [ref=e150] [cursor=pointer]:
+        - /url: https://www.google.com/maps/search/?api=1&query=Supper+Club&query_place_id=group-supper-club
+      - generic [ref=e151]:
+        - paragraph [ref=e152]: SEND TO THE CHAT
+        - paragraph [ref=e153]: A 30-day no-sign-in link shows this place, the broad reason, and how many are going. No names, notes, or taste history.
+        - generic [ref=e154]:
+          - button "Share Pick" [ref=e155] [cursor=pointer]
+          - button "Revoke link" [ref=e156] [cursor=pointer]
+      - group [ref=e157]:
+        - generic "AFTER THE OUTING Close this Pick when the plan is over." [ref=e158] [cursor=pointer]:
+          - generic [ref=e159]:
+            - generic [ref=e160]: AFTER THE OUTING
+            - generic [ref=e161]: Close this Pick when the plan is over.
+          - generic [ref=e162]: +
+    - group [ref=e163]:
+      - generic "YOUR PRIVATE KEEP Want stays yours. Open only if you want to edit it during this shared Pick." [ref=e164] [cursor=pointer]:
+        - generic [ref=e165]:
+          - generic [ref=e166]: YOUR PRIVATE KEEP
+          - generic [ref=e167]: Want stays yours. Open only if you want to edit it during this shared Pick.
+        - generic [ref=e168]: +
+    - paragraph [ref=e169]: "Place data: Google Maps"

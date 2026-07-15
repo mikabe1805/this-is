@@ -60,23 +60,6 @@ const BY_TYPE: Record<string, VibeEntry> = {
   lodging: { tags: ['stay'], hex: '#3E343D' },
 }
 
-/** The 12 curated browse/onboarding vibes — one label per taste tag. Shared
- *  by Search's browse grid and the onboarding taste picker. */
-export const BROWSE_VIBES: { tag: string; label: string }[] = [
-  { tag: 'coffee', label: 'COFFEE' },
-  { tag: 'cozy', label: 'COZY' },
-  { tag: 'dinner', label: 'DINNER' },
-  { tag: 'drinks', label: 'DRINKS' },
-  { tag: 'date-night', label: 'DATE NIGHT' },
-  { tag: 'late-night', label: 'LATE NIGHT' },
-  { tag: 'outdoors', label: 'OUTDOORS' },
-  { tag: 'culture', label: 'CULTURE' },
-  { tag: 'sweet', label: 'SWEET' },
-  { tag: 'quick-bite', label: 'QUICK BITE' },
-  { tag: 'browse', label: 'BROWSE' },
-  { tag: 'somewhere-new', label: 'SOMETHING NEW' },
-]
-
 export function vibesFor(primaryType?: string): string[] {
   return (primaryType && BY_TYPE[primaryType]?.tags) || FALLBACK.tags
 }

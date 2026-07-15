@@ -1,5 +1,9 @@
 # v2 functions
 
+> **HISTORICAL - DO NOT DEPLOY.** This directory belongs to the retired TONIGHT/open-hours pivot
+> and is not referenced by `firebase.v2.json`. The canonical minimal backend is
+> [`../../v2-functions/`](../../v2-functions/). Do not run the deployment commands below.
+
 Deliberately small server surface. **Week 2 ships one callable: `getHours`.**
 
 ## Status

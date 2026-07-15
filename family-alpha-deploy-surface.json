@@ -1,0 +1,49 @@
+{
+  "schemaVersion": 2,
+  "codebase": "family-alpha",
+  "authClaim": "familyAlpha",
+  "deployFunctions": [
+    "syncGroupSignalProjections",
+    "revokeClosedGroupInvites",
+    "searchPlanAreas",
+    "createGroup",
+    "createGroupInvite",
+    "listGroupInvites",
+    "revokeGroupInvite",
+    "acceptGroupInvite",
+    "saveGroupQuickStart",
+    "shareGroupSignal",
+    "leaveGroup",
+    "updateGroupDraftPass",
+    "createGroupPick",
+    "closeGroupPick",
+    "revokePickReceipt",
+    "pickReceipt",
+    "resolveMapsUrl",
+    "exportMyData",
+    "deleteMyAccount"
+  ],
+  "hostingFunctions": [
+    "resolveMapsUrl",
+    "searchPlanAreas",
+    "exportMyData",
+    "deleteMyAccount",
+    "createGroup",
+    "createGroupInvite",
+    "listGroupInvites",
+    "acceptGroupInvite",
+    "revokeGroupInvite",
+    "saveGroupQuickStart",
+    "shareGroupSignal",
+    "leaveGroup",
+    "createGroupPick",
+    "updateGroupDraftPass",
+    "closeGroupPick",
+    "revokePickReceipt",
+    "pickReceipt"
+  ],
+  "excludedFunctions": [
+    "placePhoto",
+    "migratePairToGroup"
+  ]
+}

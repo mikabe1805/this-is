@@ -1,0 +1,194 @@
+{
+  "firestore": {
+    "rules": "v2/.family-alpha-rules/firestore.rules",
+    "indexes": "v2/firestore.indexes.json"
+  },
+  "functions": [
+    {
+      "source": "v2-functions/.family-alpha-deploy",
+      "codebase": "family-alpha",
+      "predeploy": [
+        "npm --prefix \"$RESOURCE_DIR\" run build"
+      ]
+    }
+  ],
+  "hosting": {
+    "public": "v2/.family-alpha-dist",
+    "ignore": [
+      "firebase.family-alpha.json",
+      "**/.*",
+      "**/node_modules/**"
+    ],
+    "rewrites": [
+      {
+        "source": "/resolveMapsUrl",
+        "function": {
+          "functionId": "resolveMapsUrl",
+          "region": "us-central1",
+          "pinTag": true
+        }
+      },
+      {
+        "source": "/searchPlanAreas",
+        "function": {
+          "functionId": "searchPlanAreas",
+          "region": "us-central1",
+          "pinTag": true
+        }
+      },
+      {
+        "source": "/exportMyData",
+        "function": {
+          "functionId": "exportMyData",
+          "region": "us-central1",
+          "pinTag": true
+        }
+      },
+      {
+        "source": "/deleteMyAccount",
+        "function": {
+          "functionId": "deleteMyAccount",
+          "region": "us-central1",
+          "pinTag": true
+        }
+      },
+      {
+        "source": "/createGroup",
+        "function": {
+          "functionId": "createGroup",
+          "region": "us-central1",
+          "pinTag": true
+        }
+      },
+      {
+        "source": "/createGroupInvite",
+        "function": {
+          "functionId": "createGroupInvite",
+          "region": "us-central1",
+          "pinTag": true
+        }
+      },
+      {
+        "source": "/listGroupInvites",
+        "function": {
+          "functionId": "listGroupInvites",
+          "region": "us-central1",
+          "pinTag": true
+        }
+      },
+      {
+        "source": "/acceptGroupInvite",
+        "function": {
+          "functionId": "acceptGroupInvite",
+          "region": "us-central1",
+          "pinTag": true
+        }
+      },
+      {
+        "source": "/revokeGroupInvite",
+        "function": {
+          "functionId": "revokeGroupInvite",
+          "region": "us-central1",
+          "pinTag": true
+        }
+      },
+      {
+        "source": "/saveGroupQuickStart",
+        "function": {
+          "functionId": "saveGroupQuickStart",
+          "region": "us-central1",
+          "pinTag": true
+        }
+      },
+      {
+        "source": "/shareGroupSignal",
+        "function": {
+          "functionId": "shareGroupSignal",
+          "region": "us-central1",
+          "pinTag": true
+        }
+      },
+      {
+        "source": "/leaveGroup",
+        "function": {
+          "functionId": "leaveGroup",
+          "region": "us-central1",
+          "pinTag": true
+        }
+      },
+      {
+        "source": "/createGroupPick",
+        "function": {
+          "functionId": "createGroupPick",
+          "region": "us-central1",
+          "pinTag": true
+        }
+      },
+      {
+        "source": "/updateGroupDraftPass",
+        "function": {
+          "functionId": "updateGroupDraftPass",
+          "region": "us-central1",
+          "pinTag": true
+        }
+      },
+      {
+        "source": "/closeGroupPick",
+        "function": {
+          "functionId": "closeGroupPick",
+          "region": "us-central1",
+          "pinTag": true
+        }
+      },
+      {
+        "source": "/revokePickReceipt",
+        "function": {
+          "functionId": "revokePickReceipt",
+          "region": "us-central1",
+          "pinTag": true
+        }
+      },
+      {
+        "source": "/pick/**",
+        "function": {
+          "functionId": "pickReceipt",
+          "region": "us-central1",
+          "pinTag": true
+        }
+      },
+      {
+        "source": "**",
+        "destination": "/index.html"
+      }
+    ],
+    "headers": [
+      {
+        "source": "/sw-v2.js",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "no-cache, no-store, must-revalidate"
+          }
+        ]
+      },
+      {
+        "source": "/precache-manifest.json",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "no-cache, no-store, must-revalidate"
+          }
+        ]
+      },
+      {
+        "source": "**/*.@(js|css)",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "max-age=31536000, immutable"
+          }
+        ]
+      }
+    ]
+  }
+}

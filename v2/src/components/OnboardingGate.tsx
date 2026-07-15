@@ -1,7 +1,7 @@
 /**
- * First-run gate: a signed-in user who has never picked their vibes gets sent
- * to onboarding once, and only from the home landing — never hijacking a deep
- * link (a shared spot page, an /i/ invite) mid-flight. Onboarding writes
+ * First-run gate: a signed-in user who has never established identity gets sent
+ * to onboarding once, and only from the Together landing — never hijacking a deep
+ * link (a shared spot page or group invitation) mid-flight. Onboarding writes
  * `onboardedAt`, so this fires exactly once per account.
  *
  * Lives in its own lazily-imported module: it needs `useUserDoc` (→ Firestore),
@@ -11,10 +11,11 @@ import { useEffect, useRef } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useSession } from '../state/session'
 import { useUserDoc } from '../data/queries'
+import { prototypeFailure } from '../lib/prototypeMode'
 
 export default function OnboardingGate() {
   const session = useSession()
-  const { data: userDoc, isLoading, isFetching } = useUserDoc()
+  const { data: userDoc, isLoading, isFetching, isError } = useUserDoc()
   const location = useLocation()
   const navigate = useNavigate()
   // One-shot per session: even if a refetch briefly holds a stale (pre-
@@ -24,12 +25,16 @@ export default function OnboardingGate() {
   useEffect(() => {
     if (redirected.current) return
     if (session.status !== 'signed-in' || isLoading || isFetching) return
+    // A failed read is unknown, not proof that setup is incomplete. Query will
+    // retry on its normal boundary; never turn a network/authorization failure
+    // into an unsolicited onboarding redirect.
+    if (isError || prototypeFailure('onboarding-gate-read')) return
     if (userDoc?.onboardedAt) return
-    if (location.pathname === '/home' || location.pathname === '/') {
+    if (location.pathname === '/together' || location.pathname === '/') {
       redirected.current = true
       navigate('/onboarding', { replace: true })
     }
-  }, [session.status, isLoading, isFetching, userDoc?.onboardedAt, location.pathname, navigate])
+  }, [session.status, isLoading, isFetching, isError, userDoc?.onboardedAt, location.pathname, navigate])
 
   return null
 }

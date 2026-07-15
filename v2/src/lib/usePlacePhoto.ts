@@ -1,25 +1,39 @@
-/**
- * Live Google photo for a place, under the daily media budget. Shared by every
- * card that shows a room (discovery + friend feed) so the budget accounting and
- * the ToS posture (ref lookup free-tier, media never cached, attributed) live
- * in one place.
- */
 import { useEffect, useState } from 'react'
-import { getPhotoRef, photoUrl, placesEnabled } from './places'
+import { budgetedPhotosEnabled, fetchSavedPlacePhoto } from '../data/groupPhotos'
 import { takePhotoSlot } from './photoBudget'
-import { rawPid } from '../data/types'
+import { isPairPrototype } from './prototypeMode'
 
-export function usePlacePhoto(placeId: string): { src?: string; credit?: string } {
-  const [photo, setPhoto] = useState<{ src: string; credit?: string } | null>(null)
+/** Live, uncached imagery for one canonical personal save. The client flag and
+ * local slot are only rendering brakes; the authenticated server owns the
+ * project allowance, authorization, Google key, and attribution response. */
+export function usePlacePhoto(
+  placeId: string,
+  visible = true,
+): { src?: string; credit?: string; sourceUri?: string } {
+  const [photo, setPhoto] = useState<{ src: string; credit?: string; sourceUri?: string } | null>(null)
   useEffect(() => {
     let live = true
-    if (!placesEnabled || !takePhotoSlot(placeId)) return
-    void getPhotoRef(rawPid(placeId)).then(ref => {
-      if (!live || !ref?.photoResourceName) return
-      const src = photoUrl(ref.photoResourceName, 640)
-      if (src) setPhoto({ src, credit: ref.photoAttribution })
+    let objectUrl: string | undefined
+    const controller = new AbortController()
+    setPhoto(null)
+    if (!visible || !placeId.startsWith('g:') || !budgetedPhotosEnabled
+      || isPairPrototype() || !takePhotoSlot(placeId)) return
+    void fetchSavedPlacePhoto(placeId, controller.signal).then(result => {
+      if (!result) return
+      objectUrl = URL.createObjectURL(result.blob)
+      if (!live) {
+        URL.revokeObjectURL(objectUrl)
+        return
+      }
+      setPhoto({ src: objectUrl, credit: result.attribution, sourceUri: result.sourceUri })
+    }).catch(() => {
+      if (live) setPhoto(null)
     })
-    return () => { live = false }
-  }, [placeId])
+    return () => {
+      live = false
+      controller.abort()
+      if (objectUrl) URL.revokeObjectURL(objectUrl)
+    }
+  }, [placeId, visible])
   return photo ?? {}
 }

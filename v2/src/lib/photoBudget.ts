@@ -1,17 +1,19 @@
 /**
  * The photo-media budget. Photo bytes are the one genuinely expensive Google
  * SKU ($7/1K, 1K free/mo — docs/GOOGLE.md) and may never be cached, so the
- * discovery grid fetches them live under a hard budget.
+ * final-three group cards and explicit saved-place closeups fetch them live
+ * under a hard server-owned project budget.
  *
- * The window is a calendar DAY, not a tab session — a per-session cap made
- * the second Home visit of the day render photo-less (the "it looks bad"
- * bug). Grants are persisted per place id for the day, so the same places
- * keep their photos across reloads (and the browser's HTTP cache serves the
- * repeat media bytes without re-billing). 25/day ≈ 750/mo worst case, inside
- * the 1,000 free allowance with margin.
+ * This is a calendar-day, per-device DOGFOOD guard. It is not a project-wide
+ * budget: multiplying a local allowance by many devices can exceed Google's
+ * monthly free cap, and browser caching is not a billing guarantee. Public
+ * group use requires the server-owned project allowance specified in
+ * docs/product-reset/GROUP_DIRECTION.md. The local grant merely prevents one
+ * client from creating a render loop while preserving enough media for two
+ * three-candidate decisions per day.
  */
 const KEY = 'this-is:v2:photo-day'
-const MAX_PER_DAY = 25
+const MAX_PER_DAY = 6
 
 type DayState = { d: string; ids: string[] }
 

@@ -1,0 +1,84 @@
+- main [ref=f2e11]:
+  - generic [ref=f2e12]:
+    - button "← BACK" [ref=f2e13] [cursor=pointer]
+    - generic [ref=f2e14]:
+      - generic "Mika, Vivian, Ari" [ref=f2e15]:
+        - generic [ref=f2e16]: M
+        - generic [ref=f2e17]: V
+        - generic [ref=f2e18]: A
+      - paragraph [ref=f2e19]: 3 PEOPLE · CANDIDATE EVIDENCE LAB
+      - generic [ref=f2e20]:
+        - heading "Three places. Real reasons." [level=1] [ref=f2e21]: Three places.Real reasons.
+        - paragraph [ref=f2e22]: Support is counted. Missing taste stays unknown.
+    - region [ref=f2e23]:
+      - paragraph [ref=f2e24]: WHO’S GOING?
+      - generic [ref=f2e25]:
+        - button "You" [disabled] [pressed] [ref=f2e26]:
+          - generic [ref=f2e27]: M
+        - button "Vivian" [pressed] [ref=f2e29] [cursor=pointer]:
+          - generic [ref=f2e30]: V
+        - button "Ari" [pressed] [ref=f2e32] [cursor=pointer]:
+          - generic [ref=f2e33]: A
+    - region [ref=f2e35]:
+      - paragraph [ref=f2e36]: WHAT FITS THIS TIME?
+      - generic [ref=f2e37]:
+        - button "Anything" [pressed] [ref=f2e38] [cursor=pointer]
+        - button "Food" [ref=f2e39] [cursor=pointer]
+        - button "Drinks" [ref=f2e40] [cursor=pointer]
+        - button "Coffee" [ref=f2e41] [cursor=pointer]
+      - paragraph [ref=f2e42]: Adapting to these 3 people’s shared taste. No location profile.
+    - region "Recommended places" [ref=f2e43]:
+      - article [ref=f2e44]:
+        - generic [ref=f2e45]:
+          - generic [ref=f2e46]:
+            - generic [ref=f2e47]: S
+            - generic [ref=f2e49]: NO PHOTO · PLACE MARK
+          - 'button "KNOWN MATCH · 2 OF 3 Supper Club Food place A food place someone in this group deliberately kept. Why for us: 2 of 3 want or love this. Hours, price, accessibility, and group fit are not verified here." [ref=f2e50] [cursor=pointer]':
+            - generic [ref=f2e51]:
+              - generic [ref=f2e52]: KNOWN MATCH · 2 OF 3
+              - strong [ref=f2e53]: Supper Club
+              - generic [ref=f2e54]: Food place
+              - generic [ref=f2e56]: A food place someone in this group deliberately kept.
+              - generic [ref=f2e57]: "Why for us: 2 of 3 want or love this."
+              - generic [ref=f2e58]: Hours, price, accessibility, and group fit are not verified here.
+            - generic [ref=f2e59]: →
+        - generic "Card sources" [ref=f2e60]:
+          - generic [ref=f2e61]: Label · Confirmed by a group member
+          - generic [ref=f2e62]: Type · Member-chosen category
+          - generic [ref=f2e63]: Reason · Current exact group signals
+      - article [ref=f2e64]:
+        - generic [ref=f2e65]:
+          - generic [ref=f2e66]:
+            - generic [ref=f2e67]: G
+            - generic [ref=f2e69]: NO PHOTO · PLACE MARK
+          - 'button "MEMBER INTRODUCTION · 1 OF 3 Glass House Activity Something to do that a group member deliberately kept. Why for us: Ari loved this; 2 people haven’t weighed in. Hours, price, accessibility, and group fit are not verified here." [ref=f2e70] [cursor=pointer]':
+            - generic [ref=f2e71]:
+              - generic [ref=f2e72]: MEMBER INTRODUCTION · 1 OF 3
+              - strong [ref=f2e73]: Glass House
+              - generic [ref=f2e74]: Activity
+              - generic [ref=f2e76]: Something to do that a group member deliberately kept.
+              - generic [ref=f2e77]: "Why for us: Ari loved this; 2 people haven’t weighed in."
+              - generic [ref=f2e78]: Hours, price, accessibility, and group fit are not verified here.
+            - generic [ref=f2e79]: →
+        - generic "Card sources" [ref=f2e80]:
+          - generic [ref=f2e81]: Label · Confirmed by a group member
+          - generic [ref=f2e82]: Type · Member-chosen category
+          - generic [ref=f2e83]: Reason · Named member Love
+      - article [ref=f2e84]:
+        - generic [ref=f2e85]:
+          - generic [ref=f2e86]:
+            - generic [ref=f2e87]: "N"
+            - generic [ref=f2e89]: NO PHOTO · PLACE MARK
+          - 'button "WEAK FIT · 1 EXACT SIGNAL + 1 HINT Nightjar Coffee Coffee place A coffee place someone in this group deliberately kept. Why for us: Mika wants this; it fits Vivian''s coffee hint. Hours, price, accessibility, and group fit are not verified here." [ref=f2e90] [cursor=pointer]':
+            - generic [ref=f2e91]:
+              - generic [ref=f2e92]: WEAK FIT · 1 EXACT SIGNAL + 1 HINT
+              - strong [ref=f2e93]: Nightjar Coffee
+              - generic [ref=f2e94]: Coffee place
+              - generic [ref=f2e96]: A coffee place someone in this group deliberately kept.
+              - generic [ref=f2e97]: "Why for us: Mika wants this; it fits Vivian's coffee hint."
+              - generic [ref=f2e98]: Hours, price, accessibility, and group fit are not verified here.
+            - generic [ref=f2e99]: →
+        - generic "Card sources" [ref=f2e100]:
+          - generic [ref=f2e101]: Label · Confirmed by a group member
+          - generic [ref=f2e102]: Type · Member-chosen category
+          - generic [ref=f2e103]: Reason · Exact group signal + optional Quick start

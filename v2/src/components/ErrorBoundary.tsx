@@ -34,7 +34,7 @@ export class ErrorBoundary extends Component<Props, State> {
         <div className="page error-state">
           <p className="eyebrow">SOMETHING BROKE</p>
           <h1 className="t-display">The lights flickered.</h1>
-          <p className="t-body">The rest of the room is fine — try another tab, or try again.</p>
+          <p className="t-body">The rest of the app is fine — try another tab, or try again.</p>
           <button className="pill pill-primary press" onClick={() => this.setState({ error: null })}>
             Try again
           </button>

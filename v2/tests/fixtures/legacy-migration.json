@@ -1,0 +1,37 @@
+{
+  "uid": "fixture-user",
+  "savedMarkers": [
+    { "id": "legacy-a", "placeId": "legacy-a", "savedAt": { "seconds": 10 } },
+    { "id": "ChIJmarker", "placeId": "ChIJmarker", "status": "want", "savedAt": { "seconds": 30 } },
+    { "id": "legacy-unknown", "placeId": "legacy-unknown", "savedAt": { "seconds": 40 } }
+  ],
+  "lists": [
+    { "id": "favorites", "name": "Favorites" },
+    { "id": "all-tried", "name": "All Tried", "autoStatus": "tried" }
+  ],
+  "listPlacesByList": {
+    "favorites": [
+      { "placeId": "legacy-a", "status": "loved", "note": "Quiet back table.", "addedAt": { "seconds": 20 } }
+    ],
+    "all-tried": [
+      { "placeId": "legacy-b", "addedAt": { "seconds": 25 } }
+    ]
+  },
+  "placesById": {
+    "legacy-a": {
+      "googlePlaceId": "ChIJa",
+      "name": "Fixture A",
+      "address": "1 Main St, Brooklyn, NY",
+      "primaryType": "restaurant"
+    },
+    "legacy-b": {
+      "googlePlaceId": "ChIJb",
+      "name": "Fixture B",
+      "location": { "address": "2 Main St, Queens, NY", "lat": 40.7, "lng": -73.8 }
+    },
+    "legacy-unknown": { "name": "No Google identity" },
+    "ChIJmarker": { "name": "Fixture marker" }
+  },
+  "existingSaveIds": ["fixture-user__g:ChIJmarker"],
+  "existingTargetPlaceIds": ["g:ChIJb"]
+}

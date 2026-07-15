@@ -1,0 +1,24 @@
+{
+  "name": "this-is-v2-functions",
+  "private": true,
+  "version": "2.0.0",
+  "type": "module",
+  "main": "lib/index.js",
+  "engines": {
+    "node": "22"
+  },
+  "scripts": {
+    "build": "tsc",
+    "test": "npm run build && node lib/maps-url.test.js && node lib/place-photo.test.js && node lib/area-gazetteer.test.js && node lib/open-catalog.test.js && node lib/open-catalog-alias.test.js && node lib/account-data.test.js && node lib/group-lifecycle.test.js && node lib/projection-sync.test.js && node lib/group-draft.test.js && node lib/group-pick.test.js && node lib/pick-receipt.test.js && node lib/pair-migration.test.js"
+  },
+  "dependencies": {
+    "firebase-admin": "^13.10.0",
+    "firebase-functions": "^7.2.5"
+  },
+  "devDependencies": {
+    "typescript": "~5.8.3"
+  },
+  "overrides": {
+    "uuid": "^11.1.1"
+  }
+}

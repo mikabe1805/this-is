@@ -1,244 +1,29 @@
-# 🔥 Firebase Database Setup for "this-is" App
+# Repository scripts
 
-This directory contains scripts to set up and manage your Firebase database for the intelligent search and discovery system.
+This directory contains both canonical safety tooling and frozen v1 utilities. Do not infer authority from a script's age or filename.
 
-## 🚀 Quick Start
+## Canonical, non-deploying tooling
 
-### 1. Install Dependencies
-```bash
-cd scripts
-npm install
-```
+- `check-v2-cutover.mjs` — reports structural readiness and blocks strict cutover when known gates remain.
+- `check-doc-authority.mjs` — classifies root and nested historical documents and rejects new ambiguous root guides.
+- `check-node-runtime.mjs` — requires the Node 22.x runtime used by canonical Firebase Functions.
+- `check-cutover-evidence.mjs` / `cutover-evidence-core.*` — validates reviewed production metadata and digests without reading participant data.
+- `check-v2-hosting.mjs` — verifies the canonical Hosting shell and deep links against an emulator.
+- `build-v2-emulator.mjs` / `check-v2-group-draft-ui.mjs` — builds the production-mode client with local-only Firebase configuration and proves shared draft-pass behavior across two isolated authenticated browsers.
+- `check-v2-data-rights.mjs` — verifies owner export and deletion through Auth, Firestore, and Functions emulators.
+- `pilot-summary-core.*` / `summarize-v2-pilot.mjs` — identity-free pilot aggregation.
+- `pilot-decision-core.*` / `evaluate-v2-pilot.mjs` — anonymous qualitative gates plus the protocol decision.
+- `pilot-operator-readiness-core.*` / `check-pilot-operator-readiness.mjs` — fails closed before participant contact unless the ignored operator, access, retention, exclusion, review, and deletion-rehearsal card is complete; it never reads participant data.
+- `plan-v2-migration.mjs` — read-only v1 → v2 migration plan.
+- `plan-v1-erasure.mjs` / `v1-erasure-core.*` — read-only frozen-v1 erasure plan.
+- `plan-external-v2-archive.mjs` / `external-v2-archive-core.*` — read-only dirty-work fingerprint for the superseded external prototype.
 
-### 2. Configure Environment
-Create a `.env` file in your project root with your Firebase configuration:
+Run these through the root `package.json` commands documented in [`../README.md`](../README.md).
 
-```env
-VITE_FIREBASE_API_KEY=your_api_key
-VITE_FIREBASE_AUTH_DOMAIN=your_project.firebaseapp.com
-VITE_FIREBASE_PROJECT_ID=your_project_id
-VITE_FIREBASE_STORAGE_BUCKET=your_project.appspot.com
-VITE_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
-VITE_FIREBASE_APP_ID=your_app_id
-```
+## Frozen v1 utilities
 
-### 3. Set Up Firebase
-```bash
-npm run setup
-```
+Database seed/setup/reset scripts, `audit/`, `tests/`, coordinate/list cleanup scripts, and other legacy management files target the retired social-discovery architecture. They may write or delete Firebase data.
 
-### 4. Seed Database with Mock Data
-```bash
-npm run seed
-```
+Their root commands are intentionally suffixed `:v1`—for example `db:setup:v1`, `db:deploy:v1`, `status:ui:v1`, and `test:smoke:v1`. Never run them for canonical work, never point them at production while evaluating v2, and do not call the underlying files directly to bypass the namespace.
 
-## 📋 Available Scripts
-
-### Core Setup
-- **`npm run setup`** - Complete Firebase setup (rules, indexes, verification)
-- **`npm run seed`** - Populate database with realistic mock data
-- **`npm run clear`** - Clear all data from database (⚠️ destructive)
-
-### Deployment
-- **`npm run deploy-rules`** - Deploy Firestore security rules
-- **`npm run deploy-indexes`** - Deploy Firestore indexes
-
-### Management
-- **`npm run backup`** - Create database backup
-- **`npm run restore`** - Restore from backup
-
-## 🗃️ Database Structure
-
-The seeding script creates the following data structure:
-
-### Collections
-- **👥 users** (25 users) - User profiles with preferences and social connections
-- **🏢 places** (150 places) - Restaurants, cafes, bars, and other venues
-- **📝 lists** (75 lists) - Curated lists of places created by users
-- **📸 posts** (300 posts) - User posts about places they've visited
-- **⚙️ userPreferences** - AI-generated user preferences for personalization
-- **📊 analytics** - User interaction tracking for algorithm improvement
-
-### User Relationships
-- **Friends** - Mutual friendships between users
-- **Following** - One-way following relationships
-- **Saved Places** - Places users have saved with notes
-- **Activity History** - User interaction logs
-
-## 🧠 Intelligent Search Features
-
-The mock data is designed to showcase:
-
-### 🔍 **Natural Language Search**
-- "Sara's favorite coffee shops" → Finds friend Sara's saved coffee places
-- "cozy work-friendly spots" → Uses tags and sentiment analysis
-- "date night restaurants" → Leverages list categories and user preferences
-
-### 🤝 **Social Intelligence**
-- Friend connections influence search results
-- Social proof through shared lists and recommendations
-- User preference learning from behavior patterns
-
-### 📍 **Location Awareness**
-- Geographic clustering around San Francisco neighborhoods
-- Proximity-based recommendations
-- Area preference learning
-
-### 🎯 **Personalization**
-- User behavior analysis (saved places, liked posts)
-- Category preferences derived from interactions
-- Social pattern recognition (explorer vs. follower)
-
-## 🛡️ Security Rules
-
-The Firebase security rules ensure:
-- Users can only access their own private data
-- Public content is visible to authenticated users
-- Friends-only content requires friendship verification
-- Analytics data is write-only for users
-
-## 📊 Performance Optimization
-
-### Firestore Indexes
-Automatically created indexes for:
-- **Search queries** - category + popularity, tags + popularity
-- **Social queries** - user relationships, activity feeds
-- **Analytics** - user interactions by timestamp
-- **Recommendations** - place popularity, list engagement
-
-### Caching Strategy
-- **Search results** - 5-minute cache for repeated queries
-- **User preferences** - In-memory cache with automatic refresh
-- **Social connections** - Cached during session
-
-## 🔧 Advanced Configuration
-
-### Custom Data Generation
-Modify `seed-database.js` to customize:
-```javascript
-// Adjust data volume
-const { users, userIds } = generateUsers(50)     // More users
-const { places, placeIds } = generatePlaces(300) // More places
-
-// Customize categories
-const categories = ['coffee', 'restaurant', 'bar', ...yourCategories]
-
-// Adjust geographic area
-const locations = [
-  { name: 'Your City', lat: 40.7128, lng: -74.0060 },
-  // Add your locations
-]
-```
-
-### Environment-Specific Setup
-```bash
-# Development with Firebase emulator
-VITE_USE_FIREBASE_EMULATORS=true npm run seed
-
-# Production deployment
-firebase use your-prod-project
-npm run deploy-rules
-npm run deploy-indexes
-npm run seed
-```
-
-## 🧪 Testing the System
-
-After setup, test the intelligent search:
-
-### 1. Basic Search
-- Go to `/search` in your app
-- Try queries like "coffee", "cozy cafe", "date night"
-- Notice AI ranking and scoring
-
-### 2. Natural Language
-- "Mike's favorite restaurants" (looks for user Mike's saves)
-- "work-friendly coffee with wifi" (uses tags and categories)
-- "trendy bars in Mission" (location + category + sentiment)
-
-### 3. Discovery
-- Go to `/discovery` tab
-- See personalized recommendations based on mock user preferences
-- Notice social signals and algorithm attribution
-
-### 4. Social Features
-- Search results prioritize friends' recommendations
-- Lists show social proof (likes, saves)
-- User profiles display influence scores
-
-## 🐛 Troubleshooting
-
-### Database Connection Issues
-```bash
-# Check Firebase project status
-firebase projects:list
-
-# Verify authentication
-firebase login
-
-# Test Firestore access
-firebase firestore:indexes
-```
-
-### Seeding Problems
-```bash
-# Clear and retry
-npm run clear
-npm run seed
-
-# Check permissions
-# Ensure your Firebase user has Firestore write access
-```
-
-### Rule Deployment Errors
-```bash
-# Validate rules syntax
-firebase firestore:rules
-
-# Deploy with verbose output
-firebase deploy --only firestore:rules --debug
-```
-
-## 📈 Data Analytics
-
-The system tracks user interactions for continuous improvement:
-
-### Tracked Events
-- **Search queries** - For improving NLP algorithms
-- **Place saves** - For preference learning
-- **List views** - For recommendation engines
-- **Post likes** - For social signal analysis
-
-### Privacy
-- All analytics respect user privacy settings
-- Data is anonymized for algorithm training
-- Users can opt out through app settings
-
-## 🚀 Production Deployment
-
-### Security Checklist
-- [ ] Update security rules for production
-- [ ] Enable Firebase App Check
-- [ ] Set up monitoring and alerts
-- [ ] Configure backup schedules
-- [ ] Review data retention policies
-
-### Performance Monitoring
-- [ ] Enable Firestore monitoring
-- [ ] Set up performance alerts
-- [ ] Monitor query performance
-- [ ] Track search latency metrics
-
----
-
-## 🎉 Next Steps
-
-Once your database is set up:
-
-1. **Test the intelligent search** - Try various query types
-2. **Customize the algorithms** - Adjust scoring weights in `searchAlgorithm.ts`
-3. **Add real user authentication** - Connect to Firebase Auth
-4. **Monitor performance** - Set up analytics and logging
-5. **Scale the data** - Add more places and users as needed
-
-Your intelligent search system is now ready to provide a sophisticated, AI-powered discovery experience! 🚀 
+The canonical data model and cutover rules live in [`../docs/product-reset/CUTOVER.md`](../docs/product-reset/CUTOVER.md), [`MIGRATION_PLAN.md`](../docs/product-reset/MIGRATION_PLAN.md), and [`V1_DATA_RETENTION.md`](../docs/product-reset/V1_DATA_RETENTION.md).

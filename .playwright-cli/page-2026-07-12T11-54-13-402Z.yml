@@ -1,0 +1,25 @@
+- generic [ref=e3]:
+  - main [ref=e11]:
+    - generic [ref=e12]:
+      - generic [ref=e14]:
+        - paragraph [ref=e15]: ADD A NEW PLACE
+        - paragraph [ref=e16]: Google Maps
+      - textbox "Place name or Google Maps link…" [ref=e48]
+      - list
+  - status [ref=e49]:
+    - generic [ref=e50]:
+      - paragraph [ref=e51]: want · saved to Keep
+      - button "Undo" [ref=e52] [cursor=pointer]
+    - generic [ref=e53]:
+      - group "Change tag" [ref=e54]:
+        - button "want" [ref=e55] [cursor=pointer]
+        - button "tried" [ref=e56] [cursor=pointer]
+        - button "loved" [ref=e57] [cursor=pointer]
+      - button "add a note" [ref=e58] [cursor=pointer]
+  - navigation "Primary" [ref=e32]:
+    - link "TOGETHER" [ref=e33] [cursor=pointer]:
+      - /url: /together
+    - link "KEEP" [ref=e38] [cursor=pointer]:
+      - /url: /saved
+    - link "PEOPLE" [ref=e42] [cursor=pointer]:
+      - /url: /people

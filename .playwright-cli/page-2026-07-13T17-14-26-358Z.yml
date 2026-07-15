@@ -1,0 +1,17 @@
+- main [ref=f1e18]:
+  - generic [ref=f1e19]:
+    - paragraph [ref=f1e20]: WELCOME
+    - heading "Who are you?" [level=1] [ref=f1e21]
+    - paragraph [ref=f1e22]: This is how your people will recognize you.
+    - generic [ref=f1e23]: M
+    - textbox "Your name" [ref=f1e25]: Mika
+    - group "Avatar color" [ref=f1e26]:
+      - 'button "Avatar color #8E5A6B" [pressed] [ref=f1e27] [cursor=pointer]'
+      - 'button "Avatar color #5A6B8E" [ref=f1e28] [cursor=pointer]'
+      - 'button "Avatar color #6B8E5A" [ref=f1e29] [cursor=pointer]'
+      - 'button "Avatar color #8E7A5A" [ref=f1e30] [cursor=pointer]'
+      - 'button "Avatar color #7A5A8E" [ref=f1e31] [cursor=pointer]'
+      - 'button "Avatar color #5A8E86" [ref=f1e32] [cursor=pointer]'
+      - 'button "Avatar color #8E6A5A" [ref=f1e33] [cursor=pointer]'
+      - 'button "Avatar color #6A5A8E" [ref=f1e34] [cursor=pointer]'
+    - button "Continue to invite" [ref=f1e36] [cursor=pointer]

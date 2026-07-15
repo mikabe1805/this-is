@@ -1,0 +1,51 @@
+- main [ref=f2e74]:
+  - generic [ref=f2e75]:
+    - button "← BACK" [ref=f2e76] [cursor=pointer]
+    - generic [ref=f2e77]:
+      - generic "Mika, Vivian, Ari" [ref=f2e78]:
+        - generic [ref=f2e79]: M
+        - generic [ref=f2e80]: V
+        - generic [ref=f2e81]: A
+      - paragraph [ref=f2e82]: 3 PEOPLE · CANDIDATE EVIDENCE LAB
+      - generic [ref=f2e83]:
+        - heading "Three places. Real reasons." [level=1] [ref=f2e84]: Three places.Real reasons.
+        - paragraph [ref=f2e85]: Support is counted. Missing taste stays unknown.
+    - region [ref=f2e86]:
+      - paragraph [ref=f2e87]: WHO’S GOING?
+      - generic [ref=f2e88]:
+        - button "You" [disabled] [pressed] [ref=f2e89]:
+          - generic [ref=f2e90]: M
+        - button "Vivian" [pressed] [ref=f2e92] [cursor=pointer]:
+          - generic [ref=f2e93]: V
+        - button "Ari" [pressed] [ref=f2e95] [cursor=pointer]:
+          - generic [ref=f2e96]: A
+    - region [ref=f2e98]:
+      - paragraph [ref=f2e99]: WHAT FITS THIS TIME?
+      - generic [ref=f2e100]:
+        - button "Anything" [ref=f2e101] [cursor=pointer]
+        - button "Food" [active] [pressed] [ref=f2e102] [cursor=pointer]
+        - button "Drinks" [ref=f2e103] [cursor=pointer]
+        - button "Coffee" [ref=f2e104] [cursor=pointer]
+      - paragraph [ref=f2e105]: Adapting to these 3 people’s shared taste for food. No location profile.
+    - region "Recommended places" [ref=f2e248]:
+      - article [ref=f2e249]:
+        - generic [ref=f2e250]:
+          - generic [ref=f2e251]:
+            - generic [ref=f2e252]: S
+            - generic [ref=f2e254]: NO PHOTO · PLACE MARK
+          - 'button "KNOWN MATCH · 2 OF 3 Supper Club Food place Fits Food A food place someone in this group deliberately kept. Why for us: 2 of 3 want or love this. Hours, price, accessibility, and group fit are not verified here." [ref=f2e255] [cursor=pointer]':
+            - generic [ref=f2e256]:
+              - generic [ref=f2e257]: KNOWN MATCH · 2 OF 3
+              - strong [ref=f2e258]: Supper Club
+              - generic [ref=f2e259]:
+                - generic [ref=f2e260]: Food place
+                - generic [ref=f2e261]: Fits Food
+              - generic [ref=f2e262]: A food place someone in this group deliberately kept.
+              - generic [ref=f2e263]: "Why for us: 2 of 3 want or love this."
+              - generic [ref=f2e264]: Hours, price, accessibility, and group fit are not verified here.
+            - generic [ref=f2e265]: →
+        - generic "Card sources" [ref=f2e266]:
+          - generic [ref=f2e267]: Label · Confirmed by a group member
+          - generic [ref=f2e268]: Type · Member-chosen category
+          - generic [ref=f2e269]: Reason · Current exact group signals
+          - button "Not for us" [ref=f2e270] [cursor=pointer]

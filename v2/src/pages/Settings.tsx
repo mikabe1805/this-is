@@ -1,23 +1,27 @@
 /**
- * Settings — small and real. Every control here works; dead toggles are
+ * Settings â€” small and real. Every control here works; dead toggles are
  * banned (they were half the "buggy feeling" of v1).
  *
- * "Your people" is the friend-graph's front door (v2/FRIENDS.md): copy your
- * invite link so a friend opening it follows you both ways, and prune whom you
- * see — the auto-followed tastemakers are removable here, as promised.
+ * Group membership and invitations live in Together, where their audience is
+ * visible. Settings only points there instead of creating a second social model.
  */
-import { useEffect, useRef, useState } from 'react'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { Link } from 'react-router-dom'
+import { useQueryClient } from '@tanstack/react-query'
 import { useSession } from '../state/session'
 import { useUserDoc } from '../data/queries'
-import { fetchUsers, unfollow, updateProfile, avatarHexFor, AVATAR_PALETTE, type UserDoc } from '../data/user'
+import { updateProfile, avatarHexFor, AVATAR_PALETTE, type UserDoc } from '../data/user'
 import { signIn, signOutUser } from '../lib/authWatch'
 import { haptics } from '../lib/haptics'
-import { showToast } from '../state/toast'
 import { Avatar } from '../components/Avatar'
+import { DataAndAccount } from '../components/DataAndAccount'
+import { prototypeFailure, prototypeKind } from '../lib/prototypeMode'
 
 const THEME_KEY = 'this-is:v2:theme'
 const HAPTICS_KEY = 'this-is:haptics'
+type ProfilePatch = { displayName?: string; avatarHex?: string }
+
+const prototypeProfileStorageKey = (uid: string) => `__this_is_profile:${uid}`
 
 function currentTheme(): 'night' | 'day' {
   try {
@@ -26,7 +30,6 @@ function currentTheme(): 'night' | 'day' {
     return 'night'
   }
 }
-
 function hapticsEnabled(): boolean {
   try {
     return localStorage.getItem(HAPTICS_KEY) !== 'false'
@@ -58,22 +61,34 @@ export default function Settings() {
   return (
     <div className="page">
       <header className="page-header">
-        <p className="eyebrow">SETTINGS</p>
+        <h1 className="eyebrow">SETTINGS</h1>
       </header>
 
       {session.status === 'signed-in' && <Profile uid={session.user.uid} />}
-      {session.status === 'signed-in' && <YourPeople uid={session.user.uid} />}
+      {session.status === 'signed-in' && <YourPeople />}
+      {session.status === 'signed-in' && (
+        <DataAndAccount key={session.user.uid} uid={session.user.uid} />
+      )}
 
       <ul className="settings-list">
         <li className="settings-row">
           <span className="t-body">Theme</span>
-          <button className="pill pill-ghost press" onClick={toggleTheme}>
+          <button
+            className="pill pill-ghost press"
+            aria-label={`Theme: ${theme}. Switch to ${theme === 'night' ? 'day' : 'night'}.`}
+            onClick={toggleTheme}
+          >
             {theme === 'night' ? 'Night' : 'Day'}
           </button>
         </li>
         <li className="settings-row">
           <span className="t-body">Haptics</span>
-          <button className="pill pill-ghost press" onClick={toggleHaptics}>
+          <button
+            className="pill pill-ghost press"
+            aria-label="Haptics"
+            aria-pressed={buzz}
+            onClick={toggleHaptics}
+          >
             {buzz ? 'On' : 'Off'}
           </button>
         </li>
@@ -96,7 +111,11 @@ export default function Settings() {
         </li>
       </ul>
 
-      <p className="eyebrow attribution settings-foot">PLACE DATA BY GOOGLE</p>
+      <footer className="settings-foot legal-links">
+        <Link to="/terms">Terms</Link>
+        <Link to="/privacy">Privacy</Link>
+        <span className="gmp-attribution" translate="no">Google Maps</span>
+      </footer>
     </div>
   )
 }
@@ -104,44 +123,100 @@ export default function Settings() {
 function Profile({ uid }: { uid: string }) {
   const qc = useQueryClient()
   const { data: userDoc } = useUserDoc()
+  const prototype = prototypeKind() === 'group'
   const savedName = userDoc?.displayName ?? ''
   const avatarHex = userDoc?.avatarHex ?? avatarHexFor(uid)
 
   const [name, setName] = useState(savedName)
+  const [profileBusy, setProfileBusy] = useState(false)
+  const [profileRecovery, setProfileRecovery] = useState<ProfilePatch | null>(null)
   const dirty = useRef(false)
+  const responseLost = useRef(false)
+  const recoveryButtonRef = useRef<HTMLButtonElement>(null)
   useEffect(() => { if (!dirty.current) setName(savedName) }, [savedName])
+  useLayoutEffect(() => {
+    if (!profileRecovery || profileBusy) return
+    const button = recoveryButtonRef.current
+    if (button && !button.disabled) button.focus()
+  }, [profileBusy, profileRecovery])
 
-  const patch = (p: { displayName?: string; avatarHex?: string }) => {
-    // Optimistic: the Avatar + swatches read from the cache, so reflect the
-    // change now, then persist; revert + warn if the write fails.
+  const persist = async (p: ProfilePatch) => {
+    if (!prototype) {
+      await updateProfile(p)
+      return
+    }
+
+    const key = prototypeProfileStorageKey(uid)
+    const raw = window.sessionStorage.getItem(key)
+    let stored: (UserDoc & { committedAt?: number }) | null = null
+    try { stored = raw ? JSON.parse(raw) as UserDoc & { committedAt?: number } : null } catch { /* replace malformed fixture state */ }
+    const exact = stored && Object.entries(p).every(([field, value]) => stored?.[field as keyof UserDoc] === value)
+    const next = { ...(qc.getQueryData<UserDoc>(['userDoc', uid]) ?? {}), ...p }
+    if (!exact) window.sessionStorage.setItem(key, JSON.stringify({ ...next, committedAt: Date.now() }))
+    qc.setQueryData<UserDoc>(['userDoc', uid], next)
+    if (prototypeFailure('profile-save-response') && !responseLost.current) {
+      responseLost.current = true
+      throw new Error('prototype ambiguous profile response')
+    }
+  }
+
+  const patch = async (p: ProfilePatch) => {
+    if (profileBusy) return
     const prev = qc.getQueryData<UserDoc>(['userDoc', uid])
+    setProfileBusy(true)
     qc.setQueryData<UserDoc>(['userDoc', uid], d => ({ ...(d ?? {}), ...p }))
-    void updateProfile(p)
-      .then(() => qc.invalidateQueries({ queryKey: ['userDoc'] }))
-      .catch(() => {
-        qc.setQueryData<UserDoc>(['userDoc', uid], prev)
-        haptics.warn()
-        showToast({ kind: 'notice', text: "Couldn't save — try again" })
-      })
+    try {
+      await persist(p)
+      setProfileRecovery(null)
+      if (!prototype) void qc.invalidateQueries({ queryKey: ['userDoc'] })
+    } catch {
+      qc.setQueryData<UserDoc>(['userDoc', uid], prev)
+      if (p.displayName) setName(prev?.displayName ?? savedName)
+      setProfileRecovery(p)
+      haptics.warn()
+    } finally {
+      setProfileBusy(false)
+    }
   }
 
   const commitName = () => {
-    if (!dirty.current) return
+    if (!dirty.current || profileBusy || profileRecovery) return
     dirty.current = false
     const trimmed = name.trim()
     if (!trimmed || trimmed === savedName) { setName(savedName); return }
-    patch({ displayName: trimmed })
+    void patch({ displayName: trimmed })
   }
 
   const setColor = (hex: string) => {
-    if (hex === avatarHex) return
+    if (hex === avatarHex || profileBusy || profileRecovery) return
     haptics.tap()
-    patch({ avatarHex: hex })
+    void patch({ avatarHex: hex })
   }
 
+  const locked = profileBusy || Boolean(profileRecovery)
+  const recoveryDescription = profileRecovery?.displayName
+    ? `your name changed to “${profileRecovery.displayName}”`
+    : 'your avatar changed to the selected color'
+
   return (
-    <section className="you-profile">
+    <section className="you-profile" aria-label="Your profile">
       <p className="eyebrow section-label">YOU</p>
+      {profileRecovery && (
+        <div className="closeup-data-warning" role="alert" aria-label="Profile change not confirmed">
+          <span>
+            <strong className="t-row-title">Profile change not confirmed.</strong>
+            <span className="t-small">
+              Your profile still shows its last confirmed state. We couldn’t confirm whether {recoveryDescription}. Checking again repeats only that exact change; it cannot change your groups or Keep.
+            </span>
+          </span>
+          <button
+            ref={recoveryButtonRef}
+            className="pill pill-primary press"
+            disabled={profileBusy}
+            onClick={() => void patch(profileRecovery)}
+          >{profileBusy ? 'Checking…' : 'Check profile'}</button>
+        </div>
+      )}
       <div className="you-head">
         <Avatar name={name || 'You'} hex={avatarHex} size={48} />
         <input
@@ -152,6 +227,7 @@ function Profile({ uid }: { uid: string }) {
           placeholder="Your name"
           aria-label="Your name"
           maxLength={30}
+          disabled={locked}
         />
       </div>
       <div className="avatar-swatches" role="group" aria-label="Avatar color">
@@ -162,6 +238,7 @@ function Profile({ uid }: { uid: string }) {
             style={{ background: hex }}
             aria-label={`Avatar color ${hex}`}
             aria-pressed={avatarHex === hex}
+            disabled={locked}
             onClick={() => setColor(hex)}
           />
         ))}
@@ -170,64 +247,14 @@ function Profile({ uid }: { uid: string }) {
   )
 }
 
-function YourPeople({ uid }: { uid: string }) {
-  const qc = useQueryClient()
-  const { data: userDoc } = useUserDoc()
-  const following = userDoc?.following ?? []
-  const [copied, setCopied] = useState(false)
-
-  const { data: people } = useQuery({
-    queryKey: ['followingUsers', following],
-    enabled: following.length > 0,
-    staleTime: 5 * 60_000,
-    queryFn: () => fetchUsers(following),
-  })
-
-  const inviteLink = `${window.location.origin}/i/${uid}`
-
-  const copy = async () => {
-    haptics.tap()
-    try {
-      await navigator.clipboard.writeText(inviteLink)
-      setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
-    } catch {
-      // Clipboard blocked (insecure context / permissions) — surface the link
-      // so it can still be copied by hand rather than silently failing.
-      window.prompt('Copy your invite link', inviteLink)
-    }
-  }
-
-  const drop = async (otherUid: string) => {
-    haptics.tap()
-    await unfollow(otherUid)
-    void qc.invalidateQueries({ queryKey: ['userDoc'] })
-    void qc.invalidateQueries({ queryKey: ['friendFeed'] })
-  }
-
+function YourPeople() {
   return (
     <section className="your-people">
-      <p className="eyebrow section-label">YOUR PEOPLE</p>
-      <button className="pill pill-primary press invite-copy" onClick={() => void copy()}>
-        {copied ? 'Link copied ✓' : 'Copy your invite link'}
-      </button>
+      <p className="eyebrow section-label">YOUR GROUPS</p>
+      <Link className="pill pill-primary press invite-copy" to="/together">Manage in Together</Link>
       <p className="t-small invite-hint">
-        Whoever opens it sees where you go — and you see them.
+        Create invitations inside a group, where you can see exactly who will share its taste evidence.
       </p>
-
-      {following.length > 0 && (
-        <ul className="people-list">
-          {(people ?? following.map(u => ({ uid: u, displayName: 'Someone', avatarHex: '#5A6B8E' }))).map(p => (
-            <li key={p.uid} className="people-row">
-              <Avatar name={p.displayName} hex={p.avatarHex} size={32} />
-              <span className="people-name t-body">{p.displayName}</span>
-              <button className="toast-ghost press" onClick={() => void drop(p.uid)}>
-                remove
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
     </section>
   )
 }

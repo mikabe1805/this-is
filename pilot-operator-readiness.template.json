@@ -1,0 +1,39 @@
+{
+  "schemaVersion": 1,
+  "operator": {
+    "identityNotice": "REPLACE_WITH_PARTICIPANT_FACING_OPERATOR_IDENTITY",
+    "participantContact": "REPLACE_WITH_REVIEWED_SUPPORT_CHANNEL",
+    "languageReviewerRole": "REPLACE_WITH_LANGUAGE_REVIEWER_ROLE",
+    "incidentOwnerRole": "REPLACE_WITH_INCIDENT_OWNER_ROLE"
+  },
+  "researchWindow": {
+    "startsOn": "YYYY-MM-DD",
+    "endsOn": "YYYY-MM-DD",
+    "withdrawalDeadline": "YYYY-MM-DD",
+    "rawDataDeleteBy": "YYYY-MM-DD"
+  },
+  "compensationNotice": "REPLACE_WITH_REVIEWED_COMPENSATION_NOTICE",
+  "temporaryCapture": {
+    "systemDescription": "REPLACE_WITH_ACCESS_CONTROLLED_CAPTURE_SYSTEM",
+    "accessRoles": [
+      "REPLACE_WITH_AUTHORIZED_ROLE"
+    ],
+    "deletionOwnerRole": "REPLACE_WITH_DELETION_OWNER_ROLE",
+    "productionDataExcluded": false,
+    "deletionRehearsed": false,
+    "deletionRehearsedOn": "YYYY-MM-DD"
+  },
+  "participantBoundary": {
+    "adultsOnlyPolicyConfirmed": false,
+    "passiveLocationExcluded": false,
+    "contactUploadExcluded": false,
+    "privateChatHistoryExcluded": false,
+    "backgroundGoogleEnrichmentExcluded": false
+  },
+  "review": {
+    "participantLanguageReviewed": false,
+    "reviewedOn": "YYYY-MM-DD",
+    "approvedForContact": false,
+    "approvedOn": "YYYY-MM-DD"
+  }
+}

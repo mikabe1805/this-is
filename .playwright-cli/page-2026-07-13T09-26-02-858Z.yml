@@ -1,0 +1,20 @@
+- main [ref=f2e54]:
+  - generic [ref=f2e55]:
+    - button "← BACK" [ref=f2e56] [cursor=pointer]
+    - generic [ref=f2e57]:
+      - generic "Mika, Vivian" [ref=f2e58]:
+        - generic [ref=f2e59]: M
+        - generic [ref=f2e60]: V
+      - paragraph [ref=f2e61]: 2 PEOPLE · EMPTY TABLE
+    - region "Group membership audience" [ref=f2e62]:
+      - paragraph [ref=f2e63]: AUDIENCE FIXED · 2 PEOPLE
+      - paragraph [ref=f2e64]: Invites are closed. Shared evidence stays with these 2 people.
+    - generic [ref=f2e65]:
+      - heading "Nothing honest fits yet." [level=2] [ref=f2e66]
+      - paragraph [ref=f2e67]: Nobody has shared a place with this group yet. Membership alone never exposes private taste.
+      - generic [ref=f2e68]:
+        - button "Add a place" [ref=f2e69] [cursor=pointer]
+        - button "Edit Quick start" [ref=f2e70] [cursor=pointer]
+    - region "Group membership controls" [ref=f2e71]:
+      - paragraph [ref=f2e72]: Your personal Keep stays yours if you leave.
+      - button "Leave group" [ref=f2e73] [cursor=pointer]

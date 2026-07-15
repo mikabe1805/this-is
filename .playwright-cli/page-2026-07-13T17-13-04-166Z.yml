@@ -1,0 +1,5 @@
+- main [ref=e4]:
+  - generic [ref=e6]:
+    - paragraph [ref=e7]: WELCOME
+    - heading "First, it needs to be yours." [level=1] [ref=e8]
+    - button "Continue with Google" [ref=e9] [cursor=pointer]

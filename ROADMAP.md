@@ -1,5 +1,7 @@
 # this.is — Roadmap & UX Improvement Plan
 
+> **Historical v1 roadmap.** Do not implement new work from this file. The executable backlog is [`docs/product-reset/CURRENT_STATE.md`](docs/product-reset/CURRENT_STATE.md); canonical product work lives in [`v2/`](v2/).
+
 A research- and audit-driven plan for making this.is feel like a real, polished,
 loved app that people return to — while staying cheap to run. Generated from a
 full-codebase audit (every flow) plus research on what drives retention and

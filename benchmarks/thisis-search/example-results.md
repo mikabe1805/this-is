@@ -1,3 +1,5 @@
+> **HISTORICAL V1 AUDIT - NOT CURRENT PRODUCT AUTHORITY.** This file analyzes the retired root application. Preserve it as evidence, but do not use its goals, backlog, architecture, styling, or completion claims for canonical v2 work. See the repository documentation map at `docs/README.md`.
+
 # this.is Search Benchmark Results
 
 **Synthetic load test in staging. Results represent engineered baselines, not real-user traffic.**

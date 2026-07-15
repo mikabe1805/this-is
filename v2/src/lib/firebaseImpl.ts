@@ -8,22 +8,32 @@
  *  - This module is only ever reached through dynamic import (see authWatch
  *    and the data/ modules, all behind lazy routes) so the entry chunk stays
  *    free of the Firebase SDK and the shell paints before auth resolves.
- *  - Same Firebase project as v1 (`this-is-76332`); v2 lives in new
- *    subcollections (`users/{uid}/boards|pins`) and `g:`-prefixed place docs,
- *    so the two apps coexist until cutover.
+ *  - The target project is build-explicit. Local work is demo-emulator-only;
+ *    family alpha must use a separate project; the legacy project remains a
+ *    production cutover concern rather than a development default.
  */
 import { initializeApp } from 'firebase/app'
-import { getAuth } from 'firebase/auth'
+import { connectAuthEmulator, getAuth } from 'firebase/auth'
 import {
+  connectFirestoreEmulator,
   initializeFirestore,
   persistentLocalCache,
   persistentMultipleTabManager,
 } from 'firebase/firestore'
 
+const projectId = import.meta.env.VITE_FIREBASE_PROJECT_ID as string
+const emulatorBuild = import.meta.env.VITE_USE_FIREBASE_EMULATORS === 'true'
+const releaseChannel = import.meta.env.VITE_RELEASE_CHANNEL as string | undefined
+
+if (releaseChannel === 'family-alpha'
+  && (emulatorBuild || projectId === 'this-is-76332' || projectId === 'demo-this-is-v2')) {
+  throw new Error('Unsafe family-alpha Firebase target.')
+}
+
 const app = initializeApp({
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
   authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  projectId,
   storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
   messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
   appId: import.meta.env.VITE_FIREBASE_APP_ID,
@@ -34,5 +44,12 @@ export const auth = getAuth(app)
 export const db = initializeFirestore(app, {
   localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
 })
+
+// An explicit build flag lets the production bundle itself be exercised against
+// local services. Normal builds omit the flag and continue to use Firebase.
+if (emulatorBuild) {
+  connectAuthEmulator(auth, 'http://127.0.0.1:9199', { disableWarnings: true })
+  connectFirestoreEmulator(db, '127.0.0.1', 8180)
+}
 
 export default app

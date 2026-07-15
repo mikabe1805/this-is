@@ -1,4 +1,10 @@
 /**
+ * RETIRED — DO NOT RUN.
+ *
+ * This script persisted Google Text Search fields as a rehosted catalog. It
+ * remains only as historical evidence; curated product content must use an
+ * owned/open place source plus genuinely owner-authored observations.
+ *
  * Seed the CURATED catalog — the low-lit going-out rooms that ARE the product
  * (DIRECTION.md). This is a SCAFFOLD: it uses Google Text Search to pull REAL
  * venues in the launch metro, tags each with a scene + an example curator POV,
@@ -15,6 +21,8 @@
 import { readFileSync } from 'node:fs'
 import { resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
+
+throw new Error('Retired: Google Places results must not be seeded into a stored curated catalog.')
 
 const here = dirname(fileURLToPath(import.meta.url))
 const env = readFileSync(resolve(here, '../../.env.local'), 'utf8')

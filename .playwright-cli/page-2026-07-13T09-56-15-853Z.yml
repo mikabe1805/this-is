@@ -1,0 +1,20 @@
+- main [ref=e45]:
+  - generic [ref=e46]:
+    - button "← BACK" [ref=e47] [cursor=pointer]
+    - generic [ref=e48]:
+      - generic "Mika" [ref=e49]: M
+      - paragraph [ref=e51]: 1 PERSON · FAMILY SUNDAY
+      - generic [ref=e52]:
+        - heading "Invite your people. Nothing shared yet." [level=1] [ref=e53]: Invite your people.Nothing shared yet.
+        - paragraph [ref=e54]: The group begins when someone explicitly accepts.
+    - region "Group membership audience" [ref=e55]:
+      - paragraph [ref=e56]: MEMBERSHIP STILL OPEN
+      - paragraph [ref=e57]: Invite everyone first. The first Quick start or shared place fixes the accepted member list.
+    - region "Invite links you created" [ref=e58]:
+      - button "Make invite link" [ref=e59] [cursor=pointer]
+    - generic [ref=e60]:
+      - heading "Send the first invite." [level=2] [ref=e61]
+      - paragraph [ref=e62]: Create one invite link and send it in the chat you already use. Joining never requires place homework.
+    - region "Group membership controls" [ref=e63]:
+      - paragraph [ref=e64]: Your personal Keep stays yours if you leave.
+      - button "Leave group" [ref=e65] [cursor=pointer]

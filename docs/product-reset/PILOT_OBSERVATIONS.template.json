@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "pairs": [
+    {
+      "code": "P01",
+      "inviteVisibilityAndConsentPredicted": false,
+      "connectedWithoutRepair": false,
+      "truthfulCandidate": false,
+      "createdRealPick": false,
+      "returnedWithoutReminder": false,
+      "falseConsensusObserved": false,
+      "privateDisclosureObserved": false,
+      "members": [
+        { "reasonExplained": false },
+        { "reasonExplained": false }
+      ]
+    }
+  ]
+}

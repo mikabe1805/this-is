@@ -40,7 +40,9 @@ function preferenceAllows(): boolean {
 
 function iosBridge(): ((type: HapticType) => void) | null {
   try {
-    const handler = (window as any)?.webkit?.messageHandlers?.haptic
+    const handler = (window as Window & {
+      webkit?: { messageHandlers?: { haptic?: { postMessage: (type: HapticType) => void } } }
+    }).webkit?.messageHandlers?.haptic
     if (handler && typeof handler.postMessage === 'function') {
       return (type: HapticType) => handler.postMessage(type)
     }

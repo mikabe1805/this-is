@@ -1,45 +1,60 @@
-/**
- * Exorcise the v1 service worker.
- *
- * v2 ships NO service worker. But v1 registered an aggressive network-first SW
- * (`sw.js` via `register-sw.js`) that, once installed on an origin, keeps
- * intercepting every request and serving v1's cached bundle — so v2 never
- * loads. This bit the owner on localhost (v1 dev also used :5173) and would
- * bite every existing v1 user at prod cutover, since the SW lives on the real
- * domain until something unregisters it.
- *
- * On boot we unregister any controlling worker and drop the caches it owns.
- * The page currently controlled by the old SW needs ONE more reload to come
- * back fully clean; after that this keeps the origin SW-free. We deliberately
- * do NOT touch IndexedDB (that's Firestore's offline cache).
- */
+/** Replace v1's origin-wide worker with v2's bounded owned-asset shell.
+ * Development remains worker-free so a production cache can never mask HMR.
+ * Firestore's separate IndexedDB cache is deliberately untouched. */
 const RELOAD_FLAG = 'this-is:v2:sw-reloaded'
+const CANONICAL_WORKER_PATH = '/sw-v2.js'
+const CANONICAL_CACHE_PREFIX = 'this-is-v2-shell-'
 
-export function killLegacyServiceWorker(): void {
-  if (typeof navigator === 'undefined') return
+function workerPath(worker: ServiceWorker | null): string | null {
+  if (!worker) return null
+  try { return new URL(worker.scriptURL).pathname } catch { return null }
+}
+
+function registrationPath(registration: ServiceWorkerRegistration): string | null {
+  return workerPath(registration.active ?? registration.waiting ?? registration.installing)
+}
+
+async function clearCaches(preserveCanonical: boolean): Promise<void> {
+  if (typeof caches === 'undefined') return
+  const keys = await caches.keys()
+  await Promise.all(keys
+    .filter(key => !preserveCanonical || !key.startsWith(CANONICAL_CACHE_PREFIX))
+    .map(key => caches.delete(key)))
+}
+
+export async function prepareCanonicalServiceWorker(): Promise<void> {
+  if (typeof navigator === 'undefined' || !navigator.serviceWorker) return
   try {
-    navigator.serviceWorker?.getRegistrations().then(regs => {
-      let hadOne = false
-      for (const reg of regs) {
-        hadOne = true
-        void reg.unregister()
-      }
-      if (!hadOne) return
-      if (typeof caches !== 'undefined') {
-        void caches.keys().then(keys => keys.forEach(k => void caches.delete(k)))
-      }
-      // The dead SW still controls this page; reload once to escape it. A
-      // sessionStorage one-shot guarantees at most one auto-reload per tab, so
-      // a slow unregister can never spin into a reload loop.
+    const production = import.meta.env.PROD
+    const registrations = await navigator.serviceWorker.getRegistrations()
+    const obsolete = production
+      ? registrations.filter(registration => registrationPath(registration) !== CANONICAL_WORKER_PATH)
+      : registrations
+    const controllerMustGo = Boolean(navigator.serviceWorker.controller
+      && (!production || workerPath(navigator.serviceWorker.controller) !== CANONICAL_WORKER_PATH))
+
+    if (obsolete.length > 0) {
+      await Promise.all(obsolete.map(registration => registration.unregister()))
+    }
+    // A previously unregistered worker may still have left Cache Storage behind.
+    // Development owns no cache; production preserves only versioned v2 shell caches.
+    await clearCaches(production)
+
+    if (controllerMustGo) {
       const alreadyReloaded = (() => {
         try { return sessionStorage.getItem(RELOAD_FLAG) === '1' } catch { return true }
       })()
-      if (navigator.serviceWorker.controller && !alreadyReloaded) {
+      if (!alreadyReloaded) {
         try { sessionStorage.setItem(RELOAD_FLAG, '1') } catch { /* ignore */ }
         window.location.reload()
       }
-    }).catch(() => { /* SW API unavailable — nothing to clean */ })
+      return
+    }
+
+    if (!production) return
+    try { sessionStorage.removeItem(RELOAD_FLAG) } catch { /* ignore */ }
+    await navigator.serviceWorker.register(CANONICAL_WORKER_PATH, { scope: '/', updateViaCache: 'none' })
   } catch {
-    /* ignore */
+    // The online app remains usable when browser policy or private mode denies SW/cache access.
   }
 }

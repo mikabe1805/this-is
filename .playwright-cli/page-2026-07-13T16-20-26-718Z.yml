@@ -1,0 +1,115 @@
+- main [ref=e11]:
+  - generic [ref=e12]:
+    - button "← BACK" [ref=e13] [cursor=pointer]
+    - generic [ref=e14]:
+      - generic "Mika, Vivian, Ari" [ref=e15]:
+        - generic [ref=e16]: M
+        - generic [ref=e17]: V
+        - generic [ref=e18]: A
+      - paragraph [ref=e19]: 3 PEOPLE · CANDIDATE EVIDENCE LAB
+      - generic [ref=e20]:
+        - heading "Three places. Real reasons." [level=1] [ref=e21]: Three places.Real reasons.
+        - paragraph [ref=e22]: Support is counted. Missing taste stays unknown.
+    - region "Group membership audience" [ref=e23]:
+      - paragraph [ref=e24]: SHARING CIRCLE · 3 PEOPLE
+      - paragraph [ref=e25]: Invitations are closed. Shared taste belongs only to these 3 people.
+    - region [ref=e26]:
+      - paragraph [ref=e27]: WHO’S GOING?
+      - generic [ref=e28]:
+        - button "You" [disabled] [pressed] [ref=e29]:
+          - generic [ref=e30]: M
+        - button "Vivian" [pressed] [ref=e32] [cursor=pointer]:
+          - generic [ref=e33]: V
+        - button "Ari" [pressed] [ref=e35] [cursor=pointer]:
+          - generic [ref=e36]: A
+        - button "Guest" [ref=e38] [cursor=pointer]:
+          - generic [ref=e39]: +
+    - region [ref=e41]:
+      - paragraph [ref=e42]: WHAT FITS THIS TIME?
+      - generic [ref=e43]:
+        - button "Anything" [pressed] [ref=e44] [cursor=pointer]
+        - button "Food" [ref=e45] [cursor=pointer]
+        - button "Drinks" [ref=e46] [cursor=pointer]
+        - button "Coffee" [ref=e47] [cursor=pointer]
+      - group [ref=e48]:
+        - generic "PLAN DETAILS · OPTIONAL Area or one practical need" [ref=e49] [cursor=pointer]:
+          - generic [ref=e50]:
+            - generic [ref=e51]: PLAN DETAILS · OPTIONAL
+            - generic [ref=e52]: Area or one practical need
+          - generic [ref=e53]: +
+      - paragraph [ref=e54]: These 3 people’s shared taste · no location profile.
+    - region "Recommended places" [ref=e55]:
+      - article [ref=e56]:
+        - generic [ref=e57]:
+          - generic [ref=e58]:
+            - generic [ref=e59]: S
+            - generic [ref=e61]: NO PHOTO · PLACE MARK
+          - button "Supper Club selected for this plan" [active] [pressed] [ref=e127] [cursor=pointer]:
+            - generic [ref=e63]:
+              - generic [ref=e64]: KNOWN MATCH · 2 OF 3
+              - strong [ref=e65]: Supper Club
+              - generic [ref=e66]:
+                - generic [ref=e67]: Food place
+                - generic [ref=e68]: Cresskill, NJ
+              - generic [ref=e69]: A food place someone in this group deliberately kept.
+              - generic [ref=e70]: "Why for us: 2 of 3 want or love this."
+              - generic "Group-shared useful details" [ref=e71]:
+                - generic [ref=e72]:
+                  - generic [ref=e73]: Quiet enough to talk
+                  - generic [ref=e74]: "Mika + Vivian: yes"
+              - generic [ref=e75]: Hours, price, accessibility, and group fit are not verified here.
+            - generic [ref=e76]: Chosen ✓
+        - generic [ref=e77]:
+          - group [ref=e78]:
+            - 'button "How this card knows: Supper Club" [ref=e79] [cursor=pointer]': How this card knows +
+          - 'button "Not for us: Supper Club" [ref=e80] [cursor=pointer]': Not for us
+      - article [ref=e81]:
+        - generic [ref=e82]:
+          - generic [ref=e83]:
+            - generic [ref=e84]: G
+            - generic [ref=e86]: NO PHOTO · PLACE MARK
+          - button "Choose Glass House for this plan" [ref=e87] [cursor=pointer]:
+            - generic [ref=e88]:
+              - generic [ref=e89]: MEMBER INTRODUCTION · 1 OF 3
+              - strong [ref=e90]: Glass House
+              - generic [ref=e91]: Activity
+              - generic [ref=e93]: Something to do that a group member deliberately kept.
+              - generic [ref=e94]: "Why for us: Ari loved this; 2 people haven’t weighed in."
+              - generic [ref=e95]:
+                - generic [ref=e96]: “Ari would bring the group here.”
+                - generic [ref=e97]: — Ari
+              - generic [ref=e98]: Hours, price, accessibility, and group fit are not verified here.
+            - generic [ref=e99]: Choose →
+        - generic [ref=e100]:
+          - group [ref=e101]:
+            - 'button "How this card knows: Glass House" [ref=e102] [cursor=pointer]': How this card knows +
+          - 'button "Not for us: Glass House" [ref=e103] [cursor=pointer]': Not for us
+      - article [ref=e104]:
+        - generic [ref=e105]:
+          - generic [ref=e106]:
+            - generic [ref=e107]: "N"
+            - generic [ref=e109]: NO PHOTO · PLACE MARK
+          - button "Choose Nightjar Coffee for this plan" [ref=e110] [cursor=pointer]:
+            - generic [ref=e111]:
+              - generic [ref=e112]: WEAK FIT · 1 EXACT SIGNAL + 1 HINT
+              - strong [ref=e113]: Nightjar Coffee
+              - generic [ref=e114]: Coffee place
+              - generic [ref=e116]: A coffee place someone in this group deliberately kept.
+              - generic [ref=e117]: "Why for us: Mika wants this; it fits Vivian's coffee hint."
+              - generic [ref=e118]: Hours, price, accessibility, and group fit are not verified here.
+            - generic [ref=e119]: Choose →
+        - generic [ref=e120]:
+          - group [ref=e121]:
+            - 'button "How this card knows: Nightjar Coffee" [ref=e122] [cursor=pointer]': How this card knows +
+          - 'button "Not for us: Nightjar Coffee" [ref=e123] [cursor=pointer]': Not for us
+    - complementary "Selected place confirmation" [ref=e128]:
+      - generic [ref=e129]:
+        - paragraph [ref=e130]: SELECTED FOR THIS PLAN
+        - strong [ref=e131]: Supper Club
+        - paragraph [ref=e132]: 2 of 3 want or love this.
+      - generic [ref=e133]:
+        - button "Make this the Pick" [ref=e134] [cursor=pointer]
+        - button "Choose another" [ref=e135] [cursor=pointer]
+    - region "Group membership controls" [ref=e124]:
+      - paragraph [ref=e125]: Your personal Keep stays yours if you leave.
+      - button "Leave group" [ref=e126] [cursor=pointer]

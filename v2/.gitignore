@@ -1,4 +1,10 @@
 node_modules
 dist
+.emulator-dist
+.zero-api-dist
+.family-alpha-dist
+.family-alpha-rules
+.domain-test
+firestore-debug.log
 *.local
 .DS_Store

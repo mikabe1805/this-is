@@ -1,5 +1,7 @@
 # Application Development Roadmap
 
+> **Archived v1 task list.** These items describe the pre-reset social platform and are not the current backlog. See [`docs/product-reset/CURRENT_STATE.md`](docs/product-reset/CURRENT_STATE.md) for the executable backlog.
+
 This document outlines the planned features and development phases for the application.
 
 ## ✅ **RECENTLY COMPLETED FIXES**

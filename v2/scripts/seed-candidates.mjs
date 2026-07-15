@@ -1,4 +1,12 @@
 /**
+ * RETIRED — DO NOT RUN.
+ *
+ * This script persisted and rehosted Google Places names, addresses, types,
+ * and coordinates as a public catalog. Google's current Places caching policy
+ * permits durable Place IDs and temporary lat/lng caching, not this catalog
+ * posture. It remains only as historical evidence until the owned/open-data
+ * replacement and any existing-data retirement are reviewed.
+ *
  * Seed the city candidate pools — the composer, run by hand.
  *
  * This is what makes the app non-empty: a one-shot (re-runnable, ≤30-day
@@ -19,6 +27,8 @@
 import { readFileSync } from 'node:fs'
 import { resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
+
+throw new Error('Retired: Google Places results must not be seeded into a stored public catalog.')
 
 const here = dirname(fileURLToPath(import.meta.url))
 const env = readFileSync(resolve(here, '../../.env.local'), 'utf8')

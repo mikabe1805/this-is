@@ -1,0 +1,28 @@
+- main [ref=f2e184]:
+  - generic [ref=f2e185]:
+    - button "← BACK" [ref=f2e186] [cursor=pointer]
+    - generic [ref=f2e187]:
+      - generic "Mika, Vivian" [ref=f2e188]:
+        - generic [ref=f2e189]: M
+        - generic [ref=f2e190]: V
+      - paragraph [ref=f2e191]: 2 PEOPLE · EMPTY TABLE
+    - region [ref=f2e192]:
+      - paragraph [ref=f2e193]: QUICK START · OPTIONAL
+      - heading "Give Empty Table one light hint." [level=2] [ref=f2e194]
+      - paragraph [ref=f2e195]: No place comes to mind? Choose Food, Coffee, or Things to do. A hint helps only when someone else shares a matching place; it is not a Want or Love.
+      - group "WHAT KIND USUALLY SOUNDS GOOD?" [ref=f2e196]:
+        - generic [ref=f2e198]:
+          - button "Food" [ref=f2e199] [cursor=pointer]
+          - button "Coffee" [pressed] [ref=f2e200] [cursor=pointer]
+          - button "Things to do" [ref=f2e201] [cursor=pointer]
+      - group [ref=f2e202]:
+        - button "Plan-fit hints for later" [ref=f2e203] [cursor=pointer]:
+          - generic [ref=f2e204]:
+            - generic [ref=f2e205]: PLAN-FIT HINTS · OPTIONAL FOR LATER
+            - generic [ref=f2e206]: Quiet, casual, outdoors, and more
+          - generic [ref=f2e207]: +
+      - paragraph [ref=f2e208]: Visible only to Mika, Vivian. Sharing this hint closes invitations for this group.
+      - generic [ref=f2e209]:
+        - button "Share hint" [ref=f2e210] [cursor=pointer]
+        - button "Back" [ref=f2e211] [cursor=pointer]
+        - button "Remove my hints" [ref=f2e212] [cursor=pointer]

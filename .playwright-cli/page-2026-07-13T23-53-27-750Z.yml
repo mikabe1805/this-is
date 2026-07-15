@@ -1,0 +1,91 @@
+- main [ref=f1e11]:
+  - generic [ref=f1e12]:
+    - button "← BACK" [ref=f1e13] [cursor=pointer]
+    - generic [ref=f1e14]:
+      - generic "Mika, Vivian, Ari" [ref=f1e15]:
+        - generic [ref=f1e16]: M
+        - generic [ref=f1e17]: V
+        - generic [ref=f1e18]: A
+      - paragraph [ref=f1e19]: 3 PEOPLE · CANDIDATE EVIDENCE LAB
+      - generic [ref=f1e20]:
+        - heading "Two places. Real reasons." [level=1] [ref=f1e142]: Two places.Real reasons.
+        - paragraph [ref=f1e22]: Support is counted. Missing taste stays unknown.
+    - region "Group membership audience" [ref=f1e23]:
+      - paragraph [ref=f1e24]: SHARING CIRCLE · 3 PEOPLE
+      - paragraph [ref=f1e25]: Invitations are closed. Shared taste belongs only to these 3 people.
+    - region [ref=f1e26]:
+      - paragraph [ref=f1e27]: WHO’S GOING?
+      - generic [ref=f1e28]:
+        - button "You" [disabled] [pressed] [ref=f1e29]:
+          - generic [ref=f1e30]: M
+        - button "Vivian" [pressed] [ref=f1e32] [cursor=pointer]:
+          - generic [ref=f1e33]: V
+        - button "Ari" [pressed] [ref=f1e35] [cursor=pointer]:
+          - generic [ref=f1e36]: A
+        - button "Guest" [ref=f1e38] [cursor=pointer]:
+          - generic [ref=f1e39]: +
+    - region [ref=f1e41]:
+      - paragraph [ref=f1e42]: WHAT FITS THIS TIME?
+      - generic [ref=f1e43]:
+        - button "Anything" [pressed] [ref=f1e44] [cursor=pointer]
+        - button "Food" [ref=f1e45] [cursor=pointer]
+        - button "Drinks" [ref=f1e46] [cursor=pointer]
+        - button "Coffee" [ref=f1e47] [cursor=pointer]
+      - group [ref=f1e48]:
+        - generic "PLAN DETAILS · OPTIONAL Area or one practical need" [ref=f1e49] [cursor=pointer]:
+          - generic [ref=f1e50]:
+            - generic [ref=f1e51]: PLAN DETAILS · OPTIONAL
+            - generic [ref=f1e52]: Area or one practical need
+          - generic [ref=f1e53]: +
+      - paragraph [ref=f1e54]: These 3 people’s shared taste · no location profile.
+    - region "Places passed on in this draft" [ref=f1e143]:
+      - paragraph [ref=f1e144]: THIS DRAFT
+      - generic [ref=f1e145]:
+        - generic [ref=f1e146]:
+          - generic [ref=f1e147]: Mika passed
+          - text: on Supper Club.
+        - button "Undo" [active] [ref=f1e148] [cursor=pointer]
+      - paragraph [ref=f1e149]: Visible here only. Nobody’s Keep history changed.
+    - region "Recommended places" [ref=f1e55]:
+      - article [ref=f1e81]:
+        - generic [ref=f1e82]:
+          - generic [ref=f1e83]:
+            - generic [ref=f1e84]: G
+            - generic [ref=f1e86]: NO PHOTO · PLACE MARK
+          - button "Choose Glass House for this plan" [ref=f1e87] [cursor=pointer]:
+            - generic [ref=f1e88]:
+              - generic [ref=f1e89]: MEMBER INTRODUCTION · 1 OF 3
+              - strong [ref=f1e90]: Glass House
+              - generic [ref=f1e91]: Activity
+              - generic [ref=f1e93]: Something to do that a group member deliberately kept.
+              - generic [ref=f1e94]: "Why for us: Ari loved this; 2 people haven’t weighed in."
+              - generic [ref=f1e95]:
+                - generic [ref=f1e96]: “Ari would bring the group here.”
+                - generic [ref=f1e97]: — Ari
+              - generic [ref=f1e98]: Hours, price, accessibility, and group fit are not verified here.
+            - generic [ref=f1e99]: Choose →
+        - generic [ref=f1e100]:
+          - group [ref=f1e101]:
+            - 'button "How this card knows: Glass House" [ref=f1e102] [cursor=pointer]': How this card knows +
+          - 'button "Not for us: Glass House" [ref=f1e103] [cursor=pointer]': Not for us
+      - article [ref=f1e104]:
+        - generic [ref=f1e105]:
+          - generic [ref=f1e106]:
+            - generic [ref=f1e107]: "N"
+            - generic [ref=f1e109]: NO PHOTO · PLACE MARK
+          - button "Choose Nightjar Coffee for this plan" [ref=f1e110] [cursor=pointer]:
+            - generic [ref=f1e111]:
+              - generic [ref=f1e112]: WEAK FIT · 1 EXACT SIGNAL + 1 HINT
+              - strong [ref=f1e113]: Nightjar Coffee
+              - generic [ref=f1e114]: Coffee place
+              - generic [ref=f1e116]: A coffee place someone in this group deliberately kept.
+              - generic [ref=f1e117]: "Why for us: Mika wants this; it fits Vivian's coffee hint."
+              - generic [ref=f1e118]: Hours, price, accessibility, and group fit are not verified here.
+            - generic [ref=f1e119]: Choose →
+        - generic [ref=f1e120]:
+          - group [ref=f1e121]:
+            - 'button "How this card knows: Nightjar Coffee" [ref=f1e122] [cursor=pointer]': How this card knows +
+          - 'button "Not for us: Nightjar Coffee" [ref=f1e123] [cursor=pointer]': Not for us
+    - region "Group membership controls" [ref=f1e124]:
+      - paragraph [ref=f1e125]: Your personal Keep stays yours if you leave.
+      - button "Leave group" [ref=f1e126] [cursor=pointer]

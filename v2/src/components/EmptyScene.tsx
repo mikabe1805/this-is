@@ -1,18 +1,11 @@
-/**
- * The bare wall — the art-directed empty state: one picture light switched on
- * over a lone hook, a pool of warm light on nothing. Inline SVG (the generated
- * asset batch replaces this in W4+); emptiness should feel like anticipation,
- * not failure. Colors are theme tokens (see .empty-scene in components.css) so
- * the scene reads on both the oxblood night canvas and the rose-plaster day one
- * — in daylight the picture-light inverts to a madder pool of gravity.
- */
+/** A quiet, art-directed empty state. The spoken label stays literal. */
 export function EmptyScene() {
   return (
     <svg
       className="empty-scene"
       viewBox="0 0 260 180"
       role="img"
-      aria-label="An empty wall with a picture light waiting over a hook"
+      aria-label="No places in Keep yet"
     >
       <defs>
         <radialGradient id="es-glow" cx="50%" cy="0%" r="95%">

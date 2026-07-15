@@ -1,5 +1,11 @@
 # READS.md — scoping the friend graph (the #1 launch blocker)
 
+> **HISTORICAL - RESOLVED BY THE PAIR RESET.** This proposal describes the retired public-read
+> friend graph. Canonical authorization is implemented in [`../firestore.rules`](../firestore.rules),
+> tested by [`../tests/firestore-rules.mjs`](../tests/firestore-rules.mjs), and governed by
+> [`../../docs/product-reset/UX_ARCHITECTURE.md`](../../docs/product-reset/UX_ARCHITECTURE.md).
+> Do not implement the alternative schemas proposed below.
+
 *Design for restricting who can read the friend graph, before a real (non-demo) launch.
 Companion to `GOOGLE.md`. Status: **proposed — owner decision required** before implementing.
 Roadmap ref: `ROADMAP.md` Next-#2.*

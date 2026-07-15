@@ -1,10 +1,10 @@
 /**
  * The v2 place model — small enough to hold in one head.
  *
- * Identity law: every place is keyed by its Google place_id as `g:{pid}`,
- * everywhere (place docs, save doc IDs `{uid}__g:{pid}`, routes). There is no
- * second namespace, no fingerprint matching. The FSQ/MapLibre escape hatch
- * stays a one-script migration against this key.
+ * Current pair implementation keys saved routes by Google place_id as
+ * `g:{pid}`. The approved replacement catalog uses owned `o:{GERS id}`
+ * profiles plus an opaque Google Place ID alias; see domain/openCatalog.ts.
+ * Do not add more durable Google-derived facts to this legacy snapshot shape.
  *
  * The friend-graph shapes live next to their queries: a save's `PlaceSnapshot`
  * and `FriendSave` in `data/social.ts`, the write-side `SaveablePlace` in
@@ -26,21 +26,10 @@ export interface PlaceDoc {
   coordsFetchedAt?: number
   photoHex: string
   savedCount: number
-  /** The FSQ OS Places shadow key (docs/GOOGLE.md, decision 6) — written by
-   *  an offline conflation job; keeps the open-catalog escape hatch a
-   *  weeks-not-months migration. */
+  /** Legacy unimplemented FSQ shadow-key proposal. Do not populate; the open
+   * catalog decision now requires an explicit owned ID + provenance record. */
   fsqId?: string
 
-  // ── Curation (the premium layer; FRIENDS.md Layer 1 alongside the friend
-  //    graph). Curated docs live in `curated/`; uncurated geo-cell candidates
-  //    in `cities/{cell}/candidates/` are the honestly-labeled Layer-2 scaffold. ──
-  /** Hand-curated venue in a launch scene. */
-  curated?: boolean
-  /** The curator's one-line take — the card hero on a curated room. */
-  curatorPOV?: string
-  /** Owner-owned ambiance photo paths (Firebase Storage). When present these
-   *  are the grid image; absent → live Google fallback → hex plate. */
-  ownedPhotoPath?: string[]
 }
 
 export const gid = (placeId: string): string =>

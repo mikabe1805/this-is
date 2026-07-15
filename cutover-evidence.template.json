@@ -1,0 +1,66 @@
+{
+  "schemaVersion": 3,
+  "projectId": "REPLACE_WITH_FIREBASE_PROJECT_ID",
+  "approval": {
+    "approved": false,
+    "approvedAt": null,
+    "cutoverOwner": "REPLACE",
+    "rollbackOwner": "REPLACE"
+  },
+  "pilot": {
+    "decision": "REPLACE",
+    "pairCount": 0,
+    "reportSha256": "REPLACE",
+    "completedAt": null,
+    "trustFailures": 0
+  },
+  "groupPilot": {
+    "decision": "REPLACE",
+    "circleCount": 0,
+    "establishedGroupCount": 0,
+    "pairControlCount": 0,
+    "coldComparisonCount": 0,
+    "reportSha256": "REPLACE",
+    "completedAt": null,
+    "trustFailures": 0
+  },
+  "migration": {
+    "intendedAccountCount": 0,
+    "reconciledAccountCount": 0,
+    "unresolvedManualReview": 0,
+    "planSha256": "REPLACE",
+    "reviewedAt": null
+  },
+  "liveRules": {
+    "rulesetId": "REPLACE",
+    "verifiedAt": null,
+    "prototypeBackdoorAbsent": false
+  },
+  "ttl": {
+    "policyReviewed": false,
+    "reviewedAt": null,
+    "postDeployVerificationOwner": "REPLACE",
+    "deletionDelayMetricPlanned": false
+  },
+  "costControls": {
+    "photoMode": "REPLACE_WITH_fallback_only_OR_budgeted_proxy",
+    "monthlyPhotoLimit": 0,
+    "serverCounterVerified": false,
+    "remoteKillSwitchVerified": false,
+    "placesQuotaReviewed": false,
+    "apiKeyRestrictionsReviewed": false,
+    "billingAlertsConfigured": false,
+    "skuTelemetryVerified": false,
+    "reviewedAt": null
+  },
+  "rollback": {
+    "hostingReleaseId": "REPLACE",
+    "firestoreRulesetId": "REPLACE",
+    "rehearsedAt": null
+  },
+  "externalArchive": {
+    "manifestSha256": "REPLACE",
+    "preservedAt": null,
+    "activePathRetired": false
+  }
+}

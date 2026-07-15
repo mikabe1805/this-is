@@ -1,0 +1,66 @@
+- main [ref=f1e103]:
+  - generic [ref=f1e104]:
+    - button "← BACK" [ref=f1e105] [cursor=pointer]
+    - generic [ref=f1e106]:
+      - generic "Mika, Vivian, Ari, Dev" [ref=f1e107]:
+        - generic [ref=f1e108]: M
+        - generic [ref=f1e109]: V
+        - generic [ref=f1e110]: A
+        - generic [ref=f1e111]: D
+      - paragraph [ref=f1e112]: 4 PEOPLE · FAMILY SUNDAY
+      - generic [ref=f1e113]:
+        - heading "One place. A real reason." [level=1] [ref=f1e114]: One place.A real reason.
+        - paragraph [ref=f1e115]: Support is counted. Missing taste stays unknown.
+    - region "Group membership audience" [ref=f1e116]:
+      - paragraph [ref=f1e117]: SHARING CIRCLE · 4 PEOPLE
+      - paragraph [ref=f1e118]: Invitations are closed. Shared taste belongs only to these 4 people.
+    - region [ref=f1e119]:
+      - paragraph [ref=f1e120]: WHO’S GOING?
+      - generic [ref=f1e121]:
+        - button "You" [disabled] [pressed] [ref=f1e122]:
+          - generic [ref=f1e123]: M
+        - button "Vivian" [pressed] [ref=f1e125] [cursor=pointer]:
+          - generic [ref=f1e126]: V
+        - button "Ari" [pressed] [ref=f1e128] [cursor=pointer]:
+          - generic [ref=f1e129]: A
+        - button "Dev" [pressed] [ref=f1e131] [cursor=pointer]:
+          - generic [ref=f1e132]: D
+        - button "Guest" [ref=f1e134] [cursor=pointer]:
+          - generic [ref=f1e135]: +
+    - region [ref=f1e137]:
+      - paragraph [ref=f1e138]: WHAT FITS THIS TIME?
+      - generic [ref=f1e139]:
+        - button "Anything" [pressed] [ref=f1e140] [cursor=pointer]
+        - button "Food" [ref=f1e141] [cursor=pointer]
+        - button "Drinks" [ref=f1e142] [cursor=pointer]
+        - button "Coffee" [ref=f1e143] [cursor=pointer]
+      - group [ref=f1e144]:
+        - generic "PLAN DETAILS · OPTIONAL Area or one practical need" [ref=f1e145] [cursor=pointer]:
+          - generic [ref=f1e146]:
+            - generic [ref=f1e147]: PLAN DETAILS · OPTIONAL
+            - generic [ref=f1e148]: Area or one practical need
+          - generic [ref=f1e149]: +
+      - paragraph [ref=f1e150]: These 4 people’s shared taste · no location profile.
+      - button "Edit my Quick start" [ref=f1e151] [cursor=pointer]
+    - region "Recommended places" [ref=f1e152]:
+      - article [ref=f1e153]:
+        - generic [ref=f1e154]:
+          - generic [ref=f1e155]:
+            - generic [ref=f1e156]: "N"
+            - generic [ref=f1e158]: NO PHOTO · PLACE MARK
+          - button "Choose Nightjar Coffee for this plan" [ref=f1e159] [cursor=pointer]:
+            - generic [ref=f1e160]:
+              - generic [ref=f1e161]: WEAK FIT · 1 EXACT SIGNAL + 1 HINT
+              - strong [ref=f1e162]: Nightjar Coffee
+              - generic [ref=f1e163]: Coffee place
+              - generic [ref=f1e165]: A coffee place someone in this group deliberately kept.
+              - generic [ref=f1e166]: "Why for us: Vivian wants this; it fits Mika's coffee hint."
+              - generic [ref=f1e167]: Hours, price, accessibility, and group fit are not verified here.
+            - generic [ref=f1e168]: Choose →
+        - generic [ref=f1e169]:
+          - group [ref=f1e170]:
+            - 'button "How this card knows: Nightjar Coffee" [ref=f1e171] [cursor=pointer]': How this card knows +
+          - 'button "Not for us: Nightjar Coffee" [ref=f1e172] [cursor=pointer]': Not for us
+    - region "Group membership controls" [ref=f1e173]:
+      - paragraph [ref=f1e174]: Your personal Keep stays yours if you leave.
+      - button "Leave group" [ref=f1e175] [cursor=pointer]

@@ -1,0 +1,43 @@
+{
+  "schemaVersion": 1,
+  "provider": "overture",
+  "stage": "planned",
+  "release": {
+    "releaseId": "REPLACE_WITH_PINNED_RELEASE",
+    "schemaVersion": "REPLACE_WITH_PINNED_SCHEMA",
+    "stacCatalogUrl": "https://stac.overturemaps.org/catalog.json",
+    "placesUri": "REPLACE_WITH_MATCHING_PUBLIC_S3_PLACES_URI",
+    "normalizerContract": "open-catalog-v1"
+  },
+  "licenseLedger": {
+    "id": "REPLACE_WITH_REVIEWED_LEDGER_ID",
+    "reviewedAt": "REPLACE_WITH_REVIEWED_ISO_TIMESTAMP",
+    "reviewedByRole": "owner",
+    "artifacts": [
+      {
+        "url": "https://docs.overturemaps.org/attribution/",
+        "sha256": "REPLACE_WITH_REVIEWED_LOWERCASE_SHA256"
+      }
+    ]
+  },
+  "areaExtraction": {
+    "bbox": [0, 0, 0, 0],
+    "cellSizeDegrees": 0.05,
+    "maxCells": 400
+  },
+  "limits": {
+    "maxRawRows": 25000,
+    "maxAcceptedRows": 10000,
+    "maxArtifactBytes": 25000000
+  },
+  "privacy": {
+    "explicitPlanAreaOnly": true,
+    "persistAreaToPersonOrGroup": false,
+    "identityFieldsIncluded": false,
+    "runtimeProviderQuery": false
+  },
+  "activation": {
+    "appServingEnabled": false,
+    "deploymentAuthorized": false
+  }
+}

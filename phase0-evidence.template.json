@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 2,
+  "tier0": [
+    {
+      "code": "G01",
+      "materiallyBetterThanDefault": false,
+      "truthfulReasonNamed": false,
+      "privacyFailureObserved": false
+    }
+  ],
+  "tier1": [
+    {
+      "code": "G01",
+      "week1UnpromptedSaves": 0,
+      "week2UnpromptedSaves": 0,
+      "organizerConcentrationPercent": 0,
+      "usedAnswerForRealDecision": false,
+      "beatsDefault": false,
+      "startedSecondPlanWithoutReminder": false,
+      "privacyFailureObserved": false
+    }
+  ]
+}

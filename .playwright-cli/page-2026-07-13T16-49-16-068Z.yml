@@ -1,0 +1,15 @@
+- main [ref=e11]:
+  - generic [ref=e12]:
+    - button "← BACK" [ref=e13] [cursor=pointer]
+    - generic [ref=e14]:
+      - paragraph [ref=e15]: NEW GROUP
+      - heading "Give your group a name." [level=1] [ref=e16]
+      - paragraph [ref=e17]: Use the name already familiar in chat. Invite everyone before anyone shares taste.
+    - generic [ref=e18]:
+      - generic [ref=e19]: GROUP NAME
+      - textbox "GROUP NAME" [ref=e20]:
+        - /placeholder: Friday Table
+        - text: Friday Table
+      - paragraph [ref=e21]: Family, roommates, the coffee crew—whatever you already call them. Creating or joining a group never exposes personal Keep. The first Quick start or shared place fixes the accepted member list.
+      - button "Create group" [ref=e22] [cursor=pointer]
+      - alert [ref=e23]: That group wasn’t created. Nothing was shared—try again.

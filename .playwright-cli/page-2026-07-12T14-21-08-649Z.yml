@@ -1,0 +1,34 @@
+- main [ref=f4e82]:
+  - generic [ref=f4e83]:
+    - button "← BACK" [ref=f4e84] [cursor=pointer]
+    - generic [ref=f4e85]:
+      - generic "Mika, Vivian" [ref=f4e86]:
+        - generic [ref=f4e87]: M
+        - generic [ref=f4e88]: V
+      - paragraph [ref=f4e89]: 2 PEOPLE · EMPTY TABLE
+      - generic [ref=f4e90]:
+        - heading "Three places. Real reasons." [level=1] [ref=f4e91]: Three places.Real reasons.
+        - paragraph [ref=f4e92]: Support is counted. Missing taste stays unknown.
+    - region [ref=f4e93]:
+      - paragraph [ref=f4e94]: WHO’S GOING?
+      - generic [ref=f4e95]:
+        - button "You" [disabled] [pressed] [ref=f4e96]:
+          - generic [ref=f4e97]: M
+        - button "Vivian" [pressed] [ref=f4e99] [cursor=pointer]:
+          - generic [ref=f4e100]: V
+        - button "Guest" [ref=f4e102] [cursor=pointer]:
+          - generic [ref=f4e103]: +
+    - region [ref=f4e105]:
+      - paragraph [ref=f4e106]: WHAT FITS THIS TIME?
+      - generic [ref=f4e107]:
+        - button "Anything" [pressed] [ref=f4e108] [cursor=pointer]
+        - button "Food" [ref=f4e109] [cursor=pointer]
+        - button "Drinks" [ref=f4e110] [cursor=pointer]
+        - button "Coffee" [ref=f4e111] [cursor=pointer]
+      - paragraph [ref=f4e112]: Adapting to these 2 people’s shared taste. No location profile.
+    - generic [ref=f4e113]:
+      - heading "Nothing honest fits yet." [level=2] [ref=f4e114]
+      - paragraph [ref=f4e115]: Nobody has shared a place with this group yet. Membership alone never exposes private taste.
+      - generic [ref=f4e116]:
+        - button "Add a place" [ref=f4e117] [cursor=pointer]
+        - button "Quick start" [ref=f4e118] [cursor=pointer]

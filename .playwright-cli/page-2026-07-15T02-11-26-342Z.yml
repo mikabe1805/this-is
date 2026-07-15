@@ -1,0 +1,65 @@
+- generic [ref=e3]:
+  - main [ref=e11]:
+    - generic [ref=e33]:
+      - generic [ref=e35]:
+        - heading "DISCOVER FOR FAMILY SUNDAY" [level=1] [ref=e36]
+        - paragraph [ref=e37]: Google Maps
+      - region [ref=e38]:
+        - generic [ref=e39]:
+          - paragraph [ref=e40]: FROM YOUR KEEP · ONLY YOU
+          - heading "Start with something you already know." [level=2] [ref=e41]
+          - paragraph [ref=e42]: Only you can see these private memories here. Opening one shares nothing; Family Sunday is named again before you choose. Notes and useful details stay hidden here.
+        - list "Private Keep memories to review for Family Sunday" [ref=e43]:
+          - listitem [ref=e44]:
+            - button "Review Supper Club for sharing with Family Sunday" [ref=e45] [cursor=pointer]:
+              - generic [ref=e46]: ·
+              - generic [ref=e48]:
+                - generic [ref=e49]: WANT
+                - strong [ref=e50]: Supper Club
+                - generic [ref=e51]: Food · Cresskill, NJ
+              - generic [ref=e52]: Review →
+          - listitem [ref=e53]:
+            - button "Review Nightjar Coffee for sharing with Family Sunday" [ref=e54] [cursor=pointer]:
+              - generic [ref=e55]: ·
+              - generic [ref=e57]:
+                - generic [ref=e58]: WANT
+                - strong [ref=e59]: Nightjar Coffee
+                - generic [ref=e60]: Coffee
+              - generic [ref=e61]: Review →
+      - region [ref=e62]:
+        - paragraph [ref=e63]: TEMPORARY AREA · PRIVATE TASTE
+        - heading "Find somewhere worth keeping." [level=2] [ref=e64]
+        - paragraph [ref=e65]: Pick where this outing could happen. Your Want and Loved history only orders the directions below; the area is not saved as your location.
+        - complementary "Continuing Family Sunday plan" [ref=e66]:
+          - paragraph [ref=e67]: CONTINUING FAMILY SUNDAY PLAN
+          - strong [ref=e68]: 4 going
+          - paragraph [ref=e69]: This draft stays only in this open app. Choose a direction to search; nothing is sent or saved until you act.
+        - generic [ref=e70]:
+          - generic [ref=e71]: AREA FOR THIS SEARCH
+          - textbox "Area for discovery" [active] [ref=e72]:
+            - /placeholder: e.g. Cresskill, NJ
+        - group "What kind of place should we find?" [ref=e73]:
+          - button "Coffee 3 Wants in your Keep" [disabled] [ref=e74] [cursor=pointer]:
+            - strong [ref=e75]: Coffee
+            - generic [ref=e76]: 3 Wants in your Keep
+          - button "Food 1 Want in your Keep" [disabled] [ref=e77] [cursor=pointer]:
+            - strong [ref=e78]: Food
+            - generic [ref=e79]: 1 Want in your Keep
+          - button "Drinks 1 Want in your Keep" [disabled] [ref=e80] [cursor=pointer]:
+            - strong [ref=e81]: Drinks
+            - generic [ref=e82]: 1 Want in your Keep
+          - button "Things to do Try a different direction" [disabled] [ref=e83] [cursor=pointer]:
+            - strong [ref=e84]: Things to do
+            - generic [ref=e85]: Try a different direction
+        - generic [ref=e86]:
+          - paragraph [ref=e87]: ONE EXPLICIT SEARCH
+          - paragraph [ref=e88]: Private Keep only orders these prompts. Reviewing Want or Loved will name Family Sunday before this one place is shared.
+      - textbox "Or type your own place search…" [ref=e89]
+      - list
+  - navigation "Primary" [ref=e90]:
+    - link "TOGETHER" [ref=e91] [cursor=pointer]:
+      - /url: /together
+    - link "KEEP" [ref=e96] [cursor=pointer]:
+      - /url: /saved
+    - link "PEOPLE" [ref=e100] [cursor=pointer]:
+      - /url: /people

@@ -1,0 +1,20 @@
+- main [ref=f2e265]:
+  - generic [ref=f2e266]:
+    - button "← BACK" [ref=f2e267] [cursor=pointer]
+    - generic [ref=f2e268]:
+      - generic "Mika, Vivian" [ref=f2e269]:
+        - generic [ref=f2e270]: M
+        - generic [ref=f2e271]: V
+      - paragraph [ref=f2e272]: 2 PEOPLE · EMPTY TABLE
+    - region "Group membership audience" [ref=f2e273]:
+      - paragraph [ref=f2e274]: SHARING CIRCLE · 2 PEOPLE
+      - paragraph [ref=f2e275]: Invitations are closed. Shared taste belongs only to these 2 people.
+    - generic [ref=f2e276]:
+      - heading "Nothing honest fits yet." [level=2] [ref=f2e277]
+      - paragraph [ref=f2e278]: No one has shared a place or Quick start hint with this group. Nothing from anyone’s private Keep appears automatically.
+      - generic [ref=f2e279]:
+        - button "Add a place" [ref=f2e280] [cursor=pointer]
+        - button "Quick start" [ref=f2e281] [cursor=pointer]
+    - region "Group membership controls" [ref=f2e282]:
+      - paragraph [ref=f2e283]: Your personal Keep stays yours if you leave.
+      - button "Leave group" [ref=f2e284] [cursor=pointer]

@@ -1,0 +1,32 @@
+- main [ref=f2e11]:
+  - generic [ref=f2e12]:
+    - button "← BACK" [ref=f2e13] [cursor=pointer]
+    - generic [ref=f2e14]:
+      - generic "Mika" [ref=f2e15]: M
+      - paragraph [ref=f2e17]: 1 PERSON · FAMILY SUNDAY
+      - generic [ref=f2e18]:
+        - heading "Invite your people. Nothing shared yet." [level=1] [ref=f2e19]: Invite your people.Nothing shared yet.
+        - paragraph [ref=f2e20]: The group begins when someone explicitly accepts.
+    - region "Group membership audience" [ref=f2e21]:
+      - paragraph [ref=f2e22]: INVITATIONS OPEN · 1 OF 6 PEOPLE
+      - paragraph [ref=f2e23]: Make one private link per person before anyone shares taste. After the first Quick start or shared place, invitations close so earlier evidence never reaches a later joiner.
+    - region "Invite links you created" [ref=f2e24]:
+      - generic [ref=f2e25]:
+        - paragraph [ref=f2e26]: ONE LINK · ONE PERSON
+        - paragraph [ref=f2e27]: Make a separate private link for each person. Each stops working after one person joins and expires in seven days.
+      - generic "Private invite link 1" [ref=f2e32]:
+        - generic [ref=f2e33]:
+          - paragraph [ref=f2e34]: ONE PERSON · LINK 1
+          - paragraph [ref=f2e35]: Expires Jul 20
+        - generic [ref=f2e36]:
+          - button "Copy link" [ref=f2e37] [cursor=pointer]
+          - button "Share link" [ref=f2e38] [cursor=pointer]
+          - button "Cancel link" [ref=f2e39] [cursor=pointer]
+        - group [ref=f2e40]:
+          - button "Show or hide full invite link" [ref=f2e41] [cursor=pointer]:
+            - generic [ref=f2e42]: Show full link
+            - generic [ref=f2e43]: +
+      - button "Make link for someone else" [active] [ref=f2e44] [cursor=pointer]
+    - region "Group membership controls" [ref=f2e29]:
+      - paragraph [ref=f2e30]: Your personal Keep stays yours if you leave.
+      - button "Leave group" [ref=f2e31] [cursor=pointer]

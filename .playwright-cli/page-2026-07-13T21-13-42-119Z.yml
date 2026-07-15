@@ -1,0 +1,74 @@
+- main [ref=f1e11]:
+  - generic [ref=f1e12]:
+    - button "← BACK" [ref=f1e13] [cursor=pointer]
+    - generic [ref=f1e14]: S
+    - generic [ref=f1e16]:
+      - heading "Supper Club" [level=1] [ref=f1e17]
+      - paragraph [ref=f1e18]: RESTAURANT · Cresskill, NJ
+    - region [ref=f1e19]:
+      - paragraph [ref=f1e20]: CANDIDATE EVIDENCE LAB · 3 GOING
+      - heading "2 of 3 want or love this." [level=2] [ref=f1e21]
+      - generic [ref=f1e49]:
+        - paragraph [ref=f1e50]: The group went. How was it for you? Only your Keep changes.
+        - generic [ref=f1e51]:
+          - button "Keep as Tried" [ref=f1e52] [cursor=pointer]
+          - button "Keep as Loved" [ref=f1e53] [cursor=pointer]
+      - generic [ref=f1e54]:
+        - paragraph [ref=f1e55]: SEND TO THE CHAT
+        - paragraph [ref=f1e56]: A 30-day no-sign-in link shows this place, the broad reason, and how many are going. No names, notes, or taste history.
+        - generic [ref=f1e57]:
+          - button "Share Pick" [ref=f1e58] [cursor=pointer]
+          - button "Revoke link" [ref=f1e59] [cursor=pointer]
+    - link "Directions ↗" [ref=f1e61] [cursor=pointer]:
+      - /url: https://www.google.com/maps/search/?api=1&query=Supper+Club&query_place_id=group-supper-club
+    - group [ref=f1e36]:
+      - generic [ref=f1e62]:
+        - region [ref=f1e63]:
+          - generic [ref=f1e64]:
+            - paragraph [ref=f1e65]: YOUR PLACE DETAILS
+            - paragraph [ref=f1e66]: food · Cresskill, NJ · user-confirmed
+          - button "Edit" [ref=f1e67] [cursor=pointer]
+        - region [ref=f1e68]:
+          - paragraph [ref=f1e69]: SHARE WITH A GROUP
+          - paragraph [ref=f1e70]: Joining never exposes this place. Choose each group explicitly. These inclusion choices apply to the next share or update.
+          - generic [ref=f1e71]:
+            - checkbox "Include my useful details when I share" [ref=f1e72]
+            - generic [ref=f1e73]: Include my useful details when I share
+          - generic [ref=f1e74]:
+            - generic "Friday Table sharing" [ref=f1e75]:
+              - generic [ref=f1e76]:
+                - strong [ref=f1e77]: Friday Table
+                - generic [ref=f1e78]: Not shared
+              - button "Share with Friday Table" [ref=f1e79] [cursor=pointer]: Share place
+            - generic "Brooklyn Friends sharing" [ref=f1e80]:
+              - generic [ref=f1e81]:
+                - strong [ref=f1e82]: Brooklyn Friends
+                - generic [ref=f1e83]: Not shared
+              - button "Share with Brooklyn Friends" [ref=f1e84] [cursor=pointer]: Share place
+            - generic "Candidate Evidence Lab sharing" [ref=f1e85]:
+              - generic [ref=f1e86]:
+                - strong [ref=f1e87]: Candidate Evidence Lab
+                - generic [ref=f1e88]: Shared · useful details included
+              - button "Stop sharing with Candidate Evidence Lab" [ref=f1e89] [cursor=pointer]: Stop sharing
+              - button "Update included details" [ref=f1e90] [cursor=pointer]
+            - generic "Empty Table sharing" [ref=f1e91]:
+              - generic [ref=f1e92]:
+                - strong [ref=f1e93]: Empty Table
+                - generic [ref=f1e94]: Not shared
+              - button "Share with Empty Table" [ref=f1e95] [cursor=pointer]: Share place
+        - region [ref=f1e96]:
+          - generic [ref=f1e97]:
+            - generic [ref=f1e98]:
+              - paragraph [ref=f1e99]: PRIVATE NOTE
+              - paragraph [ref=f1e100]: What to order, when it works, or why you’d return. Private unless you include it with a group; candidate cards show at most 180 characters.
+            - generic "0 of 280 characters" [ref=f1e101]: 0/280
+          - textbox "A private note" [ref=f1e102]:
+            - /placeholder: e.g. order the cardamom bun after practice…
+        - group [ref=f1e103]:
+          - generic "USEFUL DETAILS What would help your people choose?" [ref=f1e104] [cursor=pointer]:
+            - generic [ref=f1e105]:
+              - generic [ref=f1e106]: USEFUL DETAILS
+              - strong [ref=f1e107]: What would help your people choose?
+            - generic [ref=f1e108]: +
+        - button "Remove from Keep" [ref=f1e109] [cursor=pointer]
+    - paragraph [ref=f1e42]: "Place data: Google Maps"
